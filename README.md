@@ -1,16 +1,10 @@
-deform_control
-==============
-
-Project for deformable object control
-
-
 Compiling
 ==============
 
 To compile, do:
 
-cmake .
-make test_colab_cloth
+1. cmake .
+2. make test_colab_cloth
 
 Other make options might not work.
 
