@@ -2021,17 +2021,56 @@ void CustomScene::makeRopeWorld()
     cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,5,height/2))));
     env->add(cylinder);
     cylinder->setColor(179.0/255.0,176.0/255.0,160.0/255.0,1);
+    // Part of codes that set the points of covering;
     for(float theta = 0; theta < 2*3.1415; theta += 0.3)
     {
         for(float h = 0; h < height; h += 0.2)
             cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(radius*cos(theta)+.01*METERS/2,radius*sin(theta)+.01*METERS/2,h-height/2));
 
     }
+
+    // end of creating the points to cover;
     cout << "num cover points " << cover_points.size() << endl;
     left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
     right_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
     right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
 
+    // Adding a second cylinder;
+    // This cylinder serves as the base of the needle;
+    CylinderStaticObject::Ptr anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.3, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
+    env->add(anotherCylinder);
+    
+    anotherCylinder->setColor(0.9,0.9,0.0,1.0);
+    // End of adding the base of the needle
+
+    // Creating a sequence of capsules, serve as the torus;
+    // Used a diamond shape to approximate the shape of a torus;
+    // Need to form this into a loop based on parameters;
+    
+    // Starting the formulation of the loop
+    // 
+    int numOfCapsules = 0;
+    double torusStep = 0.15;
+    double torusRadius = 2;
+    numOfCapsules = torusRadius / torusStep + 1;
+    vector<CapsuleObject::Ptr> torus;
+    double torusThick = 0.1;
+    double torusCenterX = 5, torusCenterY = 5, torusCenterZ = 5 + torusRadius + torusThick;
+    for (int i = 0; i < numOfCapsules; i++) {
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
+
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
+    }
+    torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius,torusCenterY,torusCenterZ)))));
+    torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius,torusCenterY,torusCenterZ)))));
+    for (int i = 0; i < torus.size(); i++) {
+        torus[i]->setColor(0.9, 9.9, 0.0, 1.0);
+        env->add(torus[i]);
+    }
+
+    // End of creating a torus;
 
 #endif
 
@@ -2049,12 +2088,15 @@ void CustomScene::makeRopeWorld()
         {
             childindex = 0;
             gripper_closestobjectnodeind[i] = 0;
+            
             cur_gripper = left_gripper1;
         }
         if(i == 1)
         {
+            
             childindex = children.size()-1;
             gripper_closestobjectnodeind[i] = children.size()-1;
+            
             cur_gripper = left_gripper2;
         }
 
