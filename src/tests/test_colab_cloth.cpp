@@ -1976,11 +1976,15 @@ void CustomScene::makeRopeWorld()
     float segment_len = .025;
     const float table_height = .7;
     const float table_thickness = .05;
-    int nLinks = 50;
+
+    // originall was 50 links
+    int nLinks = 30;
 
     vector<btVector3> ctrlPts;
     for (int i=0; i< nLinks; i++) {
-      ctrlPts.push_back(METERS*btVector3(.5+segment_len*i,0,table_height+5*rope_radius));
+        //changed the initial position of the rope
+        // originally, it was 0.5*segment_len*i, 0, table_height+5*rope_radius
+      ctrlPts.push_back(METERS*btVector3(1.0,0.1-segment_len*i,table_height+5*rope_radius));
     }
 
     table = BoxObject::Ptr(new BoxObject(0,METERS*btVector3(.75,.75,table_thickness/2),
@@ -2017,16 +2021,29 @@ void CustomScene::makeRopeWorld()
     //cylinder
     float radius = 3;
     float height = 6;
-    num_auto_grippers = 1;
-    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,5,height/2))));
-    env->add(cylinder);
-    cylinder->setColor(179.0/255.0,176.0/255.0,160.0/255.0,1);
-    // Part of codes that set the points of covering;
-    for(float theta = 0; theta < 2*3.1415; theta += 0.3)
-    {
-        for(float h = 0; h < height; h += 0.2)
-            cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(radius*cos(theta)+.01*METERS/2,radius*sin(theta)+.01*METERS/2,h-height/2));
+    num_auto_grippers = 2;
 
+
+    // cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,5,height/2))));
+    // env->add(cylinder);
+    // cylinder->setColor(179.0/255.0,176.0/255.0,160.0/255.0,1);
+
+
+    // Part of codes that set the points of covering;
+
+    // Stop the covering the old points;
+    // for(float theta = 0; theta < 2*3.1415; theta += 0.3)
+    // {
+    //     for(float h = 0; h < height; h += 0.2)
+    //         cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(radius*cos(theta)+.01*METERS/2,radius*sin(theta)+.01*METERS/2,h-height/2));
+
+    // }
+
+    // First add additional points, without deleting old points;
+
+    
+    for (float pos = 3; pos <= 12; pos += 0.1) {
+        cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, pos, 6.4));
     }
 
     // end of creating the points to cover;
@@ -2037,10 +2054,10 @@ void CustomScene::makeRopeWorld()
 
     // Adding a second cylinder;
     // This cylinder serves as the base of the needle;
-    CylinderStaticObject::Ptr anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.3, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
+    CylinderStaticObject::Ptr anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.5, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
     env->add(anotherCylinder);
     
-    anotherCylinder->setColor(0.9,0.9,0.0,1.0);
+    anotherCylinder->setColor(0.9,9.9,0.0,1.0);
     // End of adding the base of the needle
 
     // Creating a sequence of capsules, serve as the torus;
@@ -2050,21 +2067,21 @@ void CustomScene::makeRopeWorld()
     // Starting the formulation of the loop
     // 
     int numOfCapsules = 0;
-    double torusStep = 0.15;
-    double torusRadius = 2;
+    double torusStep = 0.1;
+    double torusRadius = 1.0;
     numOfCapsules = torusRadius / torusStep + 1;
     vector<CapsuleObject::Ptr> torus;
-    double torusThick = 0.1;
+    double torusThick = 0.5;
     double torusCenterX = 5, torusCenterY = 5, torusCenterZ = 5 + torusRadius + torusThick;
     for (int i = 0; i < numOfCapsules; i++) {
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
 
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
+        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
     }
-    torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius,torusCenterY,torusCenterZ)))));
-    torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.1, 0.1, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius,torusCenterY,torusCenterZ)))));
+    torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius,torusCenterY,torusCenterZ)))));
+    torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius,torusCenterY,torusCenterZ)))));
     for (int i = 0; i < torus.size(); i++) {
         torus[i]->setColor(0.9, 9.9, 0.0, 1.0);
         env->add(torus[i]);
@@ -2086,16 +2103,16 @@ void CustomScene::makeRopeWorld()
 
         if(i == 0)
         {
-            childindex = 0;
-            gripper_closestobjectnodeind[i] = 0;
+            childindex = 2;
+            gripper_closestobjectnodeind[i] = 2;
             
             cur_gripper = left_gripper1;
         }
         if(i == 1)
         {
             
-            childindex = children.size()-1;
-            gripper_closestobjectnodeind[i] = children.size()-1;
+            childindex = 7;
+            gripper_closestobjectnodeind[i] = 7;
             
             cur_gripper = left_gripper2;
         }
