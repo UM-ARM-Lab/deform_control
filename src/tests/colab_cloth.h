@@ -504,6 +504,7 @@ public:
 //    btGjkEpaPenetrationDepthSolver epaSolver;
 //    btPointCollector gjkOutput;
     CylinderStaticObject::Ptr cylinder;
+    vector<CapsuleObject::Ptr> torus;
     BoxObject::Ptr table;
 
 #ifdef USE_PR2
