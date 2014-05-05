@@ -941,9 +941,9 @@ void CustomScene::doJTracking()
                                 if(vclosest_dist[g] < 0.5) {
                                     tooClose[g] = true;
                                     V_coll_step = -V_coll_step;
-                                    // V_step_collision[g*3 + 0] = V_coll_step[0];
-                                    // V_step_collision[g*3 + 1] = V_coll_step[1];
-                                    // V_step_collision[g*3 + 2] = V_coll_step[2];
+                                    V_step_collision[g*3 + 0] = V_coll_step[0];
+                                    V_step_collision[g*3 + 1] = V_coll_step[1];
+                                    V_step_collision[g*3 + 2] = V_coll_step[2];
                                 }
 
                            }
@@ -1140,7 +1140,7 @@ void CustomScene::doJTracking()
 
         Eigen::MatrixXf node_distance_difference = new_distance_matrix - deformableobject_distance_matrix;
 
-        int ropeScale = 100;
+        int ropeScale = 1000;
         for(int i = 0; i < node_distance_difference.rows(); i++)
         {
             for(int j = i; j < node_distance_difference.cols(); j++)
@@ -1222,24 +1222,33 @@ void CustomScene::doJTracking()
 
         // Do not know what it is, but random testing;
         // changing here, remember to change it back;
+
+        // now, which capsule to avoid???
+        // it seems that is the problem;
+
+        // always the gripper stops or do weird things whenever it sees an obstacle.
+        // think about this, this is the setup we need to think about. 
+
         for(int g = 0; g < num_auto_grippers; g++)
         {
             //cout << " dist" << g << ": " << vclosest_dist[g];
-            // vK[g] = exp(-k2*vclosest_dist[g]);
-            // if(vK[g] > 1)
-            //     vK[g] = 1;
+            vK[g] = exp(-k2*vclosest_dist[g]);
+            if(vK[g] > 1)
+                vK[g] = 1;
 
-            // //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
-            // term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
-            // term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
+            //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
+            term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
+            term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
             //cout << " " << term1.transpose();
-            if (tooClose[g]) {
-                // changing the term1 and term2 will change the behaviour of the grippers, but 
-                // cannot just reverse it; 
-                // try some other approach;
-                term1.segment(g*dof_per_gripper,dof_per_gripper) = -0.3*term1.segment(g*dof_per_gripper,dof_per_gripper);
-                term2.segment(g*dof_per_gripper,dof_per_gripper) = -0.3*term2.segment(g*dof_per_gripper,dof_per_gripper);
-            }
+            // if (tooClose[g]) {
+            //     // changing the term1 and term2 will change the behaviour of the grippers, but 
+            //     // cannot just reverse it; 
+            //     // try some other approach;
+            //     // term2 is moving towards the goal: covering points;
+            //     // term1 is collision for grippers
+            //     term1.segment(g*dof_per_gripper,dof_per_gripper) = 0*term1.segment(g*dof_per_gripper,dof_per_gripper);
+            //     term2.segment(g*dof_per_gripper,dof_per_gripper) = 1.0*term2.segment(g*dof_per_gripper,dof_per_gripper);
+            // }
 
         }
 
@@ -2082,7 +2091,7 @@ void CustomScene::makeRopeWorld()
 
     
     for (float pos = 3; pos <= 12; pos += 0.1) {
-        cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, pos, 6.4));
+        cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, pos, 8));
     }
 
     // end of creating the points to cover;
@@ -2109,7 +2118,7 @@ void CustomScene::makeRopeWorld()
     // 
     int numOfCapsules = 0;
     double torusStep = 0.1;
-    double torusRadius = 1.0;
+    double torusRadius = 3.0;
     numOfCapsules = torusRadius / torusStep + 1;
     
     double torusThick = 0.5;
