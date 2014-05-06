@@ -814,6 +814,8 @@ int CustomScene::getNumDeformableObjectNodes()
 
 }
 
+
+
 //this is getting called before the step loop
 void CustomScene::doJTracking()
 {
@@ -860,7 +862,8 @@ void CustomScene::doJTracking()
 ///////////////
 
 #ifdef ROPE
-    BulletObject::Ptr obj = cylinder;
+    BulletObject::Ptr obj = anotherCylinder;
+    //BulletObject::Ptr obj = o;
 #else
     BulletObject::Ptr obj = table;
 #endif
@@ -869,17 +872,6 @@ void CustomScene::doJTracking()
     
     // originall this is obj:::
     // below this is obstacle avoidance
-
-    // The problem with the obstacle avoidance is, the following code is
-    // designed for avoid one obstacle;
-    // when multiple obstacle exists, and you want to avoid, it is impossible to 
-    // tell which one is the dominating one, and how to avoid it.
-    // Especially in this situation, 
-    // the objective is in the middle of the capsules, even though it is 
-    // open area, the following code is not capble of finding it;
-    // so most often move through the capsules.
-
-    // how to avoid this? 
 
     /*
     The situation is, even when I comment out the collision avoidance part,
@@ -892,7 +884,7 @@ void CustomScene::doJTracking()
     
     if(obj)
     {
-        cout << "here!" << endl;
+        
         std::vector<btVector3> plotpoints;
         std::vector<btVector4> plotcols;
         for(int g =0; g < num_auto_grippers; g++) {
@@ -911,15 +903,50 @@ void CustomScene::doJTracking()
 
             btGjkPairDetector::ClosestPointInput input;
 
+            /*
+            Manually calculate the closest points, and penetration distance;
+            use the center of the gripper;
+            and the center of the torus;
+            Since the torus is just a set of triangle mesh, I can get the point closest on the object;
+            maybe even make is rounder;
+            */
+
+
+            /*
             
 
+
+
+            */
+            // center of the current gripper top we are tracking;
+            double gripperX = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            double gripperY = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            double gripperZ = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+
+            // center of the static torus;
+            double torusX = centerX;
+            double torusY = centerY;
+            double torusZ = centerZ;
+
+            double distanceGT = sqrt((centerX-gripperX)*(centerX-gripperX) + 
+                (centerY-gripperY)*(centerY-gripperY) + (centerZ-gripperZ)*(centerZ-gripperZ));
+
+            // Now finds the closest points
+            
+
+            // 
+            cout << "center distance: " << distanceGT << endl;
+
             gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
+            // m_transformA: world configuration of the gripper
             obj->motionState->getWorldTransform(input.m_transformB);
+            // m_transformB: world configuration of the collision static Object
             input.m_maximumDistanceSquared = BT_LARGE_FLOAT;
             gjkOutput.m_distance = BT_LARGE_FLOAT;
             convexConvex.getClosestPoints(input, gjkOutput, 0);
-
-            
+            // m_pointInWorld: closest point on the static object;
+            // m_normalOnBInWorld: closestPoint normal, pointing from the point on the "gripper" to closest point on 
+            // static object; 
             if (gjkOutput.m_hasResult)
             {
                    // cout << "has result" << endl;
@@ -927,7 +954,7 @@ void CustomScene::doJTracking()
 
                    btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
                    btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
-
+                   // cout << "second: " << gjkOutput.m_pointInWorld[0] << ", " << gjkOutput.m_pointInWorld[1] << ", " << gjkOutput.m_pointInWorld[2] << ", " << gjkOutput.m_normalOnBInWorld[0] << ", " << gjkOutput.m_normalOnBInWorld[1] << ", " << gjkOutput.m_normalOnBInWorld[2] << endl;
                    plotpoints.push_back(startPt);
                    plotpoints.push_back(endPt);
 
@@ -2107,8 +2134,8 @@ void CustomScene::makeRopeWorld()
     // First add additional points, without deleting old points;
 
     
-    for (float pos = 1; pos <= 12; pos += 0.1) {
-        cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, pos, 8));
+    for (float pos = 3; pos <= 12; pos += 0.1) {
+        cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, pos, 7));
     }
 
     // end of creating the points to cover;
@@ -2121,7 +2148,7 @@ void CustomScene::makeRopeWorld()
     // This cylinder serves as the base of the needle;
 
     // rename is cylinder?? 
-    CylinderStaticObject::Ptr anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.5, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
+    anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.5, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
     env->add(anotherCylinder);
     
     anotherCylinder->setColor(0.9,9.9,0.0,1.0);
@@ -2133,60 +2160,149 @@ void CustomScene::makeRopeWorld()
     
     // Starting the formulation of the loop
     // 
-    int numOfCapsules = 0;
-    double torusStep = 0.1;
-    double torusRadius = 3.0;
-    numOfCapsules = torusRadius / torusStep + 1;
     
-    double torusThick = 0.5;
-    double torusCenterX = 5, torusCenterY = 5, torusCenterZ = 5 + torusRadius + torusThick;
+    
+    
+    
+    
 
+    // numOfCapsules = torusRadius / torusStep + 1;
+    // for (int i = 0; i < numOfCapsules; i++) {
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
 
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
+    // }
+    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius,torusCenterY,torusCenterZ)))));
+    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius,torusCenterY,torusCenterZ)))));
+    
+    // // Make more thick walls
+    // numOfCapsules += 3;
+    // for (int i = 0; i < numOfCapsules; i++) {
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius - torusStep + i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius - torusStep + i * torusStep)))));
 
-    //for (int j = 0; j < 8; j++) {
-        numOfCapsules = torusRadius / torusStep + 1;
-        for (int i = 0; i < numOfCapsules; i++) {
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius + torusStep - i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius + torusStep - i * torusStep)))));
+    // }
+    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius-torusStep,torusCenterY,torusCenterZ)))));
+    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius+torusStep,torusCenterY,torusCenterZ)))));
+    
+    // numOfCapsules += 3;
+    // for (int i = 0; i < numOfCapsules; i++) {
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius - 2*torusStep + i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius - 2*torusStep + i * torusStep)))));
 
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius + 2*torusStep - i * torusStep)))));
+    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius + 2*torusStep - i * torusStep)))));
+    // }
+    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius-2*torusStep,torusCenterY,torusCenterZ)))));
+    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius+2*torusStep,torusCenterY,torusCenterZ)))));
+
+    // for (int i = 0; i < torus.size(); i++) {
+    //     torus[i]->setColor(0.9, 9.9, 0.0, 1.0);
+    //     env->add(torus[i]);
+    // }
+
+    // start making a triangle mesh;
+    // use the idea from http://www.ecse.rpi.edu/~wrf/wiki/ComputerGraphicsFall2012/guha/Code/torus.cpp
+
+    int numOfColumn = 20;
+    int numOfRow = 4; 
+    double torusRadius = 2;
+    double torusHeight = 0.5;
+    
+
+    // making a triangle mesh of the torus;
+    // Idea is, to create 4 rows of points on torus;
+    // one row on top, one row on bottom;
+
+    // the other two is on the center;
+
+    // make triangles from the top row with two rows on the center
+
+    // make triangles from the bottom row with two rows on the center
+
+    centerX = 5;
+    centerY = 5;
+    centerZ = 7;
+
+    btTriangleMesh* mesh = new btTriangleMesh();
+    vector<btVector3> row1;
+    vector<btVector3> row2;
+    vector<btVector3> row3;
+    vector<btVector3> row4;
+    double xc, yc, zc;
+    for (int i = 0; i < numOfRow; i++) {
+        for (int j = 0; j < numOfColumn; j++) {
+            zc = ( torusRadius + 2* torusHeight * cos( (-1 + 2*(float)i/numOfRow) * M_PI ) ) * cos( (-1 + 2*(float)j/numOfColumn) * M_PI );
+            xc = ( torusRadius + 2* torusHeight * cos( (-1 + 2*(float)i/numOfRow) * M_PI ) ) * sin( (-1 + 2*(float)j/numOfColumn) * M_PI );
+            yc = torusHeight * sin( (-1 + 2*(float)i/numOfRow) * M_PI );
+            
+            if (i == 0) {
+                //column 1, in the middle
+                row1.push_back(btVector3(xc, yc, zc));
+            }
+            if (i == 1) {
+                // column 2, in the middle
+                row2.push_back(btVector3(xc, yc, zc));
+            }
+            if (i == 2) {
+                // column 3, on top;
+                row3.push_back(btVector3(xc, yc, zc));
+            }
+            if (i == 3) {
+                // column 4, on bottom;
+                row4.push_back(btVector3(xc, yc, zc));
+            }
         }
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius,torusCenterY,torusCenterZ)))));
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius,torusCenterY,torusCenterZ)))));
-        
-        // Make more thick walls
-        numOfCapsules += 3;
-        for (int i = 0; i < numOfCapsules; i++) {
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius - torusStep + i * torusStep)))));
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius - torusStep + i * torusStep)))));
-
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius + torusStep - i * torusStep)))));
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius + torusStep - i * torusStep)))));
-        }
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius-torusStep,torusCenterY,torusCenterZ)))));
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius+torusStep,torusCenterY,torusCenterZ)))));
-        
-        numOfCapsules += 3;
-        for (int i = 0; i < numOfCapsules; i++) {
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius - 2*torusStep + i * torusStep)))));
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius - 2*torusStep + i * torusStep)))));
-
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius + 2*torusStep - i * torusStep)))));
-            torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius + 2*torusStep - i * torusStep)))));
-        }
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius-2*torusStep,torusCenterY,torusCenterZ)))));
-        torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius+2*torusStep,torusCenterY,torusCenterZ)))));
-    //}
-
-
-    // end making more thick walls
-
-
-    for (int i = 0; i < torus.size(); i++) {
-        torus[i]->setColor(0.9, 9.9, 0.0, 1.0);
-        env->add(torus[i]);
     }
+
+    // adding triangles between row3 and row1/row2
+    for (int i = 0; i < row3.size()-1; i++) {
+        mesh->addTriangle(row1[i], row2[i], row1[i+1], false);
+        mesh->addTriangle(row2[i], row1[i+1], row2[i+1], false);
+
+        mesh->addTriangle(row3[i], row2[i], row3[i+1], false);
+        mesh->addTriangle(row2[i], row3[i+1], row2[i+1], false);
+    }
+    mesh->addTriangle(row3[row2.size()-1], row2[row2.size()-1], row3[0], false);
+    mesh->addTriangle(row2[row2.size()-1], row3[0], row2[0], false);
+
+    mesh->addTriangle(row1[row2.size()-1], row2[row2.size()-1], row1[0], false);
+    mesh->addTriangle(row2[row2.size()-1], row1[0], row2[0], false);
+
+    // adding triangles between row4 and row1/row2
+
+    for (int i = 0; i < row3.size()-1; i++) {
+        mesh->addTriangle(row1[i], row4[i], row1[i+1], false);
+        mesh->addTriangle(row4[i], row1[i+1], row4[i+1], false);
+
+        mesh->addTriangle(row3[i], row4[i], row3[i+1], false);
+        mesh->addTriangle(row4[i], row3[i+1], row4[i+1], false);
+    }
+    mesh->addTriangle(row3[row3.size()-1], row4[row2.size()-1], row3[0], false);
+    mesh->addTriangle(row4[row2.size()-1], row3[0], row4[0], false);
+
+    mesh->addTriangle(row1[row2.size()-1], row4[row2.size()-1], row1[0], false);
+    mesh->addTriangle(row4[row2.size()-1], row1[0], row4[0], false);
+
+    
+
+
+
+    btBvhTriangleMeshShape* shape=new btBvhTriangleMeshShape(mesh,true,true);
+    BulletObject* test = new BulletObject(0, shape, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(centerX,centerY,centerZ)));
+    o = BulletObject::Ptr(test);
+    //o->collisionShape.reset(shape);
+    o->setColor(0.9, 9.9, 0.0, 1.0);
+    env->add(o);
+
+    // end creating torus mesh
+
+
+    
 
     // End of creating a torus;
 

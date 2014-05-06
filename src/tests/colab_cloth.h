@@ -504,8 +504,12 @@ public:
 //    btGjkEpaPenetrationDepthSolver epaSolver;
 //    btPointCollector gjkOutput;
     CylinderStaticObject::Ptr cylinder;
+    CylinderStaticObject::Ptr anotherCylinder;
     vector<CapsuleObject::Ptr> torus;
     BoxObject::Ptr table;
+    btBvhTriangleMeshShape* shape;
+    BulletObject::Ptr o;
+    double centerX, centerY, centerZ;
 
 #ifdef USE_PR2
         CustomScene() : pr2m(*this){
@@ -548,6 +552,7 @@ public:
 
         fork.reset();
     }
+    
 
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
@@ -572,5 +577,7 @@ public:
     void initializePloting();
     void run();
 };
+
+
 
 #endif // COLAB_CLOTH_H
