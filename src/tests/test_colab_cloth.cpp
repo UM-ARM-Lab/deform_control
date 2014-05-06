@@ -866,102 +866,114 @@ void CustomScene::doJTracking()
 #endif
     GripperKinematicObject::Ptr gripper;
     std::vector<float> vclosest_dist(num_auto_grippers);
-    obj = torus[0];
+    
     // originall this is obj:::
     // below this is obstacle avoidance
-    vector<bool> tooClose;
-    tooClose.push_back(false);
-    tooClose.push_back(false);
+
+    // The problem with the obstacle avoidance is, the following code is
+    // designed for avoid one obstacle;
+    // when multiple obstacle exists, and you want to avoid, it is impossible to 
+    // tell which one is the dominating one, and how to avoid it.
+    // Especially in this situation, 
+    // the objective is in the middle of the capsules, even though it is 
+    // open area, the following code is not capble of finding it;
+    // so most often move through the capsules.
+
+    // how to avoid this? 
+
+    /*
+    The situation is, even when I comment out the collision avoidance part,
+    sometimes the gripper still do not directly move towards the goal;
+    I know the rope scale affected this, so that is one thing to modify;
+
+    The second thing is to figure out how to move to the goal even when the objective
+    may not decrease fastest;
+    */
+    
     if(obj)
     {
-        
+        cout << "here!" << endl;
         std::vector<btVector3> plotpoints;
         std::vector<btVector4> plotcols;
         for(int g =0; g < num_auto_grippers; g++) {
-            for (int i = 0; i < torus.size(); i++) {
-                obj = torus[i];
             
-                if(g == 0)
-                    gripper = left_gripper1;
-                else if(g == 1)
-                    gripper = left_gripper2;
+            if(g == 0)
+                gripper = left_gripper1;
+            else if(g == 1)
+                gripper = left_gripper2;
 
-                vclosest_dist[g] = BT_LARGE_FLOAT;
+            vclosest_dist[g] = BT_LARGE_FLOAT;
 
-                btGjkEpaPenetrationDepthSolver epaSolver;
-                btPointCollector gjkOutput;
+            btGjkEpaPenetrationDepthSolver epaSolver;
+            btPointCollector gjkOutput;
 
-                btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
+            btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
 
-                btGjkPairDetector::ClosestPointInput input;
+            btGjkPairDetector::ClosestPointInput input;
 
-                
+            
 
-                gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
-                obj->motionState->getWorldTransform(input.m_transformB);
-                input.m_maximumDistanceSquared = BT_LARGE_FLOAT;
-                gjkOutput.m_distance = BT_LARGE_FLOAT;
-                convexConvex.getClosestPoints(input, gjkOutput, 0);
+            gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
+            obj->motionState->getWorldTransform(input.m_transformB);
+            input.m_maximumDistanceSquared = BT_LARGE_FLOAT;
+            gjkOutput.m_distance = BT_LARGE_FLOAT;
+            convexConvex.getClosestPoints(input, gjkOutput, 0);
 
-                
-                if (gjkOutput.m_hasResult)
-                {
-                       // cout << "has result" << endl;
-                       // printf("distance: %10.4f\n", gjkOutput.m_distance);
+            
+            if (gjkOutput.m_hasResult)
+            {
+                   // cout << "has result" << endl;
+                   // printf("distance: %10.4f\n", gjkOutput.m_distance);
 
-                       btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
-                       btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
+                   btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+                   btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
 
-                       plotpoints.push_back(startPt);
-                       plotpoints.push_back(endPt);
+                   plotpoints.push_back(startPt);
+                   plotpoints.push_back(endPt);
 
-                       // if(gjkOutput.m_distance < 0.5) {
-                           bAvoidObstacle = true;
-                           std::vector<btVector3> jacpoints;
-                           std::vector<int> jacpoint_grippers;
-                           jacpoints.push_back(endPt);
-                           jacpoint_grippers.push_back(g);
-                           Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints,jacpoint_grippers);
-                           Eigen::VectorXf V_coll_step(3);
-                           V_coll_step[0] = endPt[0] - startPt[0];
-                           V_coll_step[1] = endPt[1] - startPt[1];
-                           V_coll_step[2] = endPt[2] - startPt[2];
-                           V_coll_step = V_coll_step/V_coll_step.norm();
+                   // if(gjkOutput.m_distance < 0.5) {
+                       bAvoidObstacle = true;
+                       std::vector<btVector3> jacpoints;
+                       std::vector<int> jacpoint_grippers;
+                       jacpoints.push_back(endPt);
+                       jacpoint_grippers.push_back(g);
+                       Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints,jacpoint_grippers);
+                       Eigen::VectorXf V_coll_step(3);
+                       V_coll_step[0] = endPt[0] - startPt[0];
+                       V_coll_step[1] = endPt[1] - startPt[1];
+                       V_coll_step[2] = endPt[2] - startPt[2];
+                       V_coll_step = V_coll_step/V_coll_step.norm();
 
-                           plotcols.push_back(btVector4(1,0,0,1));
+                       plotcols.push_back(btVector4(1,0,0,1));
 
 
-                           // when to revert the direction
-                           // why not working? 
-                           if(gjkOutput.m_distance < vclosest_dist[g])
-                           {
+                       // when to revert the direction
+                       // why not working? 
+                       if(gjkOutput.m_distance < vclosest_dist[g])
+                       {
 
-                                vclosest_dist[g] = gjkOutput.m_distance;
-                                // originally 0
-                                if(vclosest_dist[g] < 0.5) {
-                                    tooClose[g] = true;
-                                    V_coll_step = -V_coll_step;
-                                    V_step_collision[g*3 + 0] = V_coll_step[0];
-                                    V_step_collision[g*3 + 1] = V_coll_step[1];
-                                    V_step_collision[g*3 + 2] = V_coll_step[2];
-                                }
+                            vclosest_dist[g] = gjkOutput.m_distance;
+                            // originally 0
+                            if(vclosest_dist[g] < 0) {
+                                V_coll_step = -V_coll_step;
+                                
+                            }
 
-                           }
+                       }
 
-                           // end reverting the direction
-                           // V_step_collision[g*3 + 0] = V_coll_step[0];
-                           // V_step_collision[g*3 + 1] = V_coll_step[1];
-                           // V_step_collision[g*3 + 2] = V_coll_step[2];
-                       //}
-                       //else
-                       //    plotcols.push_back(btVector4(0,0,1,1));
+                       // end reverting the direction
+                       V_step_collision[g*3 + 0] = V_coll_step[0];
+                       V_step_collision[g*3 + 1] = V_coll_step[1];
+                       V_step_collision[g*3 + 2] = V_coll_step[2];
+                   //}
+                   //else
+                   //    plotcols.push_back(btVector4(0,0,1,1));
                  }
                  //rot_lines->setPoints(plotpoints,plotcols);
 
             }
 
-            //cout << "min dis: " << vclosest_dist[g] << ", " << V_step_collision[g*3 + 0] << ", " << V_step_collision[g*3 + 1] << ", " << V_step_collision[g*3 + 2] << endl;
-        }
+            //cout << "min dis: " << vclosest_dist[g] << ", " << V_step_collision[g*3 + 0] << ", " << V_step_collision[g*3 + 1] << ", " << V_step_collision[g*3 + 2] << end;
 
     }
     else
@@ -1133,14 +1145,19 @@ void CustomScene::doJTracking()
 #endif
 
 #ifdef PRESERVE_LENGTH
-        float tolerance = 0.001;
+        // figure out why the tolerance and rope scale affect the result of 
+        // manipulation
+        // Second, try to turn on the collision detection for the gripper;
+        // so far, no luck;
+
+        float tolerance = 0.01;
         Eigen::MatrixXf new_distance_matrix;
 
         computeDeformableObjectDistanceMatrix(filtered_new_nodes,new_distance_matrix);
 
         Eigen::MatrixXf node_distance_difference = new_distance_matrix - deformableobject_distance_matrix;
 
-        int ropeScale = 1000;
+        int ropeScale = 10;
         for(int i = 0; i < node_distance_difference.rows(); i++)
         {
             for(int j = i; j < node_distance_difference.cols(); j++)
@@ -2032,7 +2049,7 @@ void CustomScene::makeRopeWorld()
     for (int i=0; i< nLinks; i++) {
         //changed the initial position of the rope
         // originally, it was 0.5*segment_len*i, 0, table_height+5*rope_radius
-      ctrlPts.push_back(METERS*btVector3(1.0,0.1-segment_len*i,table_height+5*rope_radius));
+      ctrlPts.push_back(METERS*btVector3(1.25,0.1-segment_len*i,table_height+5*rope_radius));
     }
 
     table = BoxObject::Ptr(new BoxObject(0,METERS*btVector3(.75,.75,table_thickness/2),
@@ -2090,7 +2107,7 @@ void CustomScene::makeRopeWorld()
     // First add additional points, without deleting old points;
 
     
-    for (float pos = 3; pos <= 12; pos += 0.1) {
+    for (float pos = 1; pos <= 12; pos += 0.1) {
         cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, pos, 8));
     }
 
