@@ -938,13 +938,14 @@ void CustomScene::doJTracking()
             distanceXZ = sqrt((torusX-gripperX)*(torusX-gripperX) + 
                 (torusZ-gripperZ)*(torusZ-gripperZ));
             
-            cout << "distanceXZ: " << distanceXZ <<", " << torusX << ", " << torusZ << ", " << gripperX << ", " << gripperZ << endl;
+            //cout << "distanceXZ: " << distanceXZ <<", " << torusX << ", " << torusZ << ", " << gripperX << ", " << gripperZ << endl;
             pointOnTorusX = (2 / distanceGT) * (gripperX - torusX) + torusX;
             pointOnTorusZ = (2 / distanceGT) * (gripperZ - torusZ) + torusZ;
             distanceToTorus = sqrt((pointOnTorusX-gripperX)*(pointOnTorusX-gripperX) + 
-                (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ));
+                (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ) + (torusY-gripperY)*(torusY-gripperY));
             px = (torusHeight/distanceToTorus) * (gripperX-pointOnTorusX) + pointOnTorusX;
             // py is problem;
+            cout << "testing py: " << torusHeight << ", " << distanceToTorus << ", " << gripperY << ", " << torusY << endl;
             py = (torusHeight/distanceToTorus) * (gripperY-torusY) + torusY;
             // py is wrong, change it; correct before it pass,
             // wrong after it pass the center of torus;
