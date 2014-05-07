@@ -510,6 +510,20 @@ public:
     btBvhTriangleMeshShape* shape;
     BulletObject::Ptr o;
     double centerX, centerY, centerZ;
+    double torusRadius, torusHeight;
+    double gripperX;
+    double gripperY;
+    double gripperZ;
+
+    double torusX;
+    double torusY;
+    double torusZ;
+
+    double distanceGT;
+    double distanceXZ;
+    double pointOnTorusX, pointOnTorusZ;
+    double distanceToTorus;
+    double px, py, pz;
 
 #ifdef USE_PR2
         CustomScene() : pr2m(*this){

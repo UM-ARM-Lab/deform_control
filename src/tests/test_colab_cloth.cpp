@@ -919,23 +919,56 @@ void CustomScene::doJTracking()
 
             */
             // center of the current gripper top we are tracking;
-            double gripperX = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-            double gripperY = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-            double gripperZ = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+            gripperX = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            gripperY = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            gripperZ = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[2];
 
             // center of the static torus;
-            double torusX = centerX;
-            double torusY = centerY;
-            double torusZ = centerZ;
+            torusX = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            torusZ = o->rigidBody->getCenterOfMassTransform().getOrigin()[2];
 
-            double distanceGT = sqrt((centerX-gripperX)*(centerX-gripperX) + 
-                (centerY-gripperY)*(centerY-gripperY) + (centerZ-gripperZ)*(centerZ-gripperZ));
+            distanceGT = sqrt((torusX-gripperX)*(torusX-gripperX) + 
+                (torusY-gripperY)*(torusY-gripperY) + (torusZ-gripperZ)*(torusZ-gripperZ));
 
             // Now finds the closest points
-            
 
             // 
-            cout << "center distance: " << distanceGT << endl;
+            //cout << "center distance: " << distanceGT << endl;
+            distanceXZ = sqrt((torusX-gripperX)*(torusX-gripperX) + 
+                (torusZ-gripperZ)*(torusZ-gripperZ));
+            
+            cout << "distanceXZ: " << distanceXZ <<", " << torusX << ", " << torusZ << ", " << gripperX << ", " << gripperZ << endl;
+            pointOnTorusX = (2 / distanceGT) * (gripperX - torusX) + torusX;
+            pointOnTorusZ = (2 / distanceGT) * (gripperZ - torusZ) + torusZ;
+            distanceToTorus = sqrt((pointOnTorusX-gripperX)*(pointOnTorusX-gripperX) + 
+                (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ));
+            px = (torusHeight/distanceToTorus) * (gripperX-pointOnTorusX) + pointOnTorusX;
+            // py is problem;
+            py = (torusHeight/distanceToTorus) * (gripperY-torusY) + torusY;
+            // py is wrong, change it; correct before it pass,
+            // wrong after it pass the center of torus;
+            pz = (torusHeight/distanceToTorus) * (gripperZ-pointOnTorusZ) + pointOnTorusZ;
+            // case 1, outside the larger radius;
+            if (distanceXZ > (torusRadius + 2 * torusHeight)) {
+                cout << g << " outside the large circle" << endl;
+                // closest point should be outside
+                cout << "closest point: " << px << ", " << py << ", " << pz << endl;
+            }
+
+
+            // case 2, inside the smaller radius;
+            else if (distanceXZ < (torusRadius - 2 * torusHeight)) {
+                cout << g << " inside small circle" << endl;
+                cout << "closest point: " << px << ", " << py << ", " << pz << endl;
+            }
+
+
+            // case 3, between the two radius;
+            else {
+                cout << g << " between two circles;" << endl;
+                cout << "closest point: " << px << ", " << py << ", " << pz << endl;
+            }
 
             gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
             // m_transformA: world configuration of the gripper
@@ -947,6 +980,7 @@ void CustomScene::doJTracking()
             // m_pointInWorld: closest point on the static object;
             // m_normalOnBInWorld: closestPoint normal, pointing from the point on the "gripper" to closest point on 
             // static object; 
+
             if (gjkOutput.m_hasResult)
             {
                    // cout << "has result" << endl;
@@ -2210,8 +2244,8 @@ void CustomScene::makeRopeWorld()
 
     int numOfColumn = 20;
     int numOfRow = 4; 
-    double torusRadius = 2;
-    double torusHeight = 0.5;
+    torusRadius = 2;
+    torusHeight = 0.3;
     
 
     // making a triangle mesh of the torus;
