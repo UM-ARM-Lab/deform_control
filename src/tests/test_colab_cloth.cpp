@@ -945,9 +945,12 @@ void CustomScene::doJTracking()
             distanceToTorus = sqrt((pointOnTorusX-gripperX)*(pointOnTorusX-gripperX) + 
                 (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ) + 
                 (torusY-gripperY)*(torusY-gripperY));
+
+
             px = (torusHeight/distanceToTorus) * (gripperX-pointOnTorusX) + pointOnTorusX;
             py = (torusHeight/distanceToTorus) * (gripperY-torusY) + torusY;
             pz = (torusHeight/distanceToTorus) * (gripperZ-pointOnTorusZ) + pointOnTorusZ;
+
             // case 1, outside the larger radius;
             // if (distanceXZ > (torusRadius + 2 * torusHeight)) {
             //     cout << g << " outside the large circle" << endl;
@@ -997,8 +1000,10 @@ void CustomScene::doJTracking()
                     btVector3 startPt = btVector3(px, py, pz);
                     
                    // new startPt, using manually calculated closest points;
-                    //btVector3 startPt = btVector3(px, py, pz);
-
+                    cout << "pxyz: " << px << ", " << py << ", " << pz << ", " << torusX << ", " << torusY << ", " << torusZ<< endl;
+                    cout << "point on Torus: " << pointOnTorusX << ", " << pointOnTorusZ << endl;
+                    // cout << "startPt: " << startPt[0] << ", " << startPt[1] << ", " << startPt[2] << endl;
+                    cout << "endPt: " << endPt[0] << ", " << endPt[1] << ", " << endPt[2] << endl;
                    // cout << "second: " << gjkOutput.m_pointInWorld[0] << ", " << gjkOutput.m_pointInWorld[1] << ", " << gjkOutput.m_pointInWorld[2] << ", " << gjkOutput.m_normalOnBInWorld[0] << ", " << gjkOutput.m_normalOnBInWorld[1] << ", " << gjkOutput.m_normalOnBInWorld[2] << endl;
                    plotpoints.push_back(startPt);
                    plotpoints.push_back(endPt);
@@ -1013,15 +1018,25 @@ void CustomScene::doJTracking()
                        Eigen::VectorXf V_coll_step(3);
 
                        // this is using the method in the paper
-                       V_coll_step[0] = endPt[0] - startPt[0];
-                       V_coll_step[1] = endPt[1] - startPt[1];
-                       V_coll_step[2] = endPt[2] - startPt[2];
+                       // V_coll_step[0] = endPt[0] - startPt[0];
+                       // V_coll_step[1] = endPt[1] - startPt[1];
+                       // V_coll_step[2] = endPt[2] - startPt[2];
 
                        // maybe try to use the face normal on obstacle as a change;
 
-                       // V_coll_step[0] = endPt[0] - startPt[0];
-                       // V_coll_step[1] = (py - torusY)* sqrt((endPt[1] - startPt[1])*(endPt[1] - startPt[1]));
-                       // V_coll_step[2] = -(pz - (torusZ - torusRadius-2*torusHeight))*sqrt((endPt[2] - startPt[2])*(endPt[2] - startPt[2]));
+                       // the normal vector is not correct;
+                       // need to recalculate;
+
+                       // which axis is pointing inwards is changing overtime;
+                       // so we need to change that;
+
+                       // the normal is still off a little, 
+                       // try to make it work
+                       // the major problem is with x direction;
+                       V_coll_step[0] = (pointOnTorusX - torusX) * distanceToTorus;
+                       V_coll_step[1] = (py - torusY) * distanceToTorus;
+                       V_coll_step[2] = (torusZ - pz) * distanceToTorus;
+                        cout << g << " V_coll_step: " << V_coll_step[0] << ", " << V_coll_step[1] << ", " << V_coll_step[2] << endl;
                        //
 
                        V_coll_step = V_coll_step/V_coll_step.norm();
