@@ -1025,7 +1025,7 @@ void CustomScene::doJTracking()
                        // {
                        if (distanceToTorus < vclosest_dist[g]) {
 
-                            vclosest_dist[g] = distanceToTorus - 0.3;
+                            vclosest_dist[g] = distanceToTorus;
                             // originally 0
                             if(vclosest_dist[g] < 0) {
                                 V_coll_step = -V_coll_step;
@@ -1310,14 +1310,12 @@ void CustomScene::doJTracking()
         std::vector<float> vK(num_auto_grippers);
 
 
-        // Do not know what it is, but random testing;
-        // changing here, remember to change it back;
+        // change this terms to make the torus type of 
+        // objects successful;
+        // both avoid penetrate the obstacle;
+        // and move torwards the goal;
 
-        // now, which capsule to avoid???
-        // it seems that is the problem;
 
-        // always the gripper stops or do weird things whenever it sees an obstacle.
-        // think about this, this is the setup we need to think about. 
 
         for(int g = 0; g < num_auto_grippers; g++)
         {
@@ -1325,21 +1323,12 @@ void CustomScene::doJTracking()
             vK[g] = exp(-k2*vclosest_dist[g]);
             if(vK[g] > 1)
                 vK[g] = 1;
-
+            cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
             //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
             term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
             term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
-            //cout << " " << term1.transpose();
-            // if (tooClose[g]) {
-            //     // changing the term1 and term2 will change the behaviour of the grippers, but 
-            //     // cannot just reverse it; 
-            //     // try some other approach;
-            //     // term2 is moving towards the goal: covering points;
-            //     // term1 is collision for grippers
-            //     term1.segment(g*dof_per_gripper,dof_per_gripper) = 0*term1.segment(g*dof_per_gripper,dof_per_gripper);
-            //     term2.segment(g*dof_per_gripper,dof_per_gripper) = 1.0*term2.segment(g*dof_per_gripper,dof_per_gripper);
-            // }
-
+            cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
+            
         }
 
 
@@ -2257,7 +2246,7 @@ void CustomScene::makeRopeWorld()
     int numOfColumn = 20;
     int numOfRow = 4; 
     torusRadius = 2;
-    torusHeight = 0.7;
+    torusHeight = 0.5;
     
 
     // making a triangle mesh of the torus;
@@ -2366,8 +2355,8 @@ void CustomScene::makeRopeWorld()
 
         if(i == 0)
         {
-            childindex = 2;
-            gripper_closestobjectnodeind[i] = 2;
+            childindex = 0;
+            gripper_closestobjectnodeind[i] = 0;
             
             cur_gripper = left_gripper1;
         }
