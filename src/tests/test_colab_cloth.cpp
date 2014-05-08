@@ -1011,9 +1011,19 @@ void CustomScene::doJTracking()
                        jacpoint_grippers.push_back(g);
                        Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints,jacpoint_grippers);
                        Eigen::VectorXf V_coll_step(3);
+
+                       // this is using the method in the paper
                        V_coll_step[0] = endPt[0] - startPt[0];
                        V_coll_step[1] = endPt[1] - startPt[1];
                        V_coll_step[2] = endPt[2] - startPt[2];
+
+                       // maybe try to use the face normal on obstacle as a change;
+
+                       // V_coll_step[0] = endPt[0] - startPt[0];
+                       // V_coll_step[1] = (py - torusY)* sqrt((endPt[1] - startPt[1])*(endPt[1] - startPt[1]));
+                       // V_coll_step[2] = -(pz - (torusZ - torusRadius-2*torusHeight))*sqrt((endPt[2] - startPt[2])*(endPt[2] - startPt[2]));
+                       //
+
                        V_coll_step = V_coll_step/V_coll_step.norm();
 
                        plotcols.push_back(btVector4(1,0,0,1));
