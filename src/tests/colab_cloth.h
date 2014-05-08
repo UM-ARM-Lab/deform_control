@@ -524,6 +524,7 @@ public:
     double pointOnTorusX, pointOnTorusZ;
     double distanceToTorus;
     double px, py, pz;
+    double anotherRadius;
 
 #ifdef USE_PR2
         CustomScene() : pr2m(*this){

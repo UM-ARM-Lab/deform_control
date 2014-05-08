@@ -862,7 +862,7 @@ void CustomScene::doJTracking()
 ///////////////
 
 #ifdef ROPE
-    BulletObject::Ptr obj = anotherCylinder;
+    BulletObject::Ptr obj = o;
     //BulletObject::Ptr obj = o;
 #else
     BulletObject::Ptr obj = table;
@@ -896,12 +896,12 @@ void CustomScene::doJTracking()
 
             vclosest_dist[g] = BT_LARGE_FLOAT;
 
-            btGjkEpaPenetrationDepthSolver epaSolver;
-            btPointCollector gjkOutput;
+            // btGjkEpaPenetrationDepthSolver epaSolver;
+            // btPointCollector gjkOutput;
 
-            btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
+            // btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
 
-            btGjkPairDetector::ClosestPointInput input;
+            // btGjkPairDetector::ClosestPointInput input;
 
             /*
             Manually calculate the closest points, and penetration distance;
@@ -920,7 +920,8 @@ void CustomScene::doJTracking()
             */
             // center of the current gripper top we are tracking;
             gripperX = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-            gripperY = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            gripperY = (gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1] + 
+                gripper->getChildren()[1]->rigidBody->getCenterOfMassTransform().getOrigin()[1]) / 2;
             gripperZ = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[2];
 
             // center of the static torus;
@@ -946,7 +947,6 @@ void CustomScene::doJTracking()
                 (torusY-gripperY)*(torusY-gripperY));
             px = (torusHeight/distanceToTorus) * (gripperX-pointOnTorusX) + pointOnTorusX;
             py = (torusHeight/distanceToTorus) * (gripperY-torusY) + torusY;
-            
             pz = (torusHeight/distanceToTorus) * (gripperZ-pointOnTorusZ) + pointOnTorusZ;
             // case 1, outside the larger radius;
             // if (distanceXZ > (torusRadius + 2 * torusHeight)) {
@@ -969,30 +969,33 @@ void CustomScene::doJTracking()
             //     cout << "closest point: " << px << ", " << py << ", " << pz << endl;
             // }
 
-            gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
-            // m_transformA: world configuration of the gripper
-            obj->motionState->getWorldTransform(input.m_transformB);
-            // m_transformB: world configuration of the collision static Object
-            input.m_maximumDistanceSquared = BT_LARGE_FLOAT;
-            gjkOutput.m_distance = BT_LARGE_FLOAT;
-            convexConvex.getClosestPoints(input, gjkOutput, 0);
+            // gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
+            // // m_transformA: world configuration of the gripper
+            // obj->motionState->getWorldTransform(input.m_transformB);
+            // // m_transformB: world configuration of the collision static Object
+            // input.m_maximumDistanceSquared = BT_LARGE_FLOAT;
+            // gjkOutput.m_distance = BT_LARGE_FLOAT;
+            // convexConvex.getClosestPoints(input, gjkOutput, 0);
             // m_pointInWorld: closest point on the static object;
             // m_normalOnBInWorld: closestPoint normal, pointing from the point on the "gripper" to closest point on 
             // static object; 
-
-            if (gjkOutput.m_hasResult)
-            {
+            anotherRadius = 1;
+            // if (gjkOutput.m_hasResult)
+            // {
                    // cout << "has result" << endl;
                    // printf("distance: %10.4f\n", gjkOutput.m_distance);
-
-                   //btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+                    //
+                    // endPt: closest point on gripper
+                   // btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
                    // new endPt, using manually calculated closest points;
-                    btVector3 endPt = btVector3(px+distanceToTorus*(px-gripperX), 
-                        py + distanceToTorus*(py-gripperY), 
-                        pz + distanceToTorus*(pz-gripperZ)); 
-
-                   btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
-                   cout << "mTransformB " << input.m_transformB.inverse().getOrigin()[0] << ", " << input.m_transformB.inverse().getOrigin()[1] << ", " << input.m_transformB.inverse().getOrigin()[2] << endl;
+                    btVector3 endPt = btVector3(
+                        (anotherRadius/distanceToTorus)*(px-gripperX)+gripperX, 
+                        (anotherRadius/distanceToTorus)*(py-gripperY)+gripperY, 
+                        (anotherRadius/distanceToTorus)*(pz-gripperZ)+gripperZ); 
+                    distanceToTorus -= 0.8;
+                   //btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
+                    btVector3 startPt = btVector3(px, py, pz);
+                    
                    // new startPt, using manually calculated closest points;
                     //btVector3 startPt = btVector3(px, py, pz);
 
@@ -1018,10 +1021,11 @@ void CustomScene::doJTracking()
 
                        // when to revert the direction
                        // why not working? 
-                       if(gjkOutput.m_distance < vclosest_dist[g])
-                       {
+                       // if(gjkOutput.m_distance < vclosest_dist[g])
+                       // {
+                       if (distanceToTorus < vclosest_dist[g]) {
 
-                            vclosest_dist[g] = gjkOutput.m_distance;
+                            vclosest_dist[g] = distanceToTorus - 0.3;
                             // originally 0
                             if(vclosest_dist[g] < 0) {
                                 V_coll_step = -V_coll_step;
@@ -1037,7 +1041,7 @@ void CustomScene::doJTracking()
                    //}
                    //else
                    //    plotcols.push_back(btVector4(0,0,1,1));
-                 }
+                 // }
                  //rot_lines->setPoints(plotpoints,plotcols);
 
             }
@@ -2190,10 +2194,10 @@ void CustomScene::makeRopeWorld()
     // This cylinder serves as the base of the needle;
 
     // rename is cylinder?? 
-    anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.5, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
-    env->add(anotherCylinder);
+    // anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.5, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
+    // env->add(anotherCylinder);
     
-    anotherCylinder->setColor(0.9,9.9,0.0,1.0);
+    // anotherCylinder->setColor(0.9,9.9,0.0,1.0);
     // End of adding the base of the needle
 
     // Creating a sequence of capsules, serve as the torus;
@@ -2253,7 +2257,7 @@ void CustomScene::makeRopeWorld()
     int numOfColumn = 20;
     int numOfRow = 4; 
     torusRadius = 2;
-    torusHeight = 0.3;
+    torusHeight = 0.7;
     
 
     // making a triangle mesh of the torus;
