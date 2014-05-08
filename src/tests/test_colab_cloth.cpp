@@ -979,7 +979,7 @@ void CustomScene::doJTracking()
             // m_pointInWorld: closest point on the static object;
             // m_normalOnBInWorld: closestPoint normal, pointing from the point on the "gripper" to closest point on 
             // static object; 
-            anotherRadius = 1;
+            anotherRadius = 1.5;
             // if (gjkOutput.m_hasResult)
             // {
                    // cout << "has result" << endl;
@@ -992,7 +992,7 @@ void CustomScene::doJTracking()
                         (anotherRadius/distanceToTorus)*(px-gripperX)+gripperX, 
                         (anotherRadius/distanceToTorus)*(py-gripperY)+gripperY, 
                         (anotherRadius/distanceToTorus)*(pz-gripperZ)+gripperZ); 
-                    distanceToTorus -= 0.8;
+                    distanceToTorus -= 1.5;
                    //btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
                     btVector3 startPt = btVector3(px, py, pz);
                     
@@ -1223,14 +1223,14 @@ void CustomScene::doJTracking()
         // Second, try to turn on the collision detection for the gripper;
         // so far, no luck;
 
-        float tolerance = 0.01;
+        float tolerance = 0.001;
         Eigen::MatrixXf new_distance_matrix;
 
         computeDeformableObjectDistanceMatrix(filtered_new_nodes,new_distance_matrix);
 
         Eigen::MatrixXf node_distance_difference = new_distance_matrix - deformableobject_distance_matrix;
 
-        int ropeScale = 10;
+        int ropeScale = 100;
         for(int i = 0; i < node_distance_difference.rows(); i++)
         {
             for(int j = i; j < node_distance_difference.cols(); j++)
@@ -1310,24 +1310,17 @@ void CustomScene::doJTracking()
         std::vector<float> vK(num_auto_grippers);
 
 
-        // change this terms to make the torus type of 
-        // objects successful;
-        // both avoid penetrate the obstacle;
-        // and move torwards the goal;
-
-
-
         for(int g = 0; g < num_auto_grippers; g++)
         {
             //cout << " dist" << g << ": " << vclosest_dist[g];
             vK[g] = exp(-k2*vclosest_dist[g]);
             if(vK[g] > 1)
                 vK[g] = 1;
-            cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
+            //cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
             //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
             term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
             term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
-            cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
+            //cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
             
         }
 
