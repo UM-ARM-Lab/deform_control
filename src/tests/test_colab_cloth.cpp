@@ -942,34 +942,32 @@ void CustomScene::doJTracking()
             pointOnTorusX = (2 / distanceGT) * (gripperX - torusX) + torusX;
             pointOnTorusZ = (2 / distanceGT) * (gripperZ - torusZ) + torusZ;
             distanceToTorus = sqrt((pointOnTorusX-gripperX)*(pointOnTorusX-gripperX) + 
-                (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ) + (torusY-gripperY)*(torusY-gripperY));
+                (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ) + 
+                (torusY-gripperY)*(torusY-gripperY));
             px = (torusHeight/distanceToTorus) * (gripperX-pointOnTorusX) + pointOnTorusX;
-            // py is problem;
-            cout << "testing py: " << torusHeight << ", " << distanceToTorus << ", " << gripperY << ", " << torusY << endl;
             py = (torusHeight/distanceToTorus) * (gripperY-torusY) + torusY;
-            // py is wrong, change it; correct before it pass,
-            // wrong after it pass the center of torus;
+            
             pz = (torusHeight/distanceToTorus) * (gripperZ-pointOnTorusZ) + pointOnTorusZ;
             // case 1, outside the larger radius;
-            if (distanceXZ > (torusRadius + 2 * torusHeight)) {
-                cout << g << " outside the large circle" << endl;
-                // closest point should be outside
-                cout << "closest point: " << px << ", " << py << ", " << pz << endl;
-            }
+            // if (distanceXZ > (torusRadius + 2 * torusHeight)) {
+            //     cout << g << " outside the large circle" << endl;
+            //     // closest point should be outside
+            //     cout << "closest point: " << px << ", " << py << ", " << pz << endl;
+            // }
 
 
-            // case 2, inside the smaller radius;
-            else if (distanceXZ < (torusRadius - 2 * torusHeight)) {
-                cout << g << " inside small circle" << endl;
-                cout << "closest point: " << px << ", " << py << ", " << pz << endl;
-            }
+            // // case 2, inside the smaller radius;
+            // else if (distanceXZ < (torusRadius - 2 * torusHeight)) {
+            //     cout << g << " inside small circle" << endl;
+            //     cout << "closest point: " << px << ", " << py << ", " << pz << endl;
+            // }
 
 
-            // case 3, between the two radius;
-            else {
-                cout << g << " between two circles;" << endl;
-                cout << "closest point: " << px << ", " << py << ", " << pz << endl;
-            }
+            // // case 3, between the two radius;
+            // else {
+            //     cout << g << " between two circles;" << endl;
+            //     cout << "closest point: " << px << ", " << py << ", " << pz << endl;
+            // }
 
             gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
             // m_transformA: world configuration of the gripper
@@ -987,8 +985,17 @@ void CustomScene::doJTracking()
                    // cout << "has result" << endl;
                    // printf("distance: %10.4f\n", gjkOutput.m_distance);
 
-                   btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+                   //btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+                   // new endPt, using manually calculated closest points;
+                    btVector3 endPt = btVector3(px+distanceToTorus*(px-gripperX), 
+                        py + distanceToTorus*(py-gripperY), 
+                        pz + distanceToTorus*(pz-gripperZ)); 
+
                    btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
+                   cout << "mTransformB " << input.m_transformB.inverse().getOrigin()[0] << ", " << input.m_transformB.inverse().getOrigin()[1] << ", " << input.m_transformB.inverse().getOrigin()[2] << endl;
+                   // new startPt, using manually calculated closest points;
+                    //btVector3 startPt = btVector3(px, py, pz);
+
                    // cout << "second: " << gjkOutput.m_pointInWorld[0] << ", " << gjkOutput.m_pointInWorld[1] << ", " << gjkOutput.m_pointInWorld[2] << ", " << gjkOutput.m_normalOnBInWorld[0] << ", " << gjkOutput.m_normalOnBInWorld[1] << ", " << gjkOutput.m_normalOnBInWorld[2] << endl;
                    plotpoints.push_back(startPt);
                    plotpoints.push_back(endPt);
