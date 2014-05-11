@@ -525,6 +525,7 @@ public:
     double distanceToTorus;
     double px, py, pz;
     double anotherRadius;
+    double A, B, C, alpha, beta;
 
 #ifdef USE_PR2
         CustomScene() : pr2m(*this){

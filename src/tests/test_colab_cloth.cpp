@@ -1000,10 +1000,10 @@ void CustomScene::doJTracking()
                     btVector3 startPt = btVector3(px, py, pz);
                     
                    // new startPt, using manually calculated closest points;
-                    cout << "pxyz: " << px << ", " << py << ", " << pz << ", " << torusX << ", " << torusY << ", " << torusZ<< endl;
-                    cout << "point on Torus: " << pointOnTorusX << ", " << pointOnTorusZ << endl;
+                    //out << "pxyz: " << px << ", " << py << ", " << pz << ", " << torusX << ", " << torusY << ", " << torusZ<< endl;
+                    //cout << "point on Torus: " << pointOnTorusX << ", " << pointOnTorusZ << endl;
                     // cout << "startPt: " << startPt[0] << ", " << startPt[1] << ", " << startPt[2] << endl;
-                    cout << "endPt: " << endPt[0] << ", " << endPt[1] << ", " << endPt[2] << endl;
+                    //cout << "endPt: " << endPt[0] << ", " << endPt[1] << ", " << endPt[2] << endl;
                    // cout << "second: " << gjkOutput.m_pointInWorld[0] << ", " << gjkOutput.m_pointInWorld[1] << ", " << gjkOutput.m_pointInWorld[2] << ", " << gjkOutput.m_normalOnBInWorld[0] << ", " << gjkOutput.m_normalOnBInWorld[1] << ", " << gjkOutput.m_normalOnBInWorld[2] << endl;
                    plotpoints.push_back(startPt);
                    plotpoints.push_back(endPt);
@@ -1022,22 +1022,16 @@ void CustomScene::doJTracking()
                        // V_coll_step[1] = endPt[1] - startPt[1];
                        // V_coll_step[2] = endPt[2] - startPt[2];
 
-                       // maybe try to use the face normal on obstacle as a change;
+                       // the face normal is the same as the distance vector;
 
-                       // the normal vector is not correct;
-                       // need to recalculate;
-
-                       // which axis is pointing inwards is changing overtime;
-                       // so we need to change that;
-
-                       // the normal is still off a little, 
-                       // try to make it work
-                       // the major problem is with x direction;
                        V_coll_step[0] = (pointOnTorusX - torusX) * distanceToTorus;
                        V_coll_step[1] = (py - torusY) * distanceToTorus;
                        V_coll_step[2] = (torusZ - pz) * distanceToTorus;
-                        cout << g << " V_coll_step: " << V_coll_step[0] << ", " << V_coll_step[1] << ", " << V_coll_step[2] << endl;
-                       //
+                       // now, integrate the idea of traversing the "surface" towards the goal
+                       // find on the tangent plane, and find a vector that points towards the goal
+                       // how to do that? 
+                       // it is not hard to find the tangent plane;
+                       // it is the vector pointing towards the goal that is hard to find;
 
                        V_coll_step = V_coll_step/V_coll_step.norm();
 
@@ -1321,11 +1315,20 @@ void CustomScene::doJTracking()
         Eigen::MatrixXf Jpinv= pinv(J.transpose()*J)*J.transpose();
 
 #ifdef ROPE
-        float k2 = 10;
+        float k2 = 5;
 #else
         float k2 = 100;
 #endif
         //V_trans = Jpinv*V_step;
+
+        // Here, use q_desired as the indicator to the goal;
+        // and then find the tangent vector that we can use;
+        // Here, V_step_collision is already normalized;
+        // we need to find a tangent vector, normalize, and combine with V_step_collision;
+
+
+        // end of finding the tangent vector;
+
         Eigen::VectorXf q_desired = Jpinv*V_step;
         Eigen::VectorXf q_desired_nullspace = (Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
         Eigen::VectorXf q_collision = Jpinv_collision*V_step_collision;
@@ -1333,8 +1336,30 @@ void CustomScene::doJTracking()
         Eigen::VectorXf term1 = q_collision + q_desired_nullspace;
         Eigen::VectorXf term2 = q_desired;
         std::vector<float> vK(num_auto_grippers);
+        //cout << "term2: " << term2.segment(0, dof_per_gripper) << endl;
+        Eigen::VectorXf v_tangent(3);
+        v_tangent[0] = term2.segment(0, dof_per_gripper)[0];
+        v_tangent[1] = term2.segment(0, dof_per_gripper)[1];
+        v_tangent[2] = term2.segment(0, dof_per_gripper)[2];
+        v_tangent = v_tangent/v_tangent.norm();
+        cout <<endl;
+        cout << "v_tangent: " << v_tangent[0] << ", " << v_tangent[1] << ", " << v_tangent[2] << endl;
+        A = V_step_collision[0]*V_step_collision[0] + V_step_collision[1]*V_step_collision[1] + V_step_collision[2]*V_step_collision[2];
+        C = v_tangent[0]*v_tangent[0] + v_tangent[1]*v_tangent[1] + v_tangent[2]*v_tangent[2];
+        B = V_step_collision[0]*v_tangent[0] + V_step_collision[1]*v_tangent[1] + V_step_collision[2]*v_tangent[2];
+        beta = sqrt(1/(B*B+C*C-2*B*B/A));
+        alpha = -beta*B/A;
+        v_tangent[0] = alpha*V_step_collision[0] + beta*v_tangent[0];
+        v_tangent[1] = alpha*V_step_collision[1] + beta*v_tangent[1];
+        v_tangent[2] = alpha*V_step_collision[2] + beta*v_tangent[2];
+        cout << "new v_tangent is: " << v_tangent[0] << ", " << v_tangent[1] << ", " << v_tangent[2] << endl;
+        cout << "new is: " << V_step_collision[0]*v_tangent[0] + V_step_collision[1]*v_tangent[1] + V_step_collision[2]*v_tangent[2] << endl;
+
+        // found the tangent term, now integrate it into the term1;
 
 
+        // term 1 is the collision avoidance term;
+        // can tune this to do something;
         for(int g = 0; g < num_auto_grippers; g++)
         {
             //cout << " dist" << g << ": " << vclosest_dist[g];
