@@ -324,7 +324,8 @@ void printMatrixXf(Eigen::MatrixXf mat)
     }
 }
 
-Eigen::MatrixXf CustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point)
+Eigen::MatrixXf CustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,
+    std::vector<int>& autogripper_indices_per_point)
 {
    int num_Jcols_per_gripper = 3;
 #ifdef DO_ROTATION
@@ -371,11 +372,14 @@ Eigen::MatrixXf CustomScene::computePointsOnGripperJacobian(std::vector<btVector
                 else if(i == 2)
                     transvec = btVector3(0,0,1);
                 else if(i == 3)
-                    transvec =  (gripper->getWorldTransform()*btVector4(1,0,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                    transvec =  (gripper->getWorldTransform()*btVector4(1,0,0,0)).cross(points_in_world_frame[k] - 
+                                    gripper->getWorldTransform().getOrigin());
                 else if(i == 4)
-                    transvec =  (gripper->getWorldTransform()*btVector4(0,1,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                    transvec =  (gripper->getWorldTransform()*btVector4(0,1,0,0)).cross(points_in_world_frame[k] - 
+                                    gripper->getWorldTransform().getOrigin());
                 else if(i == 5)
-                    transvec =  (gripper->getWorldTransform()*btVector4(0,0,1,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                    transvec =  (gripper->getWorldTransform()*btVector4(0,0,1,0)).cross(points_in_world_frame[k] - 
+                                    gripper->getWorldTransform().getOrigin());
 
                 for(int j = 0; j < 3; j++)
                     V_pos(3*k + j) = transvec[j];
@@ -485,7 +489,8 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 
                     if(i < 3) //translation
                     {
-                        btVector3 transvec = ((gripper->getWorldTransform()*perts[i]).getOrigin() - gripper->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
+                        btVector3 transvec = ((gripper->getWorldTransform()*perts[i]).getOrigin() - 
+                                        gripper->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
                         //WRONG: btVector3 transvec = perts[i].getOrigin()*exp(-dist*dropoff_const)/step_length;
                         //btVector3 transvec = perts[i].getOrigin()*exp(-gripper_node_distance_map[g][k]*dropoff_const);
                         for(int j = 0; j < 3; j++)
@@ -499,7 +504,8 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
     //                        rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x);
     //                        rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x + transvec);
     //                        plot_cols.push_back(btVector4(1,0,0,1));
-    //                        //cout <<"z " << k << ": transvec " << transvec[0] << " " << transvec[1] << " " << transvec[2] << " dist: " << dist << "(" << closest_ind << ")" << endl;
+    //                        //cout <<"z " << k << ": transvec " << transvec[0] << " " << transvec[1] << " " 
+                              // << transvec[2] << " dist: " << dist << "(" << closest_ind << ")" << endl;
     //                    }
                     }
                     else // rotation
@@ -548,7 +554,8 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 //                                rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x + transvec);
 //                                plot_cols.push_back(btVector4(1,0,0,1));
 
-//                                //cout << k << ": transvec " << transvec[0] << " " << transvec[1] << " " << transvec[2] << " dist: " << dist << endl;
+//                                //cout << k << ": transvec " << transvec[0] << " " << transvec[1] << " " 
+                                  // << transvec[2] << " dist: " << dist << endl;
 //                            }
 
                     }
@@ -895,11 +902,12 @@ void CustomScene::doJTracking()
                 gripper = left_gripper2;
 
             vclosest_dist[g] = BT_LARGE_FLOAT;
-
+            // obj = anotherCylinder;
             // btGjkEpaPenetrationDepthSolver epaSolver;
             // btPointCollector gjkOutput;
 
-            // btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
+            // btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),
+            //                   dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
 
             // btGjkPairDetector::ClosestPointInput input;
 
@@ -919,16 +927,16 @@ void CustomScene::doJTracking()
 
             */
             // center of the current gripper top we are tracking;
-            gripperX = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-            gripperY = (gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1] + 
+            gripperY = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            gripperX = (gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1] + 
                 gripper->getChildren()[1]->rigidBody->getCenterOfMassTransform().getOrigin()[1]) / 2;
             gripperZ = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[2];
 
             // center of the static torus;
-            torusX = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-            torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            torusX = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
             torusZ = o->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-
+            
             distanceGT = sqrt((torusX-gripperX)*(torusX-gripperX) + 
                 (torusY-gripperY)*(torusY-gripperY) + (torusZ-gripperZ)*(torusZ-gripperZ));
 
@@ -940,37 +948,19 @@ void CustomScene::doJTracking()
                 (torusZ-gripperZ)*(torusZ-gripperZ));
             
             //cout << "distanceXZ: " << distanceXZ <<", " << torusX << ", " << torusZ << ", " << gripperX << ", " << gripperZ << endl;
-            pointOnTorusX = (2 / distanceGT) * (gripperX - torusX) + torusX;
-            pointOnTorusZ = (2 / distanceGT) * (gripperZ - torusZ) + torusZ;
-            distanceToTorus = sqrt((pointOnTorusX-gripperX)*(pointOnTorusX-gripperX) + 
+            pointOnTorusY = (torusRadius / distanceGT) * (gripperY - torusY) + torusY;
+            pointOnTorusZ = (torusRadius / distanceGT) * (gripperZ - torusZ) + torusZ;
+
+            distanceToTorus = sqrt((pointOnTorusY-gripperY)*(pointOnTorusY-gripperY) + 
                 (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ) + 
-                (torusY-gripperY)*(torusY-gripperY));
+                (torusX-gripperX)*(torusX-gripperX));
 
 
-            px = (torusHeight/distanceToTorus) * (gripperX-pointOnTorusX) + pointOnTorusX;
-            py = (torusHeight/distanceToTorus) * (gripperY-torusY) + torusY;
+            py = (torusHeight/distanceToTorus) * (gripperY-pointOnTorusY) + pointOnTorusY;
+            px = (torusHeight/distanceToTorus) * (gripperX-torusX) + torusX;
             pz = (torusHeight/distanceToTorus) * (gripperZ-pointOnTorusZ) + pointOnTorusZ;
 
-            // case 1, outside the larger radius;
-            // if (distanceXZ > (torusRadius + 2 * torusHeight)) {
-            //     cout << g << " outside the large circle" << endl;
-            //     // closest point should be outside
-            //     cout << "closest point: " << px << ", " << py << ", " << pz << endl;
-            // }
-
-
-            // // case 2, inside the smaller radius;
-            // else if (distanceXZ < (torusRadius - 2 * torusHeight)) {
-            //     cout << g << " inside small circle" << endl;
-            //     cout << "closest point: " << px << ", " << py << ", " << pz << endl;
-            // }
-
-
-            // // case 3, between the two radius;
-            // else {
-            //     cout << g << " between two circles;" << endl;
-            //     cout << "closest point: " << px << ", " << py << ", " << pz << endl;
-            // }
+            
 
             // gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
             // // m_transformA: world configuration of the gripper
@@ -982,32 +972,34 @@ void CustomScene::doJTracking()
             // m_pointInWorld: closest point on the static object;
             // m_normalOnBInWorld: closestPoint normal, pointing from the point on the "gripper" to closest point on 
             // static object; 
-            anotherRadius = 1.5;
+            anotherRadius = 0.1;
             // if (gjkOutput.m_hasResult)
             // {
                    // cout << "has result" << endl;
                    // printf("distance: %10.4f\n", gjkOutput.m_distance);
                     //
                     // endPt: closest point on gripper
-                   // btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+                   // btVector3 endPt1 = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
                    // new endPt, using manually calculated closest points;
                     btVector3 endPt = btVector3(
-                        (anotherRadius/distanceToTorus)*(px-gripperX)+gripperX, 
-                        (anotherRadius/distanceToTorus)*(py-gripperY)+gripperY, 
-                        (anotherRadius/distanceToTorus)*(pz-gripperZ)+gripperZ); 
-                    distanceToTorus -= 1.5;
-                   //btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
+                        (anotherRadius/distanceToTorus)*(torusX-gripperX)+gripperX, 
+                        (anotherRadius/distanceToTorus)*(pointOnTorusY-gripperY)+gripperY, 
+                        (anotherRadius/distanceToTorus)*(pointOnTorusZ-gripperZ)+gripperZ); 
+                    //btVector3 endPt = btVector3(gripperX, gripperY, gripperZ);
+                    distanceToTorus -= (anotherRadius+torusHeight);
+                    distanceToTorus -= 0.3;
+                    // btVector3 startPt1 = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
                     btVector3 startPt = btVector3(px, py, pz);
                     
                    // new startPt, using manually calculated closest points;
-                    //out << "pxyz: " << px << ", " << py << ", " << pz << ", " << torusX << ", " << torusY << ", " << torusZ<< endl;
-                    //cout << "point on Torus: " << pointOnTorusX << ", " << pointOnTorusZ << endl;
+                    //cout << "pxyz: " << px << ", " << py << ", " << pz << ", " << torusX << ", " << torusY << ", " << torusZ<< endl;
+                    //cout << "gripper: " << gripperX << ", " << gripperY << ", " << gripperZ << endl;
+                    // cout << "point on Torus: " << pointOnTorusX << ", " << torusY << ", " << pointOnTorusZ << endl;
                     // cout << "startPt: " << startPt[0] << ", " << startPt[1] << ", " << startPt[2] << endl;
-                    //cout << "endPt: " << endPt[0] << ", " << endPt[1] << ", " << endPt[2] << endl;
-                   // cout << "second: " << gjkOutput.m_pointInWorld[0] << ", " << gjkOutput.m_pointInWorld[1] << ", " << gjkOutput.m_pointInWorld[2] << ", " << gjkOutput.m_normalOnBInWorld[0] << ", " << gjkOutput.m_normalOnBInWorld[1] << ", " << gjkOutput.m_normalOnBInWorld[2] << endl;
+                    // cout << "gripper: " << endPt[0] << ", " << endPt[1] << ", " << endPt[2] << endl;
+
                    plotpoints.push_back(startPt);
                    plotpoints.push_back(endPt);
-
                    // if(gjkOutput.m_distance < 0.5) {
                        bAvoidObstacle = true;
                        std::vector<btVector3> jacpoints;
@@ -1018,15 +1010,18 @@ void CustomScene::doJTracking()
                        Eigen::VectorXf V_coll_step(3);
 
                        // this is using the method in the paper
-                       // V_coll_step[0] = endPt[0] - startPt[0];
-                       // V_coll_step[1] = endPt[1] - startPt[1];
-                       // V_coll_step[2] = endPt[2] - startPt[2];
+                       // finally figured out the transformation. 
+                       V_coll_step[0] = - (endPt[0] - startPt[0]);
+                       V_coll_step[1] = endPt[1] - startPt[1];
+                       V_coll_step[2] = endPt[2] - startPt[2];
 
-                       // the face normal is the same as the distance vector;
+                       // V_coll_step[0] = -(gripperX - torusX);
+                       // V_coll_step[1] = gripperY - pointOnTorusY;
+                       // V_coll_step[2] = gripperZ - pointOnTorusZ;
+                       // cout << "distance: " << distanceToTorus << endl;
+                       // cout << "normal on Z: " << endPt[2] << ", " << startPt[2] << ", " << endPt[2]-startPt[2] << ", " << V_coll_step[2] << endl;
+                       // cout << "normal on X: " << endPt[0] << ", " << startPt[0] << ", " << endPt[0]-startPt[0] << ", " << V_coll_step[0] << endl;
 
-                       V_coll_step[0] = (pointOnTorusX - torusX) * distanceToTorus;
-                       V_coll_step[1] = (py - torusY) * distanceToTorus;
-                       V_coll_step[2] = (torusZ - pz) * distanceToTorus;
                        // now, integrate the idea of traversing the "surface" towards the goal
                        // find on the tangent plane, and find a vector that points towards the goal
                        // how to do that? 
@@ -1034,7 +1029,6 @@ void CustomScene::doJTracking()
                        // it is the vector pointing towards the goal that is hard to find;
 
                        V_coll_step = V_coll_step/V_coll_step.norm();
-
                        plotcols.push_back(btVector4(1,0,0,1));
 
 
@@ -1046,10 +1040,10 @@ void CustomScene::doJTracking()
 
                             vclosest_dist[g] = distanceToTorus;
                             // originally 0
-                            if(vclosest_dist[g] < 0) {
-                                V_coll_step = -V_coll_step;
+                            // if(vclosest_dist[g] < 0) {
+                            //     V_coll_step = -V_coll_step;
                                 
-                            }
+                            // }
 
                        }
 
@@ -1065,7 +1059,6 @@ void CustomScene::doJTracking()
 
             }
 
-            //cout << "min dis: " << vclosest_dist[g] << ", " << V_step_collision[g*3 + 0] << ", " << V_step_collision[g*3 + 1] << ", " << V_step_collision[g*3 + 2] << end;
 
     }
     else
@@ -1291,7 +1284,8 @@ void CustomScene::doJTracking()
             cout << " Adaptive Jacobian ";
 
             nodeArrayToNodePosVector(clothptr->softBody->m_nodes, prev_node_pos);
-            J = last_jacobian + 0.1*(V_delta - last_jacobian*last_movement)*last_movement.transpose()/(last_movement.transpose()*last_movement);
+            J = last_jacobian + 0.1*(V_delta - last_jacobian*last_movement)*
+                last_movement.transpose()/(last_movement.transpose()*last_movement);
         }
 #else
 
@@ -1315,80 +1309,110 @@ void CustomScene::doJTracking()
         Eigen::MatrixXf Jpinv= pinv(J.transpose()*J)*J.transpose();
 
 #ifdef ROPE
-        float k2 = 5;
+        float k2 = 10;
 #else
         float k2 = 100;
 #endif
         //V_trans = Jpinv*V_step;
 
-        // Here, use q_desired as the indicator to the goal;
-        // and then find the tangent vector that we can use;
-        // Here, V_step_collision is already normalized;
-        // we need to find a tangent vector, normalize, and combine with V_step_collision;
-
-
-        // end of finding the tangent vector;
+        
 
         Eigen::VectorXf q_desired = Jpinv*V_step;
-        Eigen::VectorXf q_desired_nullspace = (Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
+        Eigen::VectorXf q_desired_nullspace = (Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols())  - 
+                            Jpinv_collision*Jcollision)*q_desired;
         Eigen::VectorXf q_collision = Jpinv_collision*V_step_collision;
-
         Eigen::VectorXf term1 = q_collision + q_desired_nullspace;
         Eigen::VectorXf term2 = q_desired;
         std::vector<float> vK(num_auto_grippers);
         //cout << "term2: " << term2.segment(0, dof_per_gripper) << endl;
-        Eigen::VectorXf v_tangent(3);
-        v_tangent[0] = term2.segment(0, dof_per_gripper)[0];
-        v_tangent[1] = term2.segment(0, dof_per_gripper)[1];
-        v_tangent[2] = term2.segment(0, dof_per_gripper)[2];
-        v_tangent = v_tangent/v_tangent.norm();
-        cout <<endl;
-        cout << "v_tangent: " << v_tangent[0] << ", " << v_tangent[1] << ", " << v_tangent[2] << endl;
-        A = V_step_collision[0]*V_step_collision[0] + V_step_collision[1]*V_step_collision[1] + V_step_collision[2]*V_step_collision[2];
-        C = v_tangent[0]*v_tangent[0] + v_tangent[1]*v_tangent[1] + v_tangent[2]*v_tangent[2];
-        B = V_step_collision[0]*v_tangent[0] + V_step_collision[1]*v_tangent[1] + V_step_collision[2]*v_tangent[2];
-        beta = sqrt(1/(B*B+C*C-2*B*B/A));
-        alpha = -beta*B/A;
-        v_tangent[0] = alpha*V_step_collision[0] + beta*v_tangent[0];
-        v_tangent[1] = alpha*V_step_collision[1] + beta*v_tangent[1];
-        v_tangent[2] = alpha*V_step_collision[2] + beta*v_tangent[2];
-        cout << "new v_tangent is: " << v_tangent[0] << ", " << v_tangent[1] << ", " << v_tangent[2] << endl;
-        cout << "new is: " << V_step_collision[0]*v_tangent[0] + V_step_collision[1]*v_tangent[1] + V_step_collision[2]*v_tangent[2] << endl;
-
-        // found the tangent term, now integrate it into the term1;
 
 
-        // term 1 is the collision avoidance term;
-        // can tune this to do something;
-        for(int g = 0; g < num_auto_grippers; g++)
-        {
-            //cout << " dist" << g << ": " << vclosest_dist[g];
+        Eigen::VectorXf v_tangent(3*num_auto_grippers);
+
+        // still, not correct where to go, seems the term2 is pointing towards the correct direction, but
+        // my term1 is not;
+
+
+        double currentNorm = 0;
+        for(int g = 0; g < num_auto_grippers; g++) {
+            // cout << " dist" << g << ": " << vclosest_dist[g];
+
+            // v_tangent[g*3+0] = V_step[gripperPosition[g]*3+0];
+            // v_tangent[g*3+1] = V_step[gripperPosition[g]*3+1];
+            // v_tangent[g*3+2] = V_step[gripperPosition[g]*3+2];
+
+            v_tangent[g*3+0] = term2[g*3+0];
+            v_tangent[g*3+1] = term2[g*3+1];
+            v_tangent[g*3+2] = term2[g*3+2];
+            currentNorm = sqrt(v_tangent[g*3+0]*v_tangent[g*3+0] + 
+                            v_tangent[g*3+1]*v_tangent[g*3+1] + 
+                            v_tangent[g*3+2]*v_tangent[g*3+2]);
+            v_tangent[g*3+0] = v_tangent[g*3+0] / currentNorm;
+            v_tangent[g*3+1] = v_tangent[g*3+1] / currentNorm;
+            v_tangent[g*3+2] = v_tangent[g*3+2] / currentNorm;
+
+            A = V_step_collision[g*3+0]*V_step_collision[g*3+0] + 
+                V_step_collision[g*3+1]*V_step_collision[g*3+1] + 
+                V_step_collision[g*3+2]*V_step_collision[g*3+2];
+            C = v_tangent[g*3+0]*v_tangent[g*3+0] + v_tangent[g*3+1]*v_tangent[g*3+1] + v_tangent[g*3+2]*v_tangent[g*3+2];
+            B = V_step_collision[g*3+0]*v_tangent[g*3+0] + 
+                V_step_collision[g*3+1]*v_tangent[g*3+1] + 
+                V_step_collision[g*3+2]*v_tangent[g*3+2];
+            beta =  sqrt(1/(B*B+C*C-2*B*B/A));
+            alpha = -beta*B/A;
+            v_tangent[g*3+0] = alpha * V_step_collision[g*3+0] + beta * v_tangent[g*3+0];
+            v_tangent[g*3+1] = alpha * V_step_collision[g*3+1] + beta * v_tangent[g*3+1];
+            v_tangent[g*3+2] = alpha * V_step_collision[g*3+2] + beta * v_tangent[g*3+2];
+            // cout << "term1: " << term1[g*3+0] << ", " << term1[g*3+1] << ", " << term1[g*3+2] << endl;
+            // if (vclosest_dist[g] < 0.1) {
+            //     term1[g*3+0] = 0.1*term1[g*3+0];
+            //     term1[g*3+1] = 0.1*term1[g*3+1];
+            //     term1[g*3+2] = 0.1*term1[g*3+2];
+            // }
+            term1[g*3+0] = term1[g*3+0] + v_tangent[g*3+0];
+            term1[g*3+1] = term1[g*3+1] + v_tangent[g*3+1];
+            term1[g*3+2] = term1[g*3+2] + v_tangent[g*3+2];
+            // double temp;
+            // temp = term1[g*3+1];
+            // term1[g*3+1] = term1[g*3+1];
+            // term1[g*3+0] = temp;
+            // cout << "distance: " << g << ", " << vclosest_dist[g] << endl;
+            // cout << "tangent: " << g << ", " << v_tangent[g*3+0] << ", " << v_tangent[g*3+1] << ", " << v_tangent[g*3+2] << endl;
+            // cout << "together: " << g << ", " << term1[g*3+0] << ", " << term1[g*3+1] << ", " << term1[g*3+2] << endl;
             vK[g] = exp(-k2*vclosest_dist[g]);
             if(vK[g] > 1)
                 vK[g] = 1;
-            //cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
+
+            // cout << "parameters: " << g*dof_per_gripper << ", " << dof_per_gripper << endl;
             //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
             term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
             term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
-            //cout << "term1: " << term1.segment(g*dof_per_gripper,dof_per_gripper) << ", term2: " << term2.segment(g*dof_per_gripper,dof_per_gripper) << endl;
             
         }
 
 
         //Eigen::VectorXf term1 = K*(q_collision);// + q_desired_nullspace);
         //Eigen::VectorXf term2 = (1 - K)*q_desired;
-
+        // cout << "term1: " << term1[0] << ", " << term1[1] << ", " << term1[2] << endl;
+        // cout << "term2: " << term2[0] << ", " << term2[1] << ", " << term2[2] << endl;
+        // cout << "sum: " << term1[0]+term2[0] << ", " << term1[1]+term2[1] << ", " << term1[2]+term2[2] << endl;
         V_trans = term1 + term2;
+        // cout << "V_trans before: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << endl;
         //V_trans = term2;
-        //cout << " collision step: " << (Jpinv_collision*V_step_collision).norm() << " term1: " <<  term1.norm() << " desired: " << term2.norm();
+        //cout << " collision step: " << (Jpinv_collision*V_step_collision).norm() << 
+        // " term1: " <<  term1.norm() << " desired: " << term2.norm();
 
 
 
-
+        // for (int i = 0; i < num_auto_grippers; i++ ) {
+        //     V_trans[i*3+0] = 1;
+        //     V_trans[i*3+1] = 0;
+        //     V_trans[i*3+2] = 0;
+        // }
 
         if(V_trans.norm() > step_limit)
             V_trans = V_trans/V_trans.norm()*step_limit;
-
+        // cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << endl;
 
         // if(!bAvoidObstacle) {
         //    //cout << "J: " << J.rows() << " " << J.cols() << endl;
@@ -1407,7 +1431,8 @@ void CustomScene::doJTracking()
         //    //if(V_trans_collision.norm() > step_limit)
         //    //    V_trans_collision = V_trans_collision/V_trans_collision.norm()*step_limit;
 
-        //    V_trans = Jpinv_collision*V_step_collision + 0.1*(Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols()) - Jpinv_collision*Jcollision)*Jpinv*V_step;
+        //    V_trans = Jpinv_collision*V_step_collision + 0.1*(Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols()) - 
+        //      Jpinv_collision*Jcollision)*Jpinv*V_step;
 
         //    if(V_trans.norm() > step_limit)
         //        V_trans = V_trans/V_trans.norm()*step_limit;
@@ -1659,7 +1684,8 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
 //            if(scene.corner_number > 3)
 //                scene.corner_number = 0;
 
-//            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
+//            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), 
+            // scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
 
 //            break;
 
@@ -1670,9 +1696,11 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
                 scene.corner_number += 1;
             if(scene.corner_number > 3)
                 scene.corner_number = 0;
-            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
+            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), 
+                scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
             if(scene.num_auto_grippers > 1)
-                scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number+1]].m_x));
+                scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), 
+                    scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number+1]].m_x));
             break;
 
 
@@ -1716,39 +1744,53 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
 
 
         case 'k':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
+            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
+                scene.right_gripper1->getWorldTransform().getRotation(), 
+                scene.right_gripper1->getWorldTransform().getOrigin()));
             break;
 
         case ',':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
+            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
+                scene.right_gripper1->getWorldTransform().getRotation(), 
+                scene.right_gripper1->getWorldTransform().getOrigin()));
             break;
 
 
         case 'l':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
+                scene.right_gripper2->getWorldTransform().getRotation(), 
+                scene.right_gripper2->getWorldTransform().getOrigin()));
             break;
 
         case '.':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
+                scene.right_gripper2->getWorldTransform().getRotation(), 
+                scene.right_gripper2->getWorldTransform().getOrigin()));
             break;
 
 
         case 'y':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
+            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
+                scene.right_gripper1->getWorldTransform().getRotation(), 
+                scene.right_gripper1->getWorldTransform().getOrigin()));
             break;
 
 
         case 'u':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
+                scene.right_gripper2->getWorldTransform().getRotation(), 
+                scene.right_gripper2->getWorldTransform().getOrigin()));
             break;
 
 
         case 'i':
-            scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.robot_mid_point_ind].m_x));
+            scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), 
+                scene.clothptr->softBody->m_nodes[scene.robot_mid_point_ind].m_x));
             break;
 
         case 'o':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.user_mid_point_ind].m_x));
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), 
+                scene.clothptr->softBody->m_nodes[scene.user_mid_point_ind].m_x));
             break;
 
 
@@ -2058,7 +2100,8 @@ void CustomScene::swapFork() {
 }
 
 
-int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_matrix, int first_dim_minmax, int second_dim_minmax, int third_dim_minmax)
+int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_matrix, 
+    int first_dim_minmax, int second_dim_minmax, int third_dim_minmax)
 {
     //first_dim_maxmin = 0 if min, first_dim_maxmin = 1 if max, first_dim_maxmin = -1 don't care
     btVector3 extremal_pnt = btVector3(pow(-1,first_dim_minmax)*1000,pow(-1,second_dim_minmax)*1000,pow(-1,third_dim_minmax)*1000);
@@ -2128,7 +2171,8 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, int objectnodeind, Envi
     btTransform top_tm;
     children[0]->motionState->getWorldTransform(top_tm);
 
-    cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),*prb,top_tm.inverse()*cur_tm,btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
+    cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
+        *prb,top_tm.inverse()*cur_tm,btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
     cnt->setLinearLowerLimit(btVector3(0,0,0));
     cnt->setLinearUpperLimit(btVector3(0,0,0));
     cnt->setAngularLowerLimit(btVector3(0,0,0));
@@ -2184,7 +2228,8 @@ void CustomScene::makeRopeWorld()
 //    //circle
 //    for(float theta = 0; theta < 2*3.1415; theta += 0.1)
 //    {
-//        cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5*cos(theta),5*sin(theta)+5,table->halfExtents[2]+.01*METERS/2));
+//        cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+
+    // btVector3(5*cos(theta),5*sin(theta)+5,table->halfExtents[2]+.01*METERS/2));
 
 //    }
 
@@ -2192,9 +2237,11 @@ void CustomScene::makeRopeWorld()
     float radius = 3;
     float height = 6;
     num_auto_grippers = 2;
+    gripperPosition.reserve(num_auto_grippers);
 
 
-    // cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,5,height/2))));
+    // cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, 
+    // btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,5,height/2))));
     // env->add(cylinder);
     // cylinder->setColor(179.0/255.0,176.0/255.0,160.0/255.0,1);
 
@@ -2205,7 +2252,8 @@ void CustomScene::makeRopeWorld()
     // for(float theta = 0; theta < 2*3.1415; theta += 0.3)
     // {
     //     for(float h = 0; h < height; h += 0.2)
-    //         cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(radius*cos(theta)+.01*METERS/2,radius*sin(theta)+.01*METERS/2,h-height/2));
+    //         cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+
+    // btVector3(radius*cos(theta)+.01*METERS/2,radius*sin(theta)+.01*METERS/2,h-height/2));
 
     // }
 
@@ -2226,7 +2274,8 @@ void CustomScene::makeRopeWorld()
     // This cylinder serves as the base of the needle;
 
     // rename is cylinder?? 
-    // anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.5, 5, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
+    // anotherCylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, 0.5, 5, 
+    // btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5,5,2.5))));
     // env->add(anotherCylinder);
     
     // anotherCylinder->setColor(0.9,9.9,0.0,1.0);
@@ -2242,46 +2291,6 @@ void CustomScene::makeRopeWorld()
     
     
     
-    
-
-    // numOfCapsules = torusRadius / torusStep + 1;
-    // for (int i = 0; i < numOfCapsules; i++) {
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius + i * torusStep)))));
-
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius - i * torusStep)))));
-    // }
-    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius,torusCenterY,torusCenterZ)))));
-    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius,torusCenterY,torusCenterZ)))));
-    
-    // // Make more thick walls
-    // numOfCapsules += 3;
-    // for (int i = 0; i < numOfCapsules; i++) {
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius - torusStep + i * torusStep)))));
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius - torusStep + i * torusStep)))));
-
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius + torusStep - i * torusStep)))));
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius + torusStep - i * torusStep)))));
-    // }
-    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius-torusStep,torusCenterY,torusCenterZ)))));
-    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius+torusStep,torusCenterY,torusCenterZ)))));
-    
-    // numOfCapsules += 3;
-    // for (int i = 0; i < numOfCapsules; i++) {
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ - torusRadius - 2*torusStep + i * torusStep)))));
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ - torusRadius - 2*torusStep + i * torusStep)))));
-
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+i*torusStep,torusCenterY,torusCenterZ + torusRadius + 2*torusStep - i * torusStep)))));
-    //     torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-i*torusStep,torusCenterY,torusCenterZ + torusRadius + 2*torusStep - i * torusStep)))));
-    // }
-    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX-torusRadius-2*torusStep,torusCenterY,torusCenterZ)))));
-    // torus.push_back(CapsuleObject::Ptr(new CapsuleObject(0, 0.4, 0.4, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(torusCenterX+torusRadius+2*torusStep,torusCenterY,torusCenterZ)))));
-
-    // for (int i = 0; i < torus.size(); i++) {
-    //     torus[i]->setColor(0.9, 9.9, 0.0, 1.0);
-    //     env->add(torus[i]);
-    // }
 
     // start making a triangle mesh;
     // use the idea from http://www.ecse.rpi.edu/~wrf/wiki/ComputerGraphicsFall2012/guha/Code/torus.cpp
@@ -2291,17 +2300,6 @@ void CustomScene::makeRopeWorld()
     torusRadius = 2;
     torusHeight = 0.5;
     
-
-    // making a triangle mesh of the torus;
-    // Idea is, to create 4 rows of points on torus;
-    // one row on top, one row on bottom;
-
-    // the other two is on the center;
-
-    // make triangles from the top row with two rows on the center
-
-    // make triangles from the bottom row with two rows on the center
-
     centerX = 5;
     centerY = 5;
     centerZ = 7;
@@ -2371,7 +2369,8 @@ void CustomScene::makeRopeWorld()
 
 
     btBvhTriangleMeshShape* shape=new btBvhTriangleMeshShape(mesh,true,true);
-    BulletObject* test = new BulletObject(0, shape, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(centerX,centerY,centerZ)));
+    BulletObject* test = new BulletObject(0, shape, btTransform(btQuaternion(0, 0, 0, 1), 
+        table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(centerX,centerY,centerZ)));
     o = BulletObject::Ptr(test);
     //o->collisionShape.reset(shape);
     o->setColor(0.9, 9.9, 0.0, 1.0);
@@ -2389,6 +2388,9 @@ void CustomScene::makeRopeWorld()
     int gripper_closestobjectnodeind[num_auto_grippers];
 
     std::vector<btVector3> node_pos(ropePtr->getNodes());
+    for (int i = 0; i < num_auto_grippers; i++) {
+        gripperPosition.push_back(-1);
+    }
 
     gripper_node_distance_map.resize(num_auto_grippers);
     GripperKinematicObject::Ptr cur_gripper;
@@ -2400,6 +2402,7 @@ void CustomScene::makeRopeWorld()
         {
             childindex = 0;
             gripper_closestobjectnodeind[i] = 0;
+            gripperPosition[0] = 0;
             
             cur_gripper = left_gripper1;
         }
@@ -2408,7 +2411,7 @@ void CustomScene::makeRopeWorld()
             
             childindex = 7;
             gripper_closestobjectnodeind[i] = 7;
-            
+            gripperPosition[1] = 7;
             cur_gripper = left_gripper2;
         }
 
@@ -2491,13 +2494,15 @@ void CustomScene::makeClothWorld()
      cout << "num cover points " << cover_points.size() << endl;
 //    float radius = 3;
 //    float height = 7;
-//    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, btTransform(btQuaternion(0, 0, 0, 1), btVector3(4,0,6)+btVector3(0,0,height/2))));
+//    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, 
+     // btTransform(btQuaternion(0, 0, 0, 1), btVector3(4,0,6)+btVector3(0,0,height/2))));
 //    cylinder->rigidBody->setFriction(1);
 //    env->add(cylinder);
 //    for(float theta = 0; theta < 2*3.1415; theta += 0.3)
 //    {
 //        for(float r = 0; r < radius; r += 0.3)
-//            cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(r*cos(theta)+.01*METERS/2,r*sin(theta)+.01*METERS/2,height/2));
+//            cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+
+     // btVector3(r*cos(theta)+.01*METERS/2,r*sin(theta)+.01*METERS/2,height/2));
 //    }
 
 
@@ -2511,7 +2516,8 @@ void CustomScene::makeClothWorld()
 
 //    float cylradius = 3;
 //    float cylheight = 6;
-//    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, cylradius, cylheight, btTransform(btQuaternion(0, 0, 0, 1), btVector3(10,0,10+cylheight/2))));
+//    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, cylradius, cylheight, 
+    // btTransform(btQuaternion(0, 0, 0, 1), btVector3(10,0,10+cylheight/2))));
 //    env->add(cylinder);
 
     BulletSoftObject::Ptr cloth(
@@ -2629,20 +2635,24 @@ void CustomScene::makeClothWorld()
     //psb->appendAnchor(max_x_ind,right_grabber->rigidBody.get());
 
 
-    btTransform tm_left1 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[0] + btVector3(left_gripper1->children[0]->halfExtents[0],left_gripper1->children[0]->halfExtents[1],0));
+    btTransform tm_left1 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[0] + 
+        btVector3(left_gripper1->children[0]->halfExtents[0],left_gripper1->children[0]->halfExtents[1],0));
     left_gripper1->setWorldTransform(tm_left1);
     //left_gripper1->toggle();
 
 
-    btTransform tm_right1 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[2] + btVector3(-right_gripper1->children[0]->halfExtents[0],right_gripper1->children[0]->halfExtents[1],0));
+    btTransform tm_right1 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[2] + 
+        btVector3(-right_gripper1->children[0]->halfExtents[0],right_gripper1->children[0]->halfExtents[1],0));
     right_gripper1->setWorldTransform(tm_right1);
 
-    btTransform tm_left2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[1] + btVector3(left_gripper2->children[0]->halfExtents[0],-left_gripper2->children[0]->halfExtents[1],0));
+    btTransform tm_left2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[1] + 
+        btVector3(left_gripper2->children[0]->halfExtents[0],-left_gripper2->children[0]->halfExtents[1],0));
     left_gripper2->setWorldTransform(tm_left2);
     //left_gripper1->toggle();
 
 
-    btTransform tm_right2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[3] + btVector3(-right_gripper2->children[0]->halfExtents[0],-right_gripper2->children[0]->halfExtents[1],0));
+    btTransform tm_right2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[3] + 
+        btVector3(-right_gripper2->children[0]->halfExtents[0],-right_gripper2->children[0]->halfExtents[1],0));
     right_gripper2->setWorldTransform(tm_right2);
 
     gripper_node_distance_map.resize(num_auto_grippers);
@@ -2707,7 +2717,8 @@ void CustomScene::makeClothWorld()
     for(int i = 0; i < node_pos.size(); i++)
     {
         if(node_pos[i][0] < mid_x) //look at points in left half
-        //if(node_pos[i][0] < mid_x && (abs(node_pos[i][0] - min_x) < 0.01 || abs(node_pos[i][1] - min_y) < 0.01 || abs(node_pos[i][1] - max_y) < 0.01))
+        //if(node_pos[i][0] < mid_x && (abs(node_pos[i][0] - min_x) < 0.01 || abs(node_pos[i][1] - min_y) < 0.01 || 
+            // abs(node_pos[i][1] - max_y) < 0.01))
         {
             //float reflected_x = node_pos[i][0] + 2*(mid_x - node_pos[i][0]);
             btVector3 new_vec = point_reflector->reflect(node_pos[i]);
@@ -2715,7 +2726,8 @@ void CustomScene::makeClothWorld()
             int closest_ind = -1;
             for(int j = 0; j < node_pos.size(); j++)
             {
-                float dist = (node_pos[j]-new_vec).length();//(node_pos[j][0]-reflected_x)*(node_pos[j][0]-reflected_x) + (node_pos[j][1]-node_pos[i][1])*(node_pos[j][1]-node_pos[i][1]);
+                float dist = (node_pos[j]-new_vec).length();//(node_pos[j][0]-reflected_x)*(node_pos[j][0]-reflected_x) + 
+                // (node_pos[j][1]-node_pos[i][1])*(node_pos[j][1]-node_pos[i][1]);
                 if(dist < closest_dist)
                 {
                     closest_dist = dist;

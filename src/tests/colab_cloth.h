@@ -491,12 +491,14 @@ public:
     int user_mid_point_ind, robot_mid_point_ind;
     Eigen::MatrixXf last_jacobian;
     Eigen::VectorXf last_movement;
+
     std::vector<btVector3> cover_points;
     //Eigen::VectorXf last_clothstate;
     bool bFirstTrackingIteration;
     int itrnumber;
     std::vector<int> corner_ind;
     std::vector<int> corner_grasp_point_inds;
+    std::vector<int> gripperPosition;
     int corner_number;
     boost::shared_ptr<CapsuleRope> ropePtr;
     //std::vector<int> cloth_boundary_inds;
@@ -521,7 +523,7 @@ public:
 
     double distanceGT;
     double distanceXZ;
-    double pointOnTorusX, pointOnTorusZ;
+    double pointOnTorusY, pointOnTorusZ;
     double distanceToTorus;
     double px, py, pz;
     double anotherRadius;
