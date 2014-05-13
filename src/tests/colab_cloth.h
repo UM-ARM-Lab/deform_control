@@ -528,6 +528,7 @@ public:
     double px, py, pz;
     double anotherRadius;
     double A, B, C, alpha, beta;
+    vector<bool> attached;
 
 #ifdef USE_PR2
         CustomScene() : pr2m(*this){
@@ -571,7 +572,8 @@ public:
         fork.reset();
     }
     
-
+    void testRelease(GripperKinematicObject::Ptr  gripper_to_detach);
+    void testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach);
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
     void createFork();
