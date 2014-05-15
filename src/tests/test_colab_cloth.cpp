@@ -1352,8 +1352,8 @@ void CustomScene::doJTracking()
             vK[g] = exp(-k2*vclosest_dist[g]);
             if(vK[g] > 1)
                 vK[g] = 1;
-            cout << "term1: " << g << ", " << term1[g*3+0] << ", " << term1[g*3+1] << ", " << term1[g*3+2] << endl;
-            cout << "term2: " << g << ", " << term2[g*3+0] << ", " << term2[g*3+1] << ", " << term2[g*3+2] << endl;
+            // cout << "term1: " << g << ", " << term1[g*3+0] << ", " << term1[g*3+1] << ", " << term1[g*3+2] << endl;
+            // cout << "term2: " << g << ", " << term2[g*3+0] << ", " << term2[g*3+1] << ", " << term2[g*3+2] << endl;
             // cout << "parameters: " << g*dof_per_gripper << ", " << dof_per_gripper << endl;
             //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
             term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
@@ -1383,8 +1383,8 @@ void CustomScene::doJTracking()
 
         if(V_trans.norm() > step_limit)
             V_trans = V_trans/V_trans.norm()*step_limit;
-        cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " 
-            << V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
+        // cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " 
+        //     << V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
 
         // work on the detach the gripper movement;
 
@@ -2315,7 +2315,7 @@ void CustomScene::makeRopeWorld()
     int numOfColumn = 20;
     int numOfRow = 4; 
     torusRadius = 2;
-    torusHeight = 0.4;
+    torusHeight = 0.7;
     
     centerX = 5;
     centerY = 5;
@@ -2426,9 +2426,9 @@ void CustomScene::makeRopeWorld()
         if(i == 1)
         {
             
-            childindex = 7;
-            gripper_closestobjectnodeind[i] = 7;
-            gripperPosition[1] = 7;
+            childindex = 5;
+            gripper_closestobjectnodeind[i] = 5;
+            gripperPosition[1] = 5;
             cur_gripper = left_gripper2;
         }
 
