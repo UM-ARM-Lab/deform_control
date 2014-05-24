@@ -14,4 +14,9 @@ std::vector<double> find_center();
 
 std::vector<double> find_projected_curve();
 
+std::vector<double> BiotSavart(std::vector<double> point, 
+	std::vector<std::vector<double> > curve);
+
+std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v);
+
 #endif
