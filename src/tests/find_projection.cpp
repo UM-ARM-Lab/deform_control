@@ -62,7 +62,6 @@ double test_AL() {
 	value = BiotSavart(rope[0], circle);
 	std::cout << "back from BS: " << std::endl;
 
-	std::cout << "result is: " << value[0] << ", " << value[1] << ", " << value[2] << std::endl;
 }
 
 std::vector<double> BiotSavart(std::vector<double> point, std::vector<std::vector<double> > curve) {
@@ -160,14 +159,268 @@ std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v) 
 	return result;
 }
 
+std::vector<double> findDirection (std::vector<std::vector<double> > curve) {
+	std::vector<double> center;
+	center.reserve(3);
+	center.push_back(0);
+	center.push_back(0);
+	center.push_back(0);
+
+	for (int i = 0; i < curve.size(); i++) {
+		center[0] += curve[i][0];
+		center[1] += curve[i][1];
+		center[2] += curve[i][2];
+	}
+	center[0] = center[0] / curve.size();
+	center[1] = center[1] / curve.size();
+	center[2] = center[2] / curve.size();
+
+	// noise
+	// center[0] = center[0] + (rand()/(RAND_MAX+1.0)) * 3 - 1.5;
+	// center[1] = center[1] + (rand()/(RAND_MAX+1.0)) * 3 - 1.5;
+	// center[2] = center[2] + (rand()/(RAND_MAX+1.0)) * 3 - 1.5;
+
+	// noise
+
+
+	double difference = 1000;
+	std::vector<double> result;
+	double normValue = 0;
+	std::vector<double> step;
+	std::vector<double> next;
+	next.push_back(0);
+	next.push_back(0);
+	next.push_back(0);
+	double normStep = 0;
+	int count = 0;
+	while (difference > 0.0001) {
+		result = BiotSavart(center, curve);
+
+		normValue = sqrt(result[0]*result[0]+result[1]*result[1]+result[2]*result[2]);
+		result[0] = result[0] / normValue;
+		result[1] = result[1] / normValue;
+		result[2] = result[2] / normValue;
+
+		next[0] = center[0] + result[0];
+		next[1] = center[1] + result[1];
+		next[2] = center[2] + result[2];
+
+		step = BiotSavart(next, curve);
+		normStep = sqrt(step[0]*step[0]+step[1]*step[1]+step[2]*step[2]);
+		step[0] = step[0] / normStep;
+		step[1] = step[1] / normStep;
+		step[2] = step[2] / normStep;
+
+		difference = sqrt((result[0]-step[0])*(result[0]-step[0]) + 
+							(result[1]-step[1])*(result[1]-step[1]) + 
+							(result[2]-step[2])*(result[2]-step[2]));
+		center[0] = next[0] - step[0];
+		center[1] = next[1] - step[1];
+		center[2] = next[2] - step[2];
+		result.clear();
+		step.clear();
+		count += 1;
+	}
+	std::cout << "after all: " << count << std::endl;
+	std::cout << "result: " << result[0] << ", " << result[1] << ", " << result[2] << std::endl;
+	center[0] = result[0];
+	center[1] = result[1];
+	center[2] = result[2];
+	return center;
+}
+
+std::vector<std::vector<double> > findProjection (std::vector<std::vector<double> > curve, 
+	std::vector<double> normal) {
+	std::vector<std::vector<double> > transformed;
+	for (int i = 0; i < curve.size(); i++) {
+		std::vector<double> point;
+		point.push_back(0);
+		point.push_back(0);
+		point.push_back(0);
+		transformed.push_back(point);
+	}
+
+
+	
+
+	// next step: transform to 2D transformation.
+	double a = normal[0];
+	double b = normal[1];
+	double c = normal[2];
+	double xo = curve[0][0];
+	double yo = curve[0][1];
+	double zo = curve[0][2];
+	// double d = - a*xo - b*yo - c*zo;
+	double d = 0;
+	double x = 0, y = 0, z = 0;
+	// plane formula: ax + by + cz + d = 0;
+
+	double costheta = c / sqrt(a*a+b*b+c*c);
+	std::vector<double> standard;
+	standard.push_back(0);
+	standard.push_back(0);
+	standard.push_back(1);
+	std::vector<double> axis;
+	axis = crossProduct(normal, standard);
+	double normAxis = sqrt(axis[0]*axis[0]+axis[1]*axis[1]+axis[2]*axis[2]);
+	axis[0] = axis[0]/normAxis;
+	axis[1] = axis[1]/normAxis;
+	axis[2] = axis[2]/normAxis;
+
+	double s = sqrt(1-costheta*costheta);
+	double C = 1-costheta;
+	double t11, t12, t13, t21, t22, t23, t31, t32, t33;
+	if (fabs(normAxis) > 0.001) {
+		t11 = axis[0]*axis[0]*C + costheta;
+		t12 = axis[0]*axis[1]*C - axis[2]*s;
+		t13 = axis[0]*axis[2]*C + axis[1]*s;
+
+		t21 = axis[1]*axis[0]*C + axis[2]*s;
+		t22 = axis[1]*axis[1]*C + costheta;
+		t23 = axis[1]*axis[2]*C - axis[0]*s;
+
+		t31 = axis[2]*axis[0]*C - axis[1]*s;
+		t32 = axis[2]*axis[1]*C + axis[0]*s;
+		t33 = axis[2]*axis[2]*C + costheta;
+	} else {
+		t11 = 1;
+		t12 = 0;
+		t13 = 0;
+
+		t21 = 0;
+		t22 = 1;
+		t23 = 0;
+
+		t31 = 0;
+		t32 = 0;
+		t33 = 1;
+	}
+
+	for (int i = 0; i < curve.size(); i++) {
+		x = t11 * curve[i][0] + t12 * curve[i][1] + t13 * curve[i][2];
+		y = t21 * curve[i][0] + t22 * curve[i][1] + t23 * curve[i][2];
+		z = t31 * curve[i][0] + t32 * curve[i][1] + t33 * curve[i][2];
+
+		// the third element should indicate how far it need to project to 
+		// get on the plane
+
+		// std::cout << "coordinates: " << x << ", " << y << ", " << z << std::endl;
+		transformed[i][0] = x;
+		transformed[i][1] = y;
+		transformed[i][2] = (a*curve[i][0] + b*curve[i][1] + c*curve[i][2] + d) / 
+			(a*a + b*b + c*c);
+		// std::cout << "coordinates: " << x << ", " << y << ", " << z << ", " 
+		// 	<< transformed[i][2] << std::endl;
+	}
+
+	// end finding 2D coordinates;
+
+
+	return transformed;
+
+}
+
+void completeLoop (std::vector<std::vector<double> > curve) {
+	std::cout << "in completeLoop!" << std::endl;
+	std::cout << "boundingBox: " << boundingBox[0] << ", " << boundingBox[1] << ", " 
+		<< boundingBox[2] << ", " << boundingBox[3] << std::endl;
+
+
+	// At current stage, assume all bounding box are spheres;
+	std::vector<double> first;
+	std::vector<double> last;
+	int length = curve.size();
+	double d = 1000;
+	int indexFirst = -1, indexLast = -1;
+	for (int i = 0; i < length; i++) {
+		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) + 
+				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) + 
+				(curve[i][2]-boundingBox[2])*(curve[i][2]-boundingBox[2]));
+
+		if (d < boundingBox[3]) {
+			first.push_back(curve[i][0]);
+			first.push_back(curve[i][1]);
+			first.push_back(curve[i][2]);
+			indexFirst = i;
+			break;
+
+		}
+	}
+
+	for (int i = length-1; i >= 0; i--) {
+		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) + 
+				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) + 
+				(curve[i][2]-boundingBox[2])*(curve[i][2]-boundingBox[2]));
+		if (d < boundingBox[3]) {
+			last.push_back(curve[i][0]);
+			last.push_back(curve[i][1]);
+			last.push_back(curve[i][2]);
+			indexLast = i;
+			break;
+		}
+	}
+	double temp;
+	if (indexLast < indexFirst) {
+		temp = indexLast;
+		indexLast = indexFirst;
+		indexFirst = temp;
+	} 
+
+	std::vector<std::vector<double> > loop;
+	// parts that are inside;
+	for (int i = indexFirst; i <= indexLast; i++) {
+		std::vector<double> point;
+		point.push_back(curve[i][0]);
+		point.push_back(curve[i][1]);
+		point.push_back(curve[i][2]);
+	}
+	// parts on the bounding box;
+
+	
+
+}
+
 // local main function for testing
 
 int main(int argc, char **argv) {
+	srand(time(NULL));
 	std::cout << "here in main: " << std::endl;
 	std::cout << "length of torus: " << csc.size() << std::endl;
 	makeTorus();
+	makeBoundingBox();
 	std::cout << "length of torus: " << csc.size() << std::endl;
-	test_AL();
+	//test_AL();
+	std::vector<std::vector<double> > circle;
+	int numStep = 50;
+	double step = 2*M_PI / 50;
+	double radius = 3;
+	for (int i = 0; i < numStep; i++) {
+		std::vector<double> point;
+		point.push_back(3 + radius * sin(i*step) * cos(M_PI/6));
+		point.push_back(radius * cos(i*step));
+		point.push_back(radius * sin(i*step) * sin(M_PI/6) + 6);
+		// point.push_back(3+radius*cos(i*step));
+		// point.push_back(radius*sin(i*step));
+		// point.push_back(3);
+		circle.push_back(point);
+	}
 
+	std::vector<double> normal;
 
+	normal = findDirection(circle);
+	std::vector<std::vector<double> > projected;
+	projected = findProjection(circle, normal);
+	std::vector<std::vector<double> > testCurve;
+
+	for (int i = 0; i < 30; i++) {
+		std::vector<double> point;
+		point.push_back(0);
+		point.push_back(0);
+		point.push_back(i);
+
+		testCurve.push_back(point);
+	}
+	// findProjection(testCurve, normal);
+
+	completeLoop(testCurve);
 }

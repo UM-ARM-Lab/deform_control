@@ -5,7 +5,7 @@
 #include <cmath>
 
 std::vector<std::vector<double> > csc; // representing closed-space-curve;
-
+std::vector<double> boundingBox;
 void makeTorus() {
 
 	double radius = 2;
@@ -25,6 +25,15 @@ void makeTorus() {
 	csc.push_back(position);
 	}
 
+}
+
+void makeBoundingBox() {
+	// center of a circle, x y z
+	boundingBox.push_back(5);
+	boundingBox.push_back(25);
+	boundingBox.push_back(20.5);
+	// radius of the bounding box: circle
+	boundingBox.push_back(3);
 }
 
 
