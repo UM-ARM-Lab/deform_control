@@ -321,6 +321,7 @@ std::vector<std::vector<double> > findProjection (std::vector<std::vector<double
 }
 
 void completeLoop (std::vector<std::vector<double> > curve) {
+	// make sure to use this function, there are at least 2 intersections between bounding box and the curve;
 	std::cout << "in completeLoop!" << std::endl;
 	std::cout << "boundingBox: " << boundingBox[0] << ", " << boundingBox[1] << ", " 
 		<< boundingBox[2] << ", " << boundingBox[3] << std::endl;
@@ -373,10 +374,72 @@ void completeLoop (std::vector<std::vector<double> > curve) {
 		point.push_back(curve[i][0]);
 		point.push_back(curve[i][1]);
 		point.push_back(curve[i][2]);
+
+		loop.push_back(point);
 	}
 	// parts on the bounding box;
 
-	
+	std::vector<double> r1;
+	std::vector<double> r2;
+
+	r1.push_back(curve[indexFirst][0]-boundingBox[0]);
+	r1.push_back(curve[indexFirst][1]-boundingBox[1]);
+	r1.push_back(curve[indexFirst][2]-boundingBox[2]);
+
+	r2.push_back(curve[indexLast][0]-boundingBox[0]);
+	r2.push_back(curve[indexLast][1]-boundingBox[1]);
+	r2.push_back(curve[indexLast][2]-boundingBox[2]);
+	std::cout << "r1: " << r1[0] << ", " << r1[1] << ", " << r1[2] << std::endl;
+	std::cout << "r2: " << r2[0] << ", " << r2[1] << ", " << r2[2] << std::endl;
+	std::vector<double> circleNormal;
+	circleNormal = crossProduct(r1, r2);
+
+	// std::cout << "circleNormal: " << circleNormal[0] << ", " << circleNormal[1] << ",  " << circleNormal[2] << std::endl;
+
+	// if (fabs(circleNormal[0]) < 0.001 && fabs(circleNormal[1]) < 0.001 && fabs(circleNormal[2]) < 0.001) {
+	// 	// colinear
+	// 	// choose any line;
+	// 	std::cout << "colinear: " << std::endl;
+	// 	double step = M_PI / length;
+	// 	double angle1 = atan2(r1[2], r1[1]);
+	// 	double angle2 = atan2(r2[2], r2[1]);
+	// 	if (angle1 > angle2) {
+	// 		double temp = angle2;
+	// 		angle2 = angle1;
+	// 		angle1 = temp;
+	// 	}
+	// 	for (int i = 0; i < length; i++) {
+	// 		std::vector<double> point;
+	// 		point.push_back(boundingBox[0]);
+	// 		point.push_back(boundingBox[1] + boundingBox[3]*cos(angle1+i*step));
+	// 		point.push_back(boundingBox[2] + boundingBox[3]*sin(angle1+i*step));
+	// 		std::cout << "point: " << point[0] << ", " << point[1] << ", " << point[2] << std::endl;
+	// 		loop.push_back(point);
+	// 	}
+
+	// } else {
+		// circleNormal is the normal for the plane for the geodesic;
+		
+
+		double delta1 = asin((r1[2])/boundingBox[3]);
+		double delta2 = asin((r2[2])/boundingBox[3]);
+		double lambda1 = atan2(r1[1], r1[0]);
+		double lambda2 = atan2(r2[1], r2[0]);
+
+		double stepD = (delta2-delta1) / length;
+		double stepL = (lambda2-lambda1) / length;
+		for (int i = 0; i < length; i++) {
+			std::vector<double> point;
+			point.push_back(boundingBox[0] + boundingBox[3] * cos(lambda1 + i*stepL) * cos(delta1 + i*stepD));
+			point.push_back(boundingBox[1] + boundingBox[3] * sin(lambda1 + i*stepL) * cos(delta1 + i*stepD));
+			point.push_back(boundingBox[2] + boundingBox[3] * sin(delta1 + i*stepD));
+
+
+
+			loop.push_back(point);
+		}
+
+	// }
 
 }
 
@@ -414,9 +477,9 @@ int main(int argc, char **argv) {
 
 	for (int i = 0; i < 30; i++) {
 		std::vector<double> point;
-		point.push_back(0);
-		point.push_back(0);
-		point.push_back(i);
+		point.push_back(5);
+		point.push_back(25);
+		point.push_back(i+15);
 
 		testCurve.push_back(point);
 	}

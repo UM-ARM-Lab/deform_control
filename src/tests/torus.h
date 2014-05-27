@@ -33,7 +33,7 @@ void makeBoundingBox() {
 	boundingBox.push_back(25);
 	boundingBox.push_back(20.5);
 	// radius of the bounding box: circle
-	boundingBox.push_back(3);
+	boundingBox.push_back(5);
 }
 
 
