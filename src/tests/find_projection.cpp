@@ -320,11 +320,9 @@ std::vector<std::vector<double> > findProjection (std::vector<std::vector<double
 
 }
 
-void completeLoop (std::vector<std::vector<double> > curve) {
+std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> > curve) {
 	// make sure to use this function, there are at least 2 intersections between bounding box and the curve;
-	std::cout << "in completeLoop!" << std::endl;
-	std::cout << "boundingBox: " << boundingBox[0] << ", " << boundingBox[1] << ", " 
-		<< boundingBox[2] << ", " << boundingBox[3] << std::endl;
+	
 
 
 	// At current stage, assume all bounding box are spheres;
@@ -389,10 +387,9 @@ void completeLoop (std::vector<std::vector<double> > curve) {
 	r2.push_back(curve[indexLast][0]-boundingBox[0]);
 	r2.push_back(curve[indexLast][1]-boundingBox[1]);
 	r2.push_back(curve[indexLast][2]-boundingBox[2]);
-	std::cout << "r1: " << r1[0] << ", " << r1[1] << ", " << r1[2] << std::endl;
-	std::cout << "r2: " << r2[0] << ", " << r2[1] << ", " << r2[2] << std::endl;
-	std::vector<double> circleNormal;
-	circleNormal = crossProduct(r1, r2);
+
+	// std::vector<double> circleNormal;
+	// circleNormal = crossProduct(r1, r2);
 
 	// std::cout << "circleNormal: " << circleNormal[0] << ", " << circleNormal[1] << ",  " << circleNormal[2] << std::endl;
 
@@ -440,7 +437,187 @@ void completeLoop (std::vector<std::vector<double> > curve) {
 		}
 
 	// }
+	return loop;
+}
 
+int numIntersection (std::vector<std::vector<double> > curve) {
+	bool inSide = false;
+	int count = 0;
+	double d = 0;
+	for (int i = 0; i < curve.size(); i++) {
+		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) + 
+				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) + 
+				(curve[i][2]-boundingBox[2])*(curve[i][2]-boundingBox[2]));
+		if (inSide) {
+			if (d > boundingBox[3]) {
+				inSide = false;
+				count ++;
+			}
+		} else {
+			if (d <= boundingBox[3]) {
+				inSide = true;
+				count ++;
+			}
+		}
+	}
+	return count;
+}
+
+bool HopfLink (std::vector<std::vector<double> > curve1, std::vector<std::vector<double> > curve2) {
+
+	std::vector<bool> sequence;
+	double x1c = 0, y1c = 0, x2c = 0, y2c = 0, s1c = 0, s2c = 0;
+	double x1n = 0, y1n = 0, x2n = 0, y2n = 0, s1n = 0, s2n = 0;
+	for (int i = 0; i < curve1.size(); i++) {
+		x1c = curve1[i][0];
+		y1c = curve1[i][1];
+		s1c = curve1[i][2];
+		if (i == curve1.size()-1) {
+			x1n = curve1[0][0];
+			y1n = curve1[0][1];
+			s1n = curve1[0][2];
+		} else {
+			x1n = curve1[i+1][0];
+			y1n = curve1[i+1][1];
+			s1n = curve1[i+1][2];
+		}
+
+		for (int j = 0; j < curve2.size(); j++) {
+			x2c = curve2[i][0];
+			y2c = curve2[i][1];
+			s2c = curve2[i][2];
+			if (j == curve2.size()) {
+				x2n = curve2[0][0];
+				y2n = curve2[0][1];
+				s2n = curve2[0][2];
+			} else {
+				x2n = curve2[i+1][0];
+				y2n = curve2[i+1][1];
+				s2n = curve2[i+1][2];
+			}
+
+			if (!lineSegmentIntersect(x1c, y1c, x1n, y1n, x2c, y2c, x2n, y2n)) {
+				continue;
+			}
+			if (s1c+s1n < s2c+s2n) {
+				sequence.push_back(true);
+			} else {
+				sequence.push_back(false);
+			}
+		}
+	}
+	// now have the crossing sequence;
+	// detect;
+	if (sequence.size() % 2 != 0 || sequence.size() == 0) {
+		return false;
+	} 
+	// do a concatination, if the length is > 0, then true, else false;
+	// use erase function
+	bool del = true;
+	while (del) {
+		del = false;
+		for (int i = 0; i < sequence.size(); i++) {
+			if (i == sequence.size()-1) {
+				break;
+			}
+			if (sequence[i] == sequence[i+1]) {
+				sequence.erase(sequence.begin()+i);
+				sequence.erase(sequence.begin()+i+1);
+				del = true;
+			}
+		}
+	}
+	if (sequence.size() > 0) {
+		return true;
+	} 
+	return false;
+	
+}
+
+bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n, double x2c, double y2c, double x2n, double y2n) {
+
+	double a1 = 0, b1 = 0, a2 = 0, b2 = 0;
+	double x, y;
+	if (x1c == x1n) {
+		if (x2c == x2n) {
+			if (x2c == x2n) {
+				if (overlap(y1c, y1n, y2c, y2n)) {
+					return true;
+				}
+				return false;
+			} else {
+				return false;
+			}
+		} else {
+			a2 = (y2c-y2n) / (x2c-x2n);
+			b2 = y2c - a2 * x2c;
+			x = x1c;
+			y = a2 * x + b2;
+			if (inRange(x, x2c, x2n) && inRange(y, y2c, y2n)) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+	} else {
+		a1 = (y1c-y1n) / (x1c-x1n);
+		b1 = y1c - a1 * x1c;
+		a2 = (y2c-y2n) / (x2c-x2n);
+		b2 = y2c - a2 * x2c;
+		if (a1 == a2) {
+			if (b1 == b2) {
+				return true;
+			} else {
+				return false;
+			}
+		} else {
+			x = (b2-b1) / (a1-a2);
+			y = a1 * x + b1;
+			if (inRange(x, x1c, x1n) && inRange(y, y1c, y1n) && inRange(x, x2c, x2n) && inRange(y, y2c, y2n)) {
+				return true;
+			} else {
+				return false;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool inRange (double x, double a, double b) {
+	double small, big;
+	if (a < b) {
+		small = a;
+		big = b;
+	} else {
+		small = b;
+		big = a;
+	}
+
+	if (small <= x && x <= big) {
+		return true;
+	}
+	return false;
+}
+
+bool overlap (double a1, double b1, double a2, double b2) {
+	double small, big;
+	if (a1 < b1) {
+		small = a1;
+		big = b1;
+	} else {
+		small = b1;
+		big = a1;
+	}
+	if ((small <= a2 && a2 <= big) || (small <= b2 && b2 <= big)) {
+		return true;
+	} else {
+		if ((a2 <= small && big <= b2) || (b2 <= small && big <= a2)) {
+			return true;
+		}
+		return false;
+	}
+	return false;
 }
 
 // local main function for testing
@@ -484,6 +661,18 @@ int main(int argc, char **argv) {
 		testCurve.push_back(point);
 	}
 	// findProjection(testCurve, normal);
+	std::vector<std::vector<double> > loop;
+	loop = completeLoop(testCurve);
 
-	completeLoop(testCurve);
+	int result = numIntersection(testCurve);
+	std::cout << "num of intersections: " << result << std::endl;
+
+	std::vector<std::vector<double> > really;
+	really = findProjection(testCurve, normal);
+	// for (int i = 0; i < really.size(); i++) {
+	// 	std::cout << "on projected: " << really[i][0] << ", " << really[i][1] << ", " << really[i][2] << std::endl;
+	// }
+
+	bool r = HopfLink(really, projected);
+	std::cout << "r: " << r << std::endl;
 }
