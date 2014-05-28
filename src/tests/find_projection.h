@@ -20,7 +20,7 @@ std::vector<double> BiotSavart(std::vector<double> point,
 
 std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v);
 
-std::vector<double> findDirection (std::vector<std::vector<double> > curve);
+std::vector<std::vector<double> > findDirection (std::vector<std::vector<double> > curve);
 
 std::vector<std::vector<double> > findProjection (std::vector<std::vector<double> > curve, 
 	std::vector<double> normal);
@@ -41,11 +41,13 @@ bool inRange (double x, double a, double b);
 int findLastIntersection (std::vector<std::vector<double> > curve);
 
 // find the points of comparison when only 1 intersection;
-std::vector<std::vector<double> > findPoints (std::vector<std::vector<double> > curve1, std::vector<std::vector<double> > curve2);
+bool findPoints (std::vector<std::vector<double> > curve, std::vector<double> center);
 
 // another function to test if two points are on the same side;
 
 //
+
+bool threaded (std::vector<std::vector<double> > curve);
 
 // when inside, switch to another control strategy: let the tip follow the magnetic force;
 // when stuck, release, follow new strategy, let the new gripping point follow the magnetic force;
