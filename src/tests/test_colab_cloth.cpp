@@ -1,5 +1,5 @@
 #include "colab_cloth.h"
-
+#include "find_projection.h"
 
 
 void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec)
@@ -920,7 +920,7 @@ void CustomScene::doJTracking()
             torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
             torusX = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
             torusZ = o->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-            
+
             distanceGT = sqrt((torusX-gripperX)*(torusX-gripperX) + 
                 (torusY-gripperY)*(torusY-gripperY) + (torusZ-gripperZ)*(torusZ-gripperZ));
 
@@ -2327,6 +2327,7 @@ void CustomScene::makeRopeWorld()
     vector<btVector3> row3;
     vector<btVector3> row4;
     double xc, yc, zc;
+    // make the torus smaller, make it a annulas
     for (int i = 0; i < numOfRow; i++) {
         for (int j = 0; j < numOfColumn; j++) {
             zc = ( torusRadius + 2* torusHeight * cos( (-1 + 2*(float)i/numOfRow) * M_PI ) ) * cos( (-1 + 2*(float)j/numOfColumn) * M_PI );
