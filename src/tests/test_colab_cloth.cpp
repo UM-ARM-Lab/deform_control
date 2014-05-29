@@ -935,16 +935,17 @@ void CustomScene::doJTracking()
             pointOnTorusY = (torusRadius / distanceGT) * (gripperY - torusY) + torusY;
             pointOnTorusZ = (torusRadius / distanceGT) * (gripperZ - torusZ) + torusZ;
 
+            
             distanceToTorus = sqrt((pointOnTorusY-gripperY)*(pointOnTorusY-gripperY) + 
                 (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ) + 
                 (torusX-gripperX)*(torusX-gripperX));
-
-
-            py = (torusHeight/distanceToTorus) * (gripperY-pointOnTorusY) + pointOnTorusY;
+            py = ((torusHeight-0.5)/distanceToTorus) * (gripperY-pointOnTorusY) + pointOnTorusY;
             px = (torusHeight/distanceToTorus) * (gripperX-torusX) + torusX;
             pz = (torusHeight/distanceToTorus) * (gripperZ-pointOnTorusZ) + pointOnTorusZ;
 
-            
+            distanceToTorus = sqrt((py-gripperY)*(py-gripperY) + 
+                (pz-gripperZ)*(pz-gripperZ) + 
+                (px-gripperX)*(px-gripperX));
 
             // gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
             // // m_transformA: world configuration of the gripper
@@ -964,8 +965,9 @@ void CustomScene::doJTracking()
                         (anotherRadius/distanceToTorus)*(torusX-gripperX)+gripperX, 
                         (anotherRadius/distanceToTorus)*(pointOnTorusY-gripperY)+gripperY, 
                         (anotherRadius/distanceToTorus)*(pointOnTorusZ-gripperZ)+gripperZ); 
-                    distanceToTorus -= (anotherRadius+torusHeight);
-                    distanceToTorus -= 0.3;
+                    // distanceToTorus -= (anotherRadius+torusHeight);
+                    distanceToTorus -= 0.33;
+                    std::cout << "distance now: " << distanceToTorus << std::endl;
                     btVector3 startPt = btVector3(px, py, pz);
                     
 
@@ -1278,7 +1280,7 @@ void CustomScene::doJTracking()
         Eigen::MatrixXf Jpinv= pinv(J.transpose()*J)*J.transpose();
 
 #ifdef ROPE
-        float k2 = 10;
+        float k2 = 10.0;
 #else
         float k2 = 100;
 #endif
@@ -2315,7 +2317,7 @@ void CustomScene::makeRopeWorld()
     int numOfColumn = 20;
     int numOfRow = 4; 
     torusRadius = 2;
-    torusHeight = 0.7;
+    torusHeight = 0.75;
     
     centerX = 5;
     centerY = 5;
@@ -2333,14 +2335,14 @@ void CustomScene::makeRopeWorld()
             zc = ( torusRadius + 2* torusHeight * cos( (-1 + 2*(float)i/numOfRow) * M_PI ) ) * cos( (-1 + 2*(float)j/numOfColumn) * M_PI );
             xc = ( torusRadius + 2* torusHeight * cos( (-1 + 2*(float)i/numOfRow) * M_PI ) ) * sin( (-1 + 2*(float)j/numOfColumn) * M_PI );
             yc = torusHeight * sin( (-1 + 2*(float)i/numOfRow) * M_PI );
-            
+            cout << "circle: " << xc << ", " << yc << ", " << zc << std::endl;
             if (i == 0) {
                 //column 1, in the middle
                 row1.push_back(btVector3(xc, yc, zc));
             }
             if (i == 1) {
                 // column 2, in the middle
-                row2.push_back(btVector3(xc, yc, zc));
+                row2.push_back(btVector3(xc, yc+0.5, zc));
             }
             if (i == 2) {
                 // column 3, on top;
@@ -2348,7 +2350,7 @@ void CustomScene::makeRopeWorld()
             }
             if (i == 3) {
                 // column 4, on bottom;
-                row4.push_back(btVector3(xc, yc, zc));
+                row4.push_back(btVector3(xc, yc-0.5, zc));
             }
         }
     }
@@ -2418,9 +2420,9 @@ void CustomScene::makeRopeWorld()
 
         if(i == 0)
         {
-            childindex = 2;
-            gripper_closestobjectnodeind[i] = 2;
-            gripperPosition[0] = 2;
+            childindex = 1;
+            gripper_closestobjectnodeind[i] = 1;
+            gripperPosition[0] = 1;
             
             cur_gripper = left_gripper1;
         }

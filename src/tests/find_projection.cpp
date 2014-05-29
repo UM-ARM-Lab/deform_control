@@ -181,6 +181,9 @@ std::vector<std::vector<double> > findDirection (std::vector<std::vector<double>
 	// center[2] = center[2] + (rand()/(RAND_MAX+1.0)) * 3 - 1.5;
 
 	// noise
+	// center[0] = 0.2;
+	// center[1] = 0;
+	// center[2] = 3;
 
 
 	double difference = 1000;
@@ -205,9 +208,9 @@ std::vector<std::vector<double> > findDirection (std::vector<std::vector<double>
 		result[1] = result[1] / normValue;
 		result[2] = result[2] / normValue;
 
-		next[0] = center[0] + result[0];
-		next[1] = center[1] + result[1];
-		next[2] = center[2] + result[2];
+		next[0] = center[0] + result[0]/3;
+		next[1] = center[1] + result[1]/3;
+		next[2] = center[2] + result[2]/3;
 
 		step = BiotSavart(next, curve);
 		normStep = sqrt(step[0]*step[0]+step[1]*step[1]+step[2]*step[2]);
@@ -218,15 +221,20 @@ std::vector<std::vector<double> > findDirection (std::vector<std::vector<double>
 		difference = sqrt((result[0]-step[0])*(result[0]-step[0]) + 
 							(result[1]-step[1])*(result[1]-step[1]) + 
 							(result[2]-step[2])*(result[2]-step[2]));
-		center[0] = next[0] - step[0];
-		center[1] = next[1] - step[1];
-		center[2] = next[2] - step[2];
+
+		
+
+		center[0] = next[0] - step[0]/3;
+		center[1] = next[1] - step[1]/3;
+		center[2] = next[2] - step[2]/3;
 		point[0] = result[0];
 		point[1] = result[1];
 		point[2] = result[2];
 		result.clear();
 		step.clear();
 		count += 1;
+		// std::cout << "difference: " << difference << std::endl;
+		// std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
 	}
 	std::cout << "after all: " << count << std::endl;
 	// center[0] = result[0];
@@ -797,61 +805,113 @@ int main(int argc, char **argv) {
 	std::cout << "length of torus: " << csc.size() << std::endl;
 	makeTorus();
 	makeBoundingBox();
-	std::cout << "length of torus: " << csc.size() << std::endl;
-	//test_AL();
-	std::vector<std::vector<double> > circle;
-	int numStep = 50;
-	double step = 2*M_PI / 50;
-	double radius = 3;
-	for (int i = 0; i < numStep; i++) {
+	// std::cout << "length of torus: " << csc.size() << std::endl;
+	// //test_AL();
+	// std::vector<std::vector<double> > circle;
+	// int numStep = 50;
+	// double step = 2*M_PI / 50;
+	// double radius = 3;
+	// for (int i = 0; i < numStep; i++) {
+	// 	std::vector<double> point;
+	// 	point.push_back(3 + radius * sin(i*step) * cos(M_PI/6));
+	// 	point.push_back(radius * cos(i*step));
+	// 	point.push_back(radius * sin(i*step) * sin(M_PI/6) + 6);
+	// 	// point.push_back(3+radius*cos(i*step));
+	// 	// point.push_back(radius*sin(i*step));
+	// 	// point.push_back(3);
+	// 	circle.push_back(point);
+	// }
+
+	// std::vector<std::vector<double> > normalRelated;
+	// normalRelated = findDirection(csc);
+	// std::vector<double> normal;
+	// std::vector<double> center;
+	// normal = normalRelated[0];
+	// std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << normal[2] << std::endl;
+	// center = normalRelated[1];
+	// std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
+	// std::vector<std::vector<double> > projected;
+	// projected = findProjection(circle, normal);
+	// std::vector<std::vector<double> > testCurve;
+
+	// for (int i = 0; i < 30; i++) {
+	// 	std::vector<double> point;
+	// 	point.push_back(4);
+	// 	point.push_back(25);
+	// 	point.push_back(i+15);
+
+	// 	testCurve.push_back(point);
+	// }
+	// // findProjection(testCurve, normal);
+	// std::vector<std::vector<double> > loop;
+	// loop = completeLoop(testCurve);
+
+	// int result = numIntersection(testCurve);
+	// std::cout << "num of intersections: " << result << std::endl;
+
+	// std::vector<std::vector<double> > really;
+	// really = findProjection(testCurve, normal);
+	// // for (int i = 0; i < really.size(); i++) {
+	// // 	std::cout << "on projected: " << really[i][0] << ", " << really[i][1] << ", " << really[i][2] << std::endl;
+	// // }
+
+	// // bool r = HopfLink(really, projected);
+	// // std::cout << "r: " << r << std::endl;
+	// // bool p = findPoints(testCurve, center);
+	// // std::cout << "p: " << p << ", " << false << std::endl;
+
+	// bool k = threaded(testCurve);
+	// std::cout << "k: " << k << std::endl;
+
+	std::vector<std::vector<double> > concaveTest;
+	double start = 7 * M_PI / 3;
+	double end = 2 * M_PI / 3;
+	double step = (start - end) / 30;
+	double current = start;
+	while (current >= end) {
 		std::vector<double> point;
-		point.push_back(3 + radius * sin(i*step) * cos(M_PI/6));
-		point.push_back(radius * cos(i*step));
-		point.push_back(radius * sin(i*step) * sin(M_PI/6) + 6);
-		// point.push_back(3+radius*cos(i*step));
-		// point.push_back(radius*sin(i*step));
-		// point.push_back(3);
-		circle.push_back(point);
+		point.push_back(4 * cos(current));
+		point.push_back(4 * sin(current));
+		point.push_back(3);
+
+		concaveTest.push_back(point);
+
+		current -= step;
 	}
 
+	std::vector<double> a;
+	a.push_back(-1.3);
+	a.push_back(1.6*sqrt(3));
+	a.push_back(3);
+
+	concaveTest.push_back(a);
+
+	start = 2*M_PI/3;
+	end = 7*M_PI/3;
+	current = start;
+	while (current <= end) {
+		std::vector<double> point;
+		point.push_back(2 * cos(current));
+		point.push_back(2 * sin(current));
+		point.push_back(3);
+
+		concaveTest.push_back(point);
+
+		current += step;
+	}
+
+	a[0] = 1.3;
+	a[1] = 1.6*sqrt(3);
+
+	concaveTest.push_back(a);
+
+	std::cout << "finish the concave curve" << std::endl;
 	std::vector<std::vector<double> > normalRelated;
-	normalRelated = findDirection(csc);
 	std::vector<double> normal;
 	std::vector<double> center;
+	normalRelated = findDirection(concaveTest);
 	normal = normalRelated[0];
 	std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << normal[2] << std::endl;
 	center = normalRelated[1];
 	std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
-	std::vector<std::vector<double> > projected;
-	projected = findProjection(circle, normal);
-	std::vector<std::vector<double> > testCurve;
-
-	for (int i = 0; i < 30; i++) {
-		std::vector<double> point;
-		point.push_back(4);
-		point.push_back(25);
-		point.push_back(i+15);
-
-		testCurve.push_back(point);
-	}
-	// findProjection(testCurve, normal);
-	std::vector<std::vector<double> > loop;
-	loop = completeLoop(testCurve);
-
-	int result = numIntersection(testCurve);
-	std::cout << "num of intersections: " << result << std::endl;
-
-	std::vector<std::vector<double> > really;
-	really = findProjection(testCurve, normal);
-	// for (int i = 0; i < really.size(); i++) {
-	// 	std::cout << "on projected: " << really[i][0] << ", " << really[i][1] << ", " << really[i][2] << std::endl;
-	// }
-
-	// bool r = HopfLink(really, projected);
-	// std::cout << "r: " << r << std::endl;
-	// bool p = findPoints(testCurve, center);
-	// std::cout << "p: " << p << ", " << false << std::endl;
-
-	bool k = threaded(testCurve);
-	std::cout << "k: " << k << std::endl;
 }
