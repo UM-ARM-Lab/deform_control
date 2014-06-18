@@ -53,4 +53,10 @@ bool threaded (std::vector<std::vector<double> > curve);
 // when stuck, release, follow new strategy, let the new gripping point follow the magnetic force;
 // regrasp
 
+std::vector<std::vector<double> > findSurface (std::vector<std::vector<double> > curve, std::vector<double> direction);
+
+std::vector<std::vector<double> > findConvexSection (std::vector<std::vector<double> > curve);
+
+std::vector<double> findSurfacePoint(std::vector<std::vector<double> > curve, double x, double y, double min, double max);
+
 #endif
