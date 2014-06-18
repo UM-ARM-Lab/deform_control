@@ -939,8 +939,8 @@ void CustomScene::doJTracking()
             distanceToTorus = sqrt((pointOnTorusY-gripperY)*(pointOnTorusY-gripperY) + 
                 (pointOnTorusZ-gripperZ)*(pointOnTorusZ-gripperZ) + 
                 (torusX-gripperX)*(torusX-gripperX));
-            py = ((torusHeight-0.5)/distanceToTorus) * (gripperY-pointOnTorusY) + pointOnTorusY;
-            px = (torusHeight/distanceToTorus) * (gripperX-torusX) + torusX;
+            py = (torusHeight/distanceToTorus) * (gripperY-pointOnTorusY) + pointOnTorusY;
+            px = ((torusHeight-0.5)/distanceToTorus) * (gripperX-torusX) + torusX;
             pz = (torusHeight/distanceToTorus) * (gripperZ-pointOnTorusZ) + pointOnTorusZ;
 
             distanceToTorus = sqrt((py-gripperY)*(py-gripperY) + 
@@ -966,7 +966,7 @@ void CustomScene::doJTracking()
                         (anotherRadius/distanceToTorus)*(pointOnTorusY-gripperY)+gripperY, 
                         (anotherRadius/distanceToTorus)*(pointOnTorusZ-gripperZ)+gripperZ); 
                     // distanceToTorus -= (anotherRadius+torusHeight);
-                    distanceToTorus -= 0.33;
+                    distanceToTorus -= 0.36;
                     std::cout << "distance now: " << distanceToTorus << std::endl;
                     btVector3 startPt = btVector3(px, py, pz);
                     
@@ -2317,7 +2317,7 @@ void CustomScene::makeRopeWorld()
     int numOfColumn = 20;
     int numOfRow = 4; 
     torusRadius = 2;
-    torusHeight = 0.75;
+    torusHeight = 0.8;
     
     centerX = 5;
     centerY = 5;
