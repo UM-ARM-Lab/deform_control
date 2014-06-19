@@ -142,6 +142,8 @@ std::vector<double> BiotSavart(std::vector<double> point, std::vector<std::vecto
 		result[0] += (temp[0]-temp1[0]) / normd;
 		result[1] += (temp[1]-temp1[1]) / normd;
 		result[2] += (temp[2]-temp1[2]) / normd;
+		// std::cout << "force: " << i << ", " << sij[0] << ", " << sij[1] << ", " << sij[2] << ", " << (temp[0]-temp1[0]) / normd << ", " 
+		// 	<< (temp[1]-temp1[1]) / normd << ", " << (temp[2]-temp1[2]) / normd << std::endl;
 		temp.clear();
 		temp1.clear();
 	}
@@ -807,13 +809,17 @@ std::vector<double> findSurfacePoint(std::vector<std::vector<double> > curve, do
 	test.push_back(y);
 	test.push_back(min);
 
-	double step = 0.01;
-
+	double step = 0.005;
+	double normV = 0;
 	double current = min;
 	while (current <= max) {
 		test[2] = current;
 		std::vector<double> result;
 		result = BiotSavart(test, curve);
+		normV = sqrt(result[0]*result[0] + result[1]*result[1] + result[2]*result[2]);
+		result[0] = result[0] / normV;
+		result[1] = result[1] / normV;
+		result[2] = result[2] / normV;
 		std::cout << "result in: " << result[0] << ", " << result[1] << ", " << result[2] << std::endl;
 
 		if (fabs(result[0]) < 0.1 && fabs(result[1]) < 0.1) {
@@ -970,13 +976,13 @@ int main(int argc, char **argv) {
 		point.push_back(2 * sin(i*step));
 
 		if (i >= 0 && i < 7) {
-			height = 1 - i*(1/7);
+			height = 1 - i*(1.0/7);
 		} else if (i >= 7 && i < 14) {
-			height = (i-7) * (1/7);
+			height = (i-7) * (1.0/7);
 		} else if (i >= 14 && i < 21) {
-			height = 1 - (i-14)*(1/7);
+			height = 1 - (i-14)*(1.0/7);
 		} else {
-			height = (i-21)*(1/7);
+			height = (i-21)*(1.0/7);
 		}
 
 		point.push_back(height);
@@ -985,13 +991,13 @@ int main(int argc, char **argv) {
 	}
 	std::vector<double> testPoint;
 	testPoint.push_back(1);
-	testPoint.push_back(0);
-	testPoint.push_back(6.1/7);
+	testPoint.push_back(0.1);
+	testPoint.push_back(5.2/7);
 	std::vector<double> result;
 	result = BiotSavart(testPoint, curve);
-	std::cout << "result: " << result[0] << ", " << result[1] << ", " << result[2] << std::endl;
+	// std::cout << "result: " << result[0] << ", " << result[1] << ", " << result[2] << std::endl;
 
 	std::vector<double> newResult;
-	newResult = findSurfacePoint(curve, 1, 0, -3, 8);
+	newResult = findSurfacePoint(curve, 1, 1, -3, 3);
 	std::cout << "result: " << newResult[0] << ", " << newResult[1] << ", " << newResult[2] << std::endl;
 }
