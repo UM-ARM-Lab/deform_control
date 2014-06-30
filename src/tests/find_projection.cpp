@@ -145,6 +145,8 @@ std::vector<double> BiotSavart(std::vector<double> point,
 		result[0] += (temp[0]-temp1[0]) / normd;
 		result[1] += (temp[1]-temp1[1]) / normd;
 		result[2] += (temp[2]-temp1[2]) / normd;
+		// std::cout << "force: " << i << ", " << sij[0] << ", " << sij[1] << ", " << sij[2] << ", " << (temp[0]-temp1[0]) / normd << ", " 
+		// 	<< (temp[1]-temp1[1]) / normd << ", " << (temp[2]-temp1[2]) / normd << std::endl;
 		temp.clear();
 		temp1.clear();
 	}
@@ -1062,7 +1064,19 @@ int circleCurveIntersection(std::vector<std::vector<double> > curve,
 }
 
 
+
 // local main function for testing
+
+std::vector<std::vector<double> > findSurface (std::vector<std::vector<double> > curve, std::vector<double> direction) {
+	// for every point on the surface, the magnetic force is parallel to the direction vector;
+
+	// The problem is, how to find all the points? 
+	// only work on projections are not sufficient, since some of the surface points may pack up on the projected area;
+
+
+}
+
+std::vector<std::vector<double> > findConvexSection (std::vector<std::vector<double> > curve);
 
 int main(int argc, char **argv) {
 	srand(time(NULL));
@@ -1131,47 +1145,88 @@ int main(int argc, char **argv) {
 	// bool k = threaded(testCurve);
 	// std::cout << "k: " << k << std::endl;
 
-	std::vector<std::vector<double> > concaveTest;
-	double start = 7 * M_PI / 3;
-	double end = 2 * M_PI / 3;
-	double step = (start - end) / 30;
-	double current = start;
-	while (current >= end) {
+	// std::vector<std::vector<double> > concaveTest;
+	// double start = 7 * M_PI / 3;
+	// double end = 2 * M_PI / 3;
+	// double step = (start - end) / 30;
+	// double current = start;
+	// while (current >= end) {
+	// 	std::vector<double> point;
+	// 	point.push_back(4 * cos(current));
+	// 	point.push_back(4 * sin(current));
+	// 	point.push_back(3);
+
+	// 	concaveTest.push_back(point);
+
+	// 	current -= step;
+	// }
+
+	// std::vector<double> a;
+	// a.push_back(-1.3);
+	// a.push_back(1.6*sqrt(3));
+	// a.push_back(3);
+
+	// concaveTest.push_back(a);
+
+	// start = 2*M_PI/3;
+	// end = 7*M_PI/3;
+	// current = start;
+	// while (current <= end) {
+	// 	std::vector<double> point;
+	// 	point.push_back(2 * cos(current));
+	// 	point.push_back(2 * sin(current));
+	// 	point.push_back(3);
+
+	// 	concaveTest.push_back(point);
+
+	// 	current += step;
+	// }
+
+	// a[0] = 1.3;
+	// a[1] = 1.6*sqrt(3);
+
+	// concaveTest.push_back(a);
+
+	// std::cout << "finish the concave curve" << std::endl;
+	// std::vector<std::vector<double> > normalRelated;
+	// std::vector<double> normal;
+	// std::vector<double> center;
+	// normalRelated = findDirection(concaveTest);
+	// normal = normalRelated[0];
+	// std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << normal[2] << std::endl;
+	// center = normalRelated[1];
+	// std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
+
+	std::vector<std::vector<double> > curve;
+	double step = 2*M_PI / 28;
+	double height = 0;
+	for (int i = 0; i < 28; i++) {
 		std::vector<double> point;
-		point.push_back(4 * cos(current));
-		point.push_back(4 * sin(current));
-		point.push_back(3);
 
-		concaveTest.push_back(point);
+		point.push_back(2 * cos(i*step));
+		point.push_back(2 * sin(i*step));
 
-		current -= step;
+		if (i >= 0 && i < 7) {
+			height = 1 - i*(1.0/7);
+		} else if (i >= 7 && i < 14) {
+			height = (i-7) * (1.0/7);
+		} else if (i >= 14 && i < 21) {
+			height = 1 - (i-14)*(1.0/7);
+		} else {
+			height = (i-21)*(1.0/7);
+		}
+
+		point.push_back(height);
+
+		curve.push_back(point);
 	}
+	std::vector<double> testPoint;
+	testPoint.push_back(1);
+	testPoint.push_back(0.1);
+	testPoint.push_back(5.2/7);
+	std::vector<double> result;
+	result = BiotSavart(testPoint, curve);
 
-	std::vector<double> a;
-	a.push_back(-1.3);
-	a.push_back(1.6*sqrt(3));
-	a.push_back(3);
-
-	concaveTest.push_back(a);
-
-	start = 2*M_PI/3;
-	end = 7*M_PI/3;
-	current = start;
-	while (current <= end) {
-		std::vector<double> point;
-		point.push_back(2 * cos(current));
-		point.push_back(2 * sin(current));
-		point.push_back(3);
-
-		concaveTest.push_back(point);
-
-		current += step;
-	}
-
-	a[0] = 1.3;
-	a[1] = 1.6*sqrt(3);
-
-	concaveTest.push_back(a);
 
 	std::cout << "finish the concave curve" << std::endl;
 	std::vector<std::vector<double> > normalRelated;
@@ -1184,4 +1239,5 @@ int main(int argc, char **argv) {
 	center = normalRelated[1];
 	std::cout << "center: " << center[0] << ", " << center[1] << ", " << 
 			center[2] << std::endl;
+
 }

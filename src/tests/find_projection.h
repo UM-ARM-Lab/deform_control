@@ -56,6 +56,7 @@ bool threaded (std::vector<std::vector<double> > curve);
 // the magnetic force;
 // regrasp
 
+
 std::vector<double> findLargestCircle(std::vector<std::vector<double> > curve);
 
 double findIntersection(std::vector<std::vector<double> > curve, 
@@ -64,5 +65,6 @@ double findIntersection(std::vector<std::vector<double> > curve,
 
 int circleCurveIntersection(std::vector<std::vector<double> > curve, 
 							std::vector<double> circle);
+
 
 #endif
