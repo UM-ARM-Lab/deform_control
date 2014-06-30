@@ -53,8 +53,10 @@ double test_AL() {
 	}
 
 	// for (int i = 0; i < numPoints; i++) {
-	// 	std::cout << "circle " << i << ": " << circle[i][0] << ", " << circle[i][1] << ", " << circle[i][2] << std::endl;
-	// 	std::cout << "rope " << i << ": " << rope[i][0] << ", " << rope[i][1] << ", " << rope[i][2] << std::endl;
+	// 	std::cout << "circle " << i << ": " << circle[i][0] << ", " << 
+	// circle[i][1] << ", " << circle[i][2] << std::endl;
+	// 	std::cout << "rope " << i << ": " << rope[i][0] << ", " << 
+	// rope[i][1] << ", " << rope[i][2] << std::endl;
 	// }
 
 
@@ -64,7 +66,8 @@ double test_AL() {
 
 }
 
-std::vector<double> BiotSavart(std::vector<double> point, std::vector<std::vector<double> > curve) {
+std::vector<double> BiotSavart(std::vector<double> point, 
+		std::vector<std::vector<double> > curve) {
 	std::vector<double> d;
 	std::vector<double> p;
 	std::vector<double> pp;
@@ -234,7 +237,8 @@ std::vector<std::vector<double> > findDirection (std::vector<std::vector<double>
 		step.clear();
 		count += 1;
 		// std::cout << "difference: " << difference << std::endl;
-		// std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
+		// std::cout << "center: " << center[0] << ", " << center[1] << ", " << 
+		// center[2] << std::endl;
 	}
 	std::cout << "after all: " << count << std::endl;
 	// center[0] = result[0];
@@ -340,7 +344,8 @@ std::vector<std::vector<double> > findProjection (std::vector<std::vector<double
 }
 
 std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> > curve) {
-	// make sure to use this function, there are at least 2 intersections between bounding box and the curve;
+	// make sure to use this function, there are at least 2 intersections 
+	// between bounding box and the curve;
 	
 
 
@@ -410,9 +415,11 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 	// std::vector<double> circleNormal;
 	// circleNormal = crossProduct(r1, r2);
 
-	// std::cout << "circleNormal: " << circleNormal[0] << ", " << circleNormal[1] << ",  " << circleNormal[2] << std::endl;
+	// std::cout << "circleNormal: " << circleNormal[0] << ", " << circleNormal[1] 
+	// << ",  " << circleNormal[2] << std::endl;
 
-	// if (fabs(circleNormal[0]) < 0.001 && fabs(circleNormal[1]) < 0.001 && fabs(circleNormal[2]) < 0.001) {
+	// if (fabs(circleNormal[0]) < 0.001 && fabs(circleNormal[1]) < 0.001 && 
+	// fabs(circleNormal[2]) < 0.001) {
 	// 	// colinear
 	// 	// choose any line;
 	// 	std::cout << "colinear: " << std::endl;
@@ -429,7 +436,8 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 	// 		point.push_back(boundingBox[0]);
 	// 		point.push_back(boundingBox[1] + boundingBox[3]*cos(angle1+i*step));
 	// 		point.push_back(boundingBox[2] + boundingBox[3]*sin(angle1+i*step));
-	// 		std::cout << "point: " << point[0] << ", " << point[1] << ", " << point[2] << std::endl;
+	// 		std::cout << "point: " << point[0] << ", " << point[1] << ", " << 
+	// 		point[2] << std::endl;
 	// 		loop.push_back(point);
 	// 	}
 
@@ -446,8 +454,10 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 		double stepL = (lambda2-lambda1) / length;
 		for (int i = 0; i < length; i++) {
 			std::vector<double> point;
-			point.push_back(boundingBox[0] + boundingBox[3] * cos(lambda1 + i*stepL) * cos(delta1 + i*stepD));
-			point.push_back(boundingBox[1] + boundingBox[3] * sin(lambda1 + i*stepL) * cos(delta1 + i*stepD));
+			point.push_back(boundingBox[0] + 
+				boundingBox[3] * cos(lambda1 + i*stepL) * cos(delta1 + i*stepD));
+			point.push_back(boundingBox[1] + 
+				boundingBox[3] * sin(lambda1 + i*stepL) * cos(delta1 + i*stepD));
 			point.push_back(boundingBox[2] + boundingBox[3] * sin(delta1 + i*stepD));
 
 
@@ -482,7 +492,8 @@ int numIntersection (std::vector<std::vector<double> > curve) {
 	return count;
 }
 
-bool HopfLink (std::vector<std::vector<double> > curve1, std::vector<std::vector<double> > curve2) {
+bool HopfLink (std::vector<std::vector<double> > curve1, 
+	std::vector<std::vector<double> > curve2) {
 
 	std::vector<bool> sequence;
 	double x1c = 0, y1c = 0, x2c = 0, y2c = 0, s1c = 0, s2c = 0;
@@ -557,7 +568,8 @@ bool HopfLink (std::vector<std::vector<double> > curve1, std::vector<std::vector
 	
 }
 
-bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n, double x2c, double y2c, double x2n, double y2n) {
+bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n, 
+							double x2c, double y2c, double x2n, double y2n) {
 
 	double a1 = 0, b1 = 0, a2 = 0, b2 = 0;
 	double x, y;
@@ -596,7 +608,8 @@ bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n, doubl
 		} else {
 			x = (b2-b1) / (a1-a2);
 			y = a1 * x + b1;
-			if (inRange(x, x1c, x1n) && inRange(y, y1c, y1n) && inRange(x, x2c, x2n) && inRange(y, y2c, y2n)) {
+			if (inRange(x, x1c, x1n) && inRange(y, y1c, y1n) && 
+				inRange(x, x2c, x2n) && inRange(y, y2c, y2n)) {
 				return true;
 			} else {
 				return false;
@@ -797,6 +810,258 @@ bool threaded (std::vector<std::vector<double> > curve) {
 
 }
 
+std::vector<double> findLargestCircle(std::vector<std::vector<double> > curve) {
+	// use the idea of a rolling circle to find the largest circle in a projected curve;
+
+
+	// current manually setting this, but should set it as global or pass in;
+	double delta = 0.1;
+
+	// This is the starting point; contains the x and y coordinate of s(t);
+	std::vector<double> current;
+	current.push_back(curve[0][0]);
+	current.push_back(curve[0][1]);
+
+	// derivate s'(t);
+	std::vector<double> stprime;
+	stprime.push_back(0);
+	stprime.push_back(0);
+
+	// Do I need to normalize? 
+	stprime[0] = curve[1][0] - curve[0][0];
+	stprime[1] = curve[1][1] - curve[0][1];
+
+	double dmax = 0;
+	// this function is to find the line perpendicular to stprime;
+	// and find the other intersection with the curve;
+	// and calculate the distance between them;
+	dmax = findIntersection(curve, stprime, current);
+	if (dmax < 0) {
+			std::cout << "error: " << dmax << std::endl;
+		}
+	std::vector<double> circle;
+	circle.push_back(0);
+	circle.push_back(0);
+	circle.push_back(0);	
+
+	circle[2] = dmax / 2;
+	circle[0] = circle[2] * cos(atan2(stprime[1], stprime[0])+M_PI/2) + current[0];
+	circle[1] = circle[2] * sin(atan2(stprime[1], stprime[0])+M_PI/2) + current[1];
+
+	int num = 0;
+	num = circleCurveIntersection(curve, circle);
+
+	while (num > 2) {
+		circle[2] -= delta;
+		circle[0] = circle[2] * cos(atan2(stprime[1], stprime[0])+M_PI/2) + current[0];
+		circle[1] = circle[2] * sin(atan2(stprime[1], stprime[0])+M_PI/2) + current[1];
+
+		num = circleCurveIntersection(curve, circle);
+
+	}
+	double dt = 0;
+	std::vector<double> circleFinal;
+	circleFinal.push_back(circle[0]);
+	circleFinal.push_back(circle[1]);
+	circleFinal.push_back(circle[2]);
+	for (int i = 1; i < curve.size(); i++) {
+		current[0] = curve[i][0];
+		current[1] = curve[i][1];
+		if (i == curve.size() - 1) {
+			stprime[0] = curve[0][0] - curve[i][0];
+			stprime[1] = curve[0][1] - curve[i][1];
+		} else {
+			stprime[0] = curve[i+1][0] - curve[i][0];
+			stprime[1] = curve[i+1][1] - curve[i][1];
+		}
+
+		dt = findIntersection(curve, stprime, current);
+		if (dt < 0) {
+			std::cout << "error: " << dt << std::endl;
+		}
+		if (dt <= 2*circleFinal[2]) {
+			continue;
+		}
+
+		circle[2] = dt / 2;
+		circle[0] = circle[2] * cos(atan2(stprime[1], stprime[0])+M_PI/2) + current[0];
+		circle[1] = circle[2] * sin(atan2(stprime[1], stprime[0])+M_PI/2) + current[1];
+
+		num = circleCurveIntersection(curve, circle);
+
+		while (num > 2 and circle[2] >= circleFinal[2]) {
+			circle[2] -= delta;
+			circle[0] = circle[2] * cos(atan2(stprime[1], stprime[0])+M_PI/2) + current[0];
+			circle[1] = circle[2] * sin(atan2(stprime[1], stprime[0])+M_PI/2) + current[1];
+
+			num = circleCurveIntersection(curve, circle);
+		}
+
+		if (circle[2] > circleFinal[2]) {
+			circleFinal[2] = circle[2];
+			circleFinal[0] = circle[0];
+			circleFinal[1] = circle[1];
+		}
+
+	}
+
+	return circleFinal;
+}
+
+double findIntersection(std::vector<std::vector<double> > curve, 
+						std::vector<double> derivate, 
+						std::vector<double> point) {
+
+	double angle = atan2(derivate[1], derivate[0]);
+	double xi, yi, xj, yj;
+	double a, b;
+	if (fabs(derivate[0]) < 0.0001) {
+		// line is perpendicular: y = ?
+		for (int i = 0; i < curve.size(); i++) {
+			xi = curve[i][0];
+			yi = curve[i][1];
+			if (i == curve.size()-1) {
+				xj = curve[0][0];
+				yj = curve[0][1];
+			} else {
+				xj = curve[i+1][0];
+				yj = curve[i+1][1];
+			} 
+
+			if (inRange(point[1], yi, yj)) {
+				if (fabs(xi-xj) < 0.0001) {
+					return fabs(xi - point[0]);
+				} else if (fabs(yi-yj) < 0.0001) {
+					if (fabs(xi-point[0]) < fabs(xj-point[0])) {
+						return fabs(xi-point[0]); 
+					} else {
+						return fabs(xj-point[0]);
+					}
+				} else {
+					a = (yj-yi) / (xj-xi);
+					b = yi-a*xi;
+					return fabs((point[1]-(yi-a*xi))/a - point[0]);
+				}
+			} else {
+				continue;
+			}
+
+		}
+	} else if (fabs(derivate[1] < 0.0001)) {
+		// line is horizontal: x = ?
+		for (int i = 0; i < curve.size(); i++) {
+			xi = curve[i][0];
+			yi = curve[i][1];
+			if (i == curve.size()-1) {
+				xj = curve[0][0];
+				yj = curve[0][1];
+			} else {
+				xj = curve[i+1][0];
+				yj = curve[i+1][1];
+			} 
+
+			if (inRange(point[0], xi, xj)) {
+				if (fabs(xi-xj) < 0.0001) {
+					if (fabs(yi-point[1]) < fabs(yj-point[1])) {
+						return fabs(yi-point[1]);
+					} else {
+						return fabs(yj-point[1]);
+					}
+				} else if (fabs(yi-yj) < 0.0001) {
+					return fabs(yi-point[1]);
+				} else {
+					a = (yj-yi) / (xj-xi);
+					b = yi - a*xi;
+					return fabs((a*point[0]+b) - point[1]);
+				}
+			} else {
+				continue;
+			}
+		}
+	} else {
+		double a1 = tan(angle+M_PI/2);
+		double b1 = point[1] - a*point[0];
+		double intx, inty;
+		for (int i = 0; i < curve.size(); i++) {
+			xi = curve[i][0];
+			yi = curve[i][1];
+			if (i == curve.size()-1) {
+				xj = curve[0][0];
+				yj = curve[0][1];
+			} else {
+				xj = curve[i+1][0];
+				yj = curve[i+1][1];
+			} 
+
+			if (fabs(xi-xj) < 0.0001) {
+				intx = xi;
+				inty = a1*xi + b1;
+				return sqrt((intx-point[0])*(intx-point[0]) + 
+							(inty-point[1])*(inty-point[1])); 
+			} else if (fabs(yi-yj) < 0.0001) {
+				inty = yi;
+				intx = (yi-b1) / a1;
+				return sqrt((intx-point[0])*(intx-point[0]) + 
+							(inty-point[1])*(inty-point[1]));
+			} else {
+				a = (yj-yi) / (xj-xi);
+				b = yi - a*xi;
+
+				intx = (b-b1) / (a1-a);
+				inty = a*intx + b;
+				if (inRange(intx, xi, xj)) {
+					return sqrt((intx-point[0])*(intx-point[0]) + 
+							(inty-point[1])*(inty-point[1]));
+				} else {
+					continue;
+				}
+			}
+
+		}
+	}
+	return -1;
+}
+
+int circleCurveIntersection(std::vector<std::vector<double> > curve, 
+							std::vector<double> circle) {
+	double d = 0;
+	int count = 0;
+	double stepx = 0, stepy = 0;
+	double xi, yi, xj, yj;
+	double xc = circle[0], yc = circle[1];
+	double r = circle[2];
+	int numStep = 20;
+	double currentx, currenty;
+	for (int i = 0; i < curve.size(); i++) {
+		xi = curve[i][0];
+		yi = curve[i][1];
+		if(i == curve.size() - 1) {
+			xj = curve[0][0];
+			yj = curve[0][1];
+		} else {
+			xj = curve[i+1][0];
+			yj = curve[i+1][1];
+		}
+
+		stepx = (xj-xi) / numStep;
+		stepy = (yj-yi) / numStep;
+
+		currentx = xi;
+		currenty = yi;
+		while (currentx <= xj) {
+			d = sqrt((xc-currentx)*(xc-currentx) + (yc-currenty)*(yc-currenty));
+			if (d < r) {
+				count += 1;
+			}
+			currentx += stepx;
+			currenty += stepy;
+		}
+
+	}
+	return count;
+}
+
+
 // local main function for testing
 
 int main(int argc, char **argv) {
@@ -827,9 +1092,11 @@ int main(int argc, char **argv) {
 	// std::vector<double> normal;
 	// std::vector<double> center;
 	// normal = normalRelated[0];
-	// std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << normal[2] << std::endl;
+	// std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << 
+	// normal[2] << std::endl;
 	// center = normalRelated[1];
-	// std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
+	// std::cout << "center: " << center[0] << ", " << center[1] << ", " << 
+	// center[2] << std::endl;
 	// std::vector<std::vector<double> > projected;
 	// projected = findProjection(circle, normal);
 	// std::vector<std::vector<double> > testCurve;
@@ -852,7 +1119,8 @@ int main(int argc, char **argv) {
 	// std::vector<std::vector<double> > really;
 	// really = findProjection(testCurve, normal);
 	// // for (int i = 0; i < really.size(); i++) {
-	// // 	std::cout << "on projected: " << really[i][0] << ", " << really[i][1] << ", " << really[i][2] << std::endl;
+	// // 	std::cout << "on projected: " << really[i][0] << ", " << 
+	// really[i][1] << ", " << really[i][2] << std::endl;
 	// // }
 
 	// // bool r = HopfLink(really, projected);
@@ -911,7 +1179,9 @@ int main(int argc, char **argv) {
 	std::vector<double> center;
 	normalRelated = findDirection(concaveTest);
 	normal = normalRelated[0];
-	std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << normal[2] << std::endl;
+	std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << 
+			normal[2] << std::endl;
 	center = normalRelated[1];
-	std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
+	std::cout << "center: " << center[0] << ", " << center[1] << ", " << 
+			center[2] << std::endl;
 }

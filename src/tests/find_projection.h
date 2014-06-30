@@ -29,9 +29,11 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 
 int numIntersection (std::vector<std::vector<double> > curve);
 
-bool HopfLink (std::vector<std::vector<double> > curve1, std::vector<std::vector<double> > curve2);
+bool HopfLink (std::vector<std::vector<double> > curve1, 
+				std::vector<std::vector<double> > curve2);
 
-bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n, double x2c, double y2c, double x2n, double y2n);
+bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n, 
+							double x2c, double y2c, double x2n, double y2n);
 
 bool overlap (double a1, double b1, double a2, double b2);
 
@@ -50,7 +52,17 @@ bool findPoints (std::vector<std::vector<double> > curve, std::vector<double> ce
 bool threaded (std::vector<std::vector<double> > curve);
 
 // when inside, switch to another control strategy: let the tip follow the magnetic force;
-// when stuck, release, follow new strategy, let the new gripping point follow the magnetic force;
+// when stuck, release, follow new strategy, let the new gripping point follow 
+// the magnetic force;
 // regrasp
+
+std::vector<double> findLargestCircle(std::vector<std::vector<double> > curve);
+
+double findIntersection(std::vector<std::vector<double> > curve, 
+						std::vector<double> derivate, 
+						std::vector<double> point);
+
+int circleCurveIntersection(std::vector<std::vector<double> > curve, 
+							std::vector<double> circle);
 
 #endif
