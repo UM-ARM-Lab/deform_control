@@ -530,6 +530,13 @@ public:
     double A, B, C, alpha, beta;
     vector<bool> attached;
 
+    // define the function to find the circle to use, and 
+    // find the vector to follow;
+    // This vector is only for the tip of the rope;
+    std::vector<double> findDirection (double x, double y, double z);
+    std::vector<double> BiotSavart(std::vector<double> point, 
+        std::vector<std::vector<double> > curve);
+    std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v);
 #ifdef USE_PR2
         CustomScene() : pr2m(*this){
 #else

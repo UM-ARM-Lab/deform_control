@@ -1,6 +1,5 @@
 #include "colab_cloth.h"
-#include "find_projection.h"
-
+#include "vectorField.h"
 
 void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec)
 {
@@ -829,7 +828,193 @@ int CustomScene::getNumDeformableObjectNodes()
 
 }
 
+std::vector<double> CustomScene::findDirection (double x, double y, double z) {
+    std::vector<double> direction;
+    direction.push_back(0);
+    direction.push_back(0);
+    direction.push_back(0);
 
+    // std::cout << "number of circles: " << circles.size() << std::endl;
+    // std::cout << "circle dimension: " << circles[0].size() << std::endl;
+
+    // first, find the closest circle;
+    std::vector<double> closestCircle;
+    closestCircle.push_back(0);
+    closestCircle.push_back(0);
+    closestCircle.push_back(0);
+    closestCircle.push_back(0);
+    std::vector<double> normalDirection;
+    normalDirection.push_back(0);
+    normalDirection.push_back(0);
+    normalDirection.push_back(0);
+
+    double distance;
+    double minDist = 1000;
+
+    for (int i = 0; i < circles.size(); i++) {
+
+        distance = sqrt((circles[i][0]-x)*(circles[i][0]-x) +
+                        (circles[i][1]-y)*(circles[i][1]-y) + 
+                        (circles[i][2]-z)*(circles[i][2]-z));
+        if (distance < minDist) {
+            minDist = distance;
+            closestCircle[0] = circles[i][0];
+            closestCircle[1] = circles[i][1];
+            closestCircle[2] = circles[i][2];
+            closestCircle[3] = circles[i][3];
+            normalDirection[0] = circles[i][4];
+            normalDirection[1] = circles[i][5];
+            normalDirection[2] = circles[i][6];
+        }
+    }
+
+    // found the closest circle;
+
+    // need to sample the circles to build the vector field;
+
+    double start = 0;
+    double end = 2*M_PI;
+    int numStep = 30;
+    double step = end / numStep;
+    double a = normalDirection[0], b = normalDirection[1], c = normalDirection[2], d = 0;
+    d = -a*closestCircle[0] - b*closestCircle[1] - c*closestCircle[2];
+
+    // here skip this finding direction step;
+
+    // will find time to work it out. 
+    std::vector<std::vector<double> > points;
+    for (double i = start; i <= end; i+= step) {
+        std::vector<double> point;
+
+        point.push_back(closestCircle[0]+closestCircle[3]*cos(i));
+        point.push_back(closestCircle[1]);
+        point.push_back(closestCircle[2]+closestCircle[3]*sin(i));
+
+        points.push_back(point);
+    }
+    std::cout << "closestCircle: " << closestCircle[0] << ", " <<
+                    closestCircle[1] << ", " << closestCircle[2] << 
+                    closestCircle[3] << std::endl;
+    // find the force direction on x, y, z; use as direction;
+
+    std::vector<double> p;
+    p.push_back(x);
+    p.push_back(y);
+    p.push_back(z);
+
+    std::vector<double> result;
+    result = BiotSavart(p, points);
+    std::cout << "result: " << result.size() << std::endl;
+    direction[0] = result[0];
+    direction[1] = result[1];
+    direction[2] = result[2];
+    std::cout << "direction: " << direction[0] << ", " << direction[1] << ", "
+                << direction[2] << std::endl;
+
+
+    // the direction is wrong, especially when the tip is through the torus;
+    // Find out why;
+    
+    return direction;
+}
+
+std::vector<double> CustomScene::crossProduct (std::vector<double> u, std::vector<double> v) {
+    std::vector<double> result;
+    result.push_back(u[1]*v[2]-u[2]*v[1]);
+    result.push_back(u[2]*v[0]-u[0]*v[2]);
+    result.push_back(u[0]*v[1]-u[1]*v[0]);
+    
+    return result;
+}
+
+std::vector<double> CustomScene::BiotSavart(std::vector<double> point, 
+        std::vector<std::vector<double> > curve) {
+    std::vector<double> d;
+    std::vector<double> p;
+    std::vector<double> pp;
+    std::vector<double> result;
+
+    result.push_back(0);
+    result.push_back(0);
+    result.push_back(0);
+
+    d.push_back(0);
+    d.push_back(0);
+    d.push_back(0);
+
+    p.push_back(0);
+    p.push_back(0);
+    p.push_back(0);
+
+    pp.push_back(0);
+    pp.push_back(0);
+    pp.push_back(0);
+
+    std::vector<double> current;
+    std::vector<double> next;
+    std::vector<double> sij;
+
+    sij.push_back(0);
+    sij.push_back(0);
+    sij.push_back(0);
+
+    double normij = 0;
+    double normd = 0;
+    double normp = 0;
+    double normpp = 0;
+
+    for(int i = 0; i < curve.size(); i++) {
+        current = curve[i];
+        if (i == curve.size()-1) {
+            next = curve[0];
+        } else {
+            next = curve[i+1];
+        }
+
+        p[0] = current[0]-point[0];
+        p[1] = current[1]-point[1];
+        p[2] = current[2]-point[2];
+
+        pp[0] = next[0]-point[0];
+        pp[1] = next[1]-point[1];
+        pp[2] = next[2]-point[2];
+
+        sij[0] = next[0]-current[0];
+        sij[1] = next[1]-current[1];
+        sij[2] = next[2]-current[2];
+
+        normij = sij[0]*sij[0] + sij[1]*sij[1] + sij[2]*sij[2];
+        std::vector<double> temp;
+        temp = crossProduct(sij, crossProduct(p, pp));
+        d[0] = temp[0] / normij;
+        d[1] = temp[1] / normij;
+        d[2] = temp[2] / normij;
+        temp.clear();
+        normd = d[0]*d[0] + d[1]*d[1] + d[2]*d[2];
+        normpp = sqrt(pp[0]*pp[0]+pp[1]*pp[1]+pp[2]*pp[2]);
+        normp = sqrt(p[0]*p[0]+p[1]*p[1]+p[2]*p[2]);
+        temp = crossProduct(d, pp);
+        temp[0] = temp[0] / normpp;
+        temp[1] = temp[1] / normpp;
+        temp[2] = temp[2] / normpp;
+        std::vector<double> temp1;
+        temp1 = crossProduct(d, p);
+
+        temp1[0] = temp1[0] / normp;
+        temp1[1] = temp1[1] / normp;
+        temp1[2] = temp1[2] / normp;
+        result[0] += (temp[0]-temp1[0]) / normd;
+        result[1] += (temp[1]-temp1[1]) / normd;
+        result[2] += (temp[2]-temp1[2]) / normd;
+        // std::cout << "force: " << i << ", " << sij[0] << ", " << sij[1] << ", " << sij[2] << ", " << (temp[0]-temp1[0]) / normd << ", " 
+        //  << (temp[1]-temp1[1]) / normd << ", " << (temp[2]-temp1[2]) / normd << std::endl;
+        temp.clear();
+        temp1.clear();
+    }
+
+    return result;
+
+}
 
 //this is getting called before the step loop
 void CustomScene::doJTracking()
@@ -967,7 +1152,7 @@ void CustomScene::doJTracking()
                         (anotherRadius/distanceToTorus)*(pointOnTorusZ-gripperZ)+gripperZ); 
                     // distanceToTorus -= (anotherRadius+torusHeight);
                     distanceToTorus -= 0.36;
-                    std::cout << "distance now: " << distanceToTorus << std::endl;
+                    // std::cout << "distance now: " << distanceToTorus << std::endl;
                     btVector3 startPt = btVector3(px, py, pz);
                     
 
@@ -1047,7 +1232,7 @@ void CustomScene::doJTracking()
     // change the number of points covering;
     // and change the points we are comparing to
     // for example, only try to use the first two capsules to cover points;
-
+    std::vector<double> direction;
     while(bTracking)
     {
         for(int i = 0; i < numnodes*3;i++)
@@ -1101,6 +1286,15 @@ void CustomScene::doJTracking()
         std::vector<btVector3> rot_line_pnts;
         std::vector<btVector4> plot_cols;
 
+        // Here is the area where you set the targets;
+
+        // should call findDirection;
+        std::cout << "location: " << filtered_new_nodes[0][0] << ", " << 
+                                    filtered_new_nodes[0][1] << ", " << 
+                                    filtered_new_nodes[0][2] << std::endl;
+        direction = findDirection(filtered_new_nodes[0][0], 
+                                    filtered_new_nodes[0][1], 
+                                    filtered_new_nodes[0][2]);
         // the target only concerns this for loop;
         // if we change the format to, for example, only two points, and only considering the first 3 capsules;
         // that would be ok;
@@ -2209,7 +2403,7 @@ void CustomScene::makeRopeWorld()
     float segment_len = .025;
     const float table_height = .7;
     const float table_thickness = .05;
-
+    findCircles();
     // originall was 50 links
     int nLinks = 30;
 
@@ -2317,7 +2511,7 @@ void CustomScene::makeRopeWorld()
     int numOfColumn = 20;
     int numOfRow = 4; 
     torusRadius = 2;
-    torusHeight = 0.8;
+    torusHeight = 0.6;
     
     centerX = 5;
     centerY = 5;
@@ -2335,7 +2529,7 @@ void CustomScene::makeRopeWorld()
             zc = ( torusRadius + 2* torusHeight * cos( (-1 + 2*(float)i/numOfRow) * M_PI ) ) * cos( (-1 + 2*(float)j/numOfColumn) * M_PI );
             xc = ( torusRadius + 2* torusHeight * cos( (-1 + 2*(float)i/numOfRow) * M_PI ) ) * sin( (-1 + 2*(float)j/numOfColumn) * M_PI );
             yc = torusHeight * sin( (-1 + 2*(float)i/numOfRow) * M_PI );
-            cout << "circle: " << xc << ", " << yc << ", " << zc << std::endl;
+            //cout << "circle: " << xc << ", " << yc << ", " << zc << std::endl;
             if (i == 0) {
                 //column 1, in the middle
                 row1.push_back(btVector3(xc, yc, zc));
