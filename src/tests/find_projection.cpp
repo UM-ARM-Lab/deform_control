@@ -1080,164 +1080,41 @@ std::vector<std::vector<double> > findConvexSection (std::vector<std::vector<dou
 
 int main(int argc, char **argv) {
 	srand(time(NULL));
-	std::cout << "here in main: " << std::endl;
-	std::cout << "length of torus: " << csc.size() << std::endl;
-	makeTorus();
-	makeBoundingBox();
-	// std::cout << "length of torus: " << csc.size() << std::endl;
-	// //test_AL();
-	// std::vector<std::vector<double> > circle;
-	// int numStep = 50;
-	// double step = 2*M_PI / 50;
-	// double radius = 3;
-	// for (int i = 0; i < numStep; i++) {
-	// 	std::vector<double> point;
-	// 	point.push_back(3 + radius * sin(i*step) * cos(M_PI/6));
-	// 	point.push_back(radius * cos(i*step));
-	// 	point.push_back(radius * sin(i*step) * sin(M_PI/6) + 6);
-	// 	// point.push_back(3+radius*cos(i*step));
-	// 	// point.push_back(radius*sin(i*step));
-	// 	// point.push_back(3);
-	// 	circle.push_back(point);
-	// }
+	std::vector<std::vector<double> > points;
+	std::vector<double> closestCircle;
+	closestCircle.push_back(25);
+	closestCircle.push_back(2);
+	closestCircle.push_back(20.5);
+	closestCircle.push_back(0.81);
+	// 25, 6, 20.5
+	double start = 0;
+    double end = 2*M_PI;
+    int numStep = 30;
+    double step = end / numStep;
 
-	// std::vector<std::vector<double> > normalRelated;
-	// normalRelated = findDirection(csc);
-	// std::vector<double> normal;
-	// std::vector<double> center;
-	// normal = normalRelated[0];
-	// std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << 
-	// normal[2] << std::endl;
-	// center = normalRelated[1];
-	// std::cout << "center: " << center[0] << ", " << center[1] << ", " << 
-	// center[2] << std::endl;
-	// std::vector<std::vector<double> > projected;
-	// projected = findProjection(circle, normal);
-	// std::vector<std::vector<double> > testCurve;
+	for (double i = start; i <= end; i+= step) {
+        std::vector<double> point;
 
-	// for (int i = 0; i < 30; i++) {
-	// 	std::vector<double> point;
-	// 	point.push_back(4);
-	// 	point.push_back(25);
-	// 	point.push_back(i+15);
+        point.push_back(closestCircle[0]+closestCircle[3]*cos(i));
+        point.push_back(closestCircle[1]);
+        point.push_back(closestCircle[2]+closestCircle[3]*sin(i));
+        std::cout << "points: " << i << " " << closestCircle[0]+closestCircle[3]*cos(i) 
+                    << ", " << closestCircle[1] << ", " << 
+                    closestCircle[2]+closestCircle[3]*sin(i) << std::endl;
+        points.push_back(point);
+    }
+    double x = 24.9997, y = 1.761, z = 20.3;
+    std::vector<double> p;
+    p.push_back(x);
+    p.push_back(y);
+    p.push_back(z);
 
-	// 	testCurve.push_back(point);
-	// }
-	// // findProjection(testCurve, normal);
-	// std::vector<std::vector<double> > loop;
-	// loop = completeLoop(testCurve);
+    std::vector<double> result;
+    result = BiotSavart(p, points);
+    std::cout << "result: " << result.size() << std::endl;
+    
+    std::cout << "direction: " << result[0] << ", " << result[1] << ", "
+                << result[2] << std::endl;
 
-	// int result = numIntersection(testCurve);
-	// std::cout << "num of intersections: " << result << std::endl;
-
-	// std::vector<std::vector<double> > really;
-	// really = findProjection(testCurve, normal);
-	// // for (int i = 0; i < really.size(); i++) {
-	// // 	std::cout << "on projected: " << really[i][0] << ", " << 
-	// really[i][1] << ", " << really[i][2] << std::endl;
-	// // }
-
-	// // bool r = HopfLink(really, projected);
-	// // std::cout << "r: " << r << std::endl;
-	// // bool p = findPoints(testCurve, center);
-	// // std::cout << "p: " << p << ", " << false << std::endl;
-
-	// bool k = threaded(testCurve);
-	// std::cout << "k: " << k << std::endl;
-
-	// std::vector<std::vector<double> > concaveTest;
-	// double start = 7 * M_PI / 3;
-	// double end = 2 * M_PI / 3;
-	// double step = (start - end) / 30;
-	// double current = start;
-	// while (current >= end) {
-	// 	std::vector<double> point;
-	// 	point.push_back(4 * cos(current));
-	// 	point.push_back(4 * sin(current));
-	// 	point.push_back(3);
-
-	// 	concaveTest.push_back(point);
-
-	// 	current -= step;
-	// }
-
-	// std::vector<double> a;
-	// a.push_back(-1.3);
-	// a.push_back(1.6*sqrt(3));
-	// a.push_back(3);
-
-	// concaveTest.push_back(a);
-
-	// start = 2*M_PI/3;
-	// end = 7*M_PI/3;
-	// current = start;
-	// while (current <= end) {
-	// 	std::vector<double> point;
-	// 	point.push_back(2 * cos(current));
-	// 	point.push_back(2 * sin(current));
-	// 	point.push_back(3);
-
-	// 	concaveTest.push_back(point);
-
-	// 	current += step;
-	// }
-
-	// a[0] = 1.3;
-	// a[1] = 1.6*sqrt(3);
-
-	// concaveTest.push_back(a);
-
-	// std::cout << "finish the concave curve" << std::endl;
-	// std::vector<std::vector<double> > normalRelated;
-	// std::vector<double> normal;
-	// std::vector<double> center;
-	// normalRelated = findDirection(concaveTest);
-	// normal = normalRelated[0];
-	// std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << normal[2] << std::endl;
-	// center = normalRelated[1];
-	// std::cout << "center: " << center[0] << ", " << center[1] << ", " << center[2] << std::endl;
-
-	std::vector<std::vector<double> > curve;
-	double step = 2*M_PI / 28;
-	double height = 0;
-	for (int i = 0; i < 28; i++) {
-		std::vector<double> point;
-
-		point.push_back(2 * cos(i*step));
-		point.push_back(2 * sin(i*step));
-
-		if (i >= 0 && i < 7) {
-			height = 1 - i*(1.0/7);
-		} else if (i >= 7 && i < 14) {
-			height = (i-7) * (1.0/7);
-		} else if (i >= 14 && i < 21) {
-			height = 1 - (i-14)*(1.0/7);
-		} else {
-			height = (i-21)*(1.0/7);
-		}
-
-		point.push_back(height);
-
-		curve.push_back(point);
-	}
-	std::vector<double> testPoint;
-	testPoint.push_back(1);
-	testPoint.push_back(0.1);
-	testPoint.push_back(5.2/7);
-	std::vector<double> result;
-	result = BiotSavart(testPoint, curve);
-
-
-	std::cout << "finish the concave curve" << std::endl;
-	std::vector<std::vector<double> > normalRelated;
-	std::vector<double> normal;
-	std::vector<double> center;
-	normalRelated = findDirection(concaveTest);
-	normal = normalRelated[0];
-	std::cout << "normal: " << normal[0] << ", " << normal[1] << ", " << 
-			normal[2] << std::endl;
-	center = normalRelated[1];
-	std::cout << "center: " << center[0] << ", " << center[1] << ", " << 
-			center[2] << std::endl;
 
 }

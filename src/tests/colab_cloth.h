@@ -530,6 +530,7 @@ public:
     double A, B, C, alpha, beta;
     vector<bool> attached;
 
+
     // define the function to find the circle to use, and 
     // find the vector to follow;
     // This vector is only for the tip of the rope;
@@ -580,7 +581,9 @@ public:
     }
     
     void testRelease(GripperKinematicObject::Ptr  gripper_to_detach);
+    void testRelease2(GripperKinematicObject::Ptr  gripper_to_detach);
     void testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach);
+    void testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach);
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
     void createFork();

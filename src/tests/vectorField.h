@@ -34,9 +34,9 @@ void findCircles() {
 		// next parameter is radius;
 
 		if (i == 5) {
-			circle.push_back(0.35);
+			circle.push_back(0.15);
 		} else if (i == 4.5 || i == 5.5) {
-			circle.push_back(0.5);
+			circle.push_back(0.25);
 		} else {
 			circle.push_back(0.81);
 		}

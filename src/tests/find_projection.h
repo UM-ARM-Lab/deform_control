@@ -5,7 +5,8 @@
 #include <iostream>
 #include <cstdlib>
 #include <vector>
-
+#include <cmath>
+#include "torus.h"
 #include <time.h>
 
 std::vector<double> find_projection();
