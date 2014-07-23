@@ -511,6 +511,8 @@ public:
     BoxObject::Ptr table;
     btBvhTriangleMeshShape* shape;
     BulletObject::Ptr o;
+    BulletObject::Ptr o1;
+    BulletObject::Ptr o2;
     double centerX, centerY, centerZ;
     double torusRadius, torusHeight;
     double gripperX;
@@ -534,10 +536,27 @@ public:
     // define the function to find the circle to use, and 
     // find the vector to follow;
     // This vector is only for the tip of the rope;
-    std::vector<double> findDirection (double x, double y, double z);
+    std::vector<double> findDirection (double x, double y, double z, bool tip);
     std::vector<double> BiotSavart(std::vector<double> point, 
         std::vector<std::vector<double> > curve);
     std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v);
+
+    std::vector<std::vector<double> > findCircle(std::vector<double> normal, 
+                                                std::vector<double> center);
+    std::vector<std::vector<double> > findXCircle(std::vector<double> normal, 
+                                                std::vector<double> center);
+    std::vector<std::vector<double> > findYCircle(std::vector<double> normal, 
+                                                std::vector<double> center);
+    std::vector<std::vector<double> > findZCircle(std::vector<double> normal, 
+                                                std::vector<double> center);
+    std::vector<std::vector<double> > findXYCircle(std::vector<double> normal, 
+                                                std::vector<double> center);
+    std::vector<std::vector<double> > findXZCircle(std::vector<double> normal, 
+                                                std::vector<double> center);
+    std::vector<std::vector<double> > findYZCircle(std::vector<double> normal, 
+                                                std::vector<double> center);
+
+
 #ifdef USE_PR2
         CustomScene() : pr2m(*this){
 #else

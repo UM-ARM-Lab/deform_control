@@ -450,7 +450,6 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
             gripper = left_gripper1;
             if (attached[g] == false) {
                 gripper = left_gripper2;
-                std::cout << "I am here!!" << std::endl;
             }
         }
         if(g == 1) {
@@ -829,7 +828,305 @@ int CustomScene::getNumDeformableObjectNodes()
 
 }
 
-std::vector<double> CustomScene::findDirection (double x, double y, double z) {
+std::vector<std::vector<double> > CustomScene::findCircle(std::vector<double> normal, 
+                                            std::vector<double> center) {
+    double x0 = center[0], y0 = center[1], z0 = center[2];
+    double a = normal[0], b = normal[1], c = normal[2];
+
+    if (a == 0 && b == 0) {
+        return findZCircle(normal, center);
+    }
+
+    if (a == 0 && c == 0) {
+        return findYCircle(normal, center);
+    }
+    if (b == 0 && c == 0) {
+        return findXCircle(normal, center);
+    }
+
+    if (a == 0) {
+        return findYZCircle(normal, center);
+    }
+    if (b == 0) {
+        return findXZCircle(normal, center);
+    }
+    if (c == 0) {
+        return findXYCircle(normal, center);
+    }
+
+    double d = -a*x0-b*y0-c*z0;
+    double d1 = sqrt(x0*x0+y0*y0+(z0+d/c)*(z0+d/c));
+    double d2 = sqrt(x0*x0+(y0+d/b)*(y0+d/b)+z0*z0);
+    double d3 = sqrt((x0+d/a)*(x0+d/a)+y0*y0+z0*z0);
+
+    double a11 = -x0/d1;
+    double a21 = -y0/d1;
+    double a31 = -(z0+d/c)/d1;
+
+    double ct1 = (d1*d1+d2*d2-(d/c)*(d/c)-(d/b)*(d/b))/(2*d1*d2);
+    double ct2 = (d1*d1+d3*d3-(d/c)*(d/c)-(d/a)*(d/b))/(2*d1*d3);
+
+    double A = a11*d2*ct1+x0;
+    double B = a21*d2*ct1+y0+d/b;
+    double C = a31*d2*ct1+z0;
+
+    double a12 = A / (d2*sqrt(1-ct1*ct1));
+
+    double a22 = a12 * B / A;
+
+    double a32 = a12 * C / A;
+
+    std::vector<std::vector<double> > points;
+
+    double step = 2*M_PI/30;
+    double start = 0;
+    double end = 2*M_PI;
+    double current = start;
+    double x, y;
+    while (current <= end) {
+        std::vector<double> point;
+        x = cos(current);
+        y = sin(current);
+
+        point.push_back(a11*x + a12*y + x0);
+        point.push_back(a21*x + a22*y + y0);
+        point.push_back(a31*x + a32*y + z0);
+
+        points.push_back(point);
+
+        current += step;
+    }
+
+    return points;
+
+}
+
+std::vector<std::vector<double> > CustomScene::findXCircle(std::vector<double> normal, 
+                                            std::vector<double> center){
+    std::vector<std::vector<double> > points;
+
+    double step = 2*M_PI/30;
+    double start = 0;
+    double end = 2*M_PI;
+    double current = start;
+    double x, y;
+    while (current <= end) {
+        std::vector<double> point;
+        x = cos(current);
+        y = sin(current);
+
+        point.push_back(center[0]);
+        point.push_back(sin(current)+center[1]);
+        point.push_back(cos(current)+center[2]);
+
+        points.push_back(point);
+
+        current += step;
+    }
+    
+
+    return points;
+}
+
+std::vector<std::vector<double> > CustomScene::findYCircle(std::vector<double> normal, 
+                                            std::vector<double> center){
+    std::vector<std::vector<double> > points;
+
+    double step = 2*M_PI/30;
+    double start = 0;
+    double end = 2*M_PI;
+    double current = start;
+    double x, y;
+    while (current <= end) {
+        std::vector<double> point;
+        x = cos(current);
+        y = sin(current);
+
+        point.push_back(cos(current)+center[0]);
+        point.push_back(center[1]);
+        point.push_back(sin(current)+center[2]);
+
+        points.push_back(point);
+
+        current += step;
+    }
+    
+
+    return points;
+}
+
+std::vector<std::vector<double> > CustomScene::findZCircle(std::vector<double> normal, 
+                                            std::vector<double> center){
+    std::vector<std::vector<double> > points;
+
+    double step = 2*M_PI/30;
+    double start = 0;
+    double end = 2*M_PI;
+    double current = start;
+    double x, y;
+    while (current <= end) {
+        std::vector<double> point;
+        x = cos(current);
+        y = sin(current);
+
+        point.push_back(cos(current)+center[0]);
+        point.push_back(sin(current)+center[1]);
+        point.push_back(center[2]);
+
+        points.push_back(point);
+
+        current += step;
+    }
+    
+
+    return points;
+}
+
+std::vector<std::vector<double> > CustomScene::findXYCircle(std::vector<double> normal, 
+                                            std::vector<double> center){
+    double x0 = center[0], y0 = center[1], z0 = center[2];
+    double a = normal[0], b = normal[1], c = normal[2];
+
+    double d = -a*x0-b*y0-c*z0;
+
+    double d1 = sqrt((x0+d/a)*(x0+d/a)+y0*y0+z0*z0);
+    double d2 = sqrt(x0*x0+(y0+d/b)*(y0+d/b)+z0*z0);
+
+    double a11 = (-x0-d/a)/d1;
+    double a21 = -y0/d1;
+    double a31 = -z0/d1;
+
+    double ct1 = (d1*d1+d2*d2-(d/a)*(d/a)-(d/b)*(d/b))/(2*d1*d2);
+
+    double A = a11*d2*ct1+x0;
+    double B = a21*d2*ct1+y0+d/b;
+    double C = a31*d2*ct1+z0;
+
+    double a12 = A / (d2*sqrt(1-ct1*ct1));
+    double a22 = a12 * B / A;
+
+    double a32 = a12 * C / A;
+
+    double step = 2*M_PI/30;
+    double start = 0;
+    double end = 2*M_PI;
+    double current = start;
+    double x, y;
+    std::vector<std::vector<double> > points;
+    while (current <= end) {
+        std::vector<double> point;
+        x = cos(current);
+        y = sin(current);
+
+        point.push_back(a11*x + a12*y + x0);
+        point.push_back(a21*x + a22*y + y0);
+        point.push_back(a31*x + a32*y + z0);
+
+        points.push_back(point);
+
+        current += step;
+    }
+
+    return points;
+}
+
+std::vector<std::vector<double> > CustomScene::findXZCircle(std::vector<double> normal, 
+                                            std::vector<double> center){
+    double x0 = center[0], y0 = center[1], z0 = center[2];
+    double a = normal[0], b = normal[1], c = normal[2];
+
+    double d = -a*x0-b*y0-c*z0;
+
+    double d1 = sqrt(x0*x0+y0*y0+(z0+d/c)*(z0+d/c));
+    double d2 = sqrt((x0+d/a)*(x0+d/a)+y0*y0+z0*z0);
+
+    double a11 = -x0/d1;
+    double a21 = -y0/d1;
+    double a31 = -(z0+d/c)/d1;
+
+    double ct1 = (d1*d1+d2*d2-(d/a)*(d/a)-(d/c)*(d/c)) / (2*d1*d2);
+
+    double A = a11*d2*ct1+x0+d/a;
+    double B = a21*d2*ct1+y0;
+    double C = a31*d2*ct1+z0;
+
+    double a12 = A / (d2*sqrt(1-ct1*ct1));
+    double a22 = a12 * B / A;
+
+    double a32 = a12 * C / A;
+
+    double step = 2*M_PI/30;
+    double start = 0;
+    double end = 2*M_PI;
+    double current = start;
+    double x, y;
+    std::vector<std::vector<double> > points;
+    while (current <= end) {
+        std::vector<double> point;
+        x = cos(current);
+        y = sin(current);
+
+        point.push_back(a11*x + a12*y + x0);
+        point.push_back(a21*x + a22*y + y0);
+        point.push_back(a31*x + a32*y + z0);
+
+        points.push_back(point);
+
+        current += step;
+    }
+
+    return points;
+}
+
+std::vector<std::vector<double> > CustomScene::findYZCircle(std::vector<double> normal, 
+                                            std::vector<double> center){
+    double x0 = center[0], y0 = center[1], z0 = center[2];
+    double a = normal[0], b = normal[1], c = normal[2];
+
+    double d = -a*x0-b*y0-c*z0;
+
+    double d1 = sqrt(x0*x0+y0*y0+(z0+d/c)*(z0+d/c));
+    double d2 = sqrt(x0*x0+(y0+d/b)*(y0+d/b)+z0*z0);
+
+    double a11 = -x0/d1;
+    double a21 = -y0/d1;
+    double a31 = -(z0+d/c)/d1;
+
+    double ct1 = (d1*d1+d2*d2-(d/b)*(d/b)-(d/c)*(d/c)) / (2*d1*d2);
+
+    double A = a11*d2*ct1+x0;
+    double B = a21*d2*ct1+y0+d/b;
+    double C = a31*d2*ct1+z0;
+
+    double a12 = A / (d2*sqrt(1-ct1*ct1));
+    double a22 = a12 * B / A;
+
+    double a32 = a12 * C / A;
+
+    double step = 2*M_PI/30;
+    double start = 0;
+    double end = 2*M_PI;
+    double current = start;
+    double x, y;
+    std::vector<std::vector<double> > points;
+    while (current <= end) {
+        std::vector<double> point;
+        x = cos(current);
+        y = sin(current);
+
+        point.push_back(a11*x + a12*y + x0);
+        point.push_back(a21*x + a22*y + y0);
+        point.push_back(a31*x + a32*y + z0);
+
+        points.push_back(point);
+
+        current += step;
+    }
+
+    return points;
+}
+
+std::vector<double> CustomScene::findDirection (double x, double y, double z, bool tip) {
     std::vector<double> direction;
     direction.push_back(0);
     direction.push_back(0);
@@ -844,6 +1141,7 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z) {
     closestCircle.push_back(0);
     closestCircle.push_back(0);
     closestCircle.push_back(0);
+
     std::vector<double> normalDirection;
     normalDirection.push_back(0);
     normalDirection.push_back(0);
@@ -852,13 +1150,33 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z) {
     double distance;
     double minDist = 1000;
 
-    for (int i = 0; i < circles.size(); i++) {
+    // for (int i = 0; i < circles.size(); i++) {
 
-        distance = sqrt((circles[i][0]-x)*(circles[i][0]-x) +
-                        (circles[i][1]-y)*(circles[i][1]-y) + 
-                        (circles[i][2]-z)*(circles[i][2]-z));
-        if (distance < minDist) {
-            minDist = distance;
+    //     distance = sqrt((circles[i][0]-x)*(circles[i][0]-x) +
+    //                     (circles[i][1]-y)*(circles[i][1]-y) + 
+    //                     (circles[i][2]-z)*(circles[i][2]-z));
+    //     if (distance < minDist) {
+    //         minDist = distance;
+    //         closestCircle[0] = circles[i][0];
+    //         closestCircle[1] = circles[i][1];
+    //         closestCircle[2] = circles[i][2];
+    //         closestCircle[3] = circles[i][3];
+    //         normalDirection[0] = circles[i][4];
+    //         normalDirection[1] = circles[i][5];
+    //         normalDirection[2] = circles[i][6];
+    //     }
+    // }
+ 
+    // detect if penetrated, if yes, then deactive and active next ring;
+    // detect only the tip of the string;
+    // if the tip variable is true, the detect if penetrate;
+    // if the tip variable is false, then do not detect if penetrate;
+    int active;
+    // find current active circle
+    for (int i = 0; i < circles.size(); i++) {
+        if (penetrated[i]) {
+            continue;
+        } else {
             closestCircle[0] = circles[i][0];
             closestCircle[1] = circles[i][1];
             closestCircle[2] = circles[i][2];
@@ -866,8 +1184,58 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z) {
             normalDirection[0] = circles[i][4];
             normalDirection[1] = circles[i][5];
             normalDirection[2] = circles[i][6];
+            active = i;
+            break;
         }
     }
+
+    // detect if penetrate;
+    
+    if (tip) {
+        // penetration detection
+        // 
+        bool penetrate = false;
+
+        // how to detect penetration? 
+        // currently use a hack;
+        if (y >= closestCircle[1] && closestCircle[1] != 5 &&
+                closestCircle[1] != 8 && closestCircle[1] != 11) {
+            penetrate = true;
+            penetrated[active] = true;
+            std::cout << "penetrate: " << 
+            x << ", " << y << ", " << z << ", at circle" <<
+            closestCircle[0] << ", " << closestCircle[1] << ", "
+            << closestCircle[2] << std::endl;
+        } else if (closestCircle[1] == 5 ||
+                closestCircle[1] == 8) {
+            if (y >= closestCircle[1] + 0.8) {
+                penetrate = true;
+                penetrated[active] = true;
+            }
+        } else if (closestCircle[1] == 11) {
+            if (y >= closestCircle[1] + 0.1) {
+                penetrate = true;
+                penetrated[active] = true;
+            }
+        }
+
+        if (penetrate) {
+            active += 1;
+            closestCircle[0] = circles[active][0];
+            closestCircle[1] = circles[active][1];
+            closestCircle[2] = circles[active][2];
+            closestCircle[3] = circles[active][3];
+            normalDirection[0] = circles[active][4];
+            normalDirection[1] = circles[active][5];
+            normalDirection[2] = circles[active][6];
+        }
+    }
+
+    // 
+    std::cout << "using circle: " << active << std::endl;
+
+    
+
 
     // found the closest circle;
 
@@ -881,9 +1249,18 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z) {
     d = -a*closestCircle[0] - b*closestCircle[1] - c*closestCircle[2];
 
     // here skip this finding direction step;
+    // Now, work on this section, use a normal vector (rooted at the center)
+    // to find a circle perpendicular to this plane;
+
+
+    // One critical step is to convert coordinates on the plane to 
+    // 3D vector;
+    
 
     // will find time to work it out. 
     std::vector<std::vector<double> > points;
+    std::vector<double> p;
+    
     for (double i = start; i >= end; i -= step) {
         std::vector<double> point;
 
@@ -900,7 +1277,7 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z) {
     //                 closestCircle[3] << std::endl;
     // find the force direction on x, y, z; use as direction;
 
-    std::vector<double> p;
+    
     p.push_back(x);
     p.push_back(y);
     p.push_back(z);
@@ -908,12 +1285,19 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z) {
     std::vector<double> result;
     result = BiotSavart(p, points);
     // std::cout << "result: " << result.size() << std::endl;
-    direction[0] = result[0];
-    direction[1] = result[1];
-    direction[2] = result[2];
+
+    double norm = 0;
+    norm = sqrt(result[0]*result[0]+result[1]*result[1]+result[2]*result[2]);
+
+    direction[0] = result[0]/norm;
+    direction[1] = result[1]/norm;
+    direction[2] = result[2]/norm;
     // std::cout << "direction: " << direction[0] << ", " << direction[1] << ", "
     //             << direction[2] << std::endl;
 
+    // direction[0] = 0;
+    // direction[1] = 0;
+    // direction[2] = 0;
 
     // the direction is wrong, especially when the tip is through the torus;
     // Find out why;
@@ -1073,7 +1457,13 @@ void CustomScene::doJTracking()
     GripperKinematicObject::Ptr gripper;
     std::vector<float> vclosest_dist(num_auto_grippers);
     
-    
+    // here, use the "closest point" method to determine which torus is the 
+    // closest one, and then active the "collision avoidance" for that object;
+    // such process should be check for both gripper
+
+    double testx, testy, testz;
+    double d1, d2, d3;
+    //
     
     if(obj)
     {
@@ -1107,10 +1497,51 @@ void CustomScene::doJTracking()
                 gripper->getChildren()[1]->rigidBody->getCenterOfMassTransform().getOrigin()[1]) / 2;
             gripperZ = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[2];
 
+            // finding the closest torus;
+
+            testy = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            testx = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            testz = o->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+            d1 = sqrt((gripperX-testx)*(gripperX-testx) + 
+                        (gripperY-testy)*(gripperY-testy) + 
+                        (gripperZ-testz)*(gripperZ-testz));
+
+
+            testy = o1->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            testx = o1->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            testz = o1->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+
+            d2 = sqrt((gripperX-testx)*(gripperX-testx) + 
+                        (gripperY-testy)*(gripperY-testy) + 
+                        (gripperZ-testz)*(gripperZ-testz));
+
+            testy = o2->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            testx = o2->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            testz = o2->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+
+            d3 = sqrt((gripperX-testx)*(gripperX-testx) + 
+                        (gripperY-testy)*(gripperY-testy) + 
+                        (gripperZ-testz)*(gripperZ-testz));
+
             // center of the static torus;
-            torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-            torusX = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-            torusZ = o->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+
+            if (d1 <= d2 && d1 <= d3) {
+                torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                torusX = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                torusZ = o->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+            } else if (d2 <= d1 && d2 <= d3) {
+                torusY = o1->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                torusX = o1->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                torusZ = o1->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+            } else if (d3 <= d1 && d3 <= d2) {
+                torusY = o2->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                torusX = o2->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                torusZ = o2->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+            }
+
+            // torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+            // torusX = o->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+            // torusZ = o->rigidBody->getCenterOfMassTransform().getOrigin()[2];
 
             distanceGT = sqrt((torusX-gripperX)*(torusX-gripperX) + 
                 (torusY-gripperY)*(torusY-gripperY) + (torusZ-gripperZ)*(torusZ-gripperZ));
@@ -1210,6 +1641,8 @@ void CustomScene::doJTracking()
 
             }
 
+        
+
 
     }
     else
@@ -1298,18 +1731,18 @@ void CustomScene::doJTracking()
 
         /*
 
-        The second gripper still gets very close to the torus, 
-        next time debug this, and make sure it does not happen;
+            The second gripper still gets very close to the torus, 
+            next time debug this, and make sure it does not happen;
 
         */
 
         // should call findDirection;
-        double directionScale = 50;
+        double directionScale = 36;
         if (num_auto_grippers == 1 && attached[0] == false) {
-            int loc = gripperPosition[0];
+            int loc = gripperPosition[1]-2;
             direction = findDirection(filtered_new_nodes[loc][0], 
                                         filtered_new_nodes[loc][1], 
-                                        filtered_new_nodes[loc][2]);
+                                        filtered_new_nodes[loc][2], false);
             
             
             
@@ -1320,7 +1753,7 @@ void CustomScene::doJTracking()
 
             direction = findDirection(filtered_new_nodes[0][0], 
                                         filtered_new_nodes[0][1], 
-                                        filtered_new_nodes[0][2]);
+                                        filtered_new_nodes[0][2], true);
             
             
             
@@ -1352,7 +1785,7 @@ void CustomScene::doJTracking()
                 closest_ind = 0;
             } 
             if (num_auto_grippers == 1 && attached[0] == false) {
-                closest_ind = gripperPosition[0];
+                closest_ind = gripperPosition[1]-3;
             }
 
             btVector3 targvec = cover_points[i] - filtered_new_nodes[closest_ind];
@@ -1475,6 +1908,37 @@ void CustomScene::doJTracking()
 
 
         plot_points->setPoints(plotpoints,plotcols);
+        double step = 2*M_PI / 30;
+        std::vector<btVector3> testPlotting;
+        double rx, ry, rz, rr;
+        for (int p = 0; p < circles.size(); p++) {
+            rx = circles[p][0];
+            ry = circles[p][1];
+            rz = circles[p][2];
+            rr = circles[p][3];
+
+            for (int index = 0; index < 30; index ++) {
+                btVector3 point;
+                point.setX(rx+rr*cos(index*step));
+                point.setY(ry);
+                point.setZ(rz+rr*sin(index*step));
+                testPlotting.push_back(point);
+            }
+
+        }
+
+
+
+        // for (int index = 0; index < 30; index++) {
+        //     // center_x: 25; center_y: 4(fixed?); center_z: 20.5;
+        //     btVector3 point;
+        //     point.setX(25+0.25*cos(index*step));
+        //     point.setY(5);
+        //     point.setZ(20.5+0.25*sin(index*step));
+        //     testPlotting.push_back(point);
+        // }
+        plot_points->setPoints(testPlotting);
+
 
         //cout << "Error: " << error << " ";
         cout << error;
@@ -1512,10 +1976,11 @@ void CustomScene::doJTracking()
         // std::cout << "to print Jacobian!" << J.rows() << ", " << J.cols() << std::endl;
         // std::cout << J << std::endl;
 
-        std::cout << "to print V_step!" << std::endl;
-        std::cout << "distances: " << vclosest_dist[0] << ", " 
-                    << vclosest_dist[1] << std::endl;
-        std::cout << V_step[0] << ", " << V_step[1] << ", " << V_step[2] << std::endl;
+        // std::cout << "to print V_step!" << std::endl;
+        // std::cout << "distances: " << vclosest_dist[0] << ", " 
+        //             << vclosest_dist[1] << std::endl;
+        // std::cout << V_step[0] << ", " << V_step[1] << ", " << V_step[2] << std::endl;
+        // std::cout << V_step[6] << ", " << V_step[7] << ", " << V_step[8] << std::endl;
         
         //Eigen::MatrixXf Jt(J.transpose());
         //V_trans = Jt*V_step;
@@ -1526,7 +1991,7 @@ void CustomScene::doJTracking()
 
 
 #ifdef ROPE
-        float k2 = 0.5;
+        float k2 = 1;
 #else
         float k2 = 100;
 #endif
@@ -1545,17 +2010,16 @@ void CustomScene::doJTracking()
         //cout << "term2: " << term2.segment(0, dof_per_gripper) << endl;
         // cout << endl;
 
-        std::cout << "testing q_desired" << std::endl;
-        std::cout << q_desired << std::endl;
-        std::cout << "collisionTerm: " << std::endl;
-        std::cout << term1 << std::endl;
+        // std::cout << "testing q_desired" << std::endl;
+        // std::cout << q_desired << std::endl;
+        // std::cout << "collisionTerm: " << std::endl;
+        // std::cout << term1 << std::endl;
 
         Eigen::VectorXf v_tangent(3*num_auto_grippers);
 
         // still, not correct where to go, seems the term2 is pointing towards the correct direction, but
         // my term1 is not;
-
-
+        // std::cout << "before: " << term1 << ", " << term2 << std::endl;
         double currentNorm = 0;
         for(int g = 0; g < num_auto_grippers; g++) {
             // cout << " dist" << g << ": " << vclosest_dist[g];
@@ -1603,18 +2067,17 @@ void CustomScene::doJTracking()
             // cout << "tangent: " << g << ", " << v_tangent[g*3+0] << ", " << v_tangent[g*3+1] << ", " << v_tangent[g*3+2] << endl;
             // cout << "together: " << g << ", " << term1[g*3+0] << ", " << term1[g*3+1] << ", " << term1[g*3+2] << endl;
             vK[g] = exp(-k2*vclosest_dist[g]);
+
             if(vK[g] > 1)
                 vK[g] = 1;
-            // cout << "term1: " << g << ", " << term1[g*3+0] << ", " << term1[g*3+1] << ", " << term1[g*3+2] << endl;
-            // cout << "term2: " << g << ", " << term2[g*3+0] << ", " << term2[g*3+1] << ", " << term2[g*3+2] << endl;
-            // cout << "parameters: " << g*dof_per_gripper << ", " << dof_per_gripper << endl;
-            //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
+            
+            
+
             term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
             term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
             
         }
-
-
+        // std::cout << "after: " << term1 << ", " << term2 << std::endl;
         //Eigen::VectorXf term1 = K*(q_collision);// + q_desired_nullspace);
         //Eigen::VectorXf term2 = (1 - K)*q_desired;
         // cout << "term1: " << term1[0] << ", " << term1[1] << ", " << term1[2] << endl;
@@ -1634,6 +2097,11 @@ void CustomScene::doJTracking()
         // }
 
         V_trans = term1 + term2;
+        // Currently, V_trans only accepts term2, 
+        // to cancel avoiding obstacles
+
+        
+
 
         // cout << "V_trans before: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << endl;
         //V_trans = term2;
@@ -1641,8 +2109,8 @@ void CustomScene::doJTracking()
         // " term1: " <<  term1.norm() << " desired: " << term2.norm();
 
         
-        std::cout << "term1: " << std::endl;
-        std::cout << term1 << std::endl;
+        // std::cout << "term1: " << std::endl;
+        // std::cout << term1 << std::endl;
 
         // for (int i = 0; i < num_auto_grippers; i++ ) {
         //     V_trans[i*3+0] = 1;
@@ -1654,8 +2122,8 @@ void CustomScene::doJTracking()
             V_trans = V_trans/V_trans.norm()*step_limit;
         // cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " 
         //     << V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
-        std::cout << "V_trans: " << std::endl;
-        std::cout << V_trans << std::endl;
+        // std::cout << "V_trans: " << std::endl;
+        // std::cout << V_trans << std::endl;
         // work on the detach the gripper movement;
 
 
@@ -2518,7 +2986,7 @@ void CustomScene::makeRopeWorld()
     findCircles();
     // originall was 50 links
     int nLinks = 30;
-
+    
     vector<btVector3> ctrlPts;
     for (int i=0; i< nLinks; i++) {
         //changed the initial position of the rope
@@ -2702,16 +3170,58 @@ void CustomScene::makeRopeWorld()
 
     btBvhTriangleMeshShape* shape=new btBvhTriangleMeshShape(mesh,true,true);
     BulletObject* test = new BulletObject(0, shape, btTransform(btQuaternion(0, 0, 0, 1), 
-        table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(centerX,centerY,centerZ)));
+        table->rigidBody->getCenterOfMassTransform().getOrigin()
+                        +btVector3(centerX,centerY,centerZ)));
     o = BulletObject::Ptr(test);
     //o->collisionShape.reset(shape);
     o->setColor(0.9, 9.9, 0.0, 1.0);
+    // Here is where to uncomment when ready to add back torus;
+    // Testing without the torus;
     env->add(o);
 
     // end creating torus mesh
 
+    // create torus 2;
+    
+    centerX = 4;
+    centerY = 8;
+    centerZ = 9;
+
+    btBvhTriangleMeshShape* shape1=new btBvhTriangleMeshShape(mesh,true,true);
+    BulletObject* test1 = new BulletObject(0, shape1, btTransform(btQuaternion(0, 0, 0, 1), 
+        table->rigidBody->getCenterOfMassTransform().getOrigin()
+                        +btVector3(centerX,centerY,centerZ)));
+    o1 = BulletObject::Ptr(test1);
+    //o->collisionShape.reset(shape);
+    o1->setColor(0.9, 9.9, 0.0, 1.0);
+    // Here is where to uncomment when ready to add back torus;
+    // Testing without the torus;
+    env->add(o1);
+
+
+    // end of creating torus 2;
+
 
     
+    // creating torus 3;
+
+    centerX = 6;
+    centerY = 11;
+    centerZ = 8;
+
+    btBvhTriangleMeshShape* shape2=new btBvhTriangleMeshShape(mesh,true,true);
+    BulletObject* test2 = new BulletObject(0, shape2, btTransform(btQuaternion(0, 0, 0, 1), 
+        table->rigidBody->getCenterOfMassTransform().getOrigin()
+                        +btVector3(centerX,centerY,centerZ)));
+    o2 = BulletObject::Ptr(test2);
+    //o->collisionShape.reset(shape);
+    o2->setColor(0.9, 9.9, 0.0, 1.0);
+    // Here is where to uncomment when ready to add back torus;
+    // Testing without the torus;
+    env->add(o2);
+
+
+    // end of creating torus 3;
 
     // End of creating a torus;
 
@@ -2741,9 +3251,9 @@ void CustomScene::makeRopeWorld()
         if(i == 1)
         {
             
-            childindex = 5;
-            gripper_closestobjectnodeind[i] = 5;
-            gripperPosition[1] = 5;
+            childindex = 6;
+            gripper_closestobjectnodeind[i] = 6;
+            gripperPosition[1] = 6;
             cur_gripper = left_gripper2;
         }
 
