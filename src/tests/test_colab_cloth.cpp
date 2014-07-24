@@ -2388,6 +2388,69 @@ void CustomScene::testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach) {
     num_auto_grippers = 2;
 }
 
+void CustomScene::testAdjust(GripperKinematicObject::Ptr  gripper) {
+    btTransform testTM;
+    double a, b, c, d;
+    a = (rand() / (RAND_MAX+1.0)) * 2 - 1;
+    b = (rand() / (RAND_MAX+1.0)) * 2 - 1;
+    c = (rand() / (RAND_MAX+1.0)) * 2;
+    
+    // testTM = gripper->getWorldTransform().getRotation();
+    a = gripper->getWorldTransform().getRotation().getAxis()[0];
+    b = gripper->getWorldTransform().getRotation().getAxis()[1];
+    c = gripper->getWorldTransform().getRotation().getAxis()[2];
+    d = gripper->getWorldTransform().getRotation().getAngle();
+    std::cout << "current rotation: " << 
+            a << ", " << b << ", " << c << ", " << d << std::endl;
+    double tx, ty, tz, tw;
+    double goalX, goalY, goalZ, goalW;
+
+    // currently set to be 0, 0, -1, pi/2 
+    goalX = 0, goalY = 0, goalZ = 0, goalW = M_PI/2;
+
+    //
+
+    if (random) {
+        std::cout << "in random: " << std::endl;
+        a = (rand() / (RAND_MAX+1.0));
+        b = (rand() / (RAND_MAX+1.0));
+        c = (rand() / (RAND_MAX+1.0));
+        d = (rand() / (RAND_MAX+1.0));
+        random = false;
+        testTM = btTransform(btQuaternion(b, c, d, a), btVector3(0, 0, 0));
+
+        gripper->applyTransform(testTM);
+    } else {
+
+
+        btQuaternion temp = gripper->getWorldTransform().getRotation();
+        btQuaternion goal = btQuaternion(btVector3(0, 0, 1), 0);
+        btQuaternion interp = temp.slerp(goal, 0.5);
+        tx = interp.getAxis()[0];
+        ty = interp.getAxis()[1];
+        tz = interp.getAxis()[2];
+        tw = interp.getW();
+        random = true;
+        
+        testTM = btTransform(btQuaternion(
+            gripper->getWorldTransform().getRotation().inverse().getAxis(), 
+            gripper->getWorldTransform().getRotation().inverse().getAngle()), 
+            btVector3(0, 0, 0));
+
+        gripper->applyTransform(testTM);
+        testTM = btTransform(btQuaternion(btVector3(0, 0, -1), M_PI/2), 
+            btVector3(0, 0, 0));
+        gripper->applyTransform(testTM);
+    }
+    a = gripper->getWorldTransform().getRotation().getAxis()[0];
+    b = gripper->getWorldTransform().getRotation().getAxis()[1];
+    c = gripper->getWorldTransform().getRotation().getAxis()[2];
+    d = gripper->getWorldTransform().getRotation().getAngle();
+    std::cout << "after current rotation: " << 
+            a << ", " << b << ", " << c << ", " << d << std::endl;
+    
+}
+
 class CustomKeyHandler : public osgGA::GUIEventHandler {
     CustomScene &scene;
 public:
@@ -2410,7 +2473,7 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
 //            }
 //            break;
 
-//        case 'h':
+ //        case 'h':
 //            scene.destroyFork();
 //            break;
 
@@ -2533,25 +2596,33 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
             break;
         }
 
-
         case 'k':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
-                scene.right_gripper1->getWorldTransform().getRotation(), 
-                scene.right_gripper1->getWorldTransform().getOrigin()));
+            std::cout << "try to adjust first gripper" << std::endl;
+            scene.testAdjust(scene.left_gripper1);
             break;
-
-        case ',':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
-                scene.right_gripper1->getWorldTransform().getRotation(), 
-                scene.right_gripper1->getWorldTransform().getOrigin()));
-            break;
-
 
         case 'l':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
-                scene.right_gripper2->getWorldTransform().getRotation(), 
-                scene.right_gripper2->getWorldTransform().getOrigin()));
+            std::cout << "try to adjust second gripper" << std::endl;
             break;
+
+        // case 'k':
+        //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
+        //         scene.right_gripper1->getWorldTransform().getRotation(), 
+        //         scene.right_gripper1->getWorldTransform().getOrigin()));
+        //     break;
+
+        // case ',':
+        //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
+        //         scene.right_gripper1->getWorldTransform().getRotation(), 
+        //         scene.right_gripper1->getWorldTransform().getOrigin()));
+        //     break;
+
+
+        // case 'l':
+        //     scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
+        //         scene.right_gripper2->getWorldTransform().getRotation(), 
+        //         scene.right_gripper2->getWorldTransform().getOrigin()));
+        //     break;
 
         case '.':
             scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
@@ -2986,7 +3057,7 @@ void CustomScene::makeRopeWorld()
     findCircles();
     // originall was 50 links
     int nLinks = 30;
-    
+    random = true;
     vector<btVector3> ctrlPts;
     for (int i=0; i< nLinks; i++) {
         //changed the initial position of the rope

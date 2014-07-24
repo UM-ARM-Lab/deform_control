@@ -603,6 +603,9 @@ public:
     void testRelease2(GripperKinematicObject::Ptr  gripper_to_detach);
     void testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach);
     void testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach);
+    void testAdjust(GripperKinematicObject::Ptr  gripper_to_detach);
+
+    bool random;
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
     void createFork();
