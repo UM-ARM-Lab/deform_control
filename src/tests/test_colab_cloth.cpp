@@ -1904,6 +1904,13 @@ void CustomScene::doJTracking()
             cover_points[0][2] = filtered_new_nodes[0][2] + direction[2]*directionScale;
         
         }
+
+        // Here, produce second vector field on the second point;
+        // set the second point to be the location of the second gripper;
+
+
+        // end producing second vector field;
+
         // Fix rotation, adjust the orientation first;
 
         // So, either fix the rotation, or adjust the orientation when needed;
@@ -2590,8 +2597,30 @@ void CustomScene::testAdjust(GripperKinematicObject::Ptr  gripper) {
 
 std::vector<int> gripperStrategyNoneFix() {
     std::vector<int> locations;
+    locations.push_back(0);
+    locations.push_back(0);
+    std::vector<int> tests;
+    tests.push_back(0);
+    tests.push_back(0);
     // O(n^2) options
+    int numnodes = getNumDeformableObjectNodes();
+    for (int i = 0; i < numnodes; i++) {
+        tests[0] = i;
+        for (int j = 0; j < numnodes; j++) {
+            if (i == j) {
+                continue;
+            }
+            tests[1] = j;
+            // then get Jacobian;
+            // calculate the result;
+            // compare the terms;
+            // find the largest term;
 
+            // then, test if accessible;
+            // if all true, set locations;
+
+        }
+    }
 
 
     return locations;
@@ -2618,7 +2647,7 @@ public:
     CustomKeyHandler(CustomScene &scene_) : scene(scene_) { }
     bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&);
 };
-
+ 
 bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionAdapter & aa) {
     switch (ea.getEventType()) {
     case osgGA::GUIEventAdapter::KEYDOWN:
