@@ -604,6 +604,11 @@ public:
     void testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach);
     void testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach);
     void testAdjust(GripperKinematicObject::Ptr  gripper_to_detach);
+    std::vector<int> gripperStrategyNoneFix();
+    std::vector<int> gripperStrategyFix();
+    std::vector<int> gripperStrategyNoneFixPush();
+    Eigen::MatrixXf computeJacobian_approxTest(std::vector<int> locations);
+    double gDNTCANIG(std::vector<int> locations, int input_ind, int &closest_ind);
 
     bool random;
 

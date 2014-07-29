@@ -67,4 +67,5 @@ int circleCurveIntersection(std::vector<std::vector<double> > curve,
 							std::vector<double> circle);
 
 
+
 #endif

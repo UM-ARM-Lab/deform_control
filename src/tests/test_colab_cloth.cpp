@@ -287,6 +287,31 @@ void CustomScene::simulateInNewFork(StepState& innerstate, float sim_time, btTra
 
 }
 
+double CustomScene::gDNTCANIG(std::vector<int> locations, int input_ind, int &closest_ind)
+{
+    double min_dist = 1000000;
+    closest_ind = -1;
+    for(int i =0; i < num_auto_grippers; i++)
+    {
+        
+        int index = 0;
+        if (num_auto_grippers == 1) {
+            index = 0;
+        } else if (num_auto_grippers == 1 && attached[i] == false) {
+            index = 1;
+        } 
+        double new_dist = deformableobject_distance_matrix(locations[index],input_ind);
+        if(new_dist < min_dist)
+        {
+            min_dist = new_dist;
+            closest_ind = locations[index];
+        }
+    }
+
+    return min_dist;
+
+
+}
 
 double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
 {
@@ -395,6 +420,123 @@ Eigen::MatrixXf CustomScene::computePointsOnGripperJacobian(std::vector<btVector
     return J;
 }
 
+Eigen::MatrixXf CustomScene::computeJacobian_approxTest(std::vector<int> locations) {
+    #ifdef ROPE
+    double dropoff_const = 0.5;//0.5;
+#else
+    double dropoff_const = 0.7;//0.7 for colab folding;//;
+#endif
+    int numnodes = getNumDeformableObjectNodes();//clothptr->softBody->m_nodes.size();
+
+    std::vector<btTransform> perts;
+    float step_length = 0.2;
+    float rot_angle = 0.2;
+    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
+    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
+    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
+#ifdef DO_ROTATION
+    #ifdef USE_QUATERNION
+        ///NOT IMPLEMENTED!!!!
+        perts.push_back(btTransform(btQuaternion(btVector3(1,0,0),rot_angle),btVector3(0,0,0)));
+        perts.push_back(btTransform(btQuaternion(btVector3(0,1,0),rot_angle),btVector3(0,0,0)));
+        perts.push_back(btTransform(btQuaternion(btVector3(0,0,1),rot_angle),btVector3(0,0,0)));
+    #else
+        perts.push_back(btTransform(btQuaternion(btVector3(1,0,0),rot_angle),btVector3(0,0,0)));
+        perts.push_back(btTransform(btQuaternion(btVector3(0,1,0),rot_angle),btVector3(0,0,0)));
+        perts.push_back(btTransform(btQuaternion(btVector3(0,0,1),rot_angle),btVector3(0,0,0)));
+    #endif
+#endif
+
+
+    Eigen::MatrixXf J(numnodes*3,perts.size()*num_auto_grippers);
+
+    GripperKinematicObject::Ptr gripper;
+
+    std::vector<btVector3> rot_line_pnts;
+    std::vector<btVector4> plot_cols;
+
+    omp_set_num_threads(4);
+
+    std::vector<btVector3> node_pos;
+    getDeformableObjectNodes(node_pos);
+
+    for(int g = 0; g < num_auto_grippers; g++)
+    {
+        if(g == 0) {
+            gripper = left_gripper1;
+            if (attached[g] == false) {
+                gripper = left_gripper2;
+            }
+        }
+        if(g == 1) {
+            gripper = left_gripper2;
+            if (attached[g] == false) {
+                gripper = left_gripper1;
+            }
+        }
+
+        #pragma omp parallel shared(J)
+        {
+
+        #pragma omp for
+        for(int i = 0; i < perts.size(); i++)
+        {
+            Eigen::VectorXf  V_pos(numnodes*3);
+
+                for(int k = 0; k < numnodes; k++)
+                {
+                    int closest_ind;
+                    
+                    // also need to change this function
+                    // check out what this funciton does???
+                    // double dist = getDistfromNodeToClosestAttachedNodeInGripper(gripper, k, closest_ind);
+                    double dist = gDNTCANIG(locations, k, closest_ind);
+
+
+                    if(i < 3) //translation
+                    {
+                        // btVector3 transvec = ((gripper->getWorldTransform()*perts[i]).getOrigin() - 
+                        //                 gripper->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
+                        btVector3 transvec = (((ropePtr->children[locations[g]])->rigidBody->getWorldTransform()*perts[i]).getOrigin() - 
+                                        (ropePtr->children[locations[g]])->rigidBody->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
+                        //WRONG: btVector3 transvec = perts[i].getOrigin()*exp(-dist*dropoff_const)/step_length;
+                        //btVector3 transvec = perts[i].getOrigin()*exp(-gripper_node_distance_map[g][k]*dropoff_const);
+                        for(int j = 0; j < 3; j++)
+                            V_pos(3*k + j) = transvec[j];
+
+                    }
+                    else // rotation
+                    {
+
+
+                        //TODO: Use cross product instead
+
+                        //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
+                        //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),clothptr->softBody->m_nodes[closest_ind].m_x);
+                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
+                        //btTransform T0_center = gripper->getWorldTransform();
+                        btTransform T0_center = (ropePtr->children[locations[g]])->rigidBody->getWorldTransform();
+                        //btTransform Tcenter_attached= btTransform(T0_center.getRotation(), V0_attached - T0_center.getOrigin());
+                        btTransform Tcenter_attached = T0_center.inverse()*T0_attached;
+                        btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
+                        btVector3 transvec = (T0_attached.inverse()*T0_newattached).getOrigin()/rot_angle * exp(-dist*dropoff_const);
+
+
+
+                        for(int j = 0; j < 3; j++)
+                            V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
+
+                    }
+
+
+                }
+                J.col(perts.size()*g + i) = V_pos;
+            }
+            }//end omp
+
+    }
+    return J;
+}
 
 Eigen::MatrixXf CustomScene::computeJacobian_approx()
 {
@@ -2442,13 +2584,32 @@ void CustomScene::testAdjust(GripperKinematicObject::Ptr  gripper) {
             btVector3(0, 0, 0));
         gripper->applyTransform(testTM);
     }
-    a = gripper->getWorldTransform().getRotation().getAxis()[0];
-    b = gripper->getWorldTransform().getRotation().getAxis()[1];
-    c = gripper->getWorldTransform().getRotation().getAxis()[2];
-    d = gripper->getWorldTransform().getRotation().getAngle();
-    std::cout << "after current rotation: " << 
-            a << ", " << b << ", " << c << ", " << d << std::endl;
     
+    
+}
+
+std::vector<int> gripperStrategyNoneFix() {
+    std::vector<int> locations;
+    // O(n^2) options
+
+
+
+    return locations;
+}
+
+std::vector<int> gripperStrategyFix(){
+    std::vector<int> gripped; 
+    // O(4) options
+
+    return gripped;
+
+}
+
+std::vector<int> gripperStrategyNoneFixPush() {
+    std::vector<int> locations;
+    // O(n^2) options
+
+    return locations;
 }
 
 class CustomKeyHandler : public osgGA::GUIEventHandler {

@@ -145,8 +145,10 @@ std::vector<double> BiotSavart(std::vector<double> point,
 		result[0] += (temp[0]-temp1[0]) / normd;
 		result[1] += (temp[1]-temp1[1]) / normd;
 		result[2] += (temp[2]-temp1[2]) / normd;
-		// std::cout << "force: " << i << ", " << sij[0] << ", " << sij[1] << ", " << sij[2] << ", " << (temp[0]-temp1[0]) / normd << ", " 
-		// 	<< (temp[1]-temp1[1]) / normd << ", " << (temp[2]-temp1[2]) / normd << std::endl;
+		// std::cout << "force: " << i << ", " << sij[0] << ", " 
+		// << sij[1] << ", " << sij[2] << ", " << (temp[0]-temp1[0]) / normd << ", " 
+		// 	<< (temp[1]-temp1[1]) / normd << ", " 
+		// << (temp[2]-temp1[2]) / normd << std::endl;
 		temp.clear();
 		temp1.clear();
 	}
@@ -1067,54 +1069,7 @@ int circleCurveIntersection(std::vector<std::vector<double> > curve,
 
 // local main function for testing
 
-std::vector<std::vector<double> > findSurface (std::vector<std::vector<double> > curve, std::vector<double> direction) {
-	// for every point on the surface, the magnetic force is parallel to the direction vector;
-
-	// The problem is, how to find all the points? 
-	// only work on projections are not sufficient, since some of the surface points may pack up on the projected area;
-
-
-}
-
-std::vector<std::vector<double> > findConvexSection (std::vector<std::vector<double> > curve);
 
 int main(int argc, char **argv) {
-	srand(time(NULL));
-	std::vector<std::vector<double> > points;
-	std::vector<double> closestCircle;
-	closestCircle.push_back(25);
-	closestCircle.push_back(2);
-	closestCircle.push_back(20.5);
-	closestCircle.push_back(0.81);
-	// 25, 6, 20.5
-	double start = 0;
-    double end = 2*M_PI;
-    int numStep = 30;
-    double step = end / numStep;
-
-	for (double i = start; i <= end; i+= step) {
-        std::vector<double> point;
-
-        point.push_back(closestCircle[0]+closestCircle[3]*cos(i));
-        point.push_back(closestCircle[1]);
-        point.push_back(closestCircle[2]+closestCircle[3]*sin(i));
-        std::cout << "points: " << i << " " << closestCircle[0]+closestCircle[3]*cos(i) 
-                    << ", " << closestCircle[1] << ", " << 
-                    closestCircle[2]+closestCircle[3]*sin(i) << std::endl;
-        points.push_back(point);
-    }
-    double x = 24.9997, y = 1.761, z = 20.3;
-    std::vector<double> p;
-    p.push_back(x);
-    p.push_back(y);
-    p.push_back(z);
-
-    std::vector<double> result;
-    result = BiotSavart(p, points);
-    std::cout << "result: " << result.size() << std::endl;
-    
-    std::cout << "direction: " << result[0] << ", " << result[1] << ", "
-                << result[2] << std::endl;
-
-
+	
 }
