@@ -40,7 +40,7 @@
 #define USE_RADIUS_CONTACT
 #define DO_COVERAGE
 #define ROPE
-#define ROTATION_SCALING 50.0f
+#define ROTATION_SCALING 0.3f
 //#define DO_ROTATION
 
 
@@ -537,6 +537,13 @@ public:
     // find the vector to follow;
     // This vector is only for the tip of the rope;
     std::vector<double> findDirection (double x, double y, double z, bool tip);
+    std::vector<double> findDirectionNotTip (double x, double y, double z, 
+                                    std::vector<double> axis);
+    int findPointNotTip(std::vector<double> axis, double radius,
+                                    std::vector<btVector3> points);
+    // axis is six dimention; 
+    // first three numbers is the center: tip location;
+    // last three numbers are the orientation of the axis;
     std::vector<double> BiotSavart(std::vector<double> point, 
         std::vector<std::vector<double> > curve);
     std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v);
