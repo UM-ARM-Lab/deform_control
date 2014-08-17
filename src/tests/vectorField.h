@@ -126,7 +126,7 @@ void findCircles() {
 		// normal x
 		circle.push_back(0);
 		// normal y
-		circle.push_back(-1);
+		circle.push_back(1);
 		// normal z
 		circle.push_back(0);
 

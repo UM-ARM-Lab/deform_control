@@ -40,8 +40,8 @@
 #define USE_RADIUS_CONTACT
 #define DO_COVERAGE
 #define ROPE
-#define ROTATION_SCALING 0.3f
-//#define DO_ROTATION
+#define ROTATION_SCALING 50.0f
+#define DO_ROTATION
 
 
 
@@ -618,6 +618,7 @@ public:
     double gDNTCANIG(std::vector<int> locations, int input_ind, int &closest_ind);
 
     bool random;
+    int inTurn;
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
     void createFork();
