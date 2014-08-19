@@ -41,7 +41,7 @@
 #define DO_COVERAGE
 #define ROPE
 #define ROTATION_SCALING 50.0f
-#define DO_ROTATION
+//#define DO_ROTATION
 
 
 
@@ -619,6 +619,8 @@ public:
 
     bool random;
     int inTurn;
+    bool st;
+    
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
     void createFork();
