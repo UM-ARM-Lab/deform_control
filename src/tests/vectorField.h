@@ -90,7 +90,7 @@ void findCircles() {
 		} else if (i == 9) {
 			circle.push_back(24.67);
 		} else if (i == 10) {
-			circle.push_back(25.33);
+			circle.push_back(25.8);
 		} else if (i >= 11) {
 			circle.push_back(26);
 		}

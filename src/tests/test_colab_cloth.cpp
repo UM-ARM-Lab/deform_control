@@ -335,7 +335,7 @@ double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinemat
 
 void printMatrixXf(Eigen::MatrixXf mat)
 {
-    cout << endl;
+    // cout << endl;
     for(int i = 0; i < mat.rows(); i++)
     {
         for(int j = 0; j < mat.cols();j++)
@@ -343,7 +343,7 @@ void printMatrixXf(Eigen::MatrixXf mat)
             cout << mat(i,j) << " ";
 
         }
-        cout << endl;
+        // cout << endl;
     }
 }
 
@@ -597,7 +597,7 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 
     std::vector<btVector3> node_pos;
     getDeformableObjectNodes(node_pos);
-
+    double rScaling;
     for(int g = 0; g < num_auto_grippers; g++)
     {
         if(g == 0) {
@@ -696,10 +696,15 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
                         // Rg.push_back(T0_center.getBasis()[2][i-3]);
                         // btTransform Rn = T0_center*perts[i];
                         
-                        
+                        if (inTurn < 4) {
+                            rScaling = 0;
+                        } else {
+                            rScaling = ROTATION_SCALING;
+                        }
                         for(int j = 0; j < 3; j++) {
                             //V_pos(3*k+j) = 100;
-                            V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
+                            // V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
+                            V_pos(3*k + j) = transvec[j]*rScaling;
                         }
                         
 
@@ -1355,8 +1360,14 @@ std::vector<double> CustomScene::findDirectionNotTip (double x, double y, double
     direction[1] = ly-y;
     direction[2] = lz-z;
 
+    double norm = sqrt(direction[0]*direction[0]+direction[1]*direction[1]+
+                        direction[2]*direction[2]);
+    direction[0] /= norm;
+    direction[1] /= norm;
+    direction[2] /= norm;
     // 
-
+    cout << "direction for the not tip: " << direction[0] << ", " << direction[1] << ", " 
+            << direction[2] << endl;
     return direction;
 }
 
@@ -1436,10 +1447,10 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
                 closestCircle[1] != 8 && closestCircle[1] != 11) {
             penetrate = true;
             penetrated[active] = true;
-            std::cout << "penetrate: " << 
-            x << ", " << y << ", " << z << ", at circle" <<
-            closestCircle[0] << ", " << closestCircle[1] << ", "
-            << closestCircle[2] << std::endl;
+            // std::cout << "penetrate: " << 
+            // x << ", " << y << ", " << z << ", at circle" <<
+            // closestCircle[0] << ", " << closestCircle[1] << ", "
+            // << closestCircle[2] << std::endl;
         } else if (closestCircle[1] == 5 ||
                 closestCircle[1] == 8) {
             if (y >= closestCircle[1] + 0.4) {
@@ -1466,7 +1477,7 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
     }
 
     // 
-    std::cout << "using circle: " << active << ", " << closestCircle[1] << std::endl;
+    // std::cout << "using circle: " << active << ", " << closestCircle[1] << std::endl;
 
     
 
@@ -1779,11 +1790,27 @@ void CustomScene::doJTracking()
                     torusY = o1->rigidBody->getCenterOfMassTransform().getOrigin()[0];
                     torusX = o1->rigidBody->getCenterOfMassTransform().getOrigin()[1];
                     torusZ = o1->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } else if (penetrated[6]) {
+                } else if (penetrated[6] && (!penetrated[9])) {
                     torusY = o2->rigidBody->getCenterOfMassTransform().getOrigin()[0];
                     torusX = o2->rigidBody->getCenterOfMassTransform().getOrigin()[1];
                     torusZ = o2->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } 
+                } else if (penetrated[9]) {
+                    torusY = o1->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                    torusX = o1->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                    torusZ = o1->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                }
+            }
+            //cout << "gripperX: " << gripperX << endl;
+            if (num_auto_grippers == 1 && attached[0] == false) {
+                if (gripperX > 5 && gripperX < 8) {
+                    torusY = o1->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                    torusX = o1->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                    torusZ = o1->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                } else if (gripperX > 8) {
+                    torusY = o2->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                    torusX = o2->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                    torusZ = o2->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                }
             }
 
             // torusY = o->rigidBody->getCenterOfMassTransform().getOrigin()[0];
@@ -1987,16 +2014,18 @@ void CustomScene::doJTracking()
         */
 
         // should call findDirection;
-        double directionScale = 640;//490;
+        double directionScale = 490;//490;
         if (num_auto_grippers == 1 && attached[0] == false) {
-            int loc = gripperPosition[1]-2;
-            direction = findDirection(filtered_new_nodes[loc][0], 
-                                        filtered_new_nodes[loc][1], 
-                                        filtered_new_nodes[loc][2], false);
+            // int loc = gripperPosition[1]-2;
+            // trackPosition = gripperPosition[1]-2;
+            // cout << "second gripper: " << trackPosition << endl;
+            direction = findDirection(filtered_new_nodes[trackPosition][0], 
+                                        filtered_new_nodes[trackPosition][1], 
+                                        filtered_new_nodes[trackPosition][2], false);
             
-            cover_points[0][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
-            cover_points[0][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
-            cover_points[0][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
+            cover_points[0][0] = filtered_new_nodes[trackPosition][0] + direction[0]*directionScale;
+            cover_points[0][1] = filtered_new_nodes[trackPosition][1] + direction[1]*directionScale;
+            cover_points[0][2] = filtered_new_nodes[trackPosition][2] + direction[2]*directionScale;
 
             // loc = gripperPosition[1]-1;
             // direction = findDirection(filtered_new_nodes[loc][0], 
@@ -2008,14 +2037,14 @@ void CustomScene::doJTracking()
             // cover_points[1][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
             
         } else {
-
-            direction = findDirection(filtered_new_nodes[0][0], 
-                                        filtered_new_nodes[0][1], 
-                                        filtered_new_nodes[0][2], true);
             
-            cover_points[0][0] = filtered_new_nodes[0][0] + direction[0]*directionScale;
-            cover_points[0][1] = filtered_new_nodes[0][1] + direction[1]*directionScale;
-            cover_points[0][2] = filtered_new_nodes[0][2] + direction[2]*directionScale;
+            direction = findDirection(filtered_new_nodes[trackPosition][0], 
+                                        filtered_new_nodes[trackPosition][1], 
+                                        filtered_new_nodes[trackPosition][2], true);
+            
+            cover_points[0][0] = filtered_new_nodes[trackPosition][0] + direction[0]*directionScale;
+            cover_points[0][1] = filtered_new_nodes[trackPosition][1] + direction[1]*directionScale;
+            cover_points[0][2] = filtered_new_nodes[trackPosition][2] + direction[2]*directionScale;
 
             // direction = findDirection(filtered_new_nodes[1][0], 
             //                             filtered_new_nodes[1][1], 
@@ -2026,76 +2055,90 @@ void CustomScene::doJTracking()
             // cover_points[1][2] = filtered_new_nodes[1][2] + direction[2]*directionScale;
         
         }
-        // std::vector<double> axis;
-        // double radius;
-        // // axis.push_back(filtered_new_nodes[0][0]);
-        // // axis.push_back(filtered_new_nodes[0][1]);
-        // // axis.push_back(filtered_new_nodes[0][2]);
-        // for (int k = 0; k < circles.size(); k++) {
-        //     if (penetrated[k]) {
-        //         continue;
-        //     } 
-        //     axis.push_back(circles[k][0]);
-        //     axis.push_back(circles[k][1]);
-        //     axis.push_back(circles[k][2]);
-        //     axis.push_back(circles[k][4]);
-        //     axis.push_back(circles[k][5]);
-        //     axis.push_back(circles[k][6]);
-        //     radius = circles[k][3];
-        //     break;
-        // }
+        std::vector<double> axis;
+        double radius;
+        // axis.push_back(filtered_new_nodes[0][0]);
+        // axis.push_back(filtered_new_nodes[0][1]);
+        // axis.push_back(filtered_new_nodes[0][2]);
+        for (int k = 0; k < circles.size(); k++) {
+            if (penetrated[k]) {
+                continue;
+            } 
+            // axis.push_back(circles[k][0]);
+            // axis.push_back(circles[k][1]);
+            // axis.push_back(circles[k][2]);
+
+            axis.push_back(cover_points[0][0]);
+            axis.push_back(cover_points[0][1]);
+            axis.push_back(cover_points[0][2]);
+
+            axis.push_back(circles[k][4]);
+            axis.push_back(circles[k][5]);
+            axis.push_back(circles[k][6]);
+            radius = circles[k][3];
+            break;
+        }
+        // double dx = filtered_new_nodes[0][0]-filtered_new_nodes[1][0];
+        // double dy = filtered_new_nodes[0][1]-filtered_new_nodes[1][1];
+        // double dz = filtered_new_nodes[0][2]-filtered_new_nodes[1][2];
+
+        // cover_points[1][0] = cover_points[0][0]+64*dx*axis[3];
+        // cover_points[1][1] = cover_points[0][1]+64*dy*axis[4];
+        // cover_points[1][2] = cover_points[0][2]+64*dz*axis[5];
+
         // int nextPoint;
         // nextPoint = findPointNotTip(axis, radius, filtered_new_nodes);
-        // // std::cout << "the next point index is: " << nextPoint << std::endl;
+        // std::cout << "the next point index is: " << nextPoint << std::endl;
 
-        // directionScale = 0.5;
-        // // currently three tracking points;
-        // if (num_auto_grippers == 1 && attached[0] == true) {
-        //     // the first gripper, then let 
-        //     // all points before gripper aline;
-        //     // get this done;
+        directionScale = 100;
+        // currently three tracking points;
+        if (num_auto_grippers == 1 && attached[0] == true) {
+            // the first gripper, then let 
+            // all points before gripper aline;
+            // get this done;
+            
 
+            direction = findDirectionNotTip (filtered_new_nodes[trackPosition+1][0], 
+                                    filtered_new_nodes[trackPosition+1][1], 
+                                    filtered_new_nodes[trackPosition+1][2], axis);
 
-        //     direction = findDirectionNotTip (filtered_new_nodes[1][0], 
-        //                             filtered_new_nodes[1][1], 
-        //                             filtered_new_nodes[1][2], axis);
+            cover_points[1][0] = filtered_new_nodes[trackPosition+1][0] + direction[0]*directionScale;
+            cover_points[1][1] = filtered_new_nodes[trackPosition+1][1] + direction[1]*directionScale;
+            cover_points[1][2] = filtered_new_nodes[trackPosition+1][2] + direction[2]*directionScale;
 
-        //     cover_points[1][0] = filtered_new_nodes[1][0] + direction[0]*directionScale;
-        //     cover_points[1][1] = filtered_new_nodes[1][1] + direction[1]*directionScale;
-        //     cover_points[1][2] = filtered_new_nodes[1][2] + direction[2]*directionScale;
+            // direction = findDirectionNotTip (filtered_new_nodes[2][0], 
+            //                         filtered_new_nodes[2][1], 
+            //                         filtered_new_nodes[2][2], axis);
 
-        //     // direction = findDirectionNotTip (filtered_new_nodes[2][0], 
-        //     //                         filtered_new_nodes[2][1], 
-        //     //                         filtered_new_nodes[2][2], axis);
+            // cover_points[2][0] = filtered_new_nodes[2][0] + direction[0]*directionScale;
+            // cover_points[2][1] = filtered_new_nodes[2][1] + direction[1]*directionScale;
+            // cover_points[2][2] = filtered_new_nodes[2][2] + direction[2]*directionScale;
+        } else {
 
-        //     // cover_points[2][0] = filtered_new_nodes[2][0] + direction[0]*directionScale;
-        //     // cover_points[2][1] = filtered_new_nodes[2][1] + direction[1]*directionScale;
-        //     // cover_points[2][2] = filtered_new_nodes[2][2] + direction[2]*directionScale;
-        // } else {
+            // not the first gripper;
+            // the second gripper;
+            // directionScale = 100;
+            
+            // directionScale = 800;
+            direction = findDirectionNotTip (filtered_new_nodes[trackPosition+1][0], 
+                                    filtered_new_nodes[trackPosition+1][1], 
+                                    filtered_new_nodes[trackPosition+1][2], axis);
 
-        //     // not the first gripper;
-        //     // the second gripper;
-        //     int loc = gripperPosition[1]-2;
+            cover_points[1][0] = filtered_new_nodes[trackPosition+1][0] + direction[0]*directionScale;
+            cover_points[1][1] = filtered_new_nodes[trackPosition+1][1] + direction[1]*directionScale;
+            cover_points[1][2] = filtered_new_nodes[trackPosition+1][2] + direction[2]*directionScale;
 
-        //     direction = findDirectionNotTip (filtered_new_nodes[loc][0], 
-        //                             filtered_new_nodes[loc][1], 
-        //                             filtered_new_nodes[loc][2], axis);
+            // loc = gripperPosition[1]-1;
 
-        //     cover_points[1][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
-        //     cover_points[1][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
-        //     cover_points[1][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
+            // direction = findDirectionNotTip (filtered_new_nodes[loc][0], 
+            //                         filtered_new_nodes[loc][1], 
+            //                         filtered_new_nodes[loc][2], axis);
 
-        //     // loc = gripperPosition[1]-1;
+            // cover_points[2][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
+            // cover_points[2][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
+            // cover_points[2][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
 
-        //     // direction = findDirectionNotTip (filtered_new_nodes[loc][0], 
-        //     //                         filtered_new_nodes[loc][1], 
-        //     //                         filtered_new_nodes[loc][2], axis);
-
-        //     // cover_points[2][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
-        //     // cover_points[2][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
-        //     // cover_points[2][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
-
-        // }
+        }
 
         // Here, produce second vector field on the second point;
         // set the second point to be the location of the second gripper;
@@ -2122,11 +2165,20 @@ void CustomScene::doJTracking()
             closest_dist = (cover_points[i] - filtered_new_nodes[i]).length();
             // closest_dist = 
             closest_ind = i;
-            if (i == 0) {
-                closest_ind = 0;
-            } 
+            // if (num_auto_grippers == 1 && attached[0] == true) {
+            //     if (i == 0) {
+            //         closest_ind = 0;
+            //     } else {
+            //         closest_ind = 1;
+            //     }
+            // }
             if (num_auto_grippers == 1 && attached[0] == false) {
-                closest_ind = gripperPosition[1]-2;
+                if (i == 0) {
+                    closest_ind = gripperPosition[1]-2;
+
+                } else if (i == 1) {
+                    closest_ind = gripperPosition[1]-1;
+                }
             }
 
             btVector3 targvec = cover_points[i] - filtered_new_nodes[closest_ind];
@@ -2351,7 +2403,7 @@ void CustomScene::doJTracking()
         Eigen::VectorXf q_collision = Jpinv_collision*V_step_collision;
         // cout << "V_step: " << V_step << endl;
         // cout << "q_desired: " << q_desired << endl;
-        Eigen::VectorXf term1 = q_collision + q_desired_nullspace;
+        Eigen::VectorXf term1 = q_collision;// + q_desired_nullspace;
         //Eigen::VectorXf term1 = q_desired_nullspace;
 
         // Problem: the q_desired_nullspace: when only translation: scale is small;
@@ -2458,64 +2510,64 @@ void CustomScene::doJTracking()
         real targetNormal finding
         
         */
-        for (int k = 0; k < circles.size(); k++) {
-            if (penetrated[k]) {
-                continue;
-            }
-            targetNormal = btVector3(circles[k][4], circles[k][5], circles[k][6]).normalized();
-        }
+        // for (int k = 0; k < circles.size(); k++) {
+        //     if (penetrated[k]) {
+        //         continue;
+        //     }
+        //     targetNormal = btVector3(circles[k][4], circles[k][5], circles[k][6]).normalized();
+        // }
 
-        double angleDiff = acos(targetNormal.dot(tipTangent) / (targetNormal.length()*tipTangent.length()));
-        btVector3 axisDiff = tipTangent.cross(targetNormal);
+        // double angleDiff = acos(targetNormal.dot(tipTangent) / (targetNormal.length()*tipTangent.length()));
+        // btVector3 axisDiff = tipTangent.cross(targetNormal);
         
 
-        if (angleDiff > 0.6) {
-            // Do only rotation
+        // if (angleDiff > 0.6) {
+        //     // Do only rotation
             
 
-            // double s=sin(angleDiff);
-            // double c=cos(angleDiff);
-            // double t=1-c;
-            // double x = axisDiff[0], y = axisDiff[1], z = axisDiff[2];
-            // if ((x*y*t + z*s) > 0.998) { // north pole singularity detected
-            //     rz = 2*atan2(x*sin(angleDiff/2),cos(angleDiff/2));
-            //     ry = M_PI/2;
-            //     rx = 0;
+        //     // double s=sin(angleDiff);
+        //     // double c=cos(angleDiff);
+        //     // double t=1-c;
+        //     // double x = axisDiff[0], y = axisDiff[1], z = axisDiff[2];
+        //     // if ((x*y*t + z*s) > 0.998) { // north pole singularity detected
+        //     //     rz = 2*atan2(x*sin(angleDiff/2),cos(angleDiff/2));
+        //     //     ry = M_PI/2;
+        //     //     rx = 0;
                 
-            // } else if ((x*y*t + z*s) < -0.998) { // south pole singularity detected
-            //     rz = -2*atan2(x*sin(angleDiff/2),cos(angleDiff/2));
-            //     ry = -M_PI/2;
-            //     rx = 0;
+        //     // } else if ((x*y*t + z*s) < -0.998) { // south pole singularity detected
+        //     //     rz = -2*atan2(x*sin(angleDiff/2),cos(angleDiff/2));
+        //     //     ry = -M_PI/2;
+        //     //     rx = 0;
                 
-            // } else {
-            //     rz = atan2(y * s- x * z * t , 1 - (y*y+ z*z ) * t);
-            //     ry = asin(x * y * t + z * s) ;
-            //     rx = atan2(x * s - y * z * t , 1 - (x*x + z*z) * t);
-            // }
-            cout << "targetNormal: " << targetNormal[0] << ", " << targetNormal[1] << ", " 
-                    << targetNormal[2] << endl;
-            cout << "tipTangent: " << tipTangent[0] << ", " << tipTangent[1] << ", " << tipTangent[2] << endl;
-            cout << "axisDiff: " << axisDiff[0] << ", " << axisDiff[1] << ", " << axisDiff[2] << endl;
-            cout << "angldDiff: " << angleDiff << endl;
-            cout << "rs: " << rx << ", " << ry << ", " << rz << endl;
-            // V_trans[3] = rx;
-            // V_trans[4] = ry;
-            // V_trans[5] = rz;
-            btTransform result = btTransform(btQuaternion(axisDiff, angleDiff/30), btVector3(0, 0, 0));
-            if (num_auto_grippers == 1 && attached[0] == false) {
-                // second gripper;
-                // if (distanceGT < 3) {
-                //     left_gripper2->applyTransform(result);
-                // }
-            } else {
-                V_trans[0] = 0;
-                V_trans[1] = 0;
-                V_trans[2] = 0;
-                if (attached[0] == true && vclosest_dist[0] > 0.05) {
-                    left_gripper1->applyTransform(result);
-                }
-            }
-        }
+        //     // } else {
+        //     //     rz = atan2(y * s- x * z * t , 1 - (y*y+ z*z ) * t);
+        //     //     ry = asin(x * y * t + z * s) ;
+        //     //     rx = atan2(x * s - y * z * t , 1 - (x*x + z*z) * t);
+        //     // }
+        //     cout << "targetNormal: " << targetNormal[0] << ", " << targetNormal[1] << ", " 
+        //             << targetNormal[2] << endl;
+        //     cout << "tipTangent: " << tipTangent[0] << ", " << tipTangent[1] << ", " << tipTangent[2] << endl;
+        //     cout << "axisDiff: " << axisDiff[0] << ", " << axisDiff[1] << ", " << axisDiff[2] << endl;
+        //     cout << "angldDiff: " << angleDiff << endl;
+        //     cout << "rs: " << rx << ", " << ry << ", " << rz << endl;
+        //     // V_trans[3] = rx;
+        //     // V_trans[4] = ry;
+        //     // V_trans[5] = rz;
+        //     btTransform result = btTransform(btQuaternion(axisDiff, angleDiff/30), btVector3(0, 0, 0));
+        //     if (num_auto_grippers == 1 && attached[0] == false) {
+        //         // second gripper;
+        //         // if (distanceGT < 3) {
+        //         //     left_gripper2->applyTransform(result);
+        //         // }
+        //     } else {
+        //         V_trans[0] = 0;
+        //         V_trans[1] = 0;
+        //         V_trans[2] = 0;
+        //         if (attached[0] == true && vclosest_dist[0] > 0.05) {
+        //             left_gripper1->applyTransform(result);
+        //         }
+        //     }
+        // }
         // V_trans[0] = 0;
         // V_trans[1] = 0;
         // V_trans[2] = 0;
@@ -2540,50 +2592,86 @@ void CustomScene::doJTracking()
         set the V_trans to be zero, and switch the grippers at the end. 
 
         */
-
+        // V_trans[0] = 0;
+        // V_trans[1] = 0;
+        // V_trans[2] = 0;
+        // V_trans[3] = 0;
+        // V_trans[4] = 0;
+        // V_trans[5] = 0;
+        // V_trans[3] *= 100;
+        // V_trans[4] *= 100;
+        // V_trans[5] *= 100;
 
 
 
         if(V_trans.norm() > step_limit)
             V_trans = V_trans/V_trans.norm()*step_limit;
-        cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " 
-            << V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
-        cout << "conditions: " << vclosest_dist[0] << ", " << angleDiff << endl;
-
+        // cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " 
+        //     << V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
+        // cout << "conditions: " << vclosest_dist[0] << ", " << angleDiff << endl;
+        if (inTurn < 4) {
+            // if (sqrt(V_trans[3]*V_trans[3]+V_trans[4]*V_trans[4]+V_trans[5]*V_trans[5]) > 0.04) {
+            //     inTurn += 3;
+            // } else {
+            //     inTurn = 4;
+            // }
+            inTurn += 4;
+            // V_trans[0] /= 3;
+            // V_trans[1] /= 3;
+            // V_trans[2] /= 3;
+            // V_trans[3] *= 2;
+            // V_trans[4] *= 2;
+            // V_trans[5] *= 2;
+        } else {
+            inTurn = 0;
+        }
         double Vvalue = V_trans.norm();
         // // if (Vvalue < 0.02) {
 
         // // }
         // cout << "Vvalue: " << Vvalue << endl;
         
-        if (num_auto_grippers == 1 && attached[0] == true && vclosest_dist[0] < 0.05 
-             && Vvalue < 0.02) {
-            // First gripper is close to the obstacle
-            st = true;
-            V_trans[0] = 0;
-            V_trans[1] = 0;
-            V_trans[2] = 0;
-        } else if (num_auto_grippers == 1 && attached[0] == false && 
-            (vclosest_dist[0] < 0.05 && distanceGT < 2)) {
-            // Second gripper is close to the obstacle
-            st = true;
-            V_trans[0] = 0;
-            V_trans[1] = 0;
-            V_trans[2] = 0;
-        }
-        // V_trans[3] = 0.02;
-        // V_trans[4] = 0.02;
-        // V_trans[5] = 0.02;
-        // std::cout << "V_trans: " << std::endl;
-        // std::cout << V_trans << std::endl;
-        // work on the detach the gripper movement;
+        // if (num_auto_grippers == 1 && attached[0] == true && vclosest_dist[0] < 0.05 
+        //      ) {
+        //     // First gripper is close to the obstacle
+        //     st = true;
+        //     // V_trans[0] = 0;
+        //     // V_trans[1] = 0;
+        //     // V_trans[2] = 0;
+        // } else if (num_auto_grippers == 1 && attached[0] == false && 
+        //     (vclosest_dist[0] < 0.05 && distanceGT < 2)) {
+        //     // Second gripper is close to the obstacle
+        //     st = true;
+        //     // V_trans[0] = 0;
+        //     // V_trans[1] = 0;
+        //     // V_trans[2] = 0;
+        // }
 
+        /*
 
+        Here is to decide where to grasp;
+        Implement the algorithm;
+        And decide what is the next grasping point
         
 
+        Rule: Use the gravity vector and the normal of the target ring normal;
+                If the angle is large, then grab closer, otherwise further;
+                Set the reminder of the threshold minus the angle;
 
+        Find the number: summation of the gravity vector and the target ring vector, and then 
+            find the cross product with the target ring vector, this value represents the "distance
+            to the tip". 
+            This value is referenced with the drop off rate, to get a good estimate;
+        
 
+        */ 
 
+        // This block of code is to implement the most Naive gripper switch;
+        // each time find the closest accessible point to trackPosition;
+        // apply control until this position is too close to obstacle;
+
+        // Remember, vclosest_dist is the distance between the gripper and the obstacle, 
+        // no matter it is the first gripper or the second gripper;
 
 
         // if(!bAvoidObstacle) {
@@ -2745,7 +2833,7 @@ void CustomScene::doJTracking()
         }
         else
         {
-            cout << endl;
+            // cout << endl;
             left_gripper1->applyTransform(transtm1);
             left_gripper2->applyTransform(transtm2);
 
@@ -2829,26 +2917,115 @@ void CustomScene::doJTracking()
     
 
     */
-    if (st) {
-        if (num_auto_grippers == 1 && attached[0] == true) {
-            cout << "dist: " << vclosest_dist[0] << endl;
-            // switch to second gripper
-            testRegrasp2(left_gripper2);
-            testRelease(left_gripper1);
-            st = false;
-        } else if (num_auto_grippers == 1 && attached[1] == true) {
-            // switch to first gripper
-            testRegrasp(left_gripper1);
-            testRelease2(left_gripper2);
-            st = false;
-        } 
+    /*
+    Apply the switch
+
+    */
+    // if (st) {
+    //     if (num_auto_grippers == 1 && attached[0] == true) {
+    //         cout << "dist: " << vclosest_dist[0] << endl;
+    //         // switch to second gripper
+    //         testRegrasp2(left_gripper2);
+    //         testRelease(left_gripper1);
+    //         st = false;
+    //     } else if (num_auto_grippers == 1 && attached[1] == true) {
+    //         // switch to first gripper
+    //         testRegrasp(left_gripper1);
+    //         testRelease2(left_gripper2);
+    //         st = false;
+    //     } 
+    // }
+    btVector3 trn = btVector3(0, 1, 0);
+    btVector3 grv = btVector3(0, 0, -1);
+    variableScale = ((trn[0]+grv[0])*trn[0] + (trn[1]+grv[1])*trn[1] + (trn[2]+grv[2])*trn[2]);
+    if (variableScale < 0.2) {
+        distanceToTrack = 0;
+    } else if (variableScale < 0.75) {
+        distanceToTrack = 1;
+    } else if (variableScale < 1.25) {
+        distanceToTrack = 2;
+    } else if (variableScale < 1.75) {
+        distanceToTrack =  3;
+    } else {
+        distanceToTrack = 4;
     }
+    std::vector<btVector3> raw_new_nodes;
+    getDeformableObjectNodes(raw_new_nodes);
+    double dt = (raw_new_nodes[gripperPosition[0]] - btVector3(torusY, torusX, torusZ)).length();
+    double dgt;
+    // Naive Switch
+    // if (vclosest_dist[0] < 0.05) {
+    //     // Ready to switch
+    //     if (attached[0]) {
+    //         // switch to second gripper
+    //         Release(left_gripper1, 0);
+            
+    //         trackPosition = gripperPosition[0];
+    //         // Select which one to regrasp;
+    //         for (int k = trackPosition+1; k <= 10; k++) {
+    //             dgt = (raw_new_nodes[k]-btVector3(torusY, torusX, torusZ)).length();
+    //             if (dgt > 1) {
+    //                 cout << "to Regrasp: " << k << endl;
+    //                 Regrasp(left_gripper2, k, 1);
+    //                 break;
+    //             }
+    //         }
+    //     } else if (dt > 0.9) {
+    //         // switch back to first gripper
 
-    // end of doJTracking, here apply "rotation"
+    //         Release(left_gripper2, 1);
+    //         Regrasp(left_gripper2, gripperPosition[0], 1);
+    //         Release(left_gripper2, 1);
+    //         trackPosition = 0;
+    //         Regrasp(left_gripper1, gripperPosition[0], 0);
+    //     } else {
+    //         // switch the location of the second gripper
+    //         Release(left_gripper2, 1);
+    //         trackPosition = gripperPosition[1];
+    //         // Select which one to regrasp
+    //         for (int k = trackPosition+1; k <= 10; k++) {
+    //             dgt = (raw_new_nodes[k]-btVector3(torusY, torusX, torusZ)).length();
+    //             if (dgt > 1) {
+    //                 Regrasp(left_gripper2, k, 1);
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+    countSwitch += 1;
+    // With physics model
+    if (vclosest_dist[0] < 0.02 && countSwitch > 5) {
+        // Ready to switch
+        if (attached[0]) {
+            // switch to second
+            Release(left_gripper1, 0);
+            trackPosition = gripperPosition[0];
+            Regrasp(left_gripper2, trackPosition+distanceToTrack+1, 1);
+            trackPosition = gripperPosition[1] - 2;
+            countSwitch = 0;
+        } else { //if (dt > 0.9){
+            // switch back to first
+            countSwitch = 0;
+            // but need to check the accessible condition
+            Release(left_gripper2, 1);
+            trackPosition = 0;
+            if (dt < 0.9) {
 
-    
+                Regrasp(left_gripper1, trackPosition+distanceToTrack-1, 0);
+                Regrasp(left_gripper2, gripperPosition[0]+distanceToTrack+1, 1);
+                Release(left_gripper2, 1);
+            } else {
+                Regrasp(left_gripper1, trackPosition+distanceToTrack, 0);
+            }
+        }
 
-    // finish applying rotation
+    } else if (dt > 0.9 && attached[0] == true && gripperPosition[0] != distanceToTrack) {
+        Release(left_gripper1, 0);
+        Regrasp(left_gripper1, distanceToTrack, 0);
+        Regrasp(left_gripper2, gripperPosition[0]+distanceToTrack+1, 1);
+        Release(left_gripper2, 1);
+        countSwitch = 0;
+    }
 
 }
 
@@ -2909,6 +3086,24 @@ void CustomScene::testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach) {
     env->add(gripper_to_detach);
     attached[0] = true;
     num_auto_grippers = 2;
+}
+
+void CustomScene::Regrasp (GripperKinematicObject::Ptr  gripper, int place, int which) {
+    gripper->setWorldTransform(ropePtr->children[gripperPosition[which]]->rigidBody->getCenterOfMassTransform());
+    
+    gripperPosition[which] = place;
+    gripper->rigidGrab(ropePtr->children[gripperPosition[which]]->rigidBody.get(),gripperPosition[which],env);
+
+    env->add(gripper);
+    attached[which] = true;
+    
+}
+
+void CustomScene::Release (GripperKinematicObject::Ptr  gripper, int which) {
+    env->bullet->dynamicsWorld->removeConstraint(gripper->cnt.get());
+    env->remove(gripper);
+    attached[which] = false;
+    num_auto_grippers = 1;
 }
 
 void CustomScene::testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach) {
@@ -3633,8 +3828,27 @@ void CustomScene::makeRopeWorld()
     // originall was 50 links
     int nLinks = 30;
     random = true;
+    trackPosition = 0;
     inTurn = 0;
+    countSwitch = 0;
     st = false;
+    variableScale = 0;
+    btVector3 trn = btVector3(0, 1, 0);
+    btVector3 grv = btVector3(0, 0, -1);
+    variableScale = ((trn[0]+grv[0])*trn[0] + (trn[1]+grv[1])*trn[1] + (trn[2]+grv[2])*trn[2]);
+
+    if (variableScale < 0.2) {
+        distanceToTrack = 0;
+    } else if (variableScale < 0.75) {
+        distanceToTrack = 1;
+    } else if (variableScale < 1.25) {
+        distanceToTrack = 2;
+    } else if (variableScale < 1.75) {
+        distanceToTrack =  3;
+    } else {
+        distanceToTrack = 4;
+    }
+
     vector<btVector3> ctrlPts;
     for (int i=0; i< nLinks; i++) {
         //changed the initial position of the rope
@@ -3896,18 +4110,26 @@ void CustomScene::makeRopeWorld()
 
         if(i == 0)
         {
-            childindex = 2;
-            gripper_closestobjectnodeind[i] = 2;
-            gripperPosition[0] = 2;
+            // childindex = 2;
+            // gripper_closestobjectnodeind[i] = 2;
+            // gripperPosition[0] = 2;
+            childindex = distanceToTrack;
+            gripper_closestobjectnodeind[i] = distanceToTrack;
+            gripperPosition[0] = distanceToTrack;
             
             cur_gripper = left_gripper1;
         }
         if(i == 1)
         {
             
-            childindex = 6;
-            gripper_closestobjectnodeind[i] = 6;
-            gripperPosition[1] = 6;
+            // childindex = 3;
+            // gripper_closestobjectnodeind[i] = 3;
+            // gripperPosition[1] = 3;
+
+            childindex = gripperPosition[0] + distanceToTrack + 1;
+            gripper_closestobjectnodeind[i] = gripperPosition[0] + distanceToTrack + 1;
+            gripperPosition[1] = gripperPosition[0] + distanceToTrack + 1;
+
             cur_gripper = left_gripper2;
         }
 

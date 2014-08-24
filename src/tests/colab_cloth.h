@@ -40,8 +40,8 @@
 #define USE_RADIUS_CONTACT
 #define DO_COVERAGE
 #define ROPE
-#define ROTATION_SCALING 50.0f
-//#define DO_ROTATION
+#define ROTATION_SCALING 0.005f
+#define DO_ROTATION
 
 
 
@@ -611,16 +611,21 @@ public:
     void testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach);
     void testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach);
     void testAdjust(GripperKinematicObject::Ptr  gripper_to_detach);
+    void Regrasp(GripperKinematicObject::Ptr  gripper, int place, int which);
+    void Release(GripperKinematicObject::Ptr  gripper, int which);
     std::vector<int> gripperStrategyNoneFix();
     std::vector<int> gripperStrategyFix();
     std::vector<int> gripperStrategyNoneFixPush();
     Eigen::MatrixXf computeJacobian_approxTest(std::vector<int> locations);
     double gDNTCANIG(std::vector<int> locations, int input_ind, int &closest_ind);
-
+    int trackPosition;
     bool random;
     int inTurn;
+    int countSwitch;
     bool st;
-    
+    double variableScale;
+    int distanceToTrack;
+
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
     void createFork();
