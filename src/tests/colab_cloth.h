@@ -40,7 +40,7 @@
 #define USE_RADIUS_CONTACT
 #define DO_COVERAGE
 #define ROPE
-#define ROTATION_SCALING 0.005f
+#define ROTATION_SCALING 0.05f
 #define DO_ROTATION
 
 
@@ -59,7 +59,7 @@
 
 
 
-//#define USE_NOISE
+#define USE_NOISE
 
 //WARNING: THIS IS THE WRONG TRANSFORM, WILL NOT WORK FOR ROTATION!
 const btTransform TBullet_PR2GripperRight = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,0,1),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
@@ -513,6 +513,27 @@ public:
     BulletObject::Ptr o;
     BulletObject::Ptr o1;
     BulletObject::Ptr o2;
+    BulletObject::Ptr oT;
+    BulletObject::Ptr oT1;
+    BulletObject::Ptr oT2;
+    BulletObject::Ptr oT3;
+    BulletObject::Ptr oT4;
+    BulletObject::Ptr oT5;
+    BulletObject::Ptr oT6;
+    BulletObject::Ptr oT7;
+    BulletObject::Ptr oT8;
+    BulletObject::Ptr oT9;
+    BulletObject::Ptr oT10;
+    BulletObject::Ptr oT11;
+
+    BulletObject::Ptr oC;
+    BulletObject::Ptr oC1;
+    BulletObject::Ptr oC2;
+    BulletObject::Ptr oC3;
+    BulletObject::Ptr oC4;
+    void makeBeltLoops();
+    void makeCircuitLoops();
+
     double centerX, centerY, centerZ;
     double torusRadius, torusHeight;
     double gripperX;
@@ -525,7 +546,7 @@ public:
 
     double distanceGT;
     double distanceXZ;
-    double pointOnTorusY, pointOnTorusZ;
+    double pointOnTorusY, pointOnTorusZ, pointOnTorusX;
     double distanceToTorus;
     double px, py, pz;
     double anotherRadius;
@@ -550,6 +571,7 @@ public:
 
     std::vector<std::vector<double> > findCircle(std::vector<double> normal, 
                                                 std::vector<double> center);
+    
     std::vector<std::vector<double> > findXCircle(std::vector<double> normal, 
                                                 std::vector<double> center);
     std::vector<std::vector<double> > findYCircle(std::vector<double> normal, 
