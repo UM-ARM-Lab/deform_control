@@ -59,7 +59,7 @@
 
 
 
-#define USE_NOISE
+// #define USE_NOISE
 
 //WARNING: THIS IS THE WRONG TRANSFORM, WILL NOT WORK FOR ROTATION!
 const btTransform TBullet_PR2GripperRight = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,0,1),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
@@ -533,6 +533,8 @@ public:
     BulletObject::Ptr oC4;
     void makeBeltLoops();
     void makeCircuitLoops();
+    void switchTarget();
+    bool switched;
 
     double centerX, centerY, centerZ;
     double torusRadius, torusHeight;

@@ -685,8 +685,8 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 
                         //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
                         //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),clothptr->softBody->m_nodes[closest_ind].m_x);
-                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]-node_pos[closest_ind]);
-                        
+                        // btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]-node_pos[closest_ind]);
+                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]);
                         
                         btTransform T0_center = gripper->getWorldTransform();
                         
@@ -707,6 +707,7 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
                         } else {
                             rScaling = ROTATION_SCALING;
                         }
+                        // rScaling = ROTATION_SCALING;
                         for(int j = 0; j < 3; j++) {
                             //V_pos(3*k+j) = 100;
                             // V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
@@ -1528,6 +1529,12 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
     closestCircle.push_back(0);
     closestCircle.push_back(0);
 
+    std::vector<double> closestRing;
+    closestRing.push_back(0);
+    closestRing.push_back(0);
+    closestRing.push_back(0);
+    closestRing.push_back(0);
+
     std::vector<double> normalDirection;
     normalDirection.push_back(0);
     normalDirection.push_back(0);
@@ -1570,6 +1577,10 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
             normalDirection[0] = circles[i][4];
             normalDirection[1] = circles[i][5];
             normalDirection[2] = circles[i][6];
+            closestRing[0] = rings[i][0];
+            closestRing[1] = rings[i][1];
+            closestRing[2] = rings[i][2];
+            closestRing[3] = rings[i][3];
             active = i;
             break;
         }
@@ -1615,7 +1626,7 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
         double px, py, pz, t;
         double dist;
         // specific to this retry example
-        if (closestCircle[1] == 3) {
+        if (closestCircle[1] == 2 || closestCircle[1] == -2) {
             // detect if this is the previous circle
             double val = (raw_new_nodes[0][1] - closestCircle[1]) / (lineSeg[1]);
             px = raw_new_nodes[0][0] - val*lineSeg[0];
@@ -1626,7 +1637,7 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
             dist = sqrt((px-closestCircle[0])*(px-closestCircle[0]) + 
                         (py-closestCircle[1])*(py-closestCircle[1]) + 
                         (pz-closestCircle[2])*(pz-closestCircle[2]));
-            if (dist < closestCircle[3] && (val >= -1 && val <= 0)) {
+            if (dist < closestRing[3] && (val >= -1 && val <= 0)) {
                 penetrate = true;
                 penetrated[active] = true;
                 
@@ -1674,7 +1685,8 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
             dist = sqrt((px-closestCircle[0])*(px-closestCircle[0]) + 
                         (py-closestCircle[1])*(py-closestCircle[1]) + 
                         (pz-closestCircle[2])*(pz-closestCircle[2]));
-            if (dist < closestCircle[3]) {
+            // if (dist < closestCircle[3]) {
+            if  (dist < closestRing[3]) {
                 penetrate = true;
                 penetrated[active] = true;
                 break;
@@ -1742,7 +1754,7 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
 
         // detect misses
         
-        if (closestCircle[1] == 5 || penetrate == false) {
+        if (closestCircle[1] == 5 || closestCircle[1] == 0 || penetrate == false) {
             btVector3 center = btVector3(closestCircle[0], closestCircle[1], closestCircle[2]);
             double d0 = (raw_new_nodes[0]-center).length();
             double d1 = (raw_new_nodes[1]-center).length();
@@ -1790,7 +1802,7 @@ std::vector<double> CustomScene::findDirection (double x, double y, double z, bo
     }
 
     // 
-    // std::cout << "using circle: " << active << ", " << closestCircle[1] << std::endl;
+    std::cout << "using circle: " << active << ", " << closestCircle[1] << std::endl;
 
     
 
@@ -2017,6 +2029,9 @@ void CustomScene::doJTracking()
 #ifdef ROPE
     //BulletObject::Ptr obj = oC;
     BulletObject::Ptr obj = o;
+    if (switched) {
+        obj = o1;
+    }
 #else
     BulletObject::Ptr obj = table;
 #endif
@@ -2494,16 +2509,10 @@ void CustomScene::doJTracking()
 
         // should call findDirection;
         //double directionScale = 5000000000;//490;
-        double directionScale = 500000;
-        // if (penetrated[0] == false) {
-        //     directionScale = 2000;
-        // } else {
-        //     directionScale = 640;
-        // }
+        double directionScale = 5000;
+        
         if (num_auto_grippers == 1 && attached[0] == false) {
-            // int loc = gripperPosition[1]-2;
-            // trackPosition = gripperPosition[1]-2;
-            // cout << "second gripper: " << trackPosition << endl;
+            
             direction = findDirection(filtered_new_nodes[trackPosition][0], 
                                         filtered_new_nodes[trackPosition][1], 
                                         filtered_new_nodes[trackPosition][2], false);
@@ -2552,13 +2561,13 @@ void CustomScene::doJTracking()
             if (penetrated[k]) {
                 continue;
             } 
-            // axis.push_back(circles[k][0]);
-            // axis.push_back(circles[k][1]);
-            // axis.push_back(circles[k][2]);
+            axis.push_back(circles[k][0]);
+            axis.push_back(circles[k][1]);
+            axis.push_back(circles[k][2]);
 
-            axis.push_back(cover_points[0][0]);
-            axis.push_back(cover_points[0][1]);
-            axis.push_back(cover_points[0][2]);
+            // axis.push_back(cover_points[0][0]);
+            // axis.push_back(cover_points[0][1]);
+            // axis.push_back(cover_points[0][2]);
 
             axis.push_back(circles[k][4]);
             axis.push_back(circles[k][5]);
@@ -2578,7 +2587,7 @@ void CustomScene::doJTracking()
         // nextPoint = findPointNotTip(axis, radius, filtered_new_nodes);
         // std::cout << "the next point index is: " << nextPoint << std::endl;
 
-        directionScale = 10000;
+        directionScale = 1;
 
         
         // double ang;
@@ -2826,14 +2835,14 @@ void CustomScene::doJTracking()
         ct.push_back(0);
         ct.push_back(0);
         // cout << "plotting points: " << endl;
-        for (int p = 1; p < circles.size(); p++) {
-            ct[0] = circles[p][0];
-            ct[1] = circles[p][1];
-            ct[2] = circles[p][2];
-            rr = circles[p][3];
-            nm[0] = circles[p][4];
-            nm[1] = circles[p][5];
-            nm[2] = circles[p][6];
+        for (int p = 0; p < rings.size(); p++) {
+            ct[0] = rings[p][0];
+            ct[1] = rings[p][1];
+            ct[2] = rings[p][2];
+            rr = rings[p][3];
+            nm[0] = rings[p][4];
+            nm[1] = rings[p][5];
+            nm[2] = rings[p][6];
             points = findCircle(nm, ct);
             for (int index = 0; index < points.size(); index ++) {
                 btVector3 point;
@@ -3133,11 +3142,11 @@ void CustomScene::doJTracking()
         // V_trans[5] *= 100;
         // cout << "dist: " << vclosest_dist[0] << ", " << step_limit << endl;
         
-        // if (distanceToTorus < 2) {
-        //     step_limit = 0.01;
-        // } else if (distanceToTorus < 5) {
-        //     step_limit = 0.05;
-        // }
+        if (distanceToTorus < 3) {
+            step_limit = 0.05;
+        } else if (distanceToTorus < 5) {
+            step_limit = 0.05;
+        }
 
         if(V_trans.norm() > step_limit && vclosest_dist[0] > 0)
             V_trans = V_trans/V_trans.norm()*step_limit;
@@ -3699,6 +3708,112 @@ void CustomScene::testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach) {
     num_auto_grippers = 2;
 }
 
+void CustomScene::switchTarget() {
+    switchCircles();
+    switched = true;
+    env->remove(o);
+
+    centerX = 0;
+    centerY = 0;
+    centerZ = 5;
+
+    
+
+    // Block of code making 3 torus with same normal
+
+    int numOfColumn = 20;
+    int numOfRow = 4; 
+    torusRadius = 2;
+    torusHeight = 0.7;
+    std::vector<double> nm;
+    std::vector<double> ct;
+    std::vector<double> center;
+
+    center.push_back(0);
+    center.push_back(0);
+    center.push_back(0);
+
+    nm.push_back(0);
+    nm.push_back(1);
+    nm.push_back(0);
+
+    ct.push_back(6);
+    ct.push_back(0);
+    ct.push_back(7);
+
+    std::vector<std::vector<double> > pt;
+    pt = findCircle(nm, center);
+
+    
+
+    
+    
+
+    btTriangleMesh* mesh = new btTriangleMesh();
+    vector<btVector3> row1;
+    vector<btVector3> row2;
+    vector<btVector3> row3;
+    vector<btVector3> row4;
+    double xc, yc, zc;
+    
+
+    for (int k = 0; k < pt.size(); k++) {
+        row1.push_back(btVector3((pt[k][0])*1.2, 
+                                (pt[k][1])*1.2,
+                                (pt[k][2])*1.2));
+        row3.push_back(btVector3((pt[k][0])*0.3, 
+                                (pt[k][1])*0.3,
+                                (pt[k][2])*0.3));
+        row2.push_back(btVector3(pt[k][0]+nm[0]*0.3, pt[k][1]+nm[1]*0.3, pt[k][2]+nm[2]*0.3));
+        row4.push_back(btVector3(pt[k][0]-nm[0]*0.3, pt[k][1]-nm[1]*0.3, pt[k][2]-nm[2]*0.3));
+    }
+
+    // adding triangles between row3 and row1/row2
+    for (int i = 0; i < row3.size()-1; i++) {
+        mesh->addTriangle(row1[i], row2[i], row1[i+1], false);
+        mesh->addTriangle(row2[i], row1[i+1], row2[i+1], false);
+
+        mesh->addTriangle(row3[i], row2[i], row3[i+1], false);
+        mesh->addTriangle(row2[i], row3[i+1], row2[i+1], false);
+    }
+    mesh->addTriangle(row3[row2.size()-1], row2[row2.size()-1], row3[0], false);
+    mesh->addTriangle(row2[row2.size()-1], row3[0], row2[0], false);
+
+    mesh->addTriangle(row1[row2.size()-1], row2[row2.size()-1], row1[0], false);
+    mesh->addTriangle(row2[row2.size()-1], row1[0], row2[0], false);
+
+    // adding triangles between row4 and row1/row2
+
+    for (int i = 0; i < row3.size()-1; i++) {
+        mesh->addTriangle(row1[i], row4[i], row1[i+1], false);
+        mesh->addTriangle(row4[i], row1[i+1], row4[i+1], false);
+
+        mesh->addTriangle(row3[i], row4[i], row3[i+1], false);
+        mesh->addTriangle(row4[i], row3[i+1], row4[i+1], false);
+    }
+    mesh->addTriangle(row3[row3.size()-1], row4[row2.size()-1], row3[0], false);
+    mesh->addTriangle(row4[row2.size()-1], row3[0], row4[0], false);
+
+    mesh->addTriangle(row1[row2.size()-1], row4[row2.size()-1], row1[0], false);
+    mesh->addTriangle(row4[row2.size()-1], row1[0], row4[0], false);
+
+    
+
+
+
+    btBvhTriangleMeshShape* shape=new btBvhTriangleMeshShape(mesh,true,true);
+    BulletObject* test = new BulletObject(0, shape, btTransform(btQuaternion(0, 0, 0, 1), 
+        table->rigidBody->getCenterOfMassTransform().getOrigin()
+                        +btVector3(centerX,centerY,centerZ)));
+    o1 = BulletObject::Ptr(test);
+    //o->collisionShape.reset(shape);
+    o1->setColor(0.9, 9.9, 0.0, 1.0);
+    // Here is where to uncomment when ready to add back torus;
+    // Testing without the torus;
+    env->add(o1);
+
+}
+
 void CustomScene::testAdjust(GripperKinematicObject::Ptr  gripper) {
     btTransform testTM;
     double a, b, c, d;
@@ -3954,7 +4069,8 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
             break;
 
         case 'l':
-            std::cout << "try to adjust second gripper" << std::endl;
+            // std::cout << "try to adjust second gripper" << std::endl;
+            scene.switchTarget();
             break;
 
         // case 'k':
@@ -4860,6 +4976,7 @@ void CustomScene::makeRopeWorld()
     int nLinks = 50;
     random = true;
     trackPosition = 0;
+    switched = false;
     inTurn = 0;
     countSwitch = 0;
     st = false;
@@ -5080,9 +5197,9 @@ void CustomScene::makeRopeWorld()
         row1.push_back(btVector3((pt[k][0])*1.2, 
                                 (pt[k][1])*1.2,
                                 (pt[k][2])*1.2));
-        row3.push_back(btVector3((pt[k][0])*0.3, 
-                                (pt[k][1])*0.3,
-                                (pt[k][2])*0.3));
+        row3.push_back(btVector3((pt[k][0])*0.4, 
+                                (pt[k][1])*0.4,
+                                (pt[k][2])*0.4));
         row2.push_back(btVector3(pt[k][0]+nm[0]*0.3, pt[k][1]+nm[1]*0.3, pt[k][2]+nm[2]*0.3));
         row4.push_back(btVector3(pt[k][0]-nm[0]*0.3, pt[k][1]-nm[1]*0.3, pt[k][2]-nm[2]*0.3));
     }
@@ -5200,9 +5317,9 @@ void CustomScene::makeRopeWorld()
             // childindex = 2;
             // gripper_closestobjectnodeind[i] = 2;
             // gripperPosition[0] = 2;
-            childindex = 2;
-            gripper_closestobjectnodeind[i] = 2;
-            gripperPosition[0] = 2;
+            childindex = 3;
+            gripper_closestobjectnodeind[i] = 3;
+            gripperPosition[0] = 3;
             
             cur_gripper = left_gripper1;
         }
@@ -5213,9 +5330,13 @@ void CustomScene::makeRopeWorld()
             // gripper_closestobjectnodeind[i] = 3;
             // gripperPosition[1] = 3;
 
-            childindex = gripperPosition[0] + distanceToTrack + 1;
-            gripper_closestobjectnodeind[i] = gripperPosition[0] + distanceToTrack + 1;
-            gripperPosition[1] = gripperPosition[0] + distanceToTrack + 1;
+            // childindex = gripperPosition[0] + distanceToTrack + 1;
+            // gripper_closestobjectnodeind[i] = gripperPosition[0] + distanceToTrack + 1;
+            // gripperPosition[1] = gripperPosition[0] + distanceToTrack + 1;
+
+            childindex = 7;
+            gripper_closestobjectnodeind[i] = 7;
+            gripperPosition[1] = 7;
 
             cur_gripper = left_gripper2;
         }
