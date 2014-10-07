@@ -27,7 +27,7 @@
 
 //#define USE_ADAPTIVE_JACOBIAN //not working
 #define USE_RADIUS_CONTACT
-#define PRESERVE_LENGTH
+// #define PRESERVE_LENGTH
 #define AVOID_COLLISION
 
 #ifdef USE_PR2
@@ -40,7 +40,7 @@
 #define USE_RADIUS_CONTACT
 #define DO_COVERAGE
 #define ROPE
-#define ROTATION_SCALING 0.05f
+#define ROTATION_SCALING 0.01f
 #define DO_ROTATION
 
 
@@ -484,6 +484,8 @@ public:
     std::vector<btVector3> filtered_new_nodes;
     Eigen::VectorXf last_V_step;
     PlotPoints::Ptr plot_points;
+    PlotPoints::Ptr plot_pointsTraj;
+    std::vector<btVector4> plotcolsTraj;
     PlotPoints::Ptr left_center_point;
     PlotAxes::Ptr left_axes1,left_axes2;
     PlotLines::Ptr rot_lines;
@@ -531,6 +533,7 @@ public:
     BulletObject::Ptr oC2;
     BulletObject::Ptr oC3;
     BulletObject::Ptr oC4;
+    size_t count;
     void makeBeltLoops();
     void makeCircuitLoops();
     void switchTarget();
@@ -554,6 +557,7 @@ public:
     double anotherRadius;
     double A, B, C, alpha, beta;
     vector<bool> attached;
+    vector<btVector3> traj;
 
 
     // define the function to find the circle to use, and 
@@ -652,6 +656,7 @@ public:
 
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
+    BulletSoftObject::Ptr createCloth(btScalar length, btScalar width, const btVector3 &center);
     void createFork();
     void destroyFork();
     void swapFork();
