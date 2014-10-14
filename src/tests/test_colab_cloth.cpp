@@ -48,7 +48,7 @@ void GripperKinematicObject::toggleattach(btSoftBody * psb, double radius) {
     else
     {
 #ifdef USE_RADIUS_CONTACT
-        std::cout << "use radius contact?????" << std::endl;
+        //std::cout << "use radius contact?????" << std::endl;
         if(radius == 0)
             radius = halfextents[0];
         btTransform top_tm;
@@ -67,7 +67,7 @@ void GripperKinematicObject::toggleattach(btSoftBody * psb, double radius) {
 
                 vattached_node_inds.push_back(j);
                 appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-                cout << "\tappending anchor, closest ind: "<< j << "\n";
+                //cout << "\tappending anchor, closest ind: "<< j << "\n";
 
             }
         }
@@ -553,12 +553,12 @@ Eigen::MatrixXf CustomScene::computeJacobian_approxTest(std::vector<int> locatio
 Eigen::MatrixXf CustomScene::computeJacobian_approx()
 {
 #ifdef ROPE
-    double dropoff_const = 0.5;//0.5;
+    double dropoff_const = 0.7;//0.5;
 #else
     double dropoff_const = 0.7;//0.7 for colab folding;//;
 #endif
-    int numnodes = getNumDeformableObjectNodes();//clothptr->softBody->m_nodes.size();
-
+    // int numnodes = getNumDeformableObjectNodes();//clothptr->softBody->m_nodes.size();
+    int numnodes = clothptr->softBody->m_nodes.size();
     std::vector<btTransform> perts;
     float step_length = 0.2;
     float rot_angle = 0.2;
@@ -647,22 +647,17 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
                     int closest_ind;
                     double dist = getDistfromNodeToClosestAttachedNodeInGripper(gripper, k, closest_ind);
                     //if(k < 10) cout << "dist: " << dist << " node_map " << gripper_node_distance_map[g][k] << endl;
-
+                    // cout << "dist: " << dist << endl;
                     if(i < 3) //translation
                     {
                         btVector3 transvec = ((gripper->getWorldTransform()*perts[i]).getOrigin() - 
                                         gripper->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
-                        // cout << ((gripper->getWorldTransform()*perts[i]).getOrigin() - 
-                        //                 gripper->getWorldTransform().getOrigin())[0] << ", " <<
-                        //         ((gripper->getWorldTransform()*perts[i]).getOrigin() - 
-                        //                 gripper->getWorldTransform().getOrigin())[1] << ", " <<
-                        //         ((gripper->getWorldTransform()*perts[i]).getOrigin() - 
-                        //                 gripper->getWorldTransform().getOrigin())[2] << endl;
+                        
                         //WRONG: btVector3 transvec = perts[i].getOrigin()*exp(-dist*dropoff_const)/step_length;
                         //btVector3 transvec = perts[i].getOrigin()*exp(-gripper_node_distance_map[g][k]*dropoff_const);
                         for(int j = 0; j < 3; j++)
                             V_pos(3*k + j) = transvec[j];
-                        // cout << "translation: " << V_pos[0] << ", " << V_pos[1] << ", " << V_pos[2] << endl;
+                        
                         // cout << "translation origin: " << gripper->getWorldTransform().getOrigin()[0] 
                         // << ", " << gripper->getWorldTransform().getOrigin()[1] << ", " 
                         // << gripper->getWorldTransform().getOrigin()[2] << endl;
@@ -684,8 +679,8 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
                         //TODO: Use cross product instead
 
                         //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
-                        //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),clothptr->softBody->m_nodes[closest_ind].m_x);
-                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]-node_pos[closest_ind]);
+                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),clothptr->softBody->m_nodes[closest_ind].m_x);
+                        //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]-node_pos[closest_ind]);
                         // btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]);
                         
                         btTransform T0_center = gripper->getWorldTransform();
@@ -725,7 +720,9 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 
     }
 
-
+    // cout << "J: " << J(0, 0) << ", " << J(0, 1) << ", " << J(0, 2) << ", "
+    //     << J(1, 0) << ", " << J(1, 1) << ", " << J(1, 2) << ", "
+    //     << J(2, 0) << ", " << J(2, 1) << ", " << J(2, 2) << endl;
     //rot_lines->setPoints(rot_line_pnts,plot_cols);
 
     return J;
@@ -962,7 +959,8 @@ float box_muller(float m, float s)	/* normal random variate generator */
 void CustomScene::getDeformableObjectNodes(std::vector<btVector3>& vnodes)
 {
 #ifdef ROPE
-    vnodes = ropePtr->getNodes();
+    nodeArrayToNodePosVector(clothptr->softBody->m_nodes, vnodes);
+    // vnodes = ropePtr->getNodes();
 #else
     nodeArrayToNodePosVector(clothptr->softBody->m_nodes, vnodes);
 #endif
@@ -971,10 +969,45 @@ void CustomScene::getDeformableObjectNodes(std::vector<btVector3>& vnodes)
 int CustomScene::getNumDeformableObjectNodes()
 {
 #ifdef ROPE
-    return ropePtr->getNodes().size();
+    // return ropePtr->getNodes().size();
+    return clothptr->softBody->m_nodes.size();
 #else
     return clothptr->softBody->m_nodes.size();
 #endif
+
+}
+
+std::vector<std::vector<double> > CustomScene::findEllipse(std::vector<double> normal, 
+                                            std::vector<double> center, 
+                                            std::vector<double> majorAxis) {
+
+    std::vector<std::vector<double> > points = findCircle(normal, center);    
+
+    double angle = 0;
+    double normMA = sqrt(majorAxis[0]*majorAxis[0] + 
+                         majorAxis[1]*majorAxis[1] + 
+                         majorAxis[2]*majorAxis[2]);
+    double cx, cy, cz;
+    for (int i = 0; i < points.size(); i++) {
+        angle = acos(((points[i][0]-center[0])*majorAxis[0] + 
+                      (points[i][1]-center[1])*majorAxis[1] + 
+                      (points[i][2]-center[2])*majorAxis[2]) / normMA);
+        cx = points[i][0];
+        cy = points[i][1];
+        cz = points[i][2];
+        if (angle > M_PI/2) {
+            // negative direction
+            points[i][0] = cx -(angle-M_PI/2)*majorAxis[0];
+            points[i][1] = cy -(angle-M_PI/2)*majorAxis[1];
+            points[i][2] = cz -(angle-M_PI/2)*majorAxis[2];
+        } else {
+            // positive direction
+            points[i][0] = cx +(M_PI-angle-M_PI/2)*majorAxis[0];
+            points[i][1] = cy +(M_PI-angle-M_PI/2)*majorAxis[1];
+            points[i][2] = cz +(M_PI-angle-M_PI/2)*majorAxis[2];
+        }
+    }
+    return points;
 
 }
 
@@ -1513,6 +1546,177 @@ std::vector<double> CustomScene::findDirectionNotTip (double x, double y, double
     return direction;
 }
 
+std::vector<double> CustomScene::findDirectionEllipse(std::vector<btVector3> coverPs) {
+    std::vector<double> direction;
+    direction.push_back(0);
+    direction.push_back(0);
+    direction.push_back(0);
+
+    // z = z - 0.15;
+
+    std::vector<double> closestCircle;
+    closestCircle.push_back(0);
+    closestCircle.push_back(0);
+    closestCircle.push_back(0);
+    closestCircle.push_back(0);
+
+
+    std::vector<double> normalDirection;
+    normalDirection.push_back(0);
+    normalDirection.push_back(0);
+    normalDirection.push_back(0);
+
+    double distance;
+    double minDist = 1000;
+
+    
+    int active;
+    // find current active circle
+    for (int i = 0; i < circles.size(); i++) {
+        if (penetrated[i]) {
+            continue;
+        } else {
+            closestCircle[0] = circles[i][0];
+            closestCircle[1] = circles[i][1];
+            closestCircle[2] = circles[i][2];
+            closestCircle[3] = circles[i][3];
+            normalDirection[0] = circles[i][4];
+            normalDirection[1] = circles[i][5];
+            normalDirection[2] = circles[i][6];
+            // closestRing[0] = rings[i][0];
+            // closestRing[1] = rings[i][1];
+            // closestRing[2] = rings[i][2];
+            // closestRing[3] = rings[i][3];
+            active = i;
+            break;
+        }
+    }
+
+    // if (tip) {
+    //     // penetration detection
+    //     // 
+    //     bool penetrate = false;
+    //     bool misses = false;
+
+        
+
+    //     // This is already testing the tip
+    //     // If not the tip, no need to test penetration
+        
+    //     std::vector<btVector3> raw_new_nodes;
+    //     getDeformableObjectNodes(raw_new_nodes);
+    //     btVector3 lineSeg = raw_new_nodes[0]-raw_new_nodes[1];
+
+    //     // plane formular
+    //     double a, b, c, d;
+    //     a = normalDirection[0];
+    //     b = normalDirection[1];
+    //     c = normalDirection[2];
+    //     d = -a*closestCircle[0]-b*closestCircle[1]-c*closestCircle[2];
+    //     double px, py, pz, t;
+    //     double dist;
+    //     // This segment is a little bit wrong;
+    //     // try to debug this. 
+    //     for (int i = gripperPosition[0]+1; i <= 10; i++) {
+    //         lineSeg[0] = raw_new_nodes[i][0] - raw_new_nodes[i+1][0];
+    //         lineSeg[1] = raw_new_nodes[i][1] - raw_new_nodes[i+1][1];
+    //         lineSeg[2] = raw_new_nodes[i][2] - raw_new_nodes[i+1][2];
+
+    //         t = (a*raw_new_nodes[i][0] + b*raw_new_nodes[i][1] + c*raw_new_nodes[i][2] + d) / 
+    //             (a*lineSeg[0] + b*lineSeg[1] + c*lineSeg[2]);
+    //         // cout << "lineSeg: " << lineSeg[0] << ", " << lineSeg[1] << ", " << lineSeg[2] 
+    //         //     << ", " << a << ", " << b << ", " << c << endl;
+    //         // cout << "center: " << closestCircle[0] << ", " << closestCircle[1] << ", " <<
+    //         //     closestCircle[2] << endl;
+    //         // cout << "t: " << t << endl;
+    //         if (t > 0 || t < -1) {
+    //             continue;
+    //         }
+    //         px = raw_new_nodes[i][0] - t*lineSeg[0];
+    //         py = raw_new_nodes[i][1] - t*lineSeg[1];
+    //         pz = raw_new_nodes[i][2] - t*lineSeg[2];
+
+
+    //         dist = sqrt((px-closestCircle[0])*(px-closestCircle[0]) + 
+    //                     (py-closestCircle[1])*(py-closestCircle[1]) + 
+    //                     (pz-closestCircle[2])*(pz-closestCircle[2]));
+    //         if (dist < closestCircle[3]) {
+    //             penetrate = true;
+    //             penetrated[active] = true;
+    //             break;
+    //         }
+
+    //     }
+        
+
+        
+
+    //     next: 
+    //     if (penetrate) {
+    //         active += 1;
+    //         if (active == circles.size()) {
+    //             active = 0;
+    //         }
+    //         closestCircle[0] = circles[active][0];
+    //         closestCircle[1] = circles[active][1];
+    //         closestCircle[2] = circles[active][2];
+    //         closestCircle[3] = circles[active][3];
+    //         normalDirection[0] = circles[active][4];
+    //         normalDirection[1] = circles[active][5];
+    //         normalDirection[2] = circles[active][6];
+    //     }
+    //     skip: 
+    //     if (misses) {
+    //         if (active > 0){
+    //             penetrated[active-1] = false;
+    //             active = active - 1;
+    //             closestCircle[0] = circles[active][0];
+    //             closestCircle[1] = circles[active][1];
+    //             closestCircle[2] = circles[active][2];
+    //             closestCircle[3] = circles[active][3];
+    //             normalDirection[0] = circles[active][4];
+    //             normalDirection[1] = circles[active][5];
+    //             normalDirection[2] = circles[active][6];
+    //         }
+    //     }
+    // }
+
+    
+    std::vector<std::vector<double> > points;
+    std::vector<double> p;
+    
+    
+    p.push_back(coverPs[0][0]);
+    p.push_back(coverPs[0][1]);
+    p.push_back(coverPs[0][2]);
+    
+    //cout << "in findDirection" << endl;
+    // points = findCircle(normalDirection, closestCircle);
+    std::vector<double> majorAxis;
+    majorAxis.push_back(1);
+    majorAxis.push_back(0);
+    majorAxis.push_back(0);
+    points = findEllipse(normalDirection, closestCircle, majorAxis);
+
+
+    std::vector<double> result;
+    result = BiotSavart(p, points);
+    // std::cout << "result: " << result.size() << std::endl;
+
+    double norm = 0;
+    norm = sqrt(result[0]*result[0]+result[1]*result[1]+result[2]*result[2]);
+
+    direction[0] = result[0]/norm;
+    direction[1] = result[1]/norm;
+    direction[2] = result[2]/norm;
+    
+    direction[0] = result[0];
+    direction[1] = result[1];
+    direction[2] = result[2];
+
+    return direction;
+}
+
 std::vector<double> CustomScene::findDirection (double x, double y, double z, bool tip) {
     std::vector<double> direction;
     direction.push_back(0);
@@ -2029,7 +2233,7 @@ void CustomScene::doJTracking()
 
 #ifdef ROPE
     // BulletObject::Ptr obj = oC;
-    BulletObject::Ptr obj = table;
+    BulletObject::Ptr obj = oT;
     // if (switched) {
     //     obj = o1;
     // }
@@ -2167,7 +2371,6 @@ void CustomScene::doJTracking()
 
 
             */
-
             double a, b, c, d, ctx, cty, ctz;
             for (int k = 0; k < circles.size(); k++) {
                 if (penetrated[k]) {
@@ -2200,31 +2403,32 @@ void CustomScene::doJTracking()
                     torusY = oT1->rigidBody->getCenterOfMassTransform().getOrigin()[0];
                     torusX = oT1->rigidBody->getCenterOfMassTransform().getOrigin()[1];
                     torusZ = oT1->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } else if (k == 2) {
-                    torusY = oT2->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-                    torusX = oT2->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-                    torusZ = oT2->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } else if (k == 3) {
-                    torusY = oT3->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-                    torusX = oT3->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-                    torusZ = oT3->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } else if (k == 4) {
-                    torusY = oT4->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-                    torusX = oT4->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-                    torusZ = oT4->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } else if (k == 5) {
-                    torusY = oT5->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-                    torusX = oT5->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-                    torusZ = oT5->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } else if (k == 6) {
-                    torusY = oT6->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-                    torusX = oT6->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-                    torusZ = oT6->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                } else if (k == 7) {
-                    torusY = oT7->rigidBody->getCenterOfMassTransform().getOrigin()[0];
-                    torusX = oT7->rigidBody->getCenterOfMassTransform().getOrigin()[1];
-                    torusZ = oT7->rigidBody->getCenterOfMassTransform().getOrigin()[2];
-                }
+                } 
+                // else if (k == 2) {
+                //     torusY = oT2->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                //     torusX = oT2->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                //     torusZ = oT2->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                // } else if (k == 3) {
+                //     torusY = oT3->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                //     torusX = oT3->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                //     torusZ = oT3->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                // } else if (k == 4) {
+                //     torusY = oT4->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                //     torusX = oT4->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                //     torusZ = oT4->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                // } else if (k == 5) {
+                //     torusY = oT5->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                //     torusX = oT5->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                //     torusZ = oT5->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                // } else if (k == 6) {
+                //     torusY = oT6->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                //     torusX = oT6->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                //     torusZ = oT6->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                // } else if (k == 7) {
+                //     torusY = oT7->rigidBody->getCenterOfMassTransform().getOrigin()[0];
+                //     torusX = oT7->rigidBody->getCenterOfMassTransform().getOrigin()[1];
+                //     torusZ = oT7->rigidBody->getCenterOfMassTransform().getOrigin()[2];
+                // }
                 break;
             }
             // cout << "locations: " << oC->rigidBody->getCenterOfMassTransform().getOrigin()[0] << ", "
@@ -2420,6 +2624,7 @@ void CustomScene::doJTracking()
     {
         //cout << "No object found for collision avoidance!" << endl;
     }
+    
 
 //////////////////
 
@@ -2428,7 +2633,7 @@ void CustomScene::doJTracking()
     float approx_thresh = 5;
 
     // maybe at last tune step_limit
-    float step_limit = 0.1;
+    float step_limit = 0.05;
 
     Eigen::VectorXf V_step(numnodes*3);
     Eigen::VectorXf V_delta(numnodes*3);
@@ -2512,144 +2717,155 @@ void CustomScene::doJTracking()
         // should call findDirection;
         //double directionScale = 5000000000;//490;
         double directionScale = 490;
+        // BEGIN OF ROPE SIMULATION
+
+
+        // if (num_auto_grippers == 1 && attached[0] == false) {
+            
+        //     direction = findDirection(filtered_new_nodes[trackPosition][0], 
+        //                                 filtered_new_nodes[trackPosition][1], 
+        //                                 filtered_new_nodes[trackPosition][2], false);
+            
+        //     cover_points[0][0] = filtered_new_nodes[trackPosition][0] + direction[0]*directionScale;
+        //     cover_points[0][1] = filtered_new_nodes[trackPosition][1] + direction[1]*directionScale;
+        //     cover_points[0][2] = filtered_new_nodes[trackPosition][2] + direction[2]*directionScale;
+
+        //     // loc = gripperPosition[1]-1;
+        //     // direction = findDirection(filtered_new_nodes[loc][0], 
+        //     //                             filtered_new_nodes[loc][1], 
+        //     //                             filtered_new_nodes[loc][2], false);
+            
+        //     // cover_points[1][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
+        //     // cover_points[1][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
+        //     // cover_points[1][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
+            
+        // } else {
+            
+        //     direction = findDirection(filtered_new_nodes[trackPosition][0], 
+        //                                 filtered_new_nodes[trackPosition][1], 
+        //                                 filtered_new_nodes[trackPosition][2], true);
+            
+        //     cover_points[0][0] = filtered_new_nodes[trackPosition][0] + direction[0]*directionScale;
+        //     cover_points[0][1] = filtered_new_nodes[trackPosition][1] + direction[1]*directionScale;
+        //     cover_points[0][2] = filtered_new_nodes[trackPosition][2] + direction[2]*directionScale;
+        //     // cout << "from: " << filtered_new_nodes[trackPosition][0] << ", " << 
+        //     //     filtered_new_nodes[trackPosition][1] << ", " << filtered_new_nodes[trackPosition][2] <<
+        //     //     ", to: " << cover_points[0][0] << ", " << cover_points[0][1] << ", " << 
+        //     //     cover_points[0][2] << endl;
+        //     // direction = findDirection(filtered_new_nodes[1][0], 
+        //     //                             filtered_new_nodes[1][1], 
+        //     //                             filtered_new_nodes[1][2], false);
+            
+        //     // cover_points[1][0] = filtered_new_nodes[1][0] + direction[0]*directionScale;
+        //     // cover_points[1][1] = filtered_new_nodes[1][1] + direction[1]*directionScale;
+        //     // cover_points[1][2] = filtered_new_nodes[1][2] + direction[2]*directionScale;
         
-        if (num_auto_grippers == 1 && attached[0] == false) {
-            
-            direction = findDirection(filtered_new_nodes[trackPosition][0], 
-                                        filtered_new_nodes[trackPosition][1], 
-                                        filtered_new_nodes[trackPosition][2], false);
-            
-            cover_points[0][0] = filtered_new_nodes[trackPosition][0] + direction[0]*directionScale;
-            cover_points[0][1] = filtered_new_nodes[trackPosition][1] + direction[1]*directionScale;
-            cover_points[0][2] = filtered_new_nodes[trackPosition][2] + direction[2]*directionScale;
+        // }
+        // std::vector<double> axis;
+        // double radius;
+        // // // axis.push_back(filtered_new_nodes[0][0]);
+        // // // axis.push_back(filtered_new_nodes[0][1]);
+        // // // axis.push_back(filtered_new_nodes[0][2]);
+        // for (int k = 0; k < circles.size(); k++) {
+        //     if (penetrated[k]) {
+        //         continue;
+        //     } 
+        //     axis.push_back(circles[k][0]);
+        //     axis.push_back(circles[k][1]);
+        //     axis.push_back(circles[k][2]);
 
-            // loc = gripperPosition[1]-1;
-            // direction = findDirection(filtered_new_nodes[loc][0], 
-            //                             filtered_new_nodes[loc][1], 
-            //                             filtered_new_nodes[loc][2], false);
-            
-            // cover_points[1][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
-            // cover_points[1][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
-            // cover_points[1][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
-            
-        } else {
-            
-            direction = findDirection(filtered_new_nodes[trackPosition][0], 
-                                        filtered_new_nodes[trackPosition][1], 
-                                        filtered_new_nodes[trackPosition][2], true);
-            
-            cover_points[0][0] = filtered_new_nodes[trackPosition][0] + direction[0]*directionScale;
-            cover_points[0][1] = filtered_new_nodes[trackPosition][1] + direction[1]*directionScale;
-            cover_points[0][2] = filtered_new_nodes[trackPosition][2] + direction[2]*directionScale;
-            // cout << "from: " << filtered_new_nodes[trackPosition][0] << ", " << 
-            //     filtered_new_nodes[trackPosition][1] << ", " << filtered_new_nodes[trackPosition][2] <<
-            //     ", to: " << cover_points[0][0] << ", " << cover_points[0][1] << ", " << 
-            //     cover_points[0][2] << endl;
-            // direction = findDirection(filtered_new_nodes[1][0], 
-            //                             filtered_new_nodes[1][1], 
-            //                             filtered_new_nodes[1][2], false);
-            
-            // cover_points[1][0] = filtered_new_nodes[1][0] + direction[0]*directionScale;
-            // cover_points[1][1] = filtered_new_nodes[1][1] + direction[1]*directionScale;
-            // cover_points[1][2] = filtered_new_nodes[1][2] + direction[2]*directionScale;
-        
-        }
-        std::vector<double> axis;
-        double radius;
-        // // axis.push_back(filtered_new_nodes[0][0]);
-        // // axis.push_back(filtered_new_nodes[0][1]);
-        // // axis.push_back(filtered_new_nodes[0][2]);
-        for (int k = 0; k < circles.size(); k++) {
-            if (penetrated[k]) {
-                continue;
-            } 
-            axis.push_back(circles[k][0]);
-            axis.push_back(circles[k][1]);
-            axis.push_back(circles[k][2]);
+        //     // axis.push_back(cover_points[0][0]);
+        //     // axis.push_back(cover_points[0][1]);
+        //     // axis.push_back(cover_points[0][2]);
 
-            // axis.push_back(cover_points[0][0]);
-            // axis.push_back(cover_points[0][1]);
-            // axis.push_back(cover_points[0][2]);
+        //     axis.push_back(circles[k][4]);
+        //     axis.push_back(circles[k][5]);
+        //     axis.push_back(circles[k][6]);
+        //     radius = circles[k][3];
+        //     break;
+        // }
+        // // cout << "axis: " << axis[3] << ", " << axis[4] << ", " << axis[5] << endl;
+        // // double dx = filtered_new_nodes[0][0]-filtered_new_nodes[1][0];
+        // // double dy = filtered_new_nodes[0][1]-filtered_new_nodes[1][1];
+        // // double dz = filtered_new_nodes[0][2]-filtered_new_nodes[1][2];
 
-            axis.push_back(circles[k][4]);
-            axis.push_back(circles[k][5]);
-            axis.push_back(circles[k][6]);
-            radius = circles[k][3];
-            break;
-        }
-        // cout << "axis: " << axis[3] << ", " << axis[4] << ", " << axis[5] << endl;
-        // double dx = filtered_new_nodes[0][0]-filtered_new_nodes[1][0];
-        // double dy = filtered_new_nodes[0][1]-filtered_new_nodes[1][1];
-        // double dz = filtered_new_nodes[0][2]-filtered_new_nodes[1][2];
+        // // cover_points[1][0] = cover_points[0][0]+64*dx*axis[3];
+        // // cover_points[1][1] = cover_points[0][1]+64*dy*axis[4];
+        // // cover_points[1][2] = cover_points[0][2]+64*dz*axis[5];
 
-        // cover_points[1][0] = cover_points[0][0]+64*dx*axis[3];
-        // cover_points[1][1] = cover_points[0][1]+64*dy*axis[4];
-        // cover_points[1][2] = cover_points[0][2]+64*dz*axis[5];
+        // // int nextPoint;
+        // // nextPoint = findPointNotTip(axis, radius, filtered_new_nodes);
+        // // std::cout << "the next point index is: " << nextPoint << std::endl;
 
-        // int nextPoint;
-        // nextPoint = findPointNotTip(axis, radius, filtered_new_nodes);
-        // std::cout << "the next point index is: " << nextPoint << std::endl;
-
-        directionScale = 250;
+        // directionScale = 250;
 
         
-        // double ang;
-        // ang = acos((raw_new_nodes[0][1]-raw_new_nodes[1][1]) / ((raw_new_nodes[0]-raw_new_nodes[1]).length()));
-        // // cout << "ang: " << ang << endl;
-        // cover_points[1][0] = cover_points[0][0] - 0.05*direction[0];
-        // cover_points[1][1] = cover_points[0][1] - 0.05*direction[1];
-        // cover_points[1][2] = cover_points[0][2] - 0.05*direction[2];
-        // cover_points[1][0] = cover_points[0][0];
-        // cover_points[1][1] = cover_points[0][1] - ang*ang;
-        // cover_points[1][2] = cover_points[0][2];
-        // currently three tracking points;
-        if (num_auto_grippers == 1 && attached[0] == true) {
-            // the first gripper, then let 
-            // all points before gripper aline;
-            // get this done;
+        // // double ang;
+        // // ang = acos((raw_new_nodes[0][1]-raw_new_nodes[1][1]) / ((raw_new_nodes[0]-raw_new_nodes[1]).length()));
+        // // // cout << "ang: " << ang << endl;
+        // // cover_points[1][0] = cover_points[0][0] - 0.05*direction[0];
+        // // cover_points[1][1] = cover_points[0][1] - 0.05*direction[1];
+        // // cover_points[1][2] = cover_points[0][2] - 0.05*direction[2];
+        // // cover_points[1][0] = cover_points[0][0];
+        // // cover_points[1][1] = cover_points[0][1] - ang*ang;
+        // // cover_points[1][2] = cover_points[0][2];
+        // // currently three tracking points;
+        // if (num_auto_grippers == 1 && attached[0] == true) {
+        //     // the first gripper, then let 
+        //     // all points before gripper aline;
+        //     // get this done;
             
 
-            direction = findDirectionNotTip (filtered_new_nodes[trackPosition+1][0], 
-                                    filtered_new_nodes[trackPosition+1][1], 
-                                    filtered_new_nodes[trackPosition+1][2], axis);
+        //     direction = findDirectionNotTip (filtered_new_nodes[trackPosition+1][0], 
+        //                             filtered_new_nodes[trackPosition+1][1], 
+        //                             filtered_new_nodes[trackPosition+1][2], axis);
 
-            cover_points[1][0] = filtered_new_nodes[trackPosition+1][0] + direction[0]*directionScale;
-            cover_points[1][1] = filtered_new_nodes[trackPosition+1][1] + direction[1]*directionScale;
-            cover_points[1][2] = filtered_new_nodes[trackPosition+1][2] + direction[2]*directionScale;
+        //     cover_points[1][0] = filtered_new_nodes[trackPosition+1][0] + direction[0]*directionScale;
+        //     cover_points[1][1] = filtered_new_nodes[trackPosition+1][1] + direction[1]*directionScale;
+        //     cover_points[1][2] = filtered_new_nodes[trackPosition+1][2] + direction[2]*directionScale;
 
-            // direction = findDirectionNotTip (filtered_new_nodes[2][0], 
-            //                         filtered_new_nodes[2][1], 
-            //                         filtered_new_nodes[2][2], axis);
+        //     // direction = findDirectionNotTip (filtered_new_nodes[2][0], 
+        //     //                         filtered_new_nodes[2][1], 
+        //     //                         filtered_new_nodes[2][2], axis);
 
-            // cover_points[2][0] = filtered_new_nodes[2][0] + direction[0]*directionScale;
-            // cover_points[2][1] = filtered_new_nodes[2][1] + direction[1]*directionScale;
-            // cover_points[2][2] = filtered_new_nodes[2][2] + direction[2]*directionScale;
-        } else {
+        //     // cover_points[2][0] = filtered_new_nodes[2][0] + direction[0]*directionScale;
+        //     // cover_points[2][1] = filtered_new_nodes[2][1] + direction[1]*directionScale;
+        //     // cover_points[2][2] = filtered_new_nodes[2][2] + direction[2]*directionScale;
+        // } else {
 
-            // not the first gripper;
-            // the second gripper;
-            // directionScale = 100;
+        //     // not the first gripper;
+        //     // the second gripper;
+        //     // directionScale = 100;
             
-            // directionScale = 800;
-            direction = findDirectionNotTip (filtered_new_nodes[trackPosition+1][0], 
-                                    filtered_new_nodes[trackPosition+1][1], 
-                                    filtered_new_nodes[trackPosition+1][2], axis);
+        //     // directionScale = 800;
+        //     direction = findDirectionNotTip (filtered_new_nodes[trackPosition+1][0], 
+        //                             filtered_new_nodes[trackPosition+1][1], 
+        //                             filtered_new_nodes[trackPosition+1][2], axis);
 
-            cover_points[1][0] = filtered_new_nodes[trackPosition+1][0] + direction[0]*directionScale;
-            cover_points[1][1] = filtered_new_nodes[trackPosition+1][1] + direction[1]*directionScale;
-            cover_points[1][2] = filtered_new_nodes[trackPosition+1][2] + direction[2]*directionScale;
+        //     cover_points[1][0] = filtered_new_nodes[trackPosition+1][0] + direction[0]*directionScale;
+        //     cover_points[1][1] = filtered_new_nodes[trackPosition+1][1] + direction[1]*directionScale;
+        //     cover_points[1][2] = filtered_new_nodes[trackPosition+1][2] + direction[2]*directionScale;
 
-            // loc = gripperPosition[1]-1;
+        //     // loc = gripperPosition[1]-1;
 
-            // direction = findDirectionNotTip (filtered_new_nodes[loc][0], 
-            //                         filtered_new_nodes[loc][1], 
-            //                         filtered_new_nodes[loc][2], axis);
+        //     // direction = findDirectionNotTip (filtered_new_nodes[loc][0], 
+        //     //                         filtered_new_nodes[loc][1], 
+        //     //                         filtered_new_nodes[loc][2], axis);
 
-            // cover_points[2][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
-            // cover_points[2][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
-            // cover_points[2][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
+        //     // cover_points[2][0] = filtered_new_nodes[loc][0] + direction[0]*directionScale;
+        //     // cover_points[2][1] = filtered_new_nodes[loc][1] + direction[1]*directionScale;
+        //     // cover_points[2][2] = filtered_new_nodes[loc][2] + direction[2]*directionScale;
 
-        }
+        // }
+
+        // END OF ROPE SIMULATION
+
+
+        // BEGIN OF RIBBON SIMULATION
+
+
+        // END OF RIBBON SIMULATION
+
 
         // Here, produce second vector field on the second point;
         // set the second point to be the location of the second gripper;
@@ -2760,7 +2976,6 @@ void CustomScene::doJTracking()
     #ifndef ROPE
         rot_lines->setPoints(rot_line_pnts,plot_cols);
     #endif
-
 #else
         for( map<int,int>::iterator ii=node_mirror_map.begin(); ii!=node_mirror_map.end(); ++ii)
         {
@@ -2824,7 +3039,7 @@ void CustomScene::doJTracking()
 #endif
 
 
-        plot_points->setPoints(plotpoints,plotcols);
+        // plot_points->setPoints(plotpoints,plotcols);
         double step = 2*M_PI / 30;
         std::vector<btVector3> testPlotting;
         std::vector<std::vector<double> > points;
@@ -2837,16 +3052,20 @@ void CustomScene::doJTracking()
         ct.push_back(0);
         ct.push_back(0);
         ct.push_back(0);
+        std::vector<double> ma;
+        ma.push_back(1);
+        ma.push_back(0);
+        ma.push_back(0);
         // cout << "plotting points: " << endl;
-        for (int p = 0; p < rings.size(); p++) {
-            ct[0] = rings[p][0];
-            ct[1] = rings[p][1];
-            ct[2] = rings[p][2];
-            rr = rings[p][3];
-            nm[0] = rings[p][4];
-            nm[1] = rings[p][5];
-            nm[2] = rings[p][6];
-            points = findCircle(nm, ct);
+        for (int p = 0; p < circles.size(); p++) {
+            ct[0] = circles[p][0];
+            ct[1] = circles[p][1];
+            ct[2] = circles[p][2];
+            rr = circles[p][3];
+            nm[0] = circles[p][4];
+            nm[1] = circles[p][5];
+            nm[2] = circles[p][6];
+            points = findEllipse(nm, ct, ma);
             for (int index = 0; index < points.size(); index ++) {
                 btVector3 point;
                 point.setX((points[index][0]-ct[0])*rr+ct[0]);
@@ -2856,10 +3075,10 @@ void CustomScene::doJTracking()
             }
 
         }
-        std::vector<btVector3> trajPlotting;
-        for (int p = 0; p < traj.size(); p++) {
-            trajPlotting.push_back(traj[p]);
-        }
+        // std::vector<btVector3> trajPlotting;
+        // for (int p = 0; p < traj.size(); p++) {
+        //     trajPlotting.push_back(traj[p]);
+        // }
         // cout << "end of plotting points" << endl;
         // testPlotting.push_back(raw_new_nodes[trackPosition]);
         // testPlotting.push_back(cover_points[0]);
@@ -2876,7 +3095,7 @@ void CustomScene::doJTracking()
         // }
         
         plot_points->setPoints(testPlotting);
-        plot_pointsTraj->setPoints(trajPlotting, plotcolsTraj);
+        //plot_pointsTraj->setPoints(trajPlotting, plotcolsTraj);
 
         //cout << "Error: " << error << " ";
         // cout << error;
@@ -2899,8 +3118,10 @@ void CustomScene::doJTracking()
                 last_movement.transpose()/(last_movement.transpose()*last_movement);
         }
 #else
+        
 
         J = computeJacobian_approx();
+        
 #endif
 
 //        //low-pass filter
@@ -2919,8 +3140,8 @@ void CustomScene::doJTracking()
         // cout << "Jcollision: " << Jcollision << endl;
         Eigen::MatrixXf Jpinv_collision= pinv(Jcollision.transpose()*Jcollision)*Jcollision.transpose();
         Eigen::MatrixXf Jpinv= pinv(J.transpose()*J)*J.transpose();
-        //cout << "test!!!: " << Jpinv << endl;
-
+        
+        // cout << "Jpinv: " << Jpinv.row(0) << endl;
 
 #ifdef ROPE
         float k2 = 2;
@@ -2928,24 +3149,25 @@ void CustomScene::doJTracking()
         float k2 = 100;
 #endif
         //V_trans = Jpinv*V_step;
-
-
-
+        // cout << "Jpinv: " << Jpinv(0, 0) << ", " << Jpinv(0, 1) << ", " << Jpinv(0, 2) 
+        //     << ", " << Jpinv(1, 0) << ", " << Jpinv(1, 1) << ", " << Jpinv(1, 2) << ", " 
+        //     << Jpinv(2, 0) << ", " << Jpinv(2, 1) << ", " << Jpinv(2, 2) << ", " 
+        //     << Jpinv(0, 3) << ", " << Jpinv(0, 4) << ", " << Jpinv(0, 5) << endl;
+        // cout << "size: " << Jpinv.rows() << ", " << Jpinv.cols() << ", " << V_step.size() << endl;
+        // cout << "V_step: " << V_step[0] << ", " << V_step[1] << ", " << V_step[2] 
+        //     << ", " << V_step[3] << ", " << V_step[4] << ", " << V_step[5]
+        //     << ", " << V_step[6] << ", " << V_step[7] << ", " << V_step[8] << endl;
+        // cout << "test: " << Jpinv.row(0)*V_step << endl;
         Eigen::VectorXf q_desired = Jpinv*V_step;
-
+        // cout << "result: " << Jpinv*V_step << endl;
         Eigen::VectorXf q_desired_nullspace = (Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols())  - 
                             Jpinv_collision*Jcollision)*q_desired;
         Eigen::VectorXf q_collision = Jpinv_collision*V_step_collision;
-        // cout << "V_step: " << V_step << endl;
-        // cout << "q_desired: " << q_desired << endl;
+        
         Eigen::VectorXf term1 = q_collision;// + q_desired_nullspace;
         //Eigen::VectorXf term1 = q_desired_nullspace;
 
-        // Problem: the q_desired_nullspace: when only translation: scale is small;
-        // When do ratation, scale is huge;
-
-        // cout << "q_collision: " << q_collision << endl;
-        // cout << "q_desired_nullspace: " << q_desired_nullspace << endl;
+        
         Eigen::VectorXf term2 = q_desired;
         std::vector<float> vK(num_auto_grippers);
         //cout << "term2: " << term2.segment(0, dof_per_gripper) << endl;
@@ -2960,7 +3182,7 @@ void CustomScene::doJTracking()
 
         // still, not correct where to go, seems the term2 is pointing towards the correct direction, but
         // my term1 is not;
-        // std::cout << "before: "  << term2 << std::endl;
+        // std::cout << "before: "  << term1 << ", " << term2 << std::endl;
         double currentNorm = 0;
         for(int g = 0; g < num_auto_grippers; g++) {
             // cout << " dist" << g << ": " << vclosest_dist[g];
@@ -3038,136 +3260,21 @@ void CustomScene::doJTracking()
         // cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " << 
         //     V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
         //V_trans = term2;
-        btVector3 tipTangent;
-        btVector3 targetNormal;
-        if (num_auto_grippers == 1 && attached[0] == false) {
-            // second gripper
-            tipTangent = (raw_new_nodes[gripperPosition[1]-2]-raw_new_nodes[gripperPosition[1]-1]).normalized();
-        } else {
-            // first gripper
-            tipTangent = (raw_new_nodes[0]-raw_new_nodes[1]).normalized();
-        }
+        cout << "V_trans: " << V_trans << endl;
 
         // test 
         // targetNormal = (cover_points[0]-cover_points[1]).normalized();
         // end of test
+
         
-        /*
-        real targetNormal finding
-        
-        */
-        // for (int k = 0; k < circles.size(); k++) {
-        //     if (penetrated[k]) {
-        //         continue;
-        //     }
-        //     targetNormal = btVector3(circles[k][4], circles[k][5], circles[k][6]).normalized();
-        // }
-
-        // double angleDiff = acos(targetNormal.dot(tipTangent) / (targetNormal.length()*tipTangent.length()));
-        // btVector3 axisDiff = tipTangent.cross(targetNormal);
-        
-
-        // if (angleDiff > 0.6) {
-        //     // Do only rotation
-            
-
-        //     // double s=sin(angleDiff);
-        //     // double c=cos(angleDiff);
-        //     // double t=1-c;
-        //     // double x = axisDiff[0], y = axisDiff[1], z = axisDiff[2];
-        //     // if ((x*y*t + z*s) > 0.998) { // north pole singularity detected
-        //     //     rz = 2*atan2(x*sin(angleDiff/2),cos(angleDiff/2));
-        //     //     ry = M_PI/2;
-        //     //     rx = 0;
-                
-        //     // } else if ((x*y*t + z*s) < -0.998) { // south pole singularity detected
-        //     //     rz = -2*atan2(x*sin(angleDiff/2),cos(angleDiff/2));
-        //     //     ry = -M_PI/2;
-        //     //     rx = 0;
-                
-        //     // } else {
-        //     //     rz = atan2(y * s- x * z * t , 1 - (y*y+ z*z ) * t);
-        //     //     ry = asin(x * y * t + z * s) ;
-        //     //     rx = atan2(x * s - y * z * t , 1 - (x*x + z*z) * t);
-        //     // }
-        //     cout << "targetNormal: " << targetNormal[0] << ", " << targetNormal[1] << ", " 
-        //             << targetNormal[2] << endl;
-        //     cout << "tipTangent: " << tipTangent[0] << ", " << tipTangent[1] << ", " << tipTangent[2] << endl;
-        //     cout << "axisDiff: " << axisDiff[0] << ", " << axisDiff[1] << ", " << axisDiff[2] << endl;
-        //     cout << "angldDiff: " << angleDiff << endl;
-        //     cout << "rs: " << rx << ", " << ry << ", " << rz << endl;
-        //     // V_trans[3] = rx;
-        //     // V_trans[4] = ry;
-        //     // V_trans[5] = rz;
-        //     btTransform result = btTransform(btQuaternion(axisDiff, angleDiff/30), btVector3(0, 0, 0));
-        //     if (num_auto_grippers == 1 && attached[0] == false) {
-        //         // second gripper;
-        //         // if (distanceGT < 3) {
-        //         //     left_gripper2->applyTransform(result);
-        //         // }
-        //     } else {
-        //         V_trans[0] = 0;
-        //         V_trans[1] = 0;
-        //         V_trans[2] = 0;
-        //         if (attached[0] == true && vclosest_dist[0] > 0.05) {
-        //             left_gripper1->applyTransform(result);
-        //         }
-        //     }
-        // }
-        // V_trans[0] = 0;
-        // V_trans[1] = 0;
-        // V_trans[2] = 0;
-        // if (inTurn < 1) {
-        //     V_trans[0] = 0;
-        //     V_trans[1] = 0;
-        //     V_trans[2] = 0;
-        //     inTurn += 1;
-        // } else {
-        //     V_trans[3] = 0;
-        //     V_trans[4] = 0;
-        //     V_trans[5] = 0;
-        //     inTurn = 0;
-        // }
-        
-        // cout << "before normalize V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " 
-        //     << V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
-
-
-        /*
-        If the V_trans is too small, then hold this configuraiton, 
-        set the V_trans to be zero, and switch the grippers at the end. 
-
-        */
-        // V_trans[0] = 0;
-        // V_trans[1] = 0;
-        // V_trans[2] = 0;
-        // V_trans[3] = 0;
-        // V_trans[4] = 0;
-        // V_trans[5] = 0;
-        // V_trans[3] *= 100;
-        // V_trans[4] *= 100;
-        // V_trans[5] *= 100;
-        // cout << "dist: " << vclosest_dist[0] << ", " << step_limit << endl;
-        
-        // if (distanceToTorus < 3) {
-        //     step_limit = 0.05;
-        // } else if (distanceToTorus < 5) {
-        //     step_limit = 0.05;
-        // }
-
         if(V_trans.norm() > step_limit)
             V_trans = V_trans/V_trans.norm()*step_limit;
         // else if (vclosest_dist[0] < 0){
         //     V_trans = V_trans/V_trans.norm()*0.1;
         // }
-        // count ++;
-        // std::cout << "step: " << count << std::endl;
-        // traj.push_back(left_gripper1->getWorldTransform().getOrigin());
-        // plotcolsTraj.push_back(btVector4(1, 1, 0, 1));
-        // cout << "V_trans: " << V_trans << endl;
-        // cout << "V_trans: " << V_trans[0] << ", " << V_trans[1] << ", " << V_trans[2] << ", " 
-        //     << V_trans[3] << ", " << V_trans[4] << ", " << V_trans[5] << endl;
-        // cout << "conditions: " << vclosest_dist[0] << ", " << angleDiff << endl;
+        
+        
+        
         if (inTurn < 4) {
             // if (sqrt(V_trans[3]*V_trans[3]+V_trans[4]*V_trans[4]+V_trans[5]*V_trans[5]) > 0.04) {
             //     inTurn += 3;
@@ -3349,6 +3456,7 @@ void CustomScene::doJTracking()
 #endif
         //check is it more semetric than it would have been had you done nothing
         //simulateInNewFork(innerstate, BulletConfig::dt, transvec);
+        
 
         float errors[2];
 //        omp_set_num_threads(2);
@@ -3494,24 +3602,24 @@ void CustomScene::doJTracking()
     //         st = false;
     //     } 
     // }
-    btVector3 trn = btVector3(0, 1, 0);
-    btVector3 grv = btVector3(0, 0, -1);
-    variableScale = ((trn[0]+grv[0])*trn[0] + (trn[1]+grv[1])*trn[1] + (trn[2]+grv[2])*trn[2]);
-    if (variableScale < 0.2) {
-        distanceToTrack = 0;
-    } else if (variableScale < 0.75) {
-        distanceToTrack = 1;
-    } else if (variableScale < 1.25) {
-        distanceToTrack = 2;
-    } else if (variableScale < 1.75) {
-        distanceToTrack =  2;
-    } else {
-        distanceToTrack = 3;
-    }
-    std::vector<btVector3> raw_new_nodes;
-    getDeformableObjectNodes(raw_new_nodes);
-    double dt = (raw_new_nodes[gripperPosition[0]] - btVector3(torusY, torusX, torusZ)).length();
-    double dgt;
+    // btVector3 trn = btVector3(0, 1, 0);
+    // btVector3 grv = btVector3(0, 0, -1);
+    // variableScale = ((trn[0]+grv[0])*trn[0] + (trn[1]+grv[1])*trn[1] + (trn[2]+grv[2])*trn[2]);
+    // if (variableScale < 0.2) {
+    //     distanceToTrack = 0;
+    // } else if (variableScale < 0.75) {
+    //     distanceToTrack = 1;
+    // } else if (variableScale < 1.25) {
+    //     distanceToTrack = 2;
+    // } else if (variableScale < 1.75) {
+    //     distanceToTrack =  2;
+    // } else {
+    //     distanceToTrack = 3;
+    // }
+    // std::vector<btVector3> raw_new_nodes;
+    // getDeformableObjectNodes(raw_new_nodes);
+    // double dt = (raw_new_nodes[gripperPosition[0]] - btVector3(torusY, torusX, torusZ)).length();
+    // double dgt;
     // Naive Switch
     // if (vclosest_dist[0] < 0.05) {
     //     // Ready to switch
@@ -3551,111 +3659,111 @@ void CustomScene::doJTracking()
     //         }
     //     }
     // }
-    int which;
-    for (int k = 0; k < circles.size(); k++) {
-        if (penetrated[k]) {
-            continue;
-        } 
-        which = k;
-        break;
-    }
-    countSwitch += 1;
-    // With physics model
-    // cout << "test distance to switch: " << vclosest_dist[0] << ", " << distanceGT << endl;
-    distanceToTrack = 2;
-    if ((vclosest_dist[0] < 0.02 && countSwitch > 5) || (distanceGT < 0.9 && countSwitch > 5)) {
-        // Ready to switch
-        cout << "switch???" << endl;
-        if (attached[0]) {
-            // switch to second
-            // if (which == 0) {
-            //     distanceToTrack = 0;
-            // } else if (which == 1) {
-            //     distanceToTrack = 1;
-            // } else if (which == 2) {
-            //     distanceToTrack = 2;
-            // } else if (which == 3) {
-            //     distanceToTrack = 2;
-            // } else if (which == 4) {
-            //     distanceToTrack = 3;
-            // }
-            trackPosition = gripperPosition[0];
-            Regrasp(left_gripper2, 5, 1);
-            Release(left_gripper2, 1);
-            Regrasp(left_gripper2, 5, 1);
-            Release(left_gripper1, 0);
+    // int which;
+    // for (int k = 0; k < circles.size(); k++) {
+    //     if (penetrated[k]) {
+    //         continue;
+    //     } 
+    //     which = k;
+    //     break;
+    // }
+    // countSwitch += 1;
+    // // With physics model
+    // // cout << "test distance to switch: " << vclosest_dist[0] << ", " << distanceGT << endl;
+    // distanceToTrack = 2;
+    // if ((vclosest_dist[0] < 0.02 && countSwitch > 5) || (distanceGT < 0.9 && countSwitch > 5)) {
+    //     // Ready to switch
+    //     cout << "switch???" << endl;
+    //     if (attached[0]) {
+    //         // switch to second
+    //         // if (which == 0) {
+    //         //     distanceToTrack = 0;
+    //         // } else if (which == 1) {
+    //         //     distanceToTrack = 1;
+    //         // } else if (which == 2) {
+    //         //     distanceToTrack = 2;
+    //         // } else if (which == 3) {
+    //         //     distanceToTrack = 2;
+    //         // } else if (which == 4) {
+    //         //     distanceToTrack = 3;
+    //         // }
+    //         trackPosition = gripperPosition[0];
+    //         Regrasp(left_gripper2, 5, 1);
+    //         Release(left_gripper2, 1);
+    //         Regrasp(left_gripper2, 5, 1);
+    //         Release(left_gripper1, 0);
             
-            // Regrasp(left_gripper2, trackPosition+distanceToTrack+1, 1);
-            //Regrasp(left_gripper2, 5, 1);
-            trackPosition = gripperPosition[1] - 2;
-            countSwitch = 0;
-        } else { //if (dt > 0.9){
-            cout << "in switch back to first" << endl;
-            // switch back to first
-            countSwitch = 0;
-            Regrasp(left_gripper1, 2, 0);
-            Release(left_gripper1, 0);
-            Regrasp(left_gripper1, 2, 0);
-            Release(left_gripper2, 1);
-            trackPosition = 0;
-            // but need to check the accessible condition
-            // Release(left_gripper2, 1);
-            // trackPosition = 0;
-            // if (dt < 0.9) {
-            //     // cout << "here???" << endl;
-            //     // if (which == 0) {
-            //     //     distanceToTrack = 0;
-            //     // } else if (which == 1) {
-            //     //     distanceToTrack = 1;
-            //     // } else if (which == 2) {
-            //     //     distanceToTrack = 2;
-            //     // } else if (which == 3) {
-            //     //     distanceToTrack = 2;
-            //     // } else if (which == 4) {
-            //     //     distanceToTrack = 3;
-            //     // }
+    //         // Regrasp(left_gripper2, trackPosition+distanceToTrack+1, 1);
+    //         //Regrasp(left_gripper2, 5, 1);
+    //         trackPosition = gripperPosition[1] - 2;
+    //         countSwitch = 0;
+    //     } else { //if (dt > 0.9){
+    //         cout << "in switch back to first" << endl;
+    //         // switch back to first
+    //         countSwitch = 0;
+    //         Regrasp(left_gripper1, 2, 0);
+    //         Release(left_gripper1, 0);
+    //         Regrasp(left_gripper1, 2, 0);
+    //         Release(left_gripper2, 1);
+    //         trackPosition = 0;
+    //         // but need to check the accessible condition
+    //         // Release(left_gripper2, 1);
+    //         // trackPosition = 0;
+    //         // if (dt < 0.9) {
+    //         //     // cout << "here???" << endl;
+    //         //     // if (which == 0) {
+    //         //     //     distanceToTrack = 0;
+    //         //     // } else if (which == 1) {
+    //         //     //     distanceToTrack = 1;
+    //         //     // } else if (which == 2) {
+    //         //     //     distanceToTrack = 2;
+    //         //     // } else if (which == 3) {
+    //         //     //     distanceToTrack = 2;
+    //         //     // } else if (which == 4) {
+    //         //     //     distanceToTrack = 3;
+    //         //     // }
 
-            //     trackPosition = gripperPosition[0];
-            //     Release(left_gripper1, 0);
-            //     Regrasp(left_gripper1, 2, 0);
+    //         //     trackPosition = gripperPosition[0];
+    //         //     Release(left_gripper1, 0);
+    //         //     Regrasp(left_gripper1, 2, 0);
                 
-            //     // Regrasp(left_gripper1, 2, 0);
+    //         //     // Regrasp(left_gripper1, 2, 0);
                 
-            //     trackPosition = gripperPosition[1];
+    //         //     trackPosition = gripperPosition[1];
                 
-            //     // Release(left_gripper1, 0);
-            //     // Regrasp(left_gripper1, 2, 0);
+    //         //     // Release(left_gripper1, 0);
+    //         //     // Regrasp(left_gripper1, 2, 0);
                 
-            //     // Release(left_gripper1, 0);
-            //     Release(left_gripper2, 1);
-            //     Regrasp(left_gripper2, trackPosition + distanceToTrack + 1, 1);
-            //     int loc = trackPosition + distanceToTrack + 1;
-            //     Release(left_gripper2, 1);
-            //     Regrasp(left_gripper2, loc, 1);
-            //     trackPosition = gripperPosition[1] - 2;
+    //         //     // Release(left_gripper1, 0);
+    //         //     Release(left_gripper2, 1);
+    //         //     Regrasp(left_gripper2, trackPosition + distanceToTrack + 1, 1);
+    //         //     int loc = trackPosition + distanceToTrack + 1;
+    //         //     Release(left_gripper2, 1);
+    //         //     Regrasp(left_gripper2, loc, 1);
+    //         //     trackPosition = gripperPosition[1] - 2;
 
-            //     // Regrasp(left_gripper1, trackPosition+distanceToTrack-1, 0);
-            //     // Regrasp(left_gripper2, gripperPosition[0]+distanceToTrack+2, 1);
-            //     Release(left_gripper1, 0);
-            // } else {
-            //     cout << "in first if's else" << endl;
-            //     trackPosition = 0;
-            //     Regrasp(left_gripper1, 2, 0);
-            //     Release(left_gripper2, 1);
-            //     Regrasp(left_gripper2, gripperPosition[0] + distanceToTrack+1, 1);
-            //     Release(left_gripper2, 1);
-            // }
-        }
+    //         //     // Regrasp(left_gripper1, trackPosition+distanceToTrack-1, 0);
+    //         //     // Regrasp(left_gripper2, gripperPosition[0]+distanceToTrack+2, 1);
+    //         //     Release(left_gripper1, 0);
+    //         // } else {
+    //         //     cout << "in first if's else" << endl;
+    //         //     trackPosition = 0;
+    //         //     Regrasp(left_gripper1, 2, 0);
+    //         //     Release(left_gripper2, 1);
+    //         //     Regrasp(left_gripper2, gripperPosition[0] + distanceToTrack+1, 1);
+    //         //     Release(left_gripper2, 1);
+    //         // }
+    //     }
 
-    } else if (dt > 0.9 && attached[0] == true && gripperPosition[0] != distanceToTrack) {
-        cout << "not in here???" << endl;
-        Release(left_gripper1, 0);
-        Regrasp(left_gripper1, 2, 0);
-        Regrasp(left_gripper2, gripperPosition[0]+distanceToTrack+2, 1);
-        Release(left_gripper2, 1);
-        countSwitch = 0;
-    }
-    // cout << "trackPosition: " << trackPosition << std::endl;
+    // } else if (dt > 0.9 && attached[0] == true && gripperPosition[0] != distanceToTrack) {
+    //     cout << "not in here???" << endl;
+    //     Release(left_gripper1, 0);
+    //     Regrasp(left_gripper1, 2, 0);
+    //     Regrasp(left_gripper2, gripperPosition[0]+distanceToTrack+2, 1);
+    //     Release(left_gripper2, 1);
+    //     countSwitch = 0;
+    // }
+    // // cout << "trackPosition: " << trackPosition << std::endl;
 
 }
 
@@ -4083,7 +4191,19 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
         {
             // scene.regraspWithOneGripper(scene.right_gripper1,scene.left_gripper1);
             // scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
-            scene.testRelease(scene.left_gripper1);
+            // scene.testRelease(scene.left_gripper1);
+
+            // With cloth
+            // release gripper 1, reattach to gripper 2
+            scene.regraspWithOneGripper(scene.left_gripper2,scene.left_gripper1);
+            btTransform tm_left2 = btTransform(btQuaternion(0, 0, 0, 1), 
+                scene.clothptr->softBody.get()->m_nodes[100].m_x + 
+                btVector3(scene.left_gripper2->children[0]->halfExtents[0],
+                    -scene.left_gripper2->children[0]->halfExtents[1],0));
+            scene.left_gripper2->setWorldTransform(tm_left2);
+            scene.regraspWithOneGripper(scene.left_gripper2,scene.left_gripper1);
+            // end with cloth
+
             break;
         }
         case 't': {
@@ -4740,6 +4860,99 @@ void CustomScene::makeCircuitLoops() {
 
 }
 
+void CustomScene::makeWideLoops() {
+    std::vector<double> nm;
+    std::vector<double> ct;
+    std::vector<double> center;
+
+    center.push_back(0);
+    center.push_back(0);
+    center.push_back(0);
+
+    nm.push_back(0);
+    nm.push_back(1);
+    nm.push_back(0);
+
+    ct.push_back(6);
+    ct.push_back(0);
+    ct.push_back(7);
+
+    std::vector<std::vector<double> > pt;
+    pt = findCircle(nm, center);
+
+    vector<btVector3> row1T;
+    vector<btVector3> row2T;
+    vector<btVector3> row3T;
+    vector<btVector3> row4T;
+
+    for (int k = 0; k < pt.size(); k++) {
+        row1T.push_back(btVector3((pt[k][0])*1.2*1.5, 
+                                (pt[k][1])*1.2,
+                                (pt[k][2])*1.2));
+        row3T.push_back(btVector3((pt[k][0])*0.4*3, 
+                                (pt[k][1])*0.4,
+                                (pt[k][2])*0.4));
+        row2T.push_back(btVector3(pt[k][0]+nm[0]*0.3, pt[k][1]+nm[1]*0.3, pt[k][2]+nm[2]*0.3));
+        row4T.push_back(btVector3(pt[k][0]-nm[0]*0.3, pt[k][1]-nm[1]*0.3, pt[k][2]-nm[2]*0.3));
+    }
+    btTriangleMesh* meshT = new btTriangleMesh();
+    for (int i = 0; i < row3T.size()-1; i++) {
+        meshT->addTriangle(row1T[i], row2T[i], row1T[i+1], false);
+        meshT->addTriangle(row2T[i], row1T[i+1], row2T[i+1], false);
+
+        meshT->addTriangle(row3T[i], row2T[i], row3T[i+1], false);
+        meshT->addTriangle(row2T[i], row3T[i+1], row2T[i+1], false);
+    }
+    meshT->addTriangle(row3T[row2T.size()-1], row2T[row2T.size()-1], row3T[0], false);
+    meshT->addTriangle(row2T[row2T.size()-1], row3T[0], row2T[0], false);
+
+    meshT->addTriangle(row1T[row2T.size()-1], row2T[row2T.size()-1], row1T[0], false);
+    meshT->addTriangle(row2T[row2T.size()-1], row1T[0], row2T[0], false);
+
+    // adding triangles between row4 and row1/row2
+
+    for (int i = 0; i < row3T.size()-1; i++) {
+        meshT->addTriangle(row1T[i], row4T[i], row1T[i+1], false);
+        meshT->addTriangle(row4T[i], row1T[i+1], row4T[i+1], false);
+
+        meshT->addTriangle(row3T[i], row4T[i], row3T[i+1], false);
+        meshT->addTriangle(row4T[i], row3T[i+1], row4T[i+1], false);
+    }
+    meshT->addTriangle(row3T[row3T.size()-1], row4T[row2T.size()-1], row3T[0], false);
+    meshT->addTriangle(row4T[row2T.size()-1], row3T[0], row4T[0], false);
+
+    meshT->addTriangle(row1T[row2T.size()-1], row4T[row2T.size()-1], row1T[0], false);
+    meshT->addTriangle(row4T[row2T.size()-1], row1T[0], row4T[0], false);
+
+    btBvhTriangleMeshShape* shapeT=new btBvhTriangleMeshShape(meshT,true,true);
+    BulletObject* testT = new BulletObject(0, shapeT, btTransform(btQuaternion(0, 0, 0, 1), 
+        table->rigidBody->getCenterOfMassTransform().getOrigin()
+                        +btVector3(ct[0],ct[1],ct[2])));
+    oT = BulletObject::Ptr(testT);
+    //o->collisionShape.reset(shape);
+    oT->setColor(0.9, 9.9, 0.0, 1.0);
+    // Here is where to uncomment when ready to add back torus;
+    // Testing without the torus;
+    env->add(oT);
+
+    ct[0] = 3*sqrt(2);
+    ct[1] = 3*sqrt(2);
+    ct[2] = 7;
+
+    
+    btBvhTriangleMeshShape* shapeT1=new btBvhTriangleMeshShape(meshT,true,true);
+    BulletObject* testT1 = new BulletObject(0, shapeT1, btTransform(btQuaternion(0, 1, 0, -M_PI/6), 
+        table->rigidBody->getCenterOfMassTransform().getOrigin()
+                        +btVector3(ct[0],ct[1],ct[2])));
+    oT1 = BulletObject::Ptr(testT1);
+    //o->collisionShape.reset(shape);
+    oT1->setColor(0.9, 9.9, 0.0, 1.0);
+    // Here is where to uncomment when ready to add back torus;
+    // Testing without the torus;
+    env->add(oT1);
+
+}
+
 void CustomScene::makeBeltLoops() {
     std::vector<double> nm;
     std::vector<double> ct;
@@ -5097,7 +5310,7 @@ void CustomScene::makeRopeWorld()
     // BulletSoftObject::Ptr cloth(
     //         createCloth(GeneralConfig::scale * 0.1, 
     //             GeneralConfig::scale * btVector3(0.7, 0, table_height+0.01)));
-    btScalar length = 2;
+    btScalar length = 1;
     btScalar width = 4;
     BulletSoftObject::Ptr cloth(
             createCloth(length, width, 
@@ -5108,13 +5321,13 @@ void CustomScene::makeRopeWorld()
     clothptr = clothptr_orig = cloth;
     psb->setTotalMass(0.1);
 
-    addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->right_gripper2,psb));
+    // addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->right_gripper2,psb));
     addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->left_gripper2,psb));
 
     //table->setColor(0.8,0.2,0.2,1.0);
 
     env->add(cloth);
-    cloth->setColor(0.15,0.65,0.15,1.0);
+    cloth->setColor(255, 255, 0, 1.0);
 
     std::vector<btVector3> node_pos(psb->m_nodes.size());
     corner_ind = std::vector<int>(4,-1);
@@ -5124,7 +5337,7 @@ void CustomScene::makeRopeWorld()
     corner_pnts[1] = btVector3(100,-100,0);
     corner_pnts[2] = btVector3(-100,100,0);
     corner_pnts[3] = btVector3(-100,-100,0);
-
+    cout << "num points on cloth: " << psb->m_nodes.size() << endl;
     for(int i = 0; i < psb->m_nodes.size();i++)
     {
         //printf("%f\n", psb->m_nodes[i].m_x[0]);
@@ -5164,19 +5377,19 @@ void CustomScene::makeRopeWorld()
     //left_gripper1->toggle();
 
 
-    btTransform tm_right1 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[2] + 
-        btVector3(-right_gripper1->children[0]->halfExtents[0],right_gripper1->children[0]->halfExtents[1],0));
-    right_gripper1->setWorldTransform(tm_right1);
+    // btTransform tm_right1 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[2] + 
+    //     btVector3(-right_gripper1->children[0]->halfExtents[0],right_gripper1->children[0]->halfExtents[1],0));
+    // right_gripper1->setWorldTransform(tm_right1);
 
-    btTransform tm_left2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[1] + 
-        btVector3(left_gripper2->children[0]->halfExtents[0],-left_gripper2->children[0]->halfExtents[1],0));
-    left_gripper2->setWorldTransform(tm_left2);
+    // btTransform tm_left2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[1] + 
+    //     btVector3(left_gripper2->children[0]->halfExtents[0],-left_gripper2->children[0]->halfExtents[1],0));
+    // left_gripper2->setWorldTransform(tm_left2);
     //left_gripper1->toggle();
 
 
-    btTransform tm_right2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[3] + 
-        btVector3(-right_gripper2->children[0]->halfExtents[0],-right_gripper2->children[0]->halfExtents[1],0));
-    right_gripper2->setWorldTransform(tm_right2);
+    // btTransform tm_right2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[3] + 
+    //     btVector3(-right_gripper2->children[0]->halfExtents[0],-right_gripper2->children[0]->halfExtents[1],0));
+    // right_gripper2->setWorldTransform(tm_right2);
 
     gripper_node_distance_map.resize(num_auto_grippers);
 
@@ -5193,18 +5406,19 @@ void CustomScene::makeRopeWorld()
     
     float radius = 3;
     float height = 6;
-    num_auto_grippers = 2;
+    num_auto_grippers = 1;
     gripperPosition.reserve(num_auto_grippers);
 
     left_gripper1->toggle();
     left_gripper1->toggleattach(clothptr->softBody.get());
+    attached.push_back(true);
 
-    if(num_auto_grippers == 2)
-    {
-        left_gripper2->toggle();
-        left_gripper2->toggleattach(clothptr->softBody.get());
-    }
-
+    // if(num_auto_grippers == 2)
+    // {
+    //     left_gripper2->toggle();
+    //     left_gripper2->toggleattach(clothptr->softBody.get());
+    // }
+    // attached.push_back(true);
 
 #ifdef DO_COVERAGE
 
@@ -5253,8 +5467,8 @@ void CustomScene::makeRopeWorld()
 
     // new vector field coverage;
 
-    cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(7, 1, table_height-table_thickness/2 + 1));
-    cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(6.5, 1, table_height-table_thickness/2 + 1));
+    cover_points.push_back(btVector3(25, 0, 20.5));
+    // cover_points.push_back(btVector3(27, 0, 20.5));
     // see if the location checks outbtVector3(2.5, 1,)
     // cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, 5, 7));
     // cover_points.push_back(table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(5, 5, 7));
@@ -5297,7 +5511,7 @@ void CustomScene::makeRopeWorld()
 
     // makeBeltLoops();
     // makeCircuitLoops();
-
+    makeWideLoops();
     
     // Start of making torus
 

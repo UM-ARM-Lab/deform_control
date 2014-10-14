@@ -533,9 +533,12 @@ public:
     BulletObject::Ptr oC2;
     BulletObject::Ptr oC3;
     BulletObject::Ptr oC4;
+
+    // btSoftBody* psb;
     size_t count;
     void makeBeltLoops();
     void makeCircuitLoops();
+    void makeWideLoops();
     void switchTarget();
     bool switched;
 
@@ -564,6 +567,7 @@ public:
     // find the vector to follow;
     // This vector is only for the tip of the rope;
     std::vector<double> findDirection (double x, double y, double z, bool tip);
+    std::vector<double> findDirectionEllipse(std::vector<btVector3> coverPs);
     std::vector<double> findDirectionNotTip (double x, double y, double z, 
                                     std::vector<double> axis);
     int findPointNotTip(std::vector<double> axis, double radius,
@@ -574,6 +578,10 @@ public:
     std::vector<double> BiotSavart(std::vector<double> point, 
         std::vector<std::vector<double> > curve);
     std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v);
+
+    std::vector<std::vector<double> > findEllipse(std::vector<double> normal, 
+                                                std::vector<double> center, 
+                                                std::vector<double> majorAxis);
 
     std::vector<std::vector<double> > findCircle(std::vector<double> normal, 
                                                 std::vector<double> center);

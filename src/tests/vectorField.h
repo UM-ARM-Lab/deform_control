@@ -20,6 +20,26 @@ std::vector<bool> penetrated;
 // around line 2332 in test_colab_cloth.cpp
 
 void findCircles() {
+
+    // circles.push_back(circle);
+    // penetrated.push_back(false);
+
+    std::vector<double> circle1;
+    circle1.push_back(26);
+    circle1.push_back(0);
+    circle1.push_back(20.5);
+    circle1.push_back(0.4);
+    circle1.push_back(0);
+    circle1.push_back(1);
+    circle1.push_back(0);
+
+
+    circles.push_back(circle1);
+    penetrated.push_back(false);
+
+
+
+
 	// for this rope world, we cheat a little bit, find circles on the line penetrating the 
 	// torus;
 
@@ -254,102 +274,102 @@ void findCircles() {
 
 	// circles.push_back(circle);
 	
-    std::vector<double> circle;
-    circle.push_back(26);
-    circle.push_back(0);
-    circle.push_back(20.7);
-    circle.push_back(0.3);
-    circle.push_back(0);
-    circle.push_back(1);
-    circle.push_back(0);
+    // std::vector<double> circle;
+    // circle.push_back(26);
+    // circle.push_back(0);
+    // circle.push_back(20.7);
+    // circle.push_back(0.3);
+    // circle.push_back(0);
+    // circle.push_back(1);
+    // circle.push_back(0);
 
 
-    circles.push_back(circle);
-    penetrated.push_back(false);
+    // circles.push_back(circle);
+    // penetrated.push_back(false);
 
-    std::vector<double> circle1;
+    // std::vector<double> circle1;
     
-    circle1.push_back(20+3*sqrt(2));
-    circle1.push_back(3*sqrt(2));
-    circle1.push_back(20.5);
-    circle1.push_back(0.3);
-    circle1.push_back(-sqrt(2)/2);
-    circle1.push_back(sqrt(2)/2);
-    circle1.push_back(0);
-    circles.push_back(circle1);
-    penetrated.push_back(false);
+    // circle1.push_back(20+3*sqrt(2));
+    // circle1.push_back(3*sqrt(2));
+    // circle1.push_back(20.5);
+    // circle1.push_back(0.3);
+    // circle1.push_back(-sqrt(2)/2);
+    // circle1.push_back(sqrt(2)/2);
+    // circle1.push_back(0);
+    // circles.push_back(circle1);
+    // penetrated.push_back(false);
 
-    std::vector<double> circle2;
+    // std::vector<double> circle2;
     
-    circle2.push_back(20);
-    circle2.push_back(6);
-    circle2.push_back(20.5);
-    circle2.push_back(0.3);
-    circle2.push_back(-1);
-    circle2.push_back(0);
-    circle2.push_back(0);
-    circles.push_back(circle2);
-    penetrated.push_back(false);
+    // circle2.push_back(20);
+    // circle2.push_back(6);
+    // circle2.push_back(20.5);
+    // circle2.push_back(0.3);
+    // circle2.push_back(-1);
+    // circle2.push_back(0);
+    // circle2.push_back(0);
+    // circles.push_back(circle2);
+    // penetrated.push_back(false);
 
-    std::vector<double> circle3;
+    // std::vector<double> circle3;
     
-    circle3.push_back(20-3*sqrt(2));
-    circle3.push_back(3*sqrt(2));
-    circle3.push_back(20.5);
-    circle3.push_back(0.3);
-    circle3.push_back(-sqrt(2)/2);
-    circle3.push_back(-sqrt(2)/2);
-    circle3.push_back(0);
-    circles.push_back(circle3);
-    penetrated.push_back(false);
+    // circle3.push_back(20-3*sqrt(2));
+    // circle3.push_back(3*sqrt(2));
+    // circle3.push_back(20.5);
+    // circle3.push_back(0.3);
+    // circle3.push_back(-sqrt(2)/2);
+    // circle3.push_back(-sqrt(2)/2);
+    // circle3.push_back(0);
+    // circles.push_back(circle3);
+    // penetrated.push_back(false);
 
-    std::vector<double> circle4;
+    // std::vector<double> circle4;
     
-    circle4.push_back(14);
-    circle4.push_back(0);
-    circle4.push_back(20.5);
-    circle4.push_back(0.3);
-    circle4.push_back(0);
-    circle4.push_back(-1);
-    circle4.push_back(0);
-    circles.push_back(circle4);
-    penetrated.push_back(false);
+    // circle4.push_back(14);
+    // circle4.push_back(0);
+    // circle4.push_back(20.5);
+    // circle4.push_back(0.3);
+    // circle4.push_back(0);
+    // circle4.push_back(-1);
+    // circle4.push_back(0);
+    // circles.push_back(circle4);
+    // penetrated.push_back(false);
 
-    std::vector<double> circle5;
+    // std::vector<double> circle5;
     
-    circle5.push_back(20-3*sqrt(2));
-    circle5.push_back(-3*sqrt(2));
-    circle5.push_back(20.5);
-    circle5.push_back(0.3);
-    circle5.push_back(sqrt(2)/2);
-    circle5.push_back(-sqrt(2)/2);
-    circle5.push_back(0);
-    circles.push_back(circle5);
-    penetrated.push_back(false);
+    // circle5.push_back(20-3*sqrt(2));
+    // circle5.push_back(-3*sqrt(2));
+    // circle5.push_back(20.5);
+    // circle5.push_back(0.3);
+    // circle5.push_back(sqrt(2)/2);
+    // circle5.push_back(-sqrt(2)/2);
+    // circle5.push_back(0);
+    // circles.push_back(circle5);
+    // penetrated.push_back(false);
 
-    std::vector<double> circle6;
+    // std::vector<double> circle6;
     
-    circle6.push_back(20);
-    circle6.push_back(-6);
-    circle6.push_back(20.5);
-    circle6.push_back(0.3);
-    circle6.push_back(1);
-    circle6.push_back(0);
-    circle6.push_back(0);
-    circles.push_back(circle6);
-    penetrated.push_back(false);
+    // circle6.push_back(20);
+    // circle6.push_back(-6);
+    // circle6.push_back(20.5);
+    // circle6.push_back(0.3);
+    // circle6.push_back(1);
+    // circle6.push_back(0);
+    // circle6.push_back(0);
+    // circles.push_back(circle6);
+    // penetrated.push_back(false);
 
-    std::vector<double> circle7;
+    // std::vector<double> circle7;
     
-    circle7.push_back(20+3*sqrt(2));
-    circle7.push_back(-3*sqrt(2));
-    circle7.push_back(20.5);
-    circle7.push_back(0.3);
-    circle7.push_back(sqrt(2)/2);
-    circle7.push_back(sqrt(2)/2);
-    circle7.push_back(0);
-    circles.push_back(circle7);
-    penetrated.push_back(false);
+    // circle7.push_back(20+3*sqrt(2));
+    // circle7.push_back(-3*sqrt(2));
+    // circle7.push_back(20.5);
+    // circle7.push_back(0.3);
+    // circle7.push_back(sqrt(2)/2);
+    // circle7.push_back(sqrt(2)/2);
+    // circle7.push_back(0);
+    // circles.push_back(circle7);
+    // penetrated.push_back(false);
 
     // std::vector<double> circle;
     // circle.push_back(20);
