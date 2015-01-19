@@ -19,7 +19,8 @@
 #include "BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h"
 #include "BulletCollision/NarrowPhaseCollision/btConvexPenetrationDepthSolver.h"
 #include "BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h"
-
+#include <iostream>
+#include <fstream>
 //#define PROFILER
 //#define USE_PR2
 //#define USE_QUATERNION //NOT IMPLEMENTED!!!
@@ -572,6 +573,7 @@ public:
                                     std::vector<double> axis);
     int findPointNotTip(std::vector<double> axis, double radius,
                                     std::vector<btVector3> points);
+    std::vector<btVector3> readTrajectory(char* filename);
     // axis is six dimention; 
     // first three numbers is the center: tip location;
     // last three numbers are the orientation of the axis;

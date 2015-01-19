@@ -1505,6 +1505,37 @@ int CustomScene::findPointNotTip(std::vector<double> axis, double radius,
 
 }
 
+std::vector<btVector3> CustomScene::readTrajectory(char* filename){
+    std::string line;
+    ifstream myfile (filename);
+    std::vector<btVector3> traj;
+    char* tok;
+    char* lineToParse;
+    double temp1, temp2, temp3;
+    if (myfile.is_open()) {
+        while ( getline (myfile,line) ) {
+            // cout << line << '\n';
+            lineToParse = const_cast<char*>(line.c_str());
+            tok = strtok (lineToParse, " [[]");
+            
+            temp1 = std::atof(tok);
+            tok = strtok (NULL, " [[]");
+            temp2 = std::atof(tok);
+            tok = strtok (NULL, " [[]");
+            temp3 = std::atof(tok);
+            // cout << "this line: " << temp1 << ", " << 
+            //     temp2 << ", " << temp3 << endl;
+            traj.push_back(btVector3(temp1, temp2, temp3));
+        }
+        myfile.close();
+    } else  {
+        cout << "Unable to open file" << endl; 
+    }
+    // cout << "finish reading" << endl;
+
+    return traj;
+}
+
 std::vector<double> CustomScene::findDirectionNotTip (double x, double y, double z, 
                                     std::vector<double> axis) {
     // axis is six dimention; 
@@ -3073,8 +3104,21 @@ void CustomScene::doJTracking()
                 point.setZ((points[index][2]-ct[2])*rr+ct[2]);
                 testPlotting.push_back(point);
             }
+            
 
         }
+
+
+        /*
+        Label: For manually set a path
+        Label: ASDF
+        */
+        cout << "location: " << gripperX << ", " << gripperY << ", "
+            << gripperZ << endl;
+
+        cout << "ring: " << circles[0][0] << ", " << circles[0][1] << ", "
+            << circles[0][2] << endl;
+
         // std::vector<btVector3> trajPlotting;
         // for (int p = 0; p < traj.size(); p++) {
         //     trajPlotting.push_back(traj[p]);
@@ -5251,6 +5295,11 @@ void CustomScene::makeBeltLoops() {
 
 void CustomScene::makeRopeWorld()
 {
+    // char* filename = "traj.dat";
+    // std::vector<btVector3> temptraj = readTrajectory(filename);
+    // for (int i = 0; i < temptraj.size(); i++) {
+    //     traj.push_back(temptraj[i]);
+    // }
     float rope_radius = .01;
     float segment_len = .025;
     const float table_height = .7;
