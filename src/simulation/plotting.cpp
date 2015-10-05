@@ -1,9 +1,9 @@
 #include "plotting.h"
 #include "util.h"
-#include <osg/PointSprite>
-#include <osg/Point>
-#include <osg/LineWidth>
 #include <osg/Geometry>
+#include <osg/LineWidth>
+#include <osg/Point>
+#include <osg/PointSprite>
 #include <osg/StateSet>
 #include <osg/BlendFunc>
 #include <osg/ShapeDrawable>
@@ -129,7 +129,7 @@ void PlotLines::setPoints(const osg::ref_ptr<osg::Vec3Array>& osgPts) {
 }
 
 PlotSpheres::PlotSpheres() {
-  m_geode = new osg::Geode();    
+  m_geode = new osg::Geode();
   m_nDrawables = 0;
 
   osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet();
@@ -174,7 +174,6 @@ PlotAxes::PlotAxes(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, 
 }
 
 void PlotAxes::setup(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, float size) {
-    
   osg::ref_ptr<osg::Vec4Array> cols = new osg::Vec4Array();
   osg::ref_ptr<osg::Vec3Array> pts = new osg::Vec3Array();
 
@@ -198,4 +197,3 @@ void PlotAxes::setup(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z
   vector<float> radii(3,.1*size);
   m_ends->plot(endpts, cols, radii);
 }
-

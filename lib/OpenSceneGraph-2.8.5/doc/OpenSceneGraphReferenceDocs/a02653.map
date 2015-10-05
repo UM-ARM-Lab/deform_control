@@ -1,0 +1,8 @@
+<map id="G" name="G">
+<area shape="rect" id="node5" href="$a00067.html" title="osgDB::BoolSerializer\&lt; C \&gt;" alt="" coords="364,5,545,35"/>
+<area shape="rect" id="node7" href="$a00253.html" title="osgDB::EnumSerializer\&lt; C, P \&gt;" alt="" coords="352,58,557,89"/>
+<area shape="rect" id="node9" href="$a00841.html" title="osgDB::StringSerializer\&lt; C \&gt;" alt="" coords="360,111,549,142"/>
+<area shape="rect" id="node11" href="$a00877.html" title="osgDB::TemplateSerializer\&lt; C, P \&gt;" alt="" coords="341,165,568,195"/>
+<area shape="rect" id="node13" href="$a01081.html" title="osgDB::Vec4Serializer\&lt; C \&gt;" alt="" coords="363,218,547,249"/>
+<area shape="rect" id="node2" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="5,111,123,142"/>
+</map>

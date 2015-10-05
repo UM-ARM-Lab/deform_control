@@ -1,8 +1,8 @@
 add_definitions("-DBULLETSIM_DATA_DIR=${BULLETSIM_SOURCE_DIR}/data")
 include_directories(
     ${BULLETSIM_SOURCE_DIR}/src
-
     ${BULLET_DIR}/src
+    ${OSG_INCLUDE_DIRS}
     ${OSGBULLET_DIR}
     ${OSGWORKS_DIR}
     ${OpenRAVE_INCLUDE_DIRS}

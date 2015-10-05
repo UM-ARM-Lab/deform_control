@@ -23,7 +23,7 @@ protected:
   RaveRobotObject::Manipulator::Ptr m_manip;
 
     //static const float PR2_CLOSED_VAL = 0.03f, PR2_OPEN_VAL = 0.54f;
-    static const float PR2_CLOSED_VAL = 0.1f, PR2_OPEN_VAL = 0.54f;
+    static constexpr float PR2_CLOSED_VAL = 0.1f, PR2_OPEN_VAL = 0.54f;
 
     float closedThreshold;
 

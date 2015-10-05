@@ -1,0 +1,47 @@
+# find osgGA
+#
+# exports:
+#
+#   OSGGA_FOUND
+#   OSGGA_INCLUDE_DIR
+#   OSGGA_LIBRARY
+
+INCLUDE(FindPackageHandleStandardArgs)
+
+SET(OSGGA_IncludeSearchPaths
+  ${CMAKE_SOURCE_DIR}/lib/OpenSceneGraph-2.8.5/include
+)
+
+SET(OSGGA_LibrarySearchPaths
+  ${CMAKE_SOURCE_DIR}/lib/OpenSceneGraph-2.8.5/lib64
+)
+
+FIND_PATH(OSGGA_INCLUDE_DIR osgGA/Version
+  PATHS ${OSGGA_IncludeSearchPaths}
+  NO_DEFAULT_PATH
+)
+
+FIND_LIBRARY(OSGGA_LIBRARY
+  NAMES osgGA
+  PATHS ${OSGGA_LibrarySearchPaths}
+  NO_DEFAULT_PATH
+)
+
+# Handle the REQUIRED argument and set the <UPPERCASED_NAME>_FOUND variable
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(osgGA "Could NOT find osgGA SDK"
+  OSGGA_LIBRARY
+  OSGGA_INCLUDE_DIR
+)
+
+IF(OSGGA_FOUND)
+  FIND_PACKAGE_MESSAGE(osgGA_FOUND "Found osgGA: ${OSGGA_INCLUDE_DIR}" "[${OSGGA_LIBRARY}][${OSGGA_INCLUDE_DIR}]")
+ELSE(OSGGA_FOUND)
+  SET(OSGGA_INCLUDE_DIR "")
+  SET(OSGGA_LIBRARY "")
+ENDIF(OSGGA_FOUND)
+
+MARK_AS_ADVANCED(
+  OSGGA_INCLUDE_DIR
+  OSGGA_LIBRARY
+)
+

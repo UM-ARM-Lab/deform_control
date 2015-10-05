@@ -1,0 +1,48 @@
+# find osgUtil
+#
+# exports:
+#
+#   OSGUTIL_FOUND=TRUE
+#   OSGUTIL_INCLUDE_DIR=/usr/include
+#   OSGUTIL_LIBRARIES=/usr/lib/libosgUtil.so
+#   OSGUTIL_LIBRARY=/usr/lib/libosgUtil.so
+
+INCLUDE(FindPackageHandleStandardArgs)
+
+SET(OSGUTIL_IncludeSearchPaths
+  ${CMAKE_SOURCE_DIR}/lib/OpenSceneGraph-2.8.5/include
+)
+
+SET(OSGUTIL_LibrarySearchPaths
+  ${CMAKE_SOURCE_DIR}/lib/OpenSceneGraph-2.8.5/lib64
+)
+
+FIND_PATH(OSGUTIL_INCLUDE_DIR osgUtil/Version
+  PATHS ${OSGUTIL_IncludeSearchPaths}
+  NO_DEFAULT_PATH
+)
+
+FIND_LIBRARY(OSGUTIL_LIBRARY
+  NAMES osgUtil
+  PATHS ${OSGUTIL_LibrarySearchPaths}
+  NO_DEFAULT_PATH
+)
+
+# Handle the REQUIRED argument and set the <UPPERCASED_NAME>_FOUND variable
+FIND_PACKAGE_HANDLE_STANDARD_ARGS(osgUtil "Could NOT find osgUtil SDK"
+  OSGUTIL_LIBRARY
+  OSGUTIL_INCLUDE_DIR
+)
+
+IF(OSGUTIL_FOUND)
+  FIND_PACKAGE_MESSAGE(osgUtil_FOUND "Found osgUtil: ${OSGUTIL_INCLUDE_DIR}" "[${OSGUTIL_LIBRARY}][${OSGUTIL_INCLUDE_DIR}]")
+ELSE(OSGUTIL_FOUND)
+  SET(OSGUTIL_INCLUDE_DIR "")
+  SET(OSGUTIL_LIBRARY "")
+ENDIF(OSGUTIL_FOUND)
+
+MARK_AS_ADVANCED(
+  OSGUTIL_INCLUDE_DIR
+  OSGUTIL_LIBRARY
+)
+
