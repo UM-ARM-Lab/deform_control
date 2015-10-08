@@ -4,17 +4,17 @@
 #include <vector>
 #include <cmath>
 
-std::vector<std::vector<double> > csc; // representing closed-space-curve;
-std::vector<double> boundingBox;
-void makeTorus() {
+extern std::vector<std::vector<double> > csc; // representing closed-space-curve;
+extern std::vector<double> boundingBox;
 
+inline void makeTorus()
+{
 	double radius = 2;
 	double smallRadius = 0.7;
 
 	double numSteps = 30;
 	double step = 2*M_PI/30;
 	// 5, 25. 20.5
-
 
 	for (int i = 0; i < numSteps; i++) {
 	std::vector<double> position;
@@ -24,10 +24,10 @@ void makeTorus() {
 
 	csc.push_back(position);
 	}
-
 }
 
-void makeBoundingBox() {
+inline void makeBoundingBox()
+{
 	// center of a circle, x y z
 	boundingBox.push_back(5);
 	boundingBox.push_back(25);

@@ -2,6 +2,9 @@
 // #include other h files if use other shapes;
 
 
+std::vector<std::vector<double> > csc; // representing closed-space-curve;
+std::vector<double> boundingBox;
+
 std::vector<double> find_projection() {
 	std::vector<double> projection;
 
@@ -53,9 +56,9 @@ double test_AL() {
 	}
 
 	// for (int i = 0; i < numPoints; i++) {
-	// 	std::cout << "circle " << i << ": " << circle[i][0] << ", " << 
+	// 	std::cout << "circle " << i << ": " << circle[i][0] << ", " <<
 	// circle[i][1] << ", " << circle[i][2] << std::endl;
-	// 	std::cout << "rope " << i << ": " << rope[i][0] << ", " << 
+	// 	std::cout << "rope " << i << ": " << rope[i][0] << ", " <<
 	// rope[i][1] << ", " << rope[i][2] << std::endl;
 	// }
 
@@ -66,7 +69,7 @@ double test_AL() {
 
 }
 
-std::vector<double> BiotSavart(std::vector<double> point, 
+std::vector<double> BiotSavart(std::vector<double> point,
 		std::vector<std::vector<double> > curve) {
 	std::vector<double> d;
 	std::vector<double> p;
@@ -145,9 +148,9 @@ std::vector<double> BiotSavart(std::vector<double> point,
 		result[0] += (temp[0]-temp1[0]) / normd;
 		result[1] += (temp[1]-temp1[1]) / normd;
 		result[2] += (temp[2]-temp1[2]) / normd;
-		// std::cout << "force: " << i << ", " << sij[0] << ", " 
-		// << sij[1] << ", " << sij[2] << ", " << (temp[0]-temp1[0]) / normd << ", " 
-		// 	<< (temp[1]-temp1[1]) / normd << ", " 
+		// std::cout << "force: " << i << ", " << sij[0] << ", "
+		// << sij[1] << ", " << sij[2] << ", " << (temp[0]-temp1[0]) / normd << ", "
+		// 	<< (temp[1]-temp1[1]) / normd << ", "
 		// << (temp[2]-temp1[2]) / normd << std::endl;
 		temp.clear();
 		temp1.clear();
@@ -162,7 +165,7 @@ std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v) 
 	result.push_back(u[1]*v[2]-u[2]*v[1]);
 	result.push_back(u[2]*v[0]-u[0]*v[2]);
 	result.push_back(u[0]*v[1]-u[1]*v[0]);
-	
+
 	return result;
 }
 
@@ -225,11 +228,11 @@ std::vector<std::vector<double> > findDirection (std::vector<std::vector<double>
 		step[1] = step[1] / normStep;
 		step[2] = step[2] / normStep;
 
-		difference = sqrt((result[0]-step[0])*(result[0]-step[0]) + 
-							(result[1]-step[1])*(result[1]-step[1]) + 
+		difference = sqrt((result[0]-step[0])*(result[0]-step[0]) +
+							(result[1]-step[1])*(result[1]-step[1]) +
 							(result[2]-step[2])*(result[2]-step[2]));
 
-		
+
 
 		center[0] = next[0] - step[0]/3;
 		center[1] = next[1] - step[1]/3;
@@ -241,7 +244,7 @@ std::vector<std::vector<double> > findDirection (std::vector<std::vector<double>
 		step.clear();
 		count += 1;
 		// std::cout << "difference: " << difference << std::endl;
-		// std::cout << "center: " << center[0] << ", " << center[1] << ", " << 
+		// std::cout << "center: " << center[0] << ", " << center[1] << ", " <<
 		// center[2] << std::endl;
 	}
 	std::cout << "after all: " << count << std::endl;
@@ -249,14 +252,14 @@ std::vector<std::vector<double> > findDirection (std::vector<std::vector<double>
 	// center[1] = result[1];
 	// center[2] = result[2];
 	std::vector<std::vector<double> > points;
-	
+
 	points.push_back(point);
 
 	points.push_back(center);
 	return points;
 }
 
-std::vector<std::vector<double> > findProjection (std::vector<std::vector<double> > curve, 
+std::vector<std::vector<double> > findProjection (std::vector<std::vector<double> > curve,
 	std::vector<double> normal) {
 	std::vector<std::vector<double> > transformed;
 	for (int i = 0; i < curve.size(); i++) {
@@ -268,7 +271,7 @@ std::vector<std::vector<double> > findProjection (std::vector<std::vector<double
 	}
 
 
-	
+
 
 	// next step: transform to 2D transformation.
 	double a = normal[0];
@@ -328,15 +331,15 @@ std::vector<std::vector<double> > findProjection (std::vector<std::vector<double
 		y = t21 * curve[i][0] + t22 * curve[i][1] + t23 * curve[i][2];
 		z = t31 * curve[i][0] + t32 * curve[i][1] + t33 * curve[i][2];
 
-		// the third element should indicate how far it need to project to 
+		// the third element should indicate how far it need to project to
 		// get on the plane
 
 		// std::cout << "coordinates: " << x << ", " << y << ", " << z << std::endl;
 		transformed[i][0] = x;
 		transformed[i][1] = y;
-		transformed[i][2] = (a*curve[i][0] + b*curve[i][1] + c*curve[i][2] + d) / 
+		transformed[i][2] = (a*curve[i][0] + b*curve[i][1] + c*curve[i][2] + d) /
 			(a*a + b*b + c*c);
-		// std::cout << "coordinates: " << x << ", " << y << ", " << z << ", " 
+		// std::cout << "coordinates: " << x << ", " << y << ", " << z << ", "
 		// 	<< transformed[i][2] << std::endl;
 	}
 
@@ -348,9 +351,9 @@ std::vector<std::vector<double> > findProjection (std::vector<std::vector<double
 }
 
 std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> > curve) {
-	// make sure to use this function, there are at least 2 intersections 
+	// make sure to use this function, there are at least 2 intersections
 	// between bounding box and the curve;
-	
+
 
 
 	// At current stage, assume all bounding box are spheres;
@@ -360,8 +363,8 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 	double d = 1000;
 	int indexFirst = -1, indexLast = -1;
 	for (int i = 0; i < length; i++) {
-		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) + 
-				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) + 
+		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) +
+				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) +
 				(curve[i][2]-boundingBox[2])*(curve[i][2]-boundingBox[2]));
 
 		if (d < boundingBox[3]) {
@@ -375,8 +378,8 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 	}
 
 	for (int i = length-1; i >= 0; i--) {
-		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) + 
-				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) + 
+		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) +
+				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) +
 				(curve[i][2]-boundingBox[2])*(curve[i][2]-boundingBox[2]));
 		if (d < boundingBox[3]) {
 			last.push_back(curve[i][0]);
@@ -391,7 +394,7 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 		temp = indexLast;
 		indexLast = indexFirst;
 		indexFirst = temp;
-	} 
+	}
 
 	std::vector<std::vector<double> > loop;
 	// parts that are inside;
@@ -419,10 +422,10 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 	// std::vector<double> circleNormal;
 	// circleNormal = crossProduct(r1, r2);
 
-	// std::cout << "circleNormal: " << circleNormal[0] << ", " << circleNormal[1] 
+	// std::cout << "circleNormal: " << circleNormal[0] << ", " << circleNormal[1]
 	// << ",  " << circleNormal[2] << std::endl;
 
-	// if (fabs(circleNormal[0]) < 0.001 && fabs(circleNormal[1]) < 0.001 && 
+	// if (fabs(circleNormal[0]) < 0.001 && fabs(circleNormal[1]) < 0.001 &&
 	// fabs(circleNormal[2]) < 0.001) {
 	// 	// colinear
 	// 	// choose any line;
@@ -440,14 +443,14 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 	// 		point.push_back(boundingBox[0]);
 	// 		point.push_back(boundingBox[1] + boundingBox[3]*cos(angle1+i*step));
 	// 		point.push_back(boundingBox[2] + boundingBox[3]*sin(angle1+i*step));
-	// 		std::cout << "point: " << point[0] << ", " << point[1] << ", " << 
+	// 		std::cout << "point: " << point[0] << ", " << point[1] << ", " <<
 	// 		point[2] << std::endl;
 	// 		loop.push_back(point);
 	// 	}
 
 	// } else {
 		// circleNormal is the normal for the plane for the geodesic;
-		
+
 
 		double delta1 = asin((r1[2])/boundingBox[3]);
 		double delta2 = asin((r2[2])/boundingBox[3]);
@@ -458,9 +461,9 @@ std::vector<std::vector<double> > completeLoop (std::vector<std::vector<double> 
 		double stepL = (lambda2-lambda1) / length;
 		for (int i = 0; i < length; i++) {
 			std::vector<double> point;
-			point.push_back(boundingBox[0] + 
+			point.push_back(boundingBox[0] +
 				boundingBox[3] * cos(lambda1 + i*stepL) * cos(delta1 + i*stepD));
-			point.push_back(boundingBox[1] + 
+			point.push_back(boundingBox[1] +
 				boundingBox[3] * sin(lambda1 + i*stepL) * cos(delta1 + i*stepD));
 			point.push_back(boundingBox[2] + boundingBox[3] * sin(delta1 + i*stepD));
 
@@ -478,8 +481,8 @@ int numIntersection (std::vector<std::vector<double> > curve) {
 	int count = 0;
 	double d = 0;
 	for (int i = 0; i < curve.size(); i++) {
-		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) + 
-				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) + 
+		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) +
+				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) +
 				(curve[i][2]-boundingBox[2])*(curve[i][2]-boundingBox[2]));
 		if (inSide) {
 			if (d > boundingBox[3]) {
@@ -496,7 +499,7 @@ int numIntersection (std::vector<std::vector<double> > curve) {
 	return count;
 }
 
-bool HopfLink (std::vector<std::vector<double> > curve1, 
+bool HopfLink (std::vector<std::vector<double> > curve1,
 	std::vector<std::vector<double> > curve2) {
 
 	std::vector<bool> sequence;
@@ -547,7 +550,7 @@ bool HopfLink (std::vector<std::vector<double> > curve1,
 	// detect;
 	if (sequence.size() % 2 != 0 || sequence.size() == 0) {
 		return false;
-	} 
+	}
 	// do a concatination, if the length is > 0, then true, else false;
 	// use erase function
 	std::cout << "about to detect" << std::endl;
@@ -567,12 +570,12 @@ bool HopfLink (std::vector<std::vector<double> > curve1,
 	}
 	if (sequence.size() > 0) {
 		return true;
-	} 
+	}
 	return false;
-	
+
 }
 
-bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n, 
+bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n,
 							double x2c, double y2c, double x2n, double y2n) {
 
 	double a1 = 0, b1 = 0, a2 = 0, b2 = 0;
@@ -612,7 +615,7 @@ bool lineSegmentIntersect (double x1c, double y1c, double x1n, double y1n,
 		} else {
 			x = (b2-b1) / (a1-a2);
 			y = a1 * x + b1;
-			if (inRange(x, x1c, x1n) && inRange(y, y1c, y1n) && 
+			if (inRange(x, x1c, x1n) && inRange(y, y1c, y1n) &&
 				inRange(x, x2c, x2n) && inRange(y, y2c, y2n)) {
 				return true;
 			} else {
@@ -663,8 +666,8 @@ bool overlap (double a1, double b1, double a2, double b2) {
 int findLastIntersection (std::vector<std::vector<double> > curve) {
 	double d;
 	for (int i = curve.size()-1; i >= 0; i--) {
-		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) + 
-				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) + 
+		d = sqrt((curve[i][0]-boundingBox[0])*(curve[i][0]-boundingBox[0]) +
+				(curve[i][1]-boundingBox[1])*(curve[i][1]-boundingBox[1]) +
 				(curve[i][2]-boundingBox[2])*(curve[i][2]-boundingBox[2]));
 		if (d < boundingBox[3]) {
 			return i;
@@ -685,11 +688,11 @@ bool findPoints (std::vector<std::vector<double> > curve, std::vector<double> ce
 		x1c = curve[i][0];
 		y1c = curve[i][1];
 		s1c = curve[i][2];
-		
+
 		x1n = curve[i-1][0];
 		y1n = curve[i-1][1];
 		s1n = curve[i-1][2];
-		
+
 		for (int j = 0; j < csc.size(); j++) {
 			x2c = csc[i][0];
 			y2c = csc[i][1];
@@ -740,13 +743,13 @@ bool findPoints (std::vector<std::vector<double> > curve, std::vector<double> ce
 
 	double d1Old = 0, d1New = 0;
 	double d2Old = 0, d2New = 0;
-	
-	d1Old = sqrt((point[0]-center[0])*(point[0]-center[0]) + 
-				(point[1]-center[1])*(point[1]-center[1]) + 
+
+	d1Old = sqrt((point[0]-center[0])*(point[0]-center[0]) +
+				(point[1]-center[1])*(point[1]-center[1]) +
 				(point[2]-center[2])*(point[2]-center[2]));
 
-	d2Old = sqrt((tip[0]-center[0])*(tip[0]-center[0]) + 
-				(tip[1]-center[1])*(tip[1]-center[1]) + 
+	d2Old = sqrt((tip[0]-center[0])*(tip[0]-center[0]) +
+				(tip[1]-center[1])*(tip[1]-center[1]) +
 				(tip[2]-center[2])*(tip[2]-center[2]));
 	if (d1Old < 1) {
 		point[0] = point[0] + direction1[0] * d1Old * 0.5;
@@ -767,12 +770,12 @@ bool findPoints (std::vector<std::vector<double> > curve, std::vector<double> ce
 		tip[1] = tip[1] + direction2[1];
 		tip[2] = tip[2] + direction2[2];
 	}
-	
-	d1New = sqrt((point[0]-center[0])*(point[0]-center[0]) + 
-				(point[1]-center[1])*(point[1]-center[1]) + 
+
+	d1New = sqrt((point[0]-center[0])*(point[0]-center[0]) +
+				(point[1]-center[1])*(point[1]-center[1]) +
 				(point[2]-center[2])*(point[2]-center[2]));
-	d2New = sqrt((tip[0]-center[0])*(tip[0]-center[0]) + 
-				(tip[1]-center[1])*(tip[1]-center[1]) + 
+	d2New = sqrt((tip[0]-center[0])*(tip[0]-center[0]) +
+				(tip[1]-center[1])*(tip[1]-center[1]) +
 				(tip[2]-center[2])*(tip[2]-center[2]));
 	if ((d1New-d1Old) * (d2New-d2Old) > 0) {
 		// same side, not penetrate;
@@ -795,7 +798,7 @@ bool threaded (std::vector<std::vector<double> > curve) {
 	std::cout << "number: " << num << std::endl;
 	if (num == 0) {
 		return false;
-		// question is, do we need to do something else? 
+		// question is, do we need to do something else?
 	} else if (num == 1) {
 		return findPoints(curve, center);
 	} else {
@@ -831,7 +834,7 @@ std::vector<double> findLargestCircle(std::vector<std::vector<double> > curve) {
 	stprime.push_back(0);
 	stprime.push_back(0);
 
-	// Do I need to normalize? 
+	// Do I need to normalize?
 	stprime[0] = curve[1][0] - curve[0][0];
 	stprime[1] = curve[1][1] - curve[0][1];
 
@@ -846,7 +849,7 @@ std::vector<double> findLargestCircle(std::vector<std::vector<double> > curve) {
 	std::vector<double> circle;
 	circle.push_back(0);
 	circle.push_back(0);
-	circle.push_back(0);	
+	circle.push_back(0);
 
 	circle[2] = dmax / 2;
 	circle[0] = circle[2] * cos(atan2(stprime[1], stprime[0])+M_PI/2) + current[0];
@@ -912,8 +915,8 @@ std::vector<double> findLargestCircle(std::vector<std::vector<double> > curve) {
 	return circleFinal;
 }
 
-double findIntersection(std::vector<std::vector<double> > curve, 
-						std::vector<double> derivate, 
+double findIntersection(std::vector<std::vector<double> > curve,
+						std::vector<double> derivate,
 						std::vector<double> point) {
 
 	double angle = atan2(derivate[1], derivate[0]);
@@ -930,14 +933,14 @@ double findIntersection(std::vector<std::vector<double> > curve,
 			} else {
 				xj = curve[i+1][0];
 				yj = curve[i+1][1];
-			} 
+			}
 
 			if (inRange(point[1], yi, yj)) {
 				if (fabs(xi-xj) < 0.0001) {
 					return fabs(xi - point[0]);
 				} else if (fabs(yi-yj) < 0.0001) {
 					if (fabs(xi-point[0]) < fabs(xj-point[0])) {
-						return fabs(xi-point[0]); 
+						return fabs(xi-point[0]);
 					} else {
 						return fabs(xj-point[0]);
 					}
@@ -962,7 +965,7 @@ double findIntersection(std::vector<std::vector<double> > curve,
 			} else {
 				xj = curve[i+1][0];
 				yj = curve[i+1][1];
-			} 
+			}
 
 			if (inRange(point[0], xi, xj)) {
 				if (fabs(xi-xj) < 0.0001) {
@@ -995,17 +998,17 @@ double findIntersection(std::vector<std::vector<double> > curve,
 			} else {
 				xj = curve[i+1][0];
 				yj = curve[i+1][1];
-			} 
+			}
 
 			if (fabs(xi-xj) < 0.0001) {
 				intx = xi;
 				inty = a1*xi + b1;
-				return sqrt((intx-point[0])*(intx-point[0]) + 
-							(inty-point[1])*(inty-point[1])); 
+				return sqrt((intx-point[0])*(intx-point[0]) +
+							(inty-point[1])*(inty-point[1]));
 			} else if (fabs(yi-yj) < 0.0001) {
 				inty = yi;
 				intx = (yi-b1) / a1;
-				return sqrt((intx-point[0])*(intx-point[0]) + 
+				return sqrt((intx-point[0])*(intx-point[0]) +
 							(inty-point[1])*(inty-point[1]));
 			} else {
 				a = (yj-yi) / (xj-xi);
@@ -1014,7 +1017,7 @@ double findIntersection(std::vector<std::vector<double> > curve,
 				intx = (b-b1) / (a1-a);
 				inty = a*intx + b;
 				if (inRange(intx, xi, xj)) {
-					return sqrt((intx-point[0])*(intx-point[0]) + 
+					return sqrt((intx-point[0])*(intx-point[0]) +
 							(inty-point[1])*(inty-point[1]));
 				} else {
 					continue;
@@ -1026,7 +1029,7 @@ double findIntersection(std::vector<std::vector<double> > curve,
 	return -1;
 }
 
-int circleCurveIntersection(std::vector<std::vector<double> > curve, 
+int circleCurveIntersection(std::vector<std::vector<double> > curve,
 							std::vector<double> circle) {
 	double d = 0;
 	int count = 0;
@@ -1071,5 +1074,5 @@ int circleCurveIntersection(std::vector<std::vector<double> > curve,
 
 
 int main(int argc, char **argv) {
-	
+
 }

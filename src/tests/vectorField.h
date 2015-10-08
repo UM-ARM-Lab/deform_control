@@ -9,9 +9,9 @@
 #include <vector>
 #include <time.h>
 
-std::vector<std::vector<double> > circles;
-std::vector<std::vector<double> > rings;
-std::vector<bool> penetrated;
+static std::vector<std::vector<double> > circles;
+static std::vector<std::vector<double> > rings;
+static std::vector<bool> penetrated;
 // 25, 5, 20.5;
 // center of the torus;
 
@@ -19,8 +19,8 @@ std::vector<bool> penetrated;
 // torusRadius - 2*torusHeight
 // around line 2332 in test_colab_cloth.cpp
 
-void findCircles() {
-	// for this rope world, we cheat a little bit, find circles on the line penetrating the 
+inline void findCircles() {
+	// for this rope world, we cheat a little bit, find circles on the line penetrating the
 	// torus;
 
 	// double start = 2;
@@ -39,7 +39,7 @@ void findCircles() {
  //        } else if (i >= 4 && i <= 6) {
  //        	rx = 25;
  //        	rz = 20.5;
- //        } 
+ //        }
 	// 	std::vector<double> circle;
 	// 	//circle.push_back(25);
 	// 	circle.push_back(rx);
@@ -148,7 +148,7 @@ void findCircles() {
 	// manually creating circles;
 	// both guiding circles and target circles;
 	// radius difference must be small;
-	// also remember to change the strategy of 
+	// also remember to change the strategy of
 	// activiting circles to "disable after penetrate"
 
 	// for (int i = 2; i <= 14; i++) {
@@ -197,7 +197,7 @@ void findCircles() {
 	// 	} else {
 	// 		circle.push_back(0.6);
 	// 	}
-		
+
 	// 	// First test all circles still normal along y;
 	// 	// normal x
 	// 	circle.push_back(0);
@@ -253,7 +253,7 @@ void findCircles() {
 	// circle.push_back(0);
 
 	// circles.push_back(circle);
-	
+
     // std::vector<double> circle;
     // circle.push_back(26);
     // circle.push_back(0);
@@ -268,7 +268,7 @@ void findCircles() {
     // penetrated.push_back(false);
 
     // std::vector<double> circle1;
-    
+
     // circle1.push_back(20+3*sqrt(2));
     // circle1.push_back(3*sqrt(2));
     // circle1.push_back(20.5);
@@ -280,7 +280,7 @@ void findCircles() {
     // penetrated.push_back(false);
 
     // std::vector<double> circle2;
-    
+
     // circle2.push_back(20);
     // circle2.push_back(6);
     // circle2.push_back(20.5);
@@ -292,7 +292,7 @@ void findCircles() {
     // penetrated.push_back(false);
 
     // std::vector<double> circle3;
-    
+
     // circle3.push_back(20-3*sqrt(2));
     // circle3.push_back(3*sqrt(2));
     // circle3.push_back(20.5);
@@ -304,7 +304,7 @@ void findCircles() {
     // penetrated.push_back(false);
 
     // std::vector<double> circle4;
-    
+
     // circle4.push_back(14);
     // circle4.push_back(0);
     // circle4.push_back(20.5);
@@ -316,7 +316,7 @@ void findCircles() {
     // penetrated.push_back(false);
 
     // std::vector<double> circle5;
-    
+
     // circle5.push_back(20-3*sqrt(2));
     // circle5.push_back(-3*sqrt(2));
     // circle5.push_back(20.5);
@@ -328,7 +328,7 @@ void findCircles() {
     // penetrated.push_back(false);
 
     // std::vector<double> circle6;
-    
+
     // circle6.push_back(20);
     // circle6.push_back(-6);
     // circle6.push_back(20.5);
@@ -340,7 +340,7 @@ void findCircles() {
     // penetrated.push_back(false);
 
     // std::vector<double> circle7;
-    
+
     // circle7.push_back(20+3*sqrt(2));
     // circle7.push_back(-3*sqrt(2));
     // circle7.push_back(20.5);
@@ -435,7 +435,7 @@ void findCircles() {
 
 }
 
-void switchCircles(){
+inline void switchCircles(){
     // switch to new set of rings;
 
     circles.clear();
