@@ -42,7 +42,7 @@ inline std::vector<btVector3> toBulletVectors(const pcl::PointCloud<pcl::PointXY
 inline std::vector<btVector3> toBulletVectors(const Eigen::MatrixXf& in) {
   std::vector<btVector3> out(in.rows());
   for (int row=0; row < in.rows(); row++)
-    out[row] = btVector3(in(row,0), in(row,1), in(row,2));      
+    out[row] = btVector3(in(row,0), in(row,1), in(row,2));
   return out;
 }
 
@@ -110,8 +110,8 @@ inline Eigen::MatrixXf toEigenMatrix(const std::vector<btVector3>& in) {
 
 inline Eigen::MatrixXf toEigenMatrix(const std::vector< std::vector<float> >& in) {
   ENSURE(in.size() > 1) ;
-  Eigen::MatrixXf out(in.size(),in[0].size()); 
-  for (int i=0; i<in.size(); i++) 
+  Eigen::MatrixXf out(in.size(),in[0].size());
+  for (int i=0; i<in.size(); i++)
     for (int j=0; j<in[0].size(); j++)
       out(i,j) = in[i][j];
   return out;

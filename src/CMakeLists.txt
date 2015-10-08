@@ -1,5 +1,5 @@
 add_definitions("-DBULLETSIM_DATA_DIR=${BULLETSIM_SOURCE_DIR}/data")
-include_directories(
+include_directories( SYSTEM
     ${BULLETSIM_SOURCE_DIR}/src
     ${BULLET_DIR}/src
     ${OSG_INCLUDE_DIRS}
@@ -19,8 +19,8 @@ if(BUILD_PERCEPTION)
     add_subdirectory(perception)
     add_subdirectory(comm)
     add_subdirectory(clouds)
+    add_subdirectory(knots)
 endif(BUILD_PERCEPTION)
 add_subdirectory(flattening)
 add_subdirectory(tests)
 add_subdirectory(sandbox)
-add_subdirectory(knots)

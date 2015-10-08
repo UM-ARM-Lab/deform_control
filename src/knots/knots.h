@@ -6,16 +6,15 @@
 #include "utils/vector_io.h"
 #include "perception/make_bodies.h"
 
-using boost::shared_ptr;
 namespace fs = boost::filesystem;
 
 fs::path KNOT_DATA  = fs::path(EXPAND(BULLETSIM_DATA_DIR) "/knots");
 
 struct GrabbingScene : public Scene {
 public:
-  shared_ptr<PR2Manager> pr2m;
-  shared_ptr<MonitorForGrabbing> m_lMonitor;
-  shared_ptr<MonitorForGrabbing> m_rMonitor;
+  boost::shared_ptr<PR2Manager> pr2m;
+  boost::shared_ptr<MonitorForGrabbing> m_lMonitor;
+  boost::shared_ptr<MonitorForGrabbing> m_rMonitor;
 
   GrabbingScene() {
     pr2m.reset(new PR2Manager(*this));
@@ -57,12 +56,12 @@ public:
 struct TableRopeScene : public GrabbingScene {
   CapsuleRope::Ptr m_rope;
   BulletObject::Ptr m_table;
-  
+
   TableRopeScene(fs::path ropeFile) : GrabbingScene() {
     vector<double> firstJoints = doubleVecFromFile((KNOT_DATA / "init_joints_train.txt").string());
     ValuesInds vi = getValuesInds(firstJoints);
     pr2m->pr2->setDOFValues(vi.second, vi.first);
-    
+
     vector<btVector3> tableCornersWorld = toBulletVectors(floatMatFromFile((KNOT_DATA / "table_corners.txt").string()));
     vector<btVector3> controlPointsWorld = toBulletVectors(floatMatFromFile(ropeFile.string()));
 
@@ -75,7 +74,7 @@ struct TableRopeScene : public GrabbingScene {
     env->add(m_rope);
     env->add(m_table);
     setGrabBodies(m_rope->children);
-    
+
   }
-  
+
 };

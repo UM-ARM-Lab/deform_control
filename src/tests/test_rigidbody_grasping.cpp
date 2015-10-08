@@ -12,7 +12,7 @@ class PR2RigidBodyGripperAction : public Action {
     vector<dReal> vals;
 
     // min/max gripper dof vals
-    static const float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
+    static constexpr float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
 
     KinBody::LinkPtr leftFinger, rightFinger;
 

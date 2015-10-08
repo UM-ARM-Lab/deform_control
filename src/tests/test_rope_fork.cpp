@@ -6,13 +6,12 @@
 #include "robots/grabbing.h"
 #include "simulation/bullet_io.h"
 
-using boost::shared_ptr;
 using boost::static_pointer_cast;
 using namespace util;
 
 void singleStep(int i, vector<vector<double> > &joints, vector<int> &inds,
         RaveRobotObject::Ptr pr2, RobotBase::ManipulatorPtr rarm, RobotBase::ManipulatorPtr larm,
-        int nLinks, shared_ptr<CapsuleRope> ropePtr,
+        int nLinks, boost::shared_ptr<CapsuleRope> ropePtr,
         Grab *&g, Grab *&g2,
         btDiscreteDynamicsWorld *dynamicsWorld) {
 
@@ -66,10 +65,10 @@ int main(int argc, char *argv[]) {
   }
 
 
-  shared_ptr<BulletObject> table(new BoxObject(0,METERS*btVector3(.75,.75,table_thickness/2),
+  boost::shared_ptr<BulletObject> table(new BoxObject(0,METERS*btVector3(.75,.75,table_thickness/2),
               btTransform(btQuaternion(0, 0, 0, 1), METERS*btVector3(1,0,table_height-table_thickness/2))));
 
-  shared_ptr<CapsuleRope> ropePtr(new CapsuleRope(ctrlPts,.01*METERS));
+  boost::shared_ptr<CapsuleRope> ropePtr(new CapsuleRope(ctrlPts,.01*METERS));
 
   Scene s;
   PR2Manager pr2m(s);

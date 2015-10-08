@@ -1,7 +1,6 @@
 #include "simulation/plotting.h"
 #include "simulation/simplescene.h"
 #include "simulation/config_bullet.h"
-using boost::shared_ptr;
 #include <iostream>
 using namespace std;
 
@@ -22,7 +21,7 @@ int main(int argc, char* argv[]) {
   }
 
   if (!strcmp(argv[1],"1")) {
-    shared_ptr<PlotPoints> plot1(new PlotPoints(20));
+    boost::shared_ptr<PlotPoints> plot1(new PlotPoints(20));
     vector<btVector3> pts;
     pts.push_back(btVector3(0,0,0));
     pts.push_back(btVector3(1,0,0));
@@ -35,11 +34,11 @@ int main(int argc, char* argv[]) {
     plot1->setPoints(pts);
     s.env->add(plot1);
 
-  }  
+  }
 
 
   if (!strcmp(argv[1],"2")) {
-    shared_ptr<PlotLines> plot2(new PlotLines());
+    boost::shared_ptr<PlotLines> plot2(new PlotLines());
     vector<btVector3> pts;
 
     btVector3 v(1,2,3);
@@ -66,7 +65,7 @@ int main(int argc, char* argv[]) {
     s.env->add(plot2);
 
 
-  }  
+  }
 
   s.startViewer();
   s.startLoop();

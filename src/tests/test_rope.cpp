@@ -6,7 +6,6 @@
 #include "robots/grabbing.h"
 #include "simulation/bullet_io.h"
 
-using boost::shared_ptr;
 using namespace util;
 
 int main(int argc, char *argv[]) {
@@ -35,10 +34,10 @@ int main(int argc, char *argv[]) {
   }
 
 
-  shared_ptr<BulletObject> table(new BoxObject(0,METERS*btVector3(.75,.75,table_thickness/2),
+  boost::shared_ptr<BulletObject> table(new BoxObject(0,METERS*btVector3(.75,.75,table_thickness/2),
               btTransform(btQuaternion(0, 0, 0, 1), METERS*btVector3(1,0,table_height-table_thickness/2))));
 
-  shared_ptr<CapsuleRope> ropePtr(new CapsuleRope(ctrlPts,.01*METERS));
+  boost::shared_ptr<CapsuleRope> ropePtr(new CapsuleRope(ctrlPts,.01*METERS));
 
   Scene s;
   PR2Manager pr2m(s);
@@ -75,7 +74,7 @@ int main(int argc, char *argv[]) {
     vector<double> joint = joints[i];
     pr2m.pr2->setDOFValues(inds,joint);
 
-    
+
 
     if (i == 160) {
       btVector3 rhpos = util::toBtTransform(rarm->GetEndEffectorTransform()).getOrigin();

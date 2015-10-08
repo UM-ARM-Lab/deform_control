@@ -14,7 +14,7 @@ class PR2SoftBodyGripperAction : public Action {
     vector<dReal> vals;
 
     // min/max gripper dof vals
-    static const float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
+    static constexpr float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
 
     KinBody::LinkPtr leftFinger, rightFinger;
     const btTransform origLeftFingerInvTrans, origRightFingerInvTrans;
@@ -89,7 +89,7 @@ class PR2SoftBodyGripperAction : public Action {
                         const btMatrix3x3&      iwi=m_rigidBody?m_rigidBody->getInvInertiaTensorWorld() : iwiStatic;
                         const btVector3         ra=n.m_x-wtr.getOrigin();
                         const btVector3         va=m_rigidBody ? m_rigidBody->getVelocityInLocalPoint(ra)*psb->m_sst.sdt : btVector3(0,0,0);
-                        const btVector3         vb=n.m_x-n.m_q; 
+                        const btVector3         vb=n.m_x-n.m_q;
                         const btVector3         vr=vb-va;
                         const btScalar          dn=btDot(vr,c.m_cti.m_normal);
                         const btVector3         fv=vr-c.m_cti.m_normal*dn;
@@ -119,7 +119,7 @@ class PR2SoftBodyGripperAction : public Action {
             btSoftBody::tRContactArray &rcontacts;
         };
 
-        Custom_CollideSDF_RS  docollide(rcontacts);              
+        Custom_CollideSDF_RS  docollide(rcontacts);
         btRigidBody*            prb1=btRigidBody::upcast(pco);
         btTransform     wtr=pco->getWorldTransform();
 
@@ -133,7 +133,7 @@ class PR2SoftBodyGripperAction : public Action {
                 mins,
                 maxs);
         volume=btDbvtVolume::FromMM(mins,maxs);
-        volume.Expand(btVector3(basemargin,basemargin,basemargin));             
+        volume.Expand(btVector3(basemargin,basemargin,basemargin));
         docollide.psb           =       psb;
         docollide.m_colObj1 = pco;
         docollide.m_rigidBody = prb1;

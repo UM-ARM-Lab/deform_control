@@ -121,7 +121,7 @@ class ManipIKInterpAction : public RobotInterpAction {
         setStartVals(currvals);
 
         vector<dReal> newvals;
-        cout << "solving ik for transform: " << targetTrans.getOrigin().x() << ' ' << targetTrans.getOrigin().y() << ' ' << targetTrans.getOrigin().z() << '\t'  
+        cout << "solving ik for transform: " << targetTrans.getOrigin().x() << ' ' << targetTrans.getOrigin().y() << ' ' << targetTrans.getOrigin().z() << '\t'
             << targetTrans.getRotation().x() << ' ' << targetTrans.getRotation().y() << ' ' << targetTrans.getRotation().z() << ' ' << targetTrans.getRotation().w() << endl;
         if (!manip->solveIK(targetTrans, newvals)) {
             cout << "could not solve ik" << endl;
@@ -179,7 +179,7 @@ class PR2SoftBodyGripperAction : public Action {
     vector<dReal> vals;
 
     // min/max gripper dof vals
-    static const float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
+    static constexpr float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
 
     // the target softbody
     btSoftBody *psb;
@@ -250,7 +250,7 @@ class GripperOpenCloseAction : public Action {
     vector<dReal> vals;
 
     // min/max gripper dof vals
-    static const float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
+    static constexpr float CLOSED_VAL = 0.03f, OPEN_VAL = 0.54f;
 
     dReal getCurrDOFVal() const {
         vector<dReal> v;
