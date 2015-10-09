@@ -205,15 +205,17 @@ class ColabClothCustomScene : public Scene
         int distanceToTrack;
 
 
-        BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
         void createFork();
         void destroyFork();
         void swapFork();
+
         Eigen::MatrixXf computeJacobian();
         Eigen::MatrixXf computeJacobian_parallel();
         Eigen::MatrixXf computeJacobian_approx();
         Eigen::MatrixXf computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point);
+
         double getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind);
+
         void simulateInNewFork(StepState& innerstate, float sim_time, btTransform& left_gripper1_tm, btTransform& left_gripper2_tm);
         void doJTracking();
         void drawAxes();
@@ -222,8 +224,11 @@ class ColabClothCustomScene : public Scene
         void computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix);
         void getDeformableObjectNodes(std::vector<btVector3>& vnodes);
         int getNumDeformableObjectNodes();
+
+        BulletSoftObject::Ptr createCloth(btScalar half_side_length, const btVector3 &center);
         void makeRopeWorld();
         void makeClothWorld();
+
         void initializePloting();
         void run();
 };

@@ -4969,16 +4969,16 @@ void ColabClothCustomScene::makeClothWorld()
 
 }
 
-BulletSoftObject::Ptr ColabClothCustomScene::createCloth(btScalar s, const btVector3 &center)
+BulletSoftObject::Ptr ColabClothCustomScene::createCloth(btScalar half_side_length, const btVector3 &center)
 {
     const int divs = 45;
 
     btSoftBody *psb = btSoftBodyHelpers::CreatePatch(
         env->bullet->softBodyWorldInfo,
-        center + btVector3(-s,-s,0),
-        center + btVector3(+s,-s,0),
-        center + btVector3(-s,+s,0),
-        center + btVector3(+s,+s,0),
+        center + btVector3(-half_side_length,-half_side_length,0),
+        center + btVector3(+half_side_length,-half_side_length,0),
+        center + btVector3(-half_side_length,+half_side_length,0),
+        center + btVector3(+half_side_length,+half_side_length,0),
         divs, divs,
         0, true);
 
