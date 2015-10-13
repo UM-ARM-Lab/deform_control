@@ -12,7 +12,6 @@ ENDIF (NOT CMAKE_BUILD_TYPE)
 find_package(Boost COMPONENTS system filesystem program_options REQUIRED)
 
 find_package(Eigen3 REQUIRED)
-find_package(OpenRAVE REQUIRED)
 find_package(OpenThreads REQUIRED)
 find_package(osg REQUIRED)
 find_package(osgDB REQUIRED)
@@ -20,6 +19,9 @@ find_package(osgGA REQUIRED)
 find_package(osgText REQUIRED)
 find_package(osgUtil REQUIRED)
 find_package(osgViewer REQUIRED)
+
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -std=c++11")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -std=c99")
 
 set(OSG_LIBS 
   ${OPENTHREADS_LIBRARY} 
@@ -40,18 +42,6 @@ set(OSG_INCLUDE_DIRS
   ${OSGVIEWER_INCLUDE_DIR}
 )
 
-option(BUILD_PERCEPTION OFF)
-if(BUILD_PERCEPTION)
-  find_package(OpenCV REQUIRED)
-  find_package(PCL REQUIRED)
-  add_definitions(${PCL_DEFINITIONS})
-  add_definitions("-DEIGEN_DEFAULT_TO_ROW_MAJOR")
-  message("PCL DEFS: ${PCL_DEFINITIONS}")
-endif(BUILD_PERCEPTION)
-
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -std=c++11")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
-
 
 # directories for libraries packaged in this tree
 set(BULLET_DIR ${BULLETSIM_SOURCE_DIR}/lib/bullet-2.79)
@@ -61,6 +51,7 @@ set(OSGBULLET_DIR ${BULLETSIM_SOURCE_DIR}/lib/osgBullet-2.0)
 set(JSON_DIR ${BULLETSIM_SOURCE_DIR}/lib/json)
 set(JSON_INCLUDE_DIR ${JSON_DIR}/include)
 set(TETGEN_DIR ${BULLETSIM_SOURCE_DIR}/lib/tetgen-1.4.3)
+
 
 # other external libraries, hardcoded
 set(WM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/WildMagic5")

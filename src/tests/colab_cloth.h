@@ -7,20 +7,18 @@
 #include "simulation/config_bullet.h"
 #include "simulation/config_viewer.h"
 #include "simulation/rope.h"
-#include "robots/grabbing.h"
 #include "vectorField.h"
 #include "helper_functions.h"
 
 #include <omp.h>
 #include <boost/date_time/posix_time/posix_time.hpp>
-//#include <google/profiler.h>
 #include <BulletSoftBody/btSoftBodyHelpers.h>
-#include "BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h"
-#include "BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h"
-#include "BulletCollision/NarrowPhaseCollision/btPointCollector.h"
-#include "BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h"
-#include "BulletCollision/NarrowPhaseCollision/btConvexPenetrationDepthSolver.h"
-#include "BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h"
+#include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
+#include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
+#include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
+#include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
+#include <BulletCollision/NarrowPhaseCollision/btConvexPenetrationDepthSolver.h>
+#include <BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h>
 
 //#define PROFILER
 //#define USE_PR2
@@ -32,11 +30,6 @@
 #define PRESERVE_LENGTH
 #define AVOID_COLLISION
 
-#ifdef USE_PR2
-#include <openrave/kinbody.h>
-#include "robots/pr2.h"
-#endif
-
 //////////////////
 ////Rope with Cylinder Coverage
 #define USE_RADIUS_CONTACT
@@ -44,7 +37,6 @@
 #define ROPE
 #define ROTATION_SCALING 0.05f
 #define DO_ROTATION
-
 
 ////////////////////////
 ////Cloth covering table

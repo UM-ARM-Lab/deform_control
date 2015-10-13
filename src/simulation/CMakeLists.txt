@@ -8,7 +8,6 @@ include_directories( SYSTEM
 add_library(simulation 
     environment.cpp 
     basicobjects.cpp 
-    openravesupport.cpp 
     util.cpp 
     simplescene.cpp 
     softbodies.cpp 
@@ -23,12 +22,9 @@ add_library(simulation
 
 target_link_libraries(simulation 
     utils 
-    haptics 
-    osgBullet 
-    osgWorks 
+    haptics
+    osgBullet
     ${Boost_LIBRARIES} 
     ${OSG_LIBS} 
     ${BULLET_LIBS} 
-    ${OpenRAVE_LIBRARIES} 
-    ${OpenRAVE_CORE_LIBRARIES}
 )

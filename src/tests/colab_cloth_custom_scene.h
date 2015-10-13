@@ -11,14 +11,10 @@
 class ColabClothCustomScene : public Scene
 {
     public:
-#ifdef USE_PR2
-        PR2SoftBodyGripperAction::Ptr leftAction, rightAction;
-        PR2Manager pr2m;
-#endif
-
         GripperKinematicObject::Ptr left_gripper1, right_gripper1, left_gripper1_orig, right_gripper1_orig, left_gripper1_fork, right_gripper1_fork;
         GripperKinematicObject::Ptr left_gripper2, right_gripper2;
-        struct {
+        struct
+        {
             bool transGrabber0,rotateGrabber0,transGrabber1,rotateGrabber1, transGrabber2,rotateGrabber2, transGrabber3,rotateGrabber3, startDragging;
             float dx, dy, lastX, lastY;
         } inputState;
@@ -30,7 +26,6 @@ class ColabClothCustomScene : public Scene
         BulletInstance::Ptr bullet2;
         OSGInstance::Ptr osg2;
         Fork::Ptr fork;
-        RaveRobotObject::Ptr origRobot, tmpRobot;
         std::map<int, int> node_mirror_map;
         std::vector<std::vector<double> > gripper_node_distance_map;
         float jacobian_sim_time;
@@ -142,11 +137,8 @@ class ColabClothCustomScene : public Scene
                                                     std::vector<double> center);
 
 
-#ifdef USE_PR2
-            ColabClothCustomScene() : pr2m(*this){
-#else
-            ColabClothCustomScene(){
-#endif
+        ColabClothCustomScene()
+        {
             bTracking = bInTrackingLoop = false;
             inputState.transGrabber0 =  inputState.rotateGrabber0 =
                     inputState.transGrabber1 =  inputState.rotateGrabber1 =
@@ -203,7 +195,6 @@ class ColabClothCustomScene : public Scene
         bool st;
         double variableScale;
         int distanceToTrack;
-
 
         void createFork();
         void destroyFork();

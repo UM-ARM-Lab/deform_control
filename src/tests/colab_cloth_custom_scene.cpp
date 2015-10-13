@@ -1,6 +1,8 @@
 #include "colab_cloth_custom_scene.h"
 #include "custom_key_handler.h"
 
+#include <functional>
+
 void ColabClothCustomScene::simulateInNewFork(StepState& innerstate, float sim_time, btTransform& left_gripper1_tm, btTransform& left_gripper2_tm)
 {
 
@@ -4622,8 +4624,8 @@ void ColabClothCustomScene::makeClothWorld()
     clothptr = clothptr_orig = cloth;
     psb->setTotalMass(0.1);
 
-    addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->right_gripper2,psb));
-    addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->left_gripper2,psb));
+    addPreStepCallback(std::bind(&GripperKinematicObject::step_openclose, this->right_gripper2,psb));
+    addPreStepCallback(std::bind(&GripperKinematicObject::step_openclose, this->left_gripper2,psb));
 
     //table->setColor(0.8,0.2,0.2,1.0);
 #ifdef USE_PR2
@@ -5007,9 +5009,9 @@ void ColabClothCustomScene::run()
 {
     viewer.addEventHandler(new CustomKeyHandler(*this));
 
-    addPreStepCallback(boost::bind(&ColabClothCustomScene::doJTracking, this));
-    addPreStepCallback(boost::bind(&ColabClothCustomScene::drawAxes, this));
-    addPreStepCallback(boost::bind(&ColabClothCustomScene::drawClosestPoints, this));
+    addPreStepCallback(std::bind(&ColabClothCustomScene::doJTracking, this));
+    addPreStepCallback(std::bind(&ColabClothCustomScene::drawAxes, this));
+    addPreStepCallback(std::bind(&ColabClothCustomScene::drawClosestPoints, this));
 
 
     const float dt = BulletConfig::dt;

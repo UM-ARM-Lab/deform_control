@@ -5,22 +5,12 @@ include_directories( SYSTEM
     ${OSG_INCLUDE_DIRS}
     ${OSGBULLET_DIR}
     ${OSGWORKS_DIR}
-    ${OpenRAVE_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${JSON_INCLUDE_DIR}
 )
-link_directories(${BULLETSIM_BINARY_DIR}/src ${OpenRAVE_LIBRARY_DIRS})
+link_directories(${BULLETSIM_BINARY_DIR}/src)
 
 add_subdirectory(simulation)
-add_subdirectory(robots)
 add_subdirectory(utils)
-if(BUILD_PERCEPTION)
-    add_subdirectory(perception)
-    add_subdirectory(comm)
-    add_subdirectory(clouds)
-    add_subdirectory(knots)
-endif(BUILD_PERCEPTION)
-add_subdirectory(flattening)
 add_subdirectory(tests)
-add_subdirectory(sandbox)

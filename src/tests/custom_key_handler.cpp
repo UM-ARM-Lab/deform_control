@@ -1,4 +1,5 @@
 #include "custom_key_handler.h"
+#include "simulation/util.h"
 
 bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionAdapter & aa)
 {

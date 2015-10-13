@@ -1,3 +1,5 @@
+#include <functional>
+
 #include "simplescene.h"
 #include "config_bullet.h"
 #include "config_viewer.h"
@@ -10,9 +12,6 @@ Scene::Scene() {
     osg.reset(new OSGInstance());
     bullet.reset(new BulletInstance());
     bullet->setGravity(BulletConfig::gravity);
-
-    if (SceneConfig::enableRobot)
-        rave.reset(new RaveInstance());
 
     env.reset(new Environment(bullet, osg));
 
@@ -27,8 +26,8 @@ Scene::Scene() {
     env->add(ground);
 
     // default callbacks
-    addVoidKeyCallback('p', boost::bind(&Scene::toggleIdle, this));
-    addVoidKeyCallback('d', boost::bind(&Scene::toggleDebugDraw, this));
+    addVoidKeyCallback('p', std::bind(&Scene::toggleIdle, this));
+    addVoidKeyCallback('d', std::bind(&Scene::toggleDebugDraw, this));
 }
 
 void Scene::startViewer() {
@@ -172,10 +171,10 @@ void Scene::addKeyCallback(char c, Callback cb) {
 }
 
 void Scene::addVoidCallback(osgGA::GUIEventAdapter::EventType t, VoidCallback cb) {
-    addCallback(t, boost::bind<bool>(VoidCallbackWrapper(cb)));
+    addCallback(t, std::bind<bool>(VoidCallbackWrapper(cb)));
 }
 void Scene::addVoidKeyCallback(char c, VoidCallback cb) {
-    addKeyCallback(c, boost::bind<bool>(VoidCallbackWrapper(cb)));
+    addKeyCallback(c, std::bind<bool>(VoidCallbackWrapper(cb)));
 }
 
 void Scene::addPreStepCallback(VoidCallback cb) {
@@ -214,7 +213,6 @@ bool EventHandler::handle(const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdap
 
 bool SceneConfig::enableIK = true;
 bool SceneConfig::enableHaptics = false;
-bool SceneConfig::enableRobot = true;
 bool SceneConfig::enableRobotCollision = false;
 bool SceneConfig::useFakeGrabber = false;
 float SceneConfig::mouseDragScale = 1.;
