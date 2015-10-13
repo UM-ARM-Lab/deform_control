@@ -1,7 +1,6 @@
 #ifndef STEP_STATE_H
 #define STEP_STATE_H
 
-#include "colab_cloth.h"
 #include "gripper_kinematic_object.h"
 
 class StepState

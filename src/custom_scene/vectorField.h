@@ -1,5 +1,5 @@
-#ifndef VECTORFIELD
-#define VECTORFIELD
+#ifndef VECTORFIELD_H
+#define VECTORFIELD_H
 
 #include "torus.h"
 
@@ -19,7 +19,8 @@ static std::vector<bool> penetrated;
 // torusRadius - 2*torusHeight
 // around line 2332 in test_colab_cloth.cpp
 
-inline void findCircles() {
+inline void findCircles()
+{
 	// for this rope world, we cheat a little bit, find circles on the line penetrating the
 	// torus;
 
@@ -435,7 +436,8 @@ inline void findCircles() {
 
 }
 
-inline void switchCircles(){
+inline void switchCircles()
+{
     // switch to new set of rings;
 
     circles.clear();

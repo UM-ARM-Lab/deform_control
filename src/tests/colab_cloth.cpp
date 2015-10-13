@@ -1,5 +1,4 @@
-#include "colab_cloth.h"
-#include "colab_cloth_custom_scene.h"
+#include "custom_scene/custom_scene.h"
 
 int main(int argc, char *argv[])
 {
@@ -16,6 +15,6 @@ int main(int argc, char *argv[])
     parser.addGroup(SceneConfig());
     parser.read(argc, argv);
 
-    ColabClothCustomScene().run();
+    CustomScene().run();
     return 0;
 }

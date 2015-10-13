@@ -1,5 +1,5 @@
 #include "plotting.h"
-#include "util.h"
+#include "utils/util.h"
 #include <osg/Geometry>
 #include <osg/LineWidth>
 #include <osg/Point>

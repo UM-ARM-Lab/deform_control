@@ -1,12 +1,11 @@
 #pragma once
 #include <boost/foreach.hpp>
-#include <pcl/point_types.h>
-#include <pcl/point_cloud.h>
 #include <btBulletDynamicsCommon.h>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <osg/Geometry>
 
+#include "my_assert.h"
 
 inline btVector3 toBulletVector(const std::vector<float>& vec) {return btVector3(vec[0],vec[1],vec[2]);}
 inline btVector3 toBulletVector(const Eigen::Vector3f& vec) {return btVector3(vec[0],vec[1],vec[2]);}
@@ -26,16 +25,6 @@ inline std::vector<btVector3> toBulletVectors(const std::vector< std::vector<flo
 inline std::vector<btVector3> toBulletVectors(const std::vector< Eigen::Vector3f >& in) {
   std::vector<btVector3> out(in.size());
   for (int i=0; i<in.size(); i++) out[i] = toBulletVector(in[i]);
-  return out;
-}
-
-inline std::vector<btVector3> toBulletVectors(const pcl::PointCloud<pcl::PointXYZRGBA>::Ptr& cloud) {
-  std::vector<btVector3> out(cloud->size());
-  int i=0;
-  BOOST_FOREACH(pcl::PointXYZRGBA& point, *cloud) {
-    out[i] = btVector3(point.x, point.y, point.z);
-    i++;
-  }
   return out;
 }
 
@@ -89,7 +78,6 @@ inline Eigen::Affine3f toEigenTransform(const btTransform& transform) {
   return out;
 }
 
-
 inline std::vector<Eigen::Vector3f> toEigenVectors(const std::vector< std::vector<float> >& in) {
   std::vector<Eigen::Vector3f> out (in.size());
   for (int i=0; i < in.size(); i++) out[i] = toEigenVector(in[i]);
@@ -115,4 +103,12 @@ inline Eigen::MatrixXf toEigenMatrix(const std::vector< std::vector<float> >& in
     for (int j=0; j<in[0].size(); j++)
       out(i,j) = in[i][j];
   return out;
+}
+
+inline void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec) {
+    nodeposvec.resize(m_nodes.size());
+    for(int i =0; i < m_nodes.size(); i++)
+    {
+        nodeposvec[i] = m_nodes[i].m_x;
+    }
 }

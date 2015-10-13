@@ -1,12 +1,16 @@
 #include "custom_key_handler.h"
-#include "simulation/util.h"
+
+#include "utils/util.h"
+
+CustomKeyHandler::CustomKeyHandler(CustomScene &scene_)
+    : scene(scene_)
+{}
 
 bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionAdapter & aa)
 {
     switch (ea.getEventType()) {
     case osgGA::GUIEventAdapter::KEYDOWN:
         switch (ea.getKey()) {
-
 
 //        case 'f':
 //            scene.createFork();
@@ -219,14 +223,6 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
 
         case 'j':
             {
-#ifdef PROFILER
-                if(!scene.bTracking)
-                    ProfilerStart("profile.txt");
-                else
-                    ProfilerStop();
-#endif
-
-
                scene.getDeformableObjectNodes(scene.prev_node_pos);
                scene.bTracking = !scene.bTracking;
                if(scene.bTracking)
@@ -247,10 +243,10 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
         break;
 
     case osgGA::GUIEventAdapter::KEYUP:
-        switch (ea.getKey()) {
+        switch (ea.getKey())
+        {
         case '3':
             scene.inputState.transGrabber0 = false; break;
-            break;
         case 'a':
             scene.inputState.rotateGrabber0 = false; break;
         case '4':
@@ -265,8 +261,6 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
             scene.inputState.transGrabber3 = false; break;
         case 'r':
             scene.inputState.rotateGrabber3 = false; break;
-
-
         }
         break;
 
@@ -304,7 +298,6 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
                 btVector3 yVec = (up - (up.dot(normal))*normal).normalized(); //FIXME: is this necessary with osg?
                 btVector3 xVec = normal.cross(yVec);
                 btVector3 dragVec = SceneConfig::mouseDragScale*10 * (scene.inputState.dx*xVec + scene.inputState.dy*yVec);
-                //printf("dx: %f dy: %f\n",scene.inputState.dx,scene.inputState.dy);
 
                 btTransform origTrans;
                 if (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0)
@@ -360,20 +353,10 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
                 if (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0)
                 {
                     scene.left_gripper1->setWorldTransform(newTrans);
-#ifdef USE_PR2
-                    btTransform TOR_newtrans = newTrans*TBullet_PR2GripperRight;
-                    TOR_newtrans.setOrigin(newTrans.getOrigin());
-                    scene.pr2m.pr2Right->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
-#endif
                 }
                 else if(scene.inputState.transGrabber1 || scene.inputState.rotateGrabber1)
                 {
                     scene.left_gripper2->setWorldTransform(newTrans);
-#ifdef USE_PR2
-                    btTransform TOR_newtrans = newTrans*TBullet_PR2GripperLeft;
-                    TOR_newtrans.setOrigin(newTrans.getOrigin());
-                    scene.pr2m.pr2Left->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
-#endif
                 }
                 else if(scene.inputState.transGrabber2 || scene.inputState.rotateGrabber2)
                 {

@@ -1,7 +1,8 @@
 #ifndef GRIPPER_KINEMATIC_OBJECT_H
 #define GRIPPER_KINEMATIC_OBJECT_H
 
-#include "colab_cloth.h"
+#include "simulation/simplescene.h"
+#include "simulation/softbodies.h"
 
 enum GripperState { GripperState_DONE, GripperState_CLOSING, GripperState_OPENING };
 
@@ -20,8 +21,8 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         GripperState state;
         boost::shared_ptr<btGeneric6DofConstraint> cnt;
 
+        GripperKinematicObject( btVector4 color = btVector4(0,0,1,0.3) );
 
-        GripperKinematicObject(btVector4 color = btVector4(0,0,1,0.3));
         void translate(btVector3 transvec);
         void applyTransform(btTransform tm);
         void setWorldTransform(btTransform tm);

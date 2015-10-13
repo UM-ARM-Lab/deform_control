@@ -1,61 +1,49 @@
-#include "colab_cloth_custom_scene.h"
+#include "custom_scene.h"
 #include "custom_key_handler.h"
+#include "vectorField.h"
+
+#include "utils/conversions.h"
+#include "utils/helper_functions.h"
 
 #include <functional>
+#include <BulletSoftBody/btSoftBodyHelpers.h>
 
-void ColabClothCustomScene::simulateInNewFork(StepState& innerstate, float sim_time, btTransform& left_gripper1_tm, btTransform& left_gripper2_tm)
+CustomScene::CustomScene()
 {
+    bTracking = bInTrackingLoop = false;
+    inputState.transGrabber0 = inputState.rotateGrabber0 =
+            inputState.transGrabber1 = inputState.rotateGrabber1 =
+            inputState.transGrabber2 = inputState.rotateGrabber2 =
+            inputState.transGrabber3 = inputState.rotateGrabber3 =
+            inputState.startDragging = false;
 
-    innerstate.bullet.reset(new BulletInstance);
-    innerstate.bullet->setGravity(BulletConfig::gravity);
-    innerstate.osg.reset(new OSGInstance);
-    innerstate.fork.reset(new Fork(env, innerstate.bullet, innerstate.osg));
-    innerstate.cloth = boost::static_pointer_cast<BulletSoftObject>(innerstate.fork->forkOf(clothptr));
-    innerstate.left_gripper1 = boost::static_pointer_cast<GripperKinematicObject>(innerstate.fork->forkOf(left_gripper1));
-    innerstate.left_gripper2 = boost::static_pointer_cast<GripperKinematicObject>(innerstate.fork->forkOf(left_gripper2));
+    jacobian_sim_time = 0.05;
+    btVector4 color2(0,0,1,1);
 
-    innerstate.left_gripper1->applyTransform(left_gripper1_tm);
-    innerstate.left_gripper2->applyTransform(left_gripper2_tm);
+    left_gripper1.reset(new GripperKinematicObject(color2));
+    left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,-10,0)));
+    env->add(left_gripper1);
 
-    float time = sim_time;
-    while (time > 0) {
-        // run pre-step callbacks
-        //for (int j = 0; j < prestepCallbacks.size(); ++j)
-        //    prestepCallbacks[j]();
+    btVector4 color(0.6,0.6,0.6,1);//(1,0,0,0.0);
 
-        innerstate.fork->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-        time -= BulletConfig::dt;
-    }
+    right_gripper1.reset(new GripperKinematicObject(color));
+    right_gripper1->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,10,0)));
+    env->add(right_gripper1);
 
+    left_gripper2.reset(new GripperKinematicObject(color2));
+    left_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,20,0)));
+    env->add(left_gripper2);
+
+    right_gripper2.reset(new GripperKinematicObject(color));
+    right_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,-20,0)));
+    env->add(right_gripper2);
+
+    num_auto_grippers = 2;
+
+    rScaling = 1;
 }
 
-double ColabClothCustomScene::gDNTCANIG(std::vector<int> locations, int input_ind, int &closest_ind)
-{
-    double min_dist = 1000000;
-    closest_ind = -1;
-    for(int i =0; i < num_auto_grippers; i++)
-    {
-
-        int index = 0;
-        if (num_auto_grippers == 1) {
-            index = 0;
-        } else if (num_auto_grippers == 1 && attached[i] == false) {
-            index = 1;
-        }
-        double new_dist = deformableobject_distance_matrix(locations[index],input_ind);
-        if(new_dist < min_dist)
-        {
-            min_dist = new_dist;
-            closest_ind = locations[index];
-        }
-    }
-
-    return min_dist;
-
-
-}
-
-double ColabClothCustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
+double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
 {
     double min_dist = 1000000;
     closest_ind = -1;
@@ -74,7 +62,7 @@ double ColabClothCustomScene::getDistfromNodeToClosestAttachedNodeInGripper(Grip
 
 }
 
-Eigen::MatrixXf ColabClothCustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,
+Eigen::MatrixXf CustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,
     std::vector<int>& autogripper_indices_per_point)
 {
     // All the problem seems to be here!!!
@@ -159,125 +147,7 @@ Eigen::MatrixXf ColabClothCustomScene::computePointsOnGripperJacobian(std::vecto
     return J;
 }
 
-Eigen::MatrixXf ColabClothCustomScene::computeJacobian_approxTest(std::vector<int> locations) {
-    #ifdef ROPE
-    double dropoff_const = 0.5;//0.5;
-#else
-    double dropoff_const = 0.7;//0.7 for colab folding;//;
-#endif
-    int numnodes = getNumDeformableObjectNodes();//clothptr->softBody->m_nodes.size();
-
-    std::vector<btTransform> perts;
-    float step_length = 0.2;
-    float rot_angle = 0.2;
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
-#ifdef DO_ROTATION
-    #ifdef USE_QUATERNION
-        ///NOT IMPLEMENTED!!!!
-        perts.push_back(btTransform(btQuaternion(btVector3(1,0,0),rot_angle),btVector3(0,0,0)));
-        perts.push_back(btTransform(btQuaternion(btVector3(0,1,0),rot_angle),btVector3(0,0,0)));
-        perts.push_back(btTransform(btQuaternion(btVector3(0,0,1),rot_angle),btVector3(0,0,0)));
-    #else
-        perts.push_back(btTransform(btQuaternion(btVector3(1,0,0),rot_angle),btVector3(0,0,0)));
-        perts.push_back(btTransform(btQuaternion(btVector3(0,1,0),rot_angle),btVector3(0,0,0)));
-        perts.push_back(btTransform(btQuaternion(btVector3(0,0,1),rot_angle),btVector3(0,0,0)));
-    #endif
-#endif
-
-
-    Eigen::MatrixXf J(numnodes*3,perts.size()*num_auto_grippers);
-
-    GripperKinematicObject::Ptr gripper;
-
-    std::vector<btVector3> rot_line_pnts;
-    std::vector<btVector4> plot_cols;
-
-    omp_set_num_threads(4);
-
-    std::vector<btVector3> node_pos;
-    getDeformableObjectNodes(node_pos);
-
-    for(int g = 0; g < num_auto_grippers; g++)
-    {
-        if(g == 0) {
-            gripper = left_gripper1;
-            if (attached[g] == false) {
-                gripper = left_gripper2;
-            }
-        }
-        if(g == 1) {
-            gripper = left_gripper2;
-            if (attached[g] == false) {
-                gripper = left_gripper1;
-            }
-        }
-
-        #pragma omp parallel shared(J)
-        {
-
-        #pragma omp for
-        for(int i = 0; i < perts.size(); i++)
-        {
-            Eigen::VectorXf  V_pos(numnodes*3);
-
-                for(int k = 0; k < numnodes; k++)
-                {
-                    int closest_ind;
-
-                    // also need to change this function
-                    // check out what this funciton does???
-                    // double dist = getDistfromNodeToClosestAttachedNodeInGripper(gripper, k, closest_ind);
-                    double dist = gDNTCANIG(locations, k, closest_ind);
-
-
-                    if(i < 3) //translation
-                    {
-                        // btVector3 transvec = ((gripper->getWorldTransform()*perts[i]).getOrigin() -
-                        //                 gripper->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
-                        btVector3 transvec = (((ropePtr->children[locations[g]])->rigidBody->getWorldTransform()*perts[i]).getOrigin() -
-                                        (ropePtr->children[locations[g]])->rigidBody->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
-                        //WRONG: btVector3 transvec = perts[i].getOrigin()*exp(-dist*dropoff_const)/step_length;
-                        //btVector3 transvec = perts[i].getOrigin()*exp(-gripper_node_distance_map[g][k]*dropoff_const);
-                        for(int j = 0; j < 3; j++)
-                            V_pos(3*k + j) = transvec[j];
-
-                    }
-                    else // rotation
-                    {
-
-
-                        //TODO: Use cross product instead
-
-                        //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
-                        //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),clothptr->softBody->m_nodes[closest_ind].m_x);
-                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
-                        //btTransform T0_center = gripper->getWorldTransform();
-                        btTransform T0_center = (ropePtr->children[locations[g]])->rigidBody->getWorldTransform();
-                        //btTransform Tcenter_attached= btTransform(T0_center.getRotation(), V0_attached - T0_center.getOrigin());
-                        btTransform Tcenter_attached = T0_center.inverse()*T0_attached;
-                        btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
-                        btVector3 transvec = (T0_attached.inverse()*T0_newattached).getOrigin()/rot_angle * exp(-dist*dropoff_const);
-
-
-
-                        for(int j = 0; j < 3; j++)
-                            V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
-
-                    }
-
-
-                }
-                J.col(perts.size()*g + i) = V_pos;
-            }
-            }//end omp
-
-    }
-    return J;
-}
-
-Eigen::MatrixXf ColabClothCustomScene::computeJacobian_approx()
+Eigen::MatrixXf CustomScene::computeJacobian_approx()
 {
 #ifdef ROPE
     double dropoff_const = 0.5;//0.5;
@@ -305,7 +175,6 @@ Eigen::MatrixXf ColabClothCustomScene::computeJacobian_approx()
     #endif
 #endif
 
-
     Eigen::MatrixXf J(numnodes*3,perts.size()*num_auto_grippers);
 
     GripperKinematicObject::Ptr gripper;
@@ -314,60 +183,35 @@ Eigen::MatrixXf ColabClothCustomScene::computeJacobian_approx()
     std::vector<btVector4> plot_cols;
 
 
-//    Eigen::VectorXf  V_before(numnodes*3);
-//    for(int k = 0; k < numnodes; k++)
-//    {
-//        for(int j = 0; j < 3; j++)
-//            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-//    }
     omp_set_num_threads(4);
 
     std::vector<btVector3> node_pos;
     getDeformableObjectNodes(node_pos);
-    double rScaling;
     for(int g = 0; g < num_auto_grippers; g++)
     {
-        if(g == 0) {
+        if(g == 0)
+        {
             gripper = left_gripper1;
-            if (attached[g] == false) {
+            if (attached[g] == false)
+            {
                 gripper = left_gripper2;
             }
         }
-        if(g == 1) {
+        if(g == 1)
+        {
             gripper = left_gripper2;
-            if (attached[g] == false) {
+            if (attached[g] == false)
+            {
                 gripper = left_gripper1;
             }
         }
 
         #pragma omp parallel shared(J)
         {
-
-        #pragma omp for
-        for(int i = 0; i < perts.size(); i++)
-        {
-            Eigen::VectorXf  V_pos(numnodes*3);
-
-//                    btTransform dummy_tm(btQuaternion(0,0,0,1),btVector3(0,0,0));
-//                    StepState innerstate;
-
-//                    if( i >= 3)
-//                    {
-//                        if(g == 0)
-//                            simulateInNewFork(innerstate, jacobian_sim_time, perts[i],dummy_tm);
-//                        else
-//                            simulateInNewFork(innerstate, jacobian_sim_time, dummy_tm,perts[i]);
-
-//                        Eigen::VectorXf  V_after(V_before);
-//                        for(int k = 0; k < numnodes; k++)
-//                        {
-//                            for(int j = 0; j < 3; j++)
-//                                V_after(3*k + j) = innerstate.cloth->softBody->m_nodes[k].m_x[j];
-//                        }
-//
-//                        V_pos = (V_after - V_before)/rot_angle;
-
-//                    }
+            #pragma omp for
+            for(int i = 0; i < perts.size(); i++)
+            {
+                Eigen::VectorXf  V_pos(numnodes*3);
 
                 for(int k = 0; k < numnodes; k++)
                 {
@@ -406,8 +250,6 @@ Eigen::MatrixXf ColabClothCustomScene::computeJacobian_approx()
                     }
                     else // rotation
                     {
-
-
                         //TODO: Use cross product instead
 
                         //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
@@ -429,192 +271,30 @@ Eigen::MatrixXf ColabClothCustomScene::computeJacobian_approx()
                         // Rg.push_back(T0_center.getBasis()[2][i-3]);
                         // btTransform Rn = T0_center*perts[i];
 
+#ifdef ROTATION_SCALING
                         if (inTurn < 4) {
                             rScaling = 0;
                         } else {
                             rScaling = ROTATION_SCALING;
                         }
                         // rScaling = ROTATION_SCALING;
+#endif
                         for(int j = 0; j < 3; j++) {
                             //V_pos(3*k+j) = 100;
                             // V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
                             V_pos(3*k + j) = transvec[j]*rScaling;
                         }
-
-
                     }
-
-
                 }
                 J.col(perts.size()*g + i) = V_pos;
             }
-            }//end omp
-
+        }//end omp
     }
-
-
-    //rot_lines->setPoints(rot_line_pnts,plot_cols);
 
     return J;
 }
 
-Eigen::MatrixXf ColabClothCustomScene::computeJacobian_parallel()
-{
-    boost::posix_time::ptime begTick(boost::posix_time::microsec_clock::local_time());
-
-    //printf("starting jacobian computation\n");
-    //stopLoop();
-    bool bBackupLoopState = loopState.skip_step;
-    loopState.skip_step = true;
-
-    int numnodes = clothptr->softBody->m_nodes.size();
-    Eigen::VectorXf  V_before(numnodes*3);
-
-
-    for(int k = 0; k < numnodes; k++)
-    {
-        for(int j = 0; j < 3; j++)
-            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-    }
-
-
-
-    std::vector<btTransform> perts;
-    float step_length = 0.2;
-    float rot_angle = 0.2;
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
-#ifdef DO_ROTATION
-    perts.push_back(btTransform(btQuaternion(btVector3(1,0,0),rot_angle),btVector3(0,0,0)));
-    perts.push_back(btTransform(btQuaternion(btVector3(0,1,0),rot_angle),btVector3(0,0,0)));
-    perts.push_back(btTransform(btQuaternion(btVector3(0,0,1),rot_angle),btVector3(0,0,0)));
-    omp_set_num_threads(7); //need to find a better way to do this
-#else
-    omp_set_num_threads(4);
-#endif
-
-    Eigen::MatrixXf J(numnodes*3,perts.size());
-    #pragma omp parallel shared(J)
-    {
-
-        //schedule(static, 1)
-        #pragma omp for nowait
-        for(int i = 0; i < perts.size(); i++)
-        {
-
-            btTransform dummy_tm;
-            StepState innerstate;
-            simulateInNewFork(innerstate, jacobian_sim_time, perts[i],dummy_tm);
-
-            Eigen::VectorXf  V_after(V_before);
-            for(int k = 0; k < numnodes; k++)
-            {
-                for(int j = 0; j < 3; j++)
-                    V_after(3*k + j) = innerstate.cloth->softBody->m_nodes[k].m_x[j];
-            }
-            float divider;
-            if(i < 3)
-                divider = step_length;
-            else
-                divider = rot_angle;
-
-            J.col(i) = (V_after - V_before)/divider;
-        }
-    }
-
-    //cout << J<< endl;
-    boost::posix_time::ptime endTick(boost::posix_time::microsec_clock::local_time());
-    //std::cout << "time: " << boost::posix_time::to_simple_string(endTick - begTick) << std::endl;
-
-    loopState.skip_step = bBackupLoopState;
-    //printf("done jacobian computation\n");
-    return J;
-
-
-}
-
-Eigen::MatrixXf ColabClothCustomScene::computeJacobian()
-{
-    boost::posix_time::ptime begTick(boost::posix_time::microsec_clock::local_time());
-
-    //printf("starting jacobian computation\n");
-    //stopLoop();
-    bool bBackupLoopState = loopState.skip_step;
-    loopState.skip_step = true;
-
-    int numnodes = clothptr->softBody->m_nodes.size();
-    Eigen::VectorXf  V_before(numnodes*3);
-    Eigen::VectorXf  V_after(V_before);
-
-    for(int k = 0; k < numnodes; k++)
-    {
-        for(int j = 0; j < 3; j++)
-            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-    }
-
-    Eigen::MatrixXf J(numnodes*3,3);
-
-    std::vector<btTransform> perts;
-    float step_length = 0.2;
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
-    float time;
-
-    for(int i = 0; i < 3 ; i++)
-    {
-        createFork();
-        swapFork(); //now pointers are set to the forked objects
-
-        //apply perturbation
-        left_gripper1->applyTransform(perts[i]);
-
-        time = jacobian_sim_time;
-        while (time > 0) {
-            float startTime=viewer.getFrameStamp()->getSimulationTime(), endTime;
-            if (syncTime && drawingOn)
-                endTime = viewer.getFrameStamp()->getSimulationTime();
-
-            // run pre-step callbacks
-            //for (int j = 0; j < prestepCallbackssize(); ++j)
-            //    prestepCallbacks[j]();
-
-            fork->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-            draw();
-
-            if (syncTime && drawingOn) {
-                float timeLeft = BulletConfig::dt - (endTime - startTime);
-                idleFor(timeLeft);
-                startTime = endTime + timeLeft;
-            }
-
-
-            time -= BulletConfig::dt;
-
-        }
-
-        for(int k = 0; k < numnodes; k++)
-        {
-            for(int j = 0; j < 3; j++)
-                V_after(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-        }
-
-        destroyFork();
-        J.col(i) = (V_after - V_before)/step_length;
-    }
-
-    //cout << J<< endl;
-    boost::posix_time::ptime endTick(boost::posix_time::microsec_clock::local_time());
-    //std::cout << "time: " << boost::posix_time::to_simple_string(endTick - begTick) << std::endl;
-
-
-    loopState.skip_step = bBackupLoopState;
-    //printf("done jacobian computation\n");
-    return J;
-}
-
-void ColabClothCustomScene::getDeformableObjectNodes(std::vector<btVector3>& vnodes)
+void CustomScene::getDeformableObjectNodes(std::vector<btVector3>& vnodes)
 {
 #ifdef ROPE
     vnodes = ropePtr->getNodes();
@@ -623,7 +303,7 @@ void ColabClothCustomScene::getDeformableObjectNodes(std::vector<btVector3>& vno
 #endif
 }
 
-int ColabClothCustomScene::getNumDeformableObjectNodes()
+int CustomScene::getNumDeformableObjectNodes()
 {
 #ifdef ROPE
     return ropePtr->getNodes().size();
@@ -633,7 +313,7 @@ int ColabClothCustomScene::getNumDeformableObjectNodes()
 
 }
 
-std::vector<std::vector<double> > ColabClothCustomScene::findCircle(std::vector<double> normal,
+std::vector<std::vector<double> > CustomScene::findCircle(std::vector<double> normal,
                                             std::vector<double> center) {
     // Need to reorder the points such that it forms the points in the correct order
     double x0 = center[0], y0 = center[1], z0 = center[2];
@@ -707,7 +387,7 @@ std::vector<std::vector<double> > ColabClothCustomScene::findCircle(std::vector<
 
 }
 
-std::vector<std::vector<double> > ColabClothCustomScene::findXCircle(std::vector<double> normal,
+std::vector<std::vector<double> > CustomScene::findXCircle(std::vector<double> normal,
                                             std::vector<double> center){
     std::vector<std::vector<double> > points;
     //cout << "findXCircle: " << endl;
@@ -762,7 +442,7 @@ std::vector<std::vector<double> > ColabClothCustomScene::findXCircle(std::vector
     return points;
 }
 
-std::vector<std::vector<double> > ColabClothCustomScene::findYCircle(std::vector<double> normal,
+std::vector<std::vector<double> > CustomScene::findYCircle(std::vector<double> normal,
                                             std::vector<double> center){
     std::vector<std::vector<double> > points;
     //cout << "findYCircle: " << endl;
@@ -817,7 +497,7 @@ std::vector<std::vector<double> > ColabClothCustomScene::findYCircle(std::vector
     return points;
 }
 
-std::vector<std::vector<double> > ColabClothCustomScene::findZCircle(std::vector<double> normal,
+std::vector<std::vector<double> > CustomScene::findZCircle(std::vector<double> normal,
                                             std::vector<double> center){
     std::vector<std::vector<double> > points;
     //cout << "findZCircle: " << endl;
@@ -865,7 +545,7 @@ std::vector<std::vector<double> > ColabClothCustomScene::findZCircle(std::vector
     return points;
 }
 
-std::vector<std::vector<double> > ColabClothCustomScene::findXYCircle(std::vector<double> normal,
+std::vector<std::vector<double> > CustomScene::findXYCircle(std::vector<double> normal,
                                             std::vector<double> center){
     // cout << "findXYCircle: " << endl;
     double x0 = center[0], y0 = center[1], z0 = center[2];
@@ -964,7 +644,7 @@ std::vector<std::vector<double> > ColabClothCustomScene::findXYCircle(std::vecto
     return points;
 }
 
-std::vector<std::vector<double> > ColabClothCustomScene::findXZCircle(std::vector<double> normal,
+std::vector<std::vector<double> > CustomScene::findXZCircle(std::vector<double> normal,
                                             std::vector<double> center){
     //cout << "findXZCircle: " << endl;
     double x0 = center[0], y0 = center[1], z0 = center[2];
@@ -1013,7 +693,7 @@ std::vector<std::vector<double> > ColabClothCustomScene::findXZCircle(std::vecto
     return points;
 }
 
-std::vector<std::vector<double> > ColabClothCustomScene::findYZCircle(std::vector<double> normal,
+std::vector<std::vector<double> > CustomScene::findYZCircle(std::vector<double> normal,
                                             std::vector<double> center){
     //cout << "findYZCircle: " << endl;
     double x0 = center[0], y0 = center[1], z0 = center[2];
@@ -1062,7 +742,7 @@ std::vector<std::vector<double> > ColabClothCustomScene::findYZCircle(std::vecto
     return points;
 }
 
-int ColabClothCustomScene::findPointNotTip(std::vector<double> axis, double radius,
+int CustomScene::findPointNotTip(std::vector<double> axis, double radius,
                                     std::vector<btVector3> points) {
 
     std::vector<double> point;
@@ -1127,7 +807,7 @@ int ColabClothCustomScene::findPointNotTip(std::vector<double> axis, double radi
 
 }
 
-std::vector<double> ColabClothCustomScene::findDirectionNotTip (double x, double y, double z, std::vector<double> axis)
+std::vector<double> CustomScene::findDirectionNotTip (double x, double y, double z, std::vector<double> axis)
 {
     // axis is six dimention;
     // first three numbers is the center: tip location;
@@ -1168,7 +848,7 @@ std::vector<double> ColabClothCustomScene::findDirectionNotTip (double x, double
     return direction;
 }
 
-std::vector<double> ColabClothCustomScene::findDirection (double x, double y, double z, bool tip)
+std::vector<double> CustomScene::findDirection (double x, double y, double z, bool tip)
 {
     std::vector<double> direction;
     direction.push_back(0);
@@ -1539,7 +1219,7 @@ std::vector<double> ColabClothCustomScene::findDirection (double x, double y, do
     return direction;
 }
 
-std::vector<double> ColabClothCustomScene::crossProduct (std::vector<double> u, std::vector<double> v)
+std::vector<double> CustomScene::crossProduct (std::vector<double> u, std::vector<double> v)
 {
     std::vector<double> result;
     result.push_back(u[1]*v[2]-u[2]*v[1]);
@@ -1549,7 +1229,7 @@ std::vector<double> ColabClothCustomScene::crossProduct (std::vector<double> u, 
     return result;
 }
 
-std::vector<double> ColabClothCustomScene::BiotSavart(std::vector<double> point, std::vector<std::vector<double> > curve)
+std::vector<double> CustomScene::BiotSavart(std::vector<double> point, std::vector<std::vector<double> > curve)
 {
     std::vector<double> d;
     std::vector<double> p;
@@ -1639,7 +1319,7 @@ std::vector<double> ColabClothCustomScene::BiotSavart(std::vector<double> point,
 }
 
 //this is getting called before the step loop
-void ColabClothCustomScene::doJTracking()
+void CustomScene::doJTracking()
 {
 
     //if(!clothptr)
@@ -1650,8 +1330,6 @@ void ColabClothCustomScene::doJTracking()
         return;
     else
         bInTrackingLoop = true;
-
-
 
 
     itrnumber++;
@@ -1719,23 +1397,10 @@ void ColabClothCustomScene::doJTracking()
                 gripper = left_gripper2;
 
             vclosest_dist[g] = BT_LARGE_FLOAT;
-            // obj = anotherCylinder;
-            // btGjkEpaPenetrationDepthSolver epaSolver;
-            // btPointCollector gjkOutput;
-
-            // btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),
-            //                   dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
-
-            // btGjkPairDetector::ClosestPointInput input;
-
-            // cout << "locations: " << oT->rigidBody->getCenterOfMassTransform().getOrigin()[0] << ", "
-            //         << oT->rigidBody->getCenterOfMassTransform().getOrigin()[1] << ", " <<
-            //         oT->rigidBody->getCenterOfMassTransform().getOrigin()[2] << ", " <<
-            //          o->rigidBody->getCenterOfMassTransform().getOrigin()[2] << endl;
             // center of the current gripper top we are tracking;
             gripperY = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[0];
             gripperX = (gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[1] +
-                gripper->getChildren()[1]->rigidBody->getCenterOfMassTransform().getOrigin()[1]) / 2;
+                    gripper->getChildren()[1]->rigidBody->getCenterOfMassTransform().getOrigin()[1]) / 2;
             gripperZ = gripper->getChildren()[0]->rigidBody->getCenterOfMassTransform().getOrigin()[2];
 
             // finding the closest torus;
@@ -2984,7 +2649,6 @@ void ColabClothCustomScene::doJTracking()
         transtm1 = btTransform(btQuaternion(0,0,0,1), btVector3(V_trans(0),V_trans(1),V_trans(2)));
 
 
-
         if(num_auto_grippers > 1)
             transtm2 = btTransform(btQuaternion(0,0,0,1), btVector3(V_trans(3),V_trans(4),V_trans(5)));
         else
@@ -2996,121 +2660,10 @@ void ColabClothCustomScene::doJTracking()
         //check is it more semetric than it would have been had you done nothing
         //simulateInNewFork(innerstate, BulletConfig::dt, transvec);
 
-        float errors[2];
-//        omp_set_num_threads(2);
-//        #pragma omp parallel
-//        {
-//            #pragma omp for nowait
-//            for(int i = 0; i < 2 ; i++)
-//            {
-//                StepState innerstate;
-//                //btTransform simtm(btQuaternion(0,0,0,1),transvec);
-//                btTransform simtm1 = transtm1;
-//                btTransform simtm2 = transtm2;
-//                if(i == 1)
-//                {
-//                    simtm1 = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
-//                    simtm2 = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
-//                }
-//                simulateInNewFork(innerstate, jacobian_sim_time, simtm1, simtm2);
-//                errors[i] = 0;
-//                for( map<int,int>::iterator ii=node_mirror_map.begin(); ii!=node_mirror_map.end(); ++ii)
-//                {
-//                    btVector3 targpoint = point_reflector->reflect(innerstate.cloth->softBody->m_nodes[(*ii).second].m_x);
-
-//                    btVector3 targvec = targpoint - innerstate.cloth->softBody->m_nodes[(*ii).first].m_x;
-//                    errors[i] = errors[i] + targvec.length();
-//                }
-//            }
-//        }
-
-
-
-        if(0 && errors[0] >= errors[1])
-        {
-            cout << "Error increase, not moving (new error: " <<  error << ")" << endl;
-            //idleFor(0.2);
-            //left_gripper1->translate(-transvec);
-            //stepFor(BulletConfig::dt, 0.2);
-            //bTracking = false;
-            //stepFor(BulletConfig::dt, jacobian_sim_time);
-            break;
-        }
-        else
-        {
-            // cout << endl;
-            left_gripper1->applyTransform(transtm1);
-            left_gripper2->applyTransform(transtm2);
-
-#ifdef USE_PR2
-            btTransform left1(left_gripper1->getWorldTransform());
-            btTransform TOR_newtrans = left1*TBullet_PR2GripperRight;
-            TOR_newtrans.setOrigin(left1.getOrigin());
-            pr2m.pr2Right->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
-
-            btTransform left2(left_gripper2->getWorldTransform());
-            TOR_newtrans = left2*TBullet_PR2GripperLeft;
-            TOR_newtrans.setOrigin(left2.getOrigin());
-            pr2m.pr2Left->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
-#endif
-            //stepFor(BulletConfig::dt, jacobian_sim_time);
-        }
-
-
-        // if (num_auto_grippers == 1 && attached[0] == false) {
-        //     // second gripper
-        //     // left_gripper2
-
-        //     btTransform current = left_gripper2->getWorldTransform();
-        //     if (fabs(current.getRotation().getAngle()-M_PI/2) > 0.2 ||
-        //             fabs(current.getRotation().getAxis()[0]) > 0.2 ||
-        //             fabs(current.getRotation().getAxis()[1]) > 0.2 ||
-        //             fabs(current.getRotation().getAxis()[2]+1) > 0.2) {
-        //         left_gripper2->applyTransform(btTransform(current.getRotation().inverse(),
-        //                 btVector3(0, 0, 0)));
-        //         left_gripper2->applyTransform(btTransform(btQuaternion(btVector3(0, 0, -1), M_PI/2),
-        //                 btVector3(0, 0, 0)));
-        //     }
-
-        //     // testTM = btTransform(btQuaternion(
-        //     //     gripper->getWorldTransform().getRotation().inverse().getAxis(),
-        //     //     gripper->getWorldTransform().getRotation().inverse().getAngle()),
-        //     //     btVector3(0, 0, 0));
-
-        //     // gripper->applyTransform(testTM);
-        //     // testTM = btTransform(btQuaternion(btVector3(0, 0, -1), M_PI/2),
-        //     //     btVector3(0, 0, 0));
-        //     // gripper->applyTransform(testTM);
-
-        // } else if (num_auto_grippers == 1){
-        //     // first gripper
-        //     // left_gripper1
-        //     cout << "in only first gripper" << endl;
-        //     btTransform current = left_gripper1->getWorldTransform();
-        //     // std::cout << "numbers: " << current.getRotation().getAngle() << ", "
-        //     //         << current.getRotation().getAxis()[0] << ", "
-        //     //         << current.getRotation().getAxis()[1] << ", "
-        //     //         << current.getRotation().getAxis()[2] << endl;
-        //     if (fabs(current.getRotation().getAngle()-M_PI/2) > 0.2 ||
-        //             fabs(current.getRotation().getAxis()[0]) > 0.2 ||
-        //             fabs(current.getRotation().getAxis()[1]) > 0.2 ||
-        //             fabs(current.getRotation().getAxis()[2]+1) > 0.2) {
-        //         btQuaternion test = current.getRotation().inverse() *
-        //             btQuaternion(btVector3(0, 0, -1), M_PI/2);
-        //         btQuaternion apt = current.getRotation().slerp(test, 0.3);
-        //         left_gripper1->applyTransform(btTransform(apt, btVector3(0, 0, 0)));
-        //         // left_gripper1->applyTransform(btTransform(current.getRotation().inverse(),
-        //         //         btVector3(0, 0, 0)));
-        //         // left_gripper1->applyTransform(btTransform(btQuaternion(btVector3(0, 0, -1), M_PI/2),
-        //         //         btVector3(0, 0, 0)));
-        //     }
-        // }
-
+        left_gripper1->applyTransform(transtm1);
+        left_gripper2->applyTransform(transtm2);
 
         break;
-
-
-
     }
 
     loopState.skip_step = false;
@@ -3277,7 +2830,7 @@ void ColabClothCustomScene::doJTracking()
 
 }
 
-void ColabClothCustomScene::regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr  gripper_to_detach)
+void CustomScene::regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr  gripper_to_detach)
 {
     gripper_to_attach->toggleattach(clothptr->softBody.get());
     gripper_to_detach->toggleattach(clothptr->softBody.get());
@@ -3294,7 +2847,7 @@ void ColabClothCustomScene::regraspWithOneGripper(GripperKinematicObject::Ptr gr
     //gripper_to_detach->setWorldTransform(btTransform(btQuaternion(0,0,0,1),btVector3(100,5,0)));
 }
 
-void ColabClothCustomScene::testRelease(GripperKinematicObject::Ptr  gripper_to_detach)
+void CustomScene::testRelease(GripperKinematicObject::Ptr  gripper_to_detach)
 {
     cout << "in the test release function" << endl;
     // gripper_to_detach->toggle();
@@ -3314,7 +2867,7 @@ void ColabClothCustomScene::testRelease(GripperKinematicObject::Ptr  gripper_to_
 
 }
 
-void ColabClothCustomScene::testRelease2(GripperKinematicObject::Ptr  gripper_to_detach)
+void CustomScene::testRelease2(GripperKinematicObject::Ptr  gripper_to_detach)
 {
     env->bullet->dynamicsWorld->removeConstraint(gripper_to_detach->cnt.get());
     env->remove(gripper_to_detach);
@@ -3322,7 +2875,7 @@ void ColabClothCustomScene::testRelease2(GripperKinematicObject::Ptr  gripper_to
     num_auto_grippers = 1;
 }
 
-void ColabClothCustomScene::testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach)
+void CustomScene::testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach)
 {
     cout << "in test Regrasp!" << endl;
 
@@ -3338,7 +2891,7 @@ void ColabClothCustomScene::testRegrasp(GripperKinematicObject::Ptr  gripper_to_
     num_auto_grippers = 2;
 }
 
-void ColabClothCustomScene::Regrasp (GripperKinematicObject::Ptr  gripper, int place, int which)
+void CustomScene::Regrasp (GripperKinematicObject::Ptr  gripper, int place, int which)
 {
     gripper->setWorldTransform(ropePtr->children[gripperPosition[which]]->rigidBody->getCenterOfMassTransform());
 
@@ -3350,7 +2903,7 @@ void ColabClothCustomScene::Regrasp (GripperKinematicObject::Ptr  gripper, int p
     num_auto_grippers = 1;
 }
 
-void ColabClothCustomScene::Release (GripperKinematicObject::Ptr  gripper, int which)
+void CustomScene::Release (GripperKinematicObject::Ptr  gripper, int which)
 {
     env->bullet->dynamicsWorld->removeConstraint(gripper->cnt.get());
     env->remove(gripper);
@@ -3358,7 +2911,7 @@ void ColabClothCustomScene::Release (GripperKinematicObject::Ptr  gripper, int w
     num_auto_grippers = 1;
 }
 
-void ColabClothCustomScene::testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach)
+void CustomScene::testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach)
 {
     cout << "in test Regrasp2!" << endl;
 
@@ -3370,7 +2923,7 @@ void ColabClothCustomScene::testRegrasp2(GripperKinematicObject::Ptr  gripper_to
     num_auto_grippers = 2;
 }
 
-void ColabClothCustomScene::switchTarget()
+void CustomScene::switchTarget()
 {
     switchCircles();
     switched = true;
@@ -3477,7 +3030,7 @@ void ColabClothCustomScene::switchTarget()
 
 }
 
-void ColabClothCustomScene::testAdjust(GripperKinematicObject::Ptr  gripper)
+void CustomScene::testAdjust(GripperKinematicObject::Ptr  gripper)
 {
     btTransform testTM;
     double a, b, c, d;
@@ -3536,7 +3089,7 @@ void ColabClothCustomScene::testAdjust(GripperKinematicObject::Ptr  gripper)
 
 }
 
-std::vector<int> ColabClothCustomScene::gripperStrategyNoneFix()
+std::vector<int> CustomScene::gripperStrategyNoneFix()
 {
     std::vector<int> locations;
     locations.push_back(0);
@@ -3568,7 +3121,7 @@ std::vector<int> ColabClothCustomScene::gripperStrategyNoneFix()
     return locations;
 }
 
-std::vector<int> ColabClothCustomScene::gripperStrategyFix()
+std::vector<int> CustomScene::gripperStrategyFix()
 {
     std::vector<int> gripped;
     // O(4) options
@@ -3577,7 +3130,7 @@ std::vector<int> ColabClothCustomScene::gripperStrategyFix()
 
 }
 
-std::vector<int> ColabClothCustomScene::gripperStrategyNoneFixPush()
+std::vector<int> CustomScene::gripperStrategyNoneFixPush()
 {
     std::vector<int> locations;
     // O(n^2) options
@@ -3585,92 +3138,7 @@ std::vector<int> ColabClothCustomScene::gripperStrategyNoneFixPush()
     return locations;
 }
 
-void ColabClothCustomScene::createFork()
-{
-    if(fork)
-    {
-        destroyFork();
-    }
-    bullet2.reset(new BulletInstance);
-    bullet2->setGravity(BulletConfig::gravity);
-    osg2.reset(new OSGInstance);
-    osg->root->addChild(osg2->root.get());
-
-    fork.reset(new Fork(env, bullet2, osg2));
-    registerFork(fork);
-
-    //cout << "forked!" << endl;
-
-#ifdef USE_PR2
-    origRobot = pr2m.pr2;
-    EnvironmentObject::Ptr p = fork->forkOf(pr2m.pr2);
-    if (!p) {
-        cout << "failed to get forked version of robot!" << endl;
-        return;
-    }
-    tmpRobot = boost::static_pointer_cast<RaveRobotObject>(p);
-    cout << (tmpRobot->getEnvironment() == env.get()) << endl;
-    cout << (tmpRobot->getEnvironment() == fork->env.get()) << endl;
-#endif
-    left_gripper1_fork = boost::static_pointer_cast<GripperKinematicObject> (fork->forkOf(left_gripper1));
-    right_gripper1_fork = boost::static_pointer_cast<GripperKinematicObject> (fork->forkOf(right_gripper1));
-    clothptr_fork = boost::static_pointer_cast<BulletSoftObject> (fork->forkOf(clothptr));
-
-}
-
-void ColabClothCustomScene::destroyFork()
-{
-    if(left_gripper1.get() == left_gripper1_fork.get())
-    {
-        left_gripper1 = left_gripper1_orig;
-        right_gripper1 = right_gripper1_orig;
-        clothptr = clothptr_orig;
-    }
-
-    unregisterFork(fork);
-    osg->root->removeChild(osg2->root.get());
-    fork.reset();
-    left_gripper1_fork.reset();
-    right_gripper1_fork.reset();
-    clothptr_fork.reset();
-}
-
-void ColabClothCustomScene::swapFork()
-{
-#ifdef USE_PR2
-    // swaps the forked robot with the real one
-    cout << "swapping!" << endl;
-    int leftidx = pr2m.pr2Left->index;
-    int rightidx = pr2m.pr2Right->index;
-    origRobot.swap(tmpRobot);
-    pr2m.pr2 = origRobot;
-    pr2m.pr2Left = pr2m.pr2->getManipByIndex(leftidx);
-    pr2m.pr2Right = pr2m.pr2->getManipByIndex(rightidx);
-#endif
-    if(left_gripper1.get() == left_gripper1_orig.get())
-    {
-        left_gripper1 = left_gripper1_fork;
-        right_gripper1 = right_gripper1_fork;
-        clothptr = clothptr_fork;
-    }
-    else
-    {
-        left_gripper1 = left_gripper1_orig;
-        right_gripper1 = right_gripper1_orig;
-        clothptr = clothptr_orig;
-    }
-
-
-
-/*    vector<int> indices; vector<dReal> vals;
-    for (int i = 0; i < tmpRobot->robot->GetDOF(); ++i) {
-        indices.push_back(i);
-        vals.push_back(0);
-    }
-    tmpRobot->setDOFValues(indices, vals);*/
-}
-
-void ColabClothCustomScene::drawAxes()
+void CustomScene::drawAxes()
 {
     if(!!left_axes1)
         left_axes1->setup(left_gripper1->getWorldTransform(),1);
@@ -3678,13 +3146,13 @@ void ColabClothCustomScene::drawAxes()
         left_axes2->setup(left_gripper2->getWorldTransform(),1);
 }
 
-void ColabClothCustomScene::drawClosestPoints()
+void CustomScene::drawClosestPoints()
 {
 
 
 }
 
-void ColabClothCustomScene::makeCircuitLoops()
+void CustomScene::makeCircuitLoops()
 {
     std::vector<double> nm;
     std::vector<double> ct;
@@ -3838,7 +3306,7 @@ void ColabClothCustomScene::makeCircuitLoops()
 
 }
 
-void ColabClothCustomScene::makeBeltLoops()
+void CustomScene::makeBeltLoops()
 {
     std::vector<double> nm;
     std::vector<double> ct;
@@ -4135,14 +3603,40 @@ void ColabClothCustomScene::makeBeltLoops()
 
 }
 
-void ColabClothCustomScene::makeRopeWorld()
+void CustomScene::computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix)
+{
+    distance_matrix = Eigen::MatrixXf( node_pos.size(), node_pos.size());
+    for(int i = 0; i < node_pos.size(); i++)
+    {
+        for(int j = i; j < node_pos.size(); j++)
+        {
+            distance_matrix(i,j) = (node_pos[i]-node_pos[j]).length();
+            distance_matrix(j,i) = distance_matrix(i,j);
+        }
+    }
+
+}
+
+void CustomScene::initializePloting()
+{
+    plot_points.reset(new PlotPoints(5));
+    env->add(plot_points);
+
+    rot_lines.reset(new PlotLines(2));
+    rot_lines->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
+    env->add(rot_lines);
+
+
+}
+
+void CustomScene::makeRopeWorld()
 {
     float rope_radius = .01;
     float segment_len = .025;
     const float table_height = .7;
     const float table_thickness = .05;
     findCircles();
-    // originall was 50 links
+    // original was 50 links
     int nLinks = 50;
     random = true;
     trackPosition = 0;
@@ -4534,33 +4028,7 @@ void ColabClothCustomScene::makeRopeWorld()
 
 }
 
-void ColabClothCustomScene::computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix)
-{
-    distance_matrix = Eigen::MatrixXf( node_pos.size(), node_pos.size());
-    for(int i = 0; i < node_pos.size(); i++)
-    {
-        for(int j = i; j < node_pos.size(); j++)
-        {
-            distance_matrix(i,j) = (node_pos[i]-node_pos[j]).length();
-            distance_matrix(j,i) = distance_matrix(i,j);
-        }
-    }
-
-}
-
-void ColabClothCustomScene::initializePloting()
-{
-    plot_points.reset(new PlotPoints(5));
-    env->add(plot_points);
-
-    rot_lines.reset(new PlotLines(2));
-    rot_lines->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
-    env->add(rot_lines);
-
-
-}
-
-void ColabClothCustomScene::makeClothWorld()
+void CustomScene::makeClothWorld()
 {
     const float table_height = .7;
 #ifdef USE_TABLE
@@ -4587,7 +4055,7 @@ void ColabClothCustomScene::makeClothWorld()
         {
             cover_points.push_back(Tm_table*btVector3(x,y,table->halfExtents[2]));
         }
-     cout << "num cover points " << cover_points.size() << endl;
+    cout << "num cover points " << cover_points.size() << endl;
 //    float radius = 3;
 //    float height = 7;
 //    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height,
@@ -4606,8 +4074,6 @@ void ColabClothCustomScene::makeClothWorld()
 
 
 
-    corner_number = 0;
-
 #endif
 
 //    float cylradius = 3;
@@ -4621,36 +4087,18 @@ void ColabClothCustomScene::makeClothWorld()
     //printf("scale: \%f\n meters: %f\n",GeneralConfig::scale, METERS);
 
     btSoftBody* psb = cloth->softBody.get();
-    clothptr = clothptr_orig = cloth;
+    clothptr = cloth;
     psb->setTotalMass(0.1);
 
     addPreStepCallback(std::bind(&GripperKinematicObject::step_openclose, this->right_gripper2,psb));
     addPreStepCallback(std::bind(&GripperKinematicObject::step_openclose, this->left_gripper2,psb));
 
     //table->setColor(0.8,0.2,0.2,1.0);
-#ifdef USE_PR2
-    pr2m.pr2->ignoreCollisionWith(psb);
-    pr2m.pr2->ignoreCollisionWith(left_gripper1->getChildren()[0]->rigidBody.get());
-    pr2m.pr2->ignoreCollisionWith(left_gripper1->getChildren()[1]->rigidBody.get());
-    pr2m.pr2->ignoreCollisionWith(left_gripper2->getChildren()[0]->rigidBody.get());
-    pr2m.pr2->ignoreCollisionWith(left_gripper2->getChildren()[1]->rigidBody.get());
-    pr2m.pr2->ignoreCollisionWith(right_gripper1->getChildren()[0]->rigidBody.get());
-    pr2m.pr2->ignoreCollisionWith(right_gripper1->getChildren()[1]->rigidBody.get());
-    pr2m.pr2->ignoreCollisionWith(right_gripper2->getChildren()[0]->rigidBody.get());
-    pr2m.pr2->ignoreCollisionWith(right_gripper2->getChildren()[1]->rigidBody.get());
-#endif
 
 
     env->add(cloth);
     cloth->setColor(0.15,0.65,0.15,1.0);
     //left_mover.reset(new RigidMover(table, table->rigidBody->getCenterOfMassPosition(), env->bullet->dynamicsWorld));
-
-#ifdef USE_PR2
-    leftAction.reset(new PR2SoftBodyGripperAction(pr2m.pr2Left, "l_gripper_l_finger_tip_link", "l_gripper_r_finger_tip_link", 1));
-    leftAction->setTarget(psb);
-    rightAction.reset(new PR2SoftBodyGripperAction(pr2m.pr2Right, "r_gripper_l_finger_tip_link", "r_gripper_r_finger_tip_link", 1));
-    rightAction->setTarget(psb);
-#endif
 
 
     //btVector3 pos(0,0,0);
@@ -4958,20 +4406,9 @@ void ColabClothCustomScene::makeClothWorld()
     right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
 
 #endif
-
-//    btMatrix3x3 proj_mat;
-//    proj_mat[0][0] =   ; proj_mat[0][1] =  ;  proj_mat[0][2] = ;
-//    proj_mat[1][0] =   ; proj_mat[1][1] =  ;  proj_mat[1][2] = ;
-//    proj_mat[2][0] =   ; proj_mat[2][1] =  ;  proj_mat[2][2] = ;
-
-//    for(int i = 0; i<cloth_boundary_inds.size();i++)
-//    {
-
-//    }
-
 }
 
-BulletSoftObject::Ptr ColabClothCustomScene::createCloth(btScalar half_side_length, const btVector3 &center)
+BulletSoftObject::Ptr CustomScene::createCloth(btScalar half_side_length, const btVector3 &center)
 {
     const int divs = 45;
 
@@ -4984,34 +4421,35 @@ BulletSoftObject::Ptr ColabClothCustomScene::createCloth(btScalar half_side_leng
         divs, divs,
         0, true);
 
-    psb->m_cfg.piterations = 10;//2;
+    psb->m_cfg.piterations = 10;
     psb->m_cfg.collisions = btSoftBody::fCollision::CL_SS
         | btSoftBody::fCollision::CL_RS      ;//  | btSoftBody::fCollision::CL_SELF;
     psb->m_cfg.kDF = 1.0;
     psb->getCollisionShape()->setMargin(0.05);
     btSoftBody::Material *pm = psb->appendMaterial();
-    //pm->m_kLST = 0.2;//0.1; //makes it rubbery (handles self collisions better)
+    //pm->m_kLST = 0.2; //makes it rubbery (handles self collisions better)
     psb->m_cfg.kDP = 0.05;
     psb->generateBendingConstraints(2, pm);
     psb->randomizeConstraints();
     psb->setTotalMass(1, true);
     psb->generateClusters(0);
-    //psb->generateClusters(500);
+    // the more clusters, the better the simulation, but it's slower (and perhaps not stable)
+/*    psb->generateClusters(500);
 
-/*    for (int i = 0; i < psb->m_clusters.size(); ++i) {
+    for (int i = 0; i < psb->m_clusters.size(); ++i) {
         psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.1;
     }*/
 
     return BulletSoftObject::Ptr(new BulletSoftObject(psb));
 }
 
-void ColabClothCustomScene::run()
+void CustomScene::run()
 {
     viewer.addEventHandler(new CustomKeyHandler(*this));
 
-    addPreStepCallback(std::bind(&ColabClothCustomScene::doJTracking, this));
-    addPreStepCallback(std::bind(&ColabClothCustomScene::drawAxes, this));
-    addPreStepCallback(std::bind(&ColabClothCustomScene::drawClosestPoints, this));
+    addPreStepCallback(std::bind(&CustomScene::doJTracking, this));
+    addPreStepCallback(std::bind(&CustomScene::drawAxes, this));
+    addPreStepCallback(std::bind(&CustomScene::drawClosestPoints, this));
 
 
     const float dt = BulletConfig::dt;
@@ -5025,26 +4463,18 @@ void ColabClothCustomScene::run()
 
     initializePloting();
 
-
 #ifdef DO_COVERAGE
     std::vector<btVector3> vnodes;
     getDeformableObjectNodes(vnodes);
     cout << "Num Deformable Object Points: " <<  vnodes.size() << endl << "Num Points to Cover: " << cover_points.size() << endl;
 #endif
 
+    // if syncTime is set, the simulator blocks until the real time elapsed
+    // matches the simulator time elapsed
     //setSyncTime(true);
     startViewer();
     stepFor(dt, 2);
 
-    /*
-    leftAction->setOpenAction();
-    runAction(leftAction, dt);
-
-    rightAction->setOpenAction();
-    runAction(rightAction, dt);
-    */
-    //ProfilerStart("profile.txt");
     startFixedTimestepLoop(dt);
-    //ProfilerStop();
 }
 

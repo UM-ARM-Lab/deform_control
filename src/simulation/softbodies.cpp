@@ -1,5 +1,5 @@
 #include "softbodies.h"
-#include "util.h"
+#include "utils/util.h"
 
 #include <osg/LightModel>
 #include <osg/BlendFunc>

@@ -3,7 +3,7 @@
 #include "simplescene.h"
 #include "config_bullet.h"
 #include "config_viewer.h"
-#include "util.h"
+#include "utils/util.h"
 
 #include <iostream>
 using namespace std;

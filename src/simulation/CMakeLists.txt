@@ -8,7 +8,6 @@ include_directories( SYSTEM
 add_library(simulation 
     environment.cpp 
     basicobjects.cpp 
-    util.cpp 
     simplescene.cpp 
     softbodies.cpp 
     rope.cpp 

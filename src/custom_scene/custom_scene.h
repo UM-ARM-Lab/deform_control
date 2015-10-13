@@ -1,31 +1,46 @@
-#ifndef COLAB_CLOTH_CUSTOM_SCENE_H
-#define COLAB_CLOTH_CUSTOM_SCENE_H
+#ifndef CUSTOM_SCENE_H
+#define CUSTOM_SCENE_H
 
-#include "colab_cloth.h"
+
+#include "tests/colab_cloth.h"
+
+
+#include <boost/shared_ptr.hpp>
+#include <Eigen/Dense>
+
+#include "simulation/environment.h"
+#include "simulation/simplescene.h"
+#include "simulation/softbodies.h"
+#include "simulation/rope.h"
+
+#include "simulation/config_bullet.h"
+#include "simulation/config_viewer.h"
 
 #include "gripper_kinematic_object.h"
 #include "point_reflector.h"
 #include "step_state.h"
-#include "pr2_soft_body_gripper_action.h"
 
-class ColabClothCustomScene : public Scene
+class CustomScene : public Scene
 {
     public:
-        GripperKinematicObject::Ptr left_gripper1, right_gripper1, left_gripper1_orig, right_gripper1_orig, left_gripper1_fork, right_gripper1_fork;
+        CustomScene();
+
+        GripperKinematicObject::Ptr left_gripper1, right_gripper1;
         GripperKinematicObject::Ptr left_gripper2, right_gripper2;
         struct
         {
-            bool transGrabber0,rotateGrabber0,transGrabber1,rotateGrabber1, transGrabber2,rotateGrabber2, transGrabber3,rotateGrabber3, startDragging;
+            bool transGrabber0, rotateGrabber0,
+                 transGrabber1, rotateGrabber1,
+                 transGrabber2, rotateGrabber2,
+                 transGrabber3, rotateGrabber3,
+                 startDragging;
             float dx, dy, lastX, lastY;
         } inputState;
 
         int num_auto_grippers;
         bool bTracking, bInTrackingLoop;
         PointReflector::Ptr point_reflector;
-        BulletSoftObject::Ptr clothptr, clothptr_orig, clothptr_fork;
-        BulletInstance::Ptr bullet2;
-        OSGInstance::Ptr osg2;
-        Fork::Ptr fork;
+        BulletSoftObject::Ptr clothptr;
         std::map<int, int> node_mirror_map;
         std::vector<std::vector<double> > gripper_node_distance_map;
         float jacobian_sim_time;
@@ -51,11 +66,7 @@ class ColabClothCustomScene : public Scene
         int corner_number;
         boost::shared_ptr<CapsuleRope> ropePtr;
         //std::vector<int> cloth_boundary_inds;
-        btVoronoiSimplexSolver sGjkSimplexSolver;
-    //    btGjkEpaPenetrationDepthSolver epaSolver;
-    //    btPointCollector gjkOutput;
         CylinderStaticObject::Ptr cylinder;
-        CylinderStaticObject::Ptr anotherCylinder;
         vector<CapsuleObject::Ptr> torus;
         BoxObject::Ptr table;
         btBvhTriangleMeshShape* shape;
@@ -70,16 +81,13 @@ class ColabClothCustomScene : public Scene
         BulletObject::Ptr oT5;
         BulletObject::Ptr oT6;
         BulletObject::Ptr oT7;
-        BulletObject::Ptr oT8;
-        BulletObject::Ptr oT9;
-        BulletObject::Ptr oT10;
-        BulletObject::Ptr oT11;
 
         BulletObject::Ptr oC;
         BulletObject::Ptr oC1;
         BulletObject::Ptr oC2;
         BulletObject::Ptr oC3;
         BulletObject::Ptr oC4;
+
         void makeBeltLoops();
         void makeCircuitLoops();
         void switchTarget();
@@ -122,7 +130,6 @@ class ColabClothCustomScene : public Scene
 
         std::vector<std::vector<double> > findCircle(std::vector<double> normal,
                                                     std::vector<double> center);
-
         std::vector<std::vector<double> > findXCircle(std::vector<double> normal,
                                                     std::vector<double> center);
         std::vector<std::vector<double> > findYCircle(std::vector<double> normal,
@@ -136,53 +143,13 @@ class ColabClothCustomScene : public Scene
         std::vector<std::vector<double> > findYZCircle(std::vector<double> normal,
                                                     std::vector<double> center);
 
-
-        ColabClothCustomScene()
-        {
-            bTracking = bInTrackingLoop = false;
-            inputState.transGrabber0 =  inputState.rotateGrabber0 =
-                    inputState.transGrabber1 =  inputState.rotateGrabber1 =
-                    inputState.transGrabber2 =  inputState.rotateGrabber2 =
-                    inputState.transGrabber3 =  inputState.rotateGrabber3 =
-                    inputState.startDragging = false;
-
-            jacobian_sim_time = 0.05;
-            btVector4 color2(0,0,1,1);
-
-            left_gripper1_orig.reset(new GripperKinematicObject(color2));
-            left_gripper1_orig->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,-10,0)));
-            env->add(left_gripper1_orig);
-
-            btVector4 color(0.6,0.6,0.6,1);//(1,0,0,0.0);
-
-            right_gripper1_orig.reset(new GripperKinematicObject(color));
-            right_gripper1_orig->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,10,0)));
-            env->add(right_gripper1_orig);
-
-            left_gripper1 = left_gripper1_orig;
-            right_gripper1 = right_gripper1_orig;
-
-
-            left_gripper2.reset(new GripperKinematicObject(color2));
-            left_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,20,0)));
-            env->add(left_gripper2);
-
-            right_gripper2.reset(new GripperKinematicObject(color));
-            right_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,-20,0)));
-            env->add(right_gripper2);
-
-            num_auto_grippers = 2;
-
-            fork.reset();
-        }
-
-        void testRelease(GripperKinematicObject::Ptr  gripper_to_detach);
-        void testRelease2(GripperKinematicObject::Ptr  gripper_to_detach);
-        void testRegrasp(GripperKinematicObject::Ptr  gripper_to_detach);
-        void testRegrasp2(GripperKinematicObject::Ptr  gripper_to_detach);
-        void testAdjust(GripperKinematicObject::Ptr  gripper_to_detach);
-        void Regrasp(GripperKinematicObject::Ptr  gripper, int place, int which);
-        void Release(GripperKinematicObject::Ptr  gripper, int which);
+        void testRelease(GripperKinematicObject::Ptr gripper_to_detach);
+        void testRelease2(GripperKinematicObject::Ptr gripper_to_detach);
+        void testRegrasp(GripperKinematicObject::Ptr gripper_to_detach);
+        void testRegrasp2(GripperKinematicObject::Ptr gripper_to_detach);
+        void testAdjust(GripperKinematicObject::Ptr gripper_to_detach);
+        void Regrasp(GripperKinematicObject::Ptr gripper, int place, int which);
+        void Release(GripperKinematicObject::Ptr gripper, int which);
         std::vector<int> gripperStrategyNoneFix();
         std::vector<int> gripperStrategyFix();
         std::vector<int> gripperStrategyNoneFixPush();
@@ -196,18 +163,12 @@ class ColabClothCustomScene : public Scene
         double variableScale;
         int distanceToTrack;
 
-        void createFork();
-        void destroyFork();
-        void swapFork();
-
-        Eigen::MatrixXf computeJacobian();
-        Eigen::MatrixXf computeJacobian_parallel();
         Eigen::MatrixXf computeJacobian_approx();
         Eigen::MatrixXf computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point);
 
         double getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind);
 
-        void simulateInNewFork(StepState& innerstate, float sim_time, btTransform& left_gripper1_tm, btTransform& left_gripper2_tm);
+        double rScaling;
         void doJTracking();
         void drawAxes();
         void drawClosestPoints();

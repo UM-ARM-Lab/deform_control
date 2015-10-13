@@ -1,5 +1,7 @@
 #include "gripper_kinematic_object.h"
 
+#include "utils/conversions.h"
+
 void GripperKinematicObject::applyTransform(btTransform tm)
 {
 

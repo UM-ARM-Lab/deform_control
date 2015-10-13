@@ -7,8 +7,6 @@
 #include "simulation/config_bullet.h"
 #include "simulation/config_viewer.h"
 #include "simulation/rope.h"
-#include "vectorField.h"
-#include "helper_functions.h"
 
 #include <omp.h>
 #include <boost/date_time/posix_time/posix_time.hpp>

@@ -11,6 +11,7 @@ include_directories( SYSTEM
 )
 link_directories(${BULLETSIM_BINARY_DIR}/src)
 
-add_subdirectory(simulation)
 add_subdirectory(utils)
+add_subdirectory(simulation)
+add_subdirectory(custom_scene)
 add_subdirectory(tests)
