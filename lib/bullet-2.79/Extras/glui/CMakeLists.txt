@@ -51,6 +51,8 @@ INCLUDE_DIRECTORIES(
 ${BULLET_PHYSICS_SOURCE_DIR}/Extras/glui  
 )
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-result")
+
 ADD_LIBRARY(GLUI
 	arcball.h			glui_checkbox.cpp		glui_internal.h			glui_panel.cpp			glui_spinner.cpp		glui_treepanel.cpp
 GL				glui.cpp			glui_column.cpp			glui_internal_control.h		glui_radio.cpp			glui_statictext.cpp		glui_window.cpp

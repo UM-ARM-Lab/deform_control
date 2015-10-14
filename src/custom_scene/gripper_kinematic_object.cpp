@@ -38,70 +38,74 @@ void GripperKinematicObject::toggleattach(btSoftBody * psb, double radius)
     }
     else
     {
-#ifdef USE_RADIUS_CONTACT
-        std::cout << "use radius contact?????" << std::endl;
-        if(radius == 0)
-            radius = halfextents[0];
-        btTransform top_tm;
-        children[0]->motionState->getWorldTransform(top_tm);
-        btTransform bottom_tm;
-        children[1]->motionState->getWorldTransform(bottom_tm);
-        int closest_body = -1;
-        for(int j = 0; j < psb->m_nodes.size(); j++)
+        if (radius > 0)
         {
-            if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
+            std::cout << "use radius contact?????" << std::endl;
+            if(radius == 0)
+                radius = halfextents[0];
+            btTransform top_tm;
+            children[0]->motionState->getWorldTransform(top_tm);
+            btTransform bottom_tm;
+            children[1]->motionState->getWorldTransform(bottom_tm);
+            int closest_body = -1;
+            for(int j = 0; j < psb->m_nodes.size(); j++)
             {
-                if( (psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length() )
-                    closest_body = 0;
-                else
-                    closest_body = 1;
+                if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
+                {
+                    if( (psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length() )
+                        closest_body = 0;
+                    else
+                        closest_body = 1;
 
-                vattached_node_inds.push_back(j);
-                appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-                cout << "\tappending anchor, closest ind: "<< j << "\n";
+                    vattached_node_inds.push_back(j);
+                    appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
+                    cout << "\tappending anchor, closest ind: "<< j << "\n";
 
+                }
             }
         }
-#else
-        std::vector<btVector3> nodeposvec;
-        nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
-
-        for(int k = 0; k < 2; k++)
+        else
         {
-            BoxObject::Ptr part = children[k];
+            std::vector<btVector3> nodeposvec;
+            nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
 
-            btRigidBody* rigidBody = part->rigidBody.get();
-            btSoftBody::tRContactArray rcontacts;
-            getContactPointsWith(psb, rigidBody, rcontacts);
-            cout << "got " << rcontacts.size() << " contacts\n";
+            for(int k = 0; k < 2; k++)
+            {
+                BoxObject::Ptr part = children[k];
 
-            //if no contacts, return without toggling bAttached
-            if(rcontacts.size() == 0)
-                continue;
-            for (int i = 0; i < rcontacts.size(); ++i) {
-                //const btSoftBody::RContact &c = rcontacts[i];
-                btSoftBody::Node *node = rcontacts[i].m_node;
-                //btRigidBody* colLink = c.m_cti.m_colObj;
-                //if (!colLink) continue;
-                const btVector3 &contactPt = node->m_x;
-                //if (onInnerSide(contactPt, left)) {
-                    int closest_ind = -1;
-                    for(int n = 0; n < nodeposvec.size(); n++)
-                    {
-                        if((contactPt - nodeposvec[n]).length() < 0.0001)
+                btRigidBody* rigidBody = part->rigidBody.get();
+                btSoftBody::tRContactArray rcontacts;
+                getContactPointsWith(psb, rigidBody, rcontacts);
+                cout << "got " << rcontacts.size() << " contacts\n";
+
+                //if no contacts, return without toggling bAttached
+                if(rcontacts.size() == 0)
+                    continue;
+                for (int i = 0; i < rcontacts.size(); ++i) {
+                    //const btSoftBody::RContact &c = rcontacts[i];
+                    btSoftBody::Node *node = rcontacts[i].m_node;
+                    //btRigidBody* colLink = c.m_cti.m_colObj;
+                    //if (!colLink) continue;
+                    const btVector3 &contactPt = node->m_x;
+                    //if (onInnerSide(contactPt, left)) {
+                        unsigned int closest_ind = 0;
+                        bool closest_found = false;
+                        for(unsigned int n = 0; !closest_found && n < nodeposvec.size(); n++)
                         {
-                            closest_ind = n;
-                            break;
+                            if((contactPt - nodeposvec[n]).length() < 0.0001)
+                            {
+                                closest_ind = n;
+                                closest_found = true;
+                            }
                         }
-                    }
-                    assert(closest_ind!=-1);
+                        assert(closest_found);
 
-                    vattached_node_inds.push_back(closest_ind);
-                    appendAnchor(psb, node, rigidBody);
-                    cout << "\tappending anchor, closest ind: "<< closest_ind << "\n";
+                        vattached_node_inds.push_back(closest_ind);
+                        appendAnchor(psb, node, rigidBody);
+                        cout << "\tappending anchor, closest ind: "<< closest_ind << "\n";
+                }
             }
         }
-#endif
     }
 
     bAttached = !bAttached;
@@ -175,29 +179,26 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
     a.m_node = node;
     a.m_body = body;
     a.m_local = body->getWorldTransform().inverse()*a.m_node->m_x;
-    a.m_node->m_battach = 1;
+    a.m_node->m_battach = true;
     a.m_influence = influence;
     psb->m_anchors.push_back(a);
 }
 
-GripperKinematicObject::GripperKinematicObject(btVector4 color)
+GripperKinematicObject::GripperKinematicObject(btVector4 color, int apperture_input)
+    : apperture( apperture_input )
+    , bOpen ( true )
+    , bAttached( false )
+    , halfextents( btVector3( 0.3, 0.3, 0.1 ) )
+    , closed_gap( 0.1 )
 {
-    bAttached = false;
-    closed_gap = 0.1;
-#ifdef ROPE
-    apperture = 0.5;
-#else
-    apperture = 2;
-#endif
-
-    halfextents = btVector3(.3,.3,0.1);
     BoxObject::Ptr top_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)),true));
     top_jaw->setColor(color[0],color[1],color[2],color[3]);
+    top_jaw->motionState->getWorldTransform(cur_tm);
+
     BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,0,-apperture/2)),true));
     bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
-    top_jaw->motionState->getWorldTransform(cur_tm);
     cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2));
-    bOpen = true;
+
     children.push_back(top_jaw);
     children.push_back(bottom_jaw);
 }
@@ -208,6 +209,8 @@ void GripperKinematicObject::setWorldTransform(btTransform tm)
     btTransform bottom_tm = tm;
 
     btTransform top_offset;
+
+    std::cout << "Num children " << children.size() << std::endl;
 
     children[0]->motionState->getWorldTransform(top_offset);
     top_offset = cur_tm.inverse()*top_offset;

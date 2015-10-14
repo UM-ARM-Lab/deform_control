@@ -5,6 +5,8 @@ INCLUDE_DIRECTORIES(
 	${VECTOR_MATH_INCLUDE}
 )
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-format")
+
 ADD_LIBRARY(MiniCL
 		MiniCL.cpp
 		MiniCLTaskScheduler.cpp

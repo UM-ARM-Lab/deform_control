@@ -2,6 +2,8 @@ INCLUDE_DIRECTORIES(
 	${BULLET_PHYSICS_SOURCE_DIR}/src  
 )
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-result")
+
 ADD_LIBRARY(
 BulletFileLoader 
 bChunk.cpp 

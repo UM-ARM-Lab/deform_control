@@ -1,9 +1,7 @@
 #ifndef CUSTOM_SCENE_H
 #define CUSTOM_SCENE_H
 
-
 #include "tests/colab_cloth.h"
-
 
 #include <boost/shared_ptr.hpp>
 #include <Eigen/Dense>
@@ -23,10 +21,22 @@
 class CustomScene : public Scene
 {
     public:
-        CustomScene();
+        enum DeformableType
+        {
+            ROPE,
+            CLOTH
+        };
 
-        GripperKinematicObject::Ptr left_gripper1, right_gripper1;
-        GripperKinematicObject::Ptr left_gripper2, right_gripper2;
+        enum TaskType
+        {
+            COVERAGE,
+            COLAB_FOLDING
+        };
+
+        CustomScene( DeformableType deformable_type, TaskType task_type );
+        void run( bool syncTime = false );
+
+        /// These are all public for CustomKeyHandler
         struct
         {
             bool transGrabber0, rotateGrabber0,
@@ -37,61 +47,60 @@ class CustomScene : public Scene
             float dx, dy, lastX, lastY;
         } inputState;
 
-        int num_auto_grippers;
-        bool bTracking, bInTrackingLoop;
+        GripperKinematicObject::Ptr left_gripper1, right_gripper1;
+        GripperKinematicObject::Ptr left_gripper2, right_gripper2;
+
+        void regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr gripper_to_detach);
+
+        /// Called by CustomKeyHandler when 'j' sets it to track
+        void getDeformableObjectNodes(std::vector<btVector3>& vnodes);
+        std::vector<btVector3> prev_node_pos;
+
+        /// Cloth related variables
+        /// again for CustomKeyHandler
+        int num_auto_grippers; // currently used as a flag (mostly)
+        int corner_number_;
+        BulletSoftObject::Ptr clothPtr;
+        std::vector<int> corner_grasp_point_inds;
+        int user_mid_point_ind, robot_mid_point_ind;
+
+        PlotPoints::Ptr plot_points;
+
+        /// these don't exit in the scene code at the moment
+        /// they are getting moved to a separate source file
+        /// Here to keep CustomKeyHandler happy
+        bool bTracking, bFirstTrackingIteration;
+        int itrnumber;
+
+    private:
+        boost::shared_ptr<CapsuleRope> ropePtr;
+
+        vector<CapsuleObject::Ptr> torus;
+        CylinderStaticObject::Ptr cylinder;
+        BoxObject::Ptr table;
+
+        DeformableType deformable_type_;
+        TaskType task_type_;
+
+
         PointReflector::Ptr point_reflector;
-        BulletSoftObject::Ptr clothptr;
         std::map<int, int> node_mirror_map;
         std::vector<std::vector<double> > gripper_node_distance_map;
-        float jacobian_sim_time;
-        std::vector<btVector3> prev_node_pos;
         std::vector<btVector3> filtered_new_nodes;
         Eigen::VectorXf last_V_step;
-        PlotPoints::Ptr plot_points;
         PlotPoints::Ptr left_center_point;
         PlotAxes::Ptr left_axes1,left_axes2;
         PlotLines::Ptr rot_lines;
         Eigen::MatrixXf deformableobject_distance_matrix;
-        int user_mid_point_ind, robot_mid_point_ind;
         Eigen::MatrixXf last_jacobian;
         Eigen::VectorXf last_movement;
 
         std::vector<btVector3> cover_points;
         //Eigen::VectorXf last_clothstate;
-        bool bFirstTrackingIteration;
-        int itrnumber;
         std::vector<int> corner_ind;
-        std::vector<int> corner_grasp_point_inds;
         std::vector<int> gripperPosition;
-        int corner_number;
-        boost::shared_ptr<CapsuleRope> ropePtr;
         //std::vector<int> cloth_boundary_inds;
-        CylinderStaticObject::Ptr cylinder;
-        vector<CapsuleObject::Ptr> torus;
-        BoxObject::Ptr table;
         btBvhTriangleMeshShape* shape;
-        BulletObject::Ptr o;
-        BulletObject::Ptr o1;
-        BulletObject::Ptr o2;
-        BulletObject::Ptr oT;
-        BulletObject::Ptr oT1;
-        BulletObject::Ptr oT2;
-        BulletObject::Ptr oT3;
-        BulletObject::Ptr oT4;
-        BulletObject::Ptr oT5;
-        BulletObject::Ptr oT6;
-        BulletObject::Ptr oT7;
-
-        BulletObject::Ptr oC;
-        BulletObject::Ptr oC1;
-        BulletObject::Ptr oC2;
-        BulletObject::Ptr oC3;
-        BulletObject::Ptr oC4;
-
-        void makeBeltLoops();
-        void makeCircuitLoops();
-        void switchTarget();
-        bool switched;
 
         double centerX, centerY, centerZ;
         double torusRadius, torusHeight;
@@ -99,62 +108,24 @@ class CustomScene : public Scene
         double gripperY;
         double gripperZ;
 
-        double torusX;
-        double torusY;
-        double torusZ;
-
         double distanceGT;
         double distanceXZ;
-        double pointOnTorusY, pointOnTorusZ, pointOnTorusX;
-        double distanceToTorus;
         double px, py, pz;
         double anotherRadius;
         double A, B, C, alpha, beta;
         vector<bool> attached;
 
 
-        // define the function to find the circle to use, and
-        // find the vector to follow;
-        // This vector is only for the tip of the rope;
-        std::vector<double> findDirection (double x, double y, double z, bool tip);
-        std::vector<double> findDirectionNotTip (double x, double y, double z,
-                                        std::vector<double> axis);
-        int findPointNotTip(std::vector<double> axis, double radius,
-                                        std::vector<btVector3> points);
         // axis is six dimention;
         // first three numbers is the center: tip location;
         // last three numbers are the orientation of the axis;
         std::vector<double> BiotSavart(std::vector<double> point,
             std::vector<std::vector<double> > curve);
-        std::vector<double> crossProduct (std::vector<double> u, std::vector<double> v);
 
-        std::vector<std::vector<double> > findCircle(std::vector<double> normal,
-                                                    std::vector<double> center);
-        std::vector<std::vector<double> > findXCircle(std::vector<double> normal,
-                                                    std::vector<double> center);
-        std::vector<std::vector<double> > findYCircle(std::vector<double> normal,
-                                                    std::vector<double> center);
-        std::vector<std::vector<double> > findZCircle(std::vector<double> normal,
-                                                    std::vector<double> center);
-        std::vector<std::vector<double> > findXYCircle(std::vector<double> normal,
-                                                    std::vector<double> center);
-        std::vector<std::vector<double> > findXZCircle(std::vector<double> normal,
-                                                    std::vector<double> center);
-        std::vector<std::vector<double> > findYZCircle(std::vector<double> normal,
-                                                    std::vector<double> center);
-
-        void testRelease(GripperKinematicObject::Ptr gripper_to_detach);
-        void testRelease2(GripperKinematicObject::Ptr gripper_to_detach);
-        void testRegrasp(GripperKinematicObject::Ptr gripper_to_detach);
-        void testRegrasp2(GripperKinematicObject::Ptr gripper_to_detach);
-        void testAdjust(GripperKinematicObject::Ptr gripper_to_detach);
-        void Regrasp(GripperKinematicObject::Ptr gripper, int place, int which);
-        void Release(GripperKinematicObject::Ptr gripper, int which);
         std::vector<int> gripperStrategyNoneFix();
         std::vector<int> gripperStrategyFix();
         std::vector<int> gripperStrategyNoneFixPush();
-        Eigen::MatrixXf computeJacobian_approxTest(std::vector<int> locations);
-        double gDNTCANIG(std::vector<int> locations, int input_ind, int &closest_ind);
+
         int trackPosition;
         bool random;
         int inTurn;
@@ -163,18 +134,8 @@ class CustomScene : public Scene
         double variableScale;
         int distanceToTrack;
 
-        Eigen::MatrixXf computeJacobian_approx();
-        Eigen::MatrixXf computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point);
-
-        double getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind);
-
-        double rScaling;
-        void doJTracking();
         void drawAxes();
-        void drawClosestPoints();
-        void regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr  gripper_to_detach);
         void computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix);
-        void getDeformableObjectNodes(std::vector<btVector3>& vnodes);
         int getNumDeformableObjectNodes();
 
         BulletSoftObject::Ptr createCloth(btScalar half_side_length, const btVector3 &center);
@@ -182,7 +143,7 @@ class CustomScene : public Scene
         void makeClothWorld();
 
         void initializePloting();
-        void run();
+
 };
 
 #endif

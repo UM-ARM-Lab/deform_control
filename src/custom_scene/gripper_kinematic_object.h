@@ -11,17 +11,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     public:
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
-        float apperture;
-        btTransform cur_tm;
-        bool bOpen;
-        bool bAttached;
-        btVector3 halfextents;
-        std::vector<int> vattached_node_inds;
-        double closed_gap;
-        GripperState state;
-        boost::shared_ptr<btGeneric6DofConstraint> cnt;
-
-        GripperKinematicObject( btVector4 color = btVector4(0,0,1,0.3) );
+        GripperKinematicObject( btVector4 color = btVector4(0,0,1,0.3), int apperture_input = 0.5 );
 
         void translate(btVector3 transvec);
         void applyTransform(btTransform tm);
@@ -29,6 +19,8 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         btTransform getWorldTransform(){return cur_tm;}
         void getWorldTransform(btTransform& in){in = cur_tm;}
         void toggle();
+
+        // if radius = 0, we are not using radius, we are using an alternate method
         void toggleattach(btSoftBody * psb, double radius = 0);
         void rigidGrab(btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr);
         void getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts);
@@ -38,6 +30,19 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         EnvironmentObject::Ptr copy(Fork &f) const;
         void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const;
         void step_openclose(btSoftBody * psb);
+
+        /// public for CustomKeyHandler
+        float apperture;
+        bool bOpen;
+        GripperState state;
+
+    private:
+        bool bAttached;
+        btTransform cur_tm;
+        btVector3 halfextents;
+        std::vector<int> vattached_node_inds;
+        double closed_gap;
+        boost::shared_ptr<btGeneric6DofConstraint> cnt;
 };
 
 #endif

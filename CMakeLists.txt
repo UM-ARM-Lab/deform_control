@@ -21,7 +21,7 @@ find_package(osgUtil REQUIRED)
 find_package(osgViewer REQUIRED)
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -std=c++0x")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -std=c99")
+SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -std=c1x")
 
 set(OSG_LIBS 
   ${OPENTHREADS_LIBRARY} 

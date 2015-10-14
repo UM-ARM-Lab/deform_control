@@ -10,7 +10,6 @@ extern std::vector<double> boundingBox;
 inline void makeTorus()
 {
 	double radius = 2;
-	double smallRadius = 0.7;
 
 	double numSteps = 30;
 	double step = 2*M_PI/30;

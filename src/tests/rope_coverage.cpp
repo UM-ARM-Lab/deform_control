@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
     parser.read(argc, argv);
 
     CustomScene cs = CustomScene(
-            CustomScene::DeformableType::CLOTH,
+            CustomScene::DeformableType::ROPE,
             CustomScene::TaskType::COVERAGE);
     cs.run();
 
