@@ -6,9 +6,9 @@
 class CustomKeyHandler : public osgGA::GUIEventHandler
 {
     public:
-        CustomKeyHandler(CustomScene &scene_);
+        CustomKeyHandler( CustomScene &scene_ );
 
-        bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&);
+        bool handle( const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter& );
 
     private:
         CustomScene &scene;

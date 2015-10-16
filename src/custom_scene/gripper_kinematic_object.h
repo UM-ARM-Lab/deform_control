@@ -11,25 +11,33 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     public:
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
-        GripperKinematicObject( btVector4 color = btVector4(0,0,1,0.3), int apperture_input = 0.5 );
+        GripperKinematicObject(  btVector4 color = btVector4( 0,0,1,0.3 ), int apperture_input = 0.5  );
 
-        void translate(btVector3 transvec);
-        void applyTransform(btTransform tm);
-        void setWorldTransform(btTransform tm);
-        btTransform getWorldTransform(){return cur_tm;}
-        void getWorldTransform(btTransform& in){in = cur_tm;}
+        void translate( btVector3 transvec );
+        void applyTransform( btTransform tm );
+        void setWorldTransform( btTransform tm );
+        btTransform getWorldTransform()
+        {
+            return cur_tm;
+        }
+        void getWorldTransform( btTransform& in ){
+            in = cur_tm;
+        }
         void toggle();
 
         // if radius = 0, we are not using radius, we are using an alternate method
-        void toggleattach(btSoftBody * psb, double radius = 0);
-        void rigidGrab(btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr);
-        void getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts);
-        void appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence=1);
-        void releaseAllAnchors(btSoftBody * psb) {psb->m_anchors.clear();}
+        void toggleattach( btSoftBody * psb, double radius = 0 );
+        void rigidGrab( btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr );
+        void getContactPointsWith( btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts );
+        void appendAnchor( btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence=1 );
+        void releaseAllAnchors( btSoftBody * psb )
+        {
+            psb->m_anchors.clear();
+        }
 
-        EnvironmentObject::Ptr copy(Fork &f) const;
-        void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const;
-        void step_openclose(btSoftBody * psb);
+        EnvironmentObject::Ptr copy( Fork &f ) const;
+        void internalCopy( GripperKinematicObject::Ptr o, Fork &f ) const;
+        void step_openclose( btSoftBody * psb );
 
         /// public for CustomKeyHandler
         float apperture;

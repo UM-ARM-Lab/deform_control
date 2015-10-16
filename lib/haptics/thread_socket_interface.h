@@ -8,26 +8,18 @@
 #include <vector>
 #include <Eigen/Core>
 
-// import most common Eigen types
-using Eigen::Vector3d;
-using Eigen::Matrix3d;
-
 #define IP "128.32.37.98"
 #define RECEIVE_PORT 9000
 #define SEND_PORT 9001
 
-using namespace std;
-
-void parse(string buf, vector<string> &vect);
+void parse(std::string buf, std::vector<std::string> &vect);
 
 void connectionInit();
 
-bool getDeviceState (Vector3d& start_proxy_pos, Matrix3d& start_proxy_rot, bool start_proxybutton[], Vector3d& end_proxy_pos, Matrix3d& end_proxy_rot, bool end_proxybutton[]);
+bool getDeviceState (Eigen::Vector3d& start_proxy_pos, Eigen::Matrix3d& start_proxy_rot, bool start_proxybutton[], Eigen::Vector3d& end_proxy_pos, Eigen::Matrix3d& end_proxy_rot, bool end_proxybutton[]);
 
-void sendDeviceState (const Vector3d& start_feedback_pos, bool start_feedback_enabled, const Vector3d& end_feedback_pos, bool end_feedback_enabled);
+void sendDeviceState (const Eigen::Vector3d& start_feedback_pos, bool start_feedback_enabled, const Eigen::Vector3d& end_feedback_pos, bool end_feedback_enabled);
 
 void getDeviceState (double start_proxyxform[], bool start_proxybutton[], double end_proxyxform[], bool end_proxybutton[]);
 
 void sendDeviceState (double start_feedback_pos[], bool start_feedback_enabled, double end_feedback_pos[], bool end_feedback_enabled);
-
-//void getDeviceState (Vector3d &leftPosition, Matrix3d &leftRotation, Vector3d &rightPosition, Matrix3d &rightRotation);

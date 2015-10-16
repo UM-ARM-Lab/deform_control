@@ -2,8 +2,13 @@
 #include "thread_socket_interface.h"
 #include <boost/foreach.hpp>
 
+using namespace std;
+
+using Eigen::Matrix3d;
+using Eigen::Vector3d;
+
 namespace util {
-    osg::ref_ptr<osg::Vec3Array> toVec3Array(const std::vector<btVector3>& in)
+    osg::ref_ptr<osg::Vec3Array> toVec3Array(const vector<btVector3>& in)
     {
         osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
         out->reserve(in.size());
@@ -11,7 +16,7 @@ namespace util {
         return out;
     }
 
-    osg::ref_ptr<osg::Vec4Array> toVec4Array(const std::vector<btVector4>& in)
+    osg::ref_ptr<osg::Vec4Array> toVec4Array(const vector<btVector4>& in)
     {
         osg::ref_ptr<osg::Vec4Array> out = new osg::Vec4Array();
         out->reserve(in.size());

@@ -15,25 +15,25 @@ inline void makeTorus()
 	double step = 2*M_PI/30;
 	// 5, 25. 20.5
 
-	for (int i = 0; i < numSteps; i++)
+	for ( int i = 0; i < numSteps; i++ )
     {
         std::vector<double> position;
-        position.push_back(5);
-        position.push_back(25+radius*cos(i*step));
-        position.push_back(20.5+radius*sin(i*step));
+        position.push_back( 5 );
+        position.push_back( 25+radius*cos( i*step ) );
+        position.push_back( 20.5+radius*sin( i*step ) );
 
-        csc.push_back(position);
+        csc.push_back( position );
 	}
 }
 
 inline void makeBoundingBox()
 {
 	// center of a circle, x y z
-	boundingBox.push_back(5);
-	boundingBox.push_back(25);
-	boundingBox.push_back(20.5);
+	boundingBox.push_back( 5 );
+	boundingBox.push_back( 25 );
+	boundingBox.push_back( 20.5 );
 	// radius of the bounding box: circle
-	boundingBox.push_back(5);
+	boundingBox.push_back( 5 );
 }
 
 

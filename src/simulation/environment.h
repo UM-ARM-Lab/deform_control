@@ -8,7 +8,6 @@
 #include <vector>
 #include <boost/shared_ptr.hpp>
 #include <iostream>
-using namespace std;
 
 struct OSGInstance {
     typedef boost::shared_ptr<OSGInstance> Ptr;
@@ -209,7 +208,7 @@ protected:
 
     void setDone(bool b) { isDone = b; }
     void stepTime(float dt) { timeElapsed += dt; }
-    float fracElapsed() const { return min(timeElapsed / execTime, 1.f); }
+    float fracElapsed() const { return std::min(timeElapsed / execTime, 1.f); }
     void setColor(float r, float g, float b, float a);
 
 public:

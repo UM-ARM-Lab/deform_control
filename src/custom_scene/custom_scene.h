@@ -33,8 +33,8 @@ class CustomScene : public Scene
             COLAB_FOLDING
         };
 
-        CustomScene( DeformableType deformable_type, TaskType task_type );
-        void run( bool syncTime = false );
+        CustomScene(  DeformableType deformable_type, TaskType task_type  );
+        void run(  bool syncTime = false  );
 
         /// These are all public for CustomKeyHandler
         struct
@@ -50,15 +50,15 @@ class CustomScene : public Scene
         GripperKinematicObject::Ptr left_gripper1, right_gripper1;
         GripperKinematicObject::Ptr left_gripper2, right_gripper2;
 
-        void regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr gripper_to_detach);
+        void regraspWithOneGripper( GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr gripper_to_detach );
 
         /// Called by CustomKeyHandler when 'j' sets it to track
-        void getDeformableObjectNodes(std::vector<btVector3>& vnodes);
+        void getDeformableObjectNodes( std::vector<btVector3>& vnodes );
         std::vector<btVector3> prev_node_pos;
 
         /// Cloth related variables
         /// again for CustomKeyHandler
-        int num_auto_grippers; // currently used as a flag (mostly)
+        int num_auto_grippers; // currently used as a flag ( mostly )
         int corner_number_;
         BulletSoftObject::Ptr clothPtr;
         std::vector<int> corner_grasp_point_inds;
@@ -119,8 +119,8 @@ class CustomScene : public Scene
         // axis is six dimention;
         // first three numbers is the center: tip location;
         // last three numbers are the orientation of the axis;
-        std::vector<double> BiotSavart(std::vector<double> point,
-            std::vector<std::vector<double> > curve);
+        std::vector<double> BiotSavart( std::vector<double> point,
+            std::vector<std::vector<double> > curve );
 
         std::vector<int> gripperStrategyNoneFix();
         std::vector<int> gripperStrategyFix();
@@ -135,10 +135,10 @@ class CustomScene : public Scene
         int distanceToTrack;
 
         void drawAxes();
-        void computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix);
+        void computeDeformableObjectDistanceMatrix(  const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix );
         int getNumDeformableObjectNodes();
 
-        BulletSoftObject::Ptr createCloth(btScalar half_side_length, const btVector3 &center);
+        BulletSoftObject::Ptr createCloth( btScalar half_side_length, const btVector3 &center );
         void makeRopeWorld();
         void makeClothWorld();
 

@@ -43,10 +43,10 @@ struct Scene
     // callbacks should return true if the default TrackballManipulator::handle behavior
     // should be suppressed. if all callbacks return false, then it won't be suppressed
     typedef boost::function<bool(const osgGA::GUIEventAdapter &)> Callback;
-    typedef multimap<osgGA::GUIEventAdapter::EventType, Callback> CallbackMap;
+    typedef std::multimap<osgGA::GUIEventAdapter::EventType, Callback> CallbackMap;
     CallbackMap callbacks;
     void addCallback(osgGA::GUIEventAdapter::EventType t, Callback cb) { callbacks.insert(make_pair(t, cb)); }
-    typedef multimap<char, Callback> KeyCallbackMap;
+    typedef std::multimap<char, Callback> KeyCallbackMap;
     KeyCallbackMap keyCallbacks;
     void addKeyCallback(char c, Callback cb);
 
@@ -60,7 +60,7 @@ struct Scene
         bool operator()() { fn(); return false; }
     };
 
-    vector<VoidCallback> prestepCallbacks;
+    std::vector<VoidCallback> prestepCallbacks;
     void addPreStepCallback(VoidCallback cb);
 
     Scene();

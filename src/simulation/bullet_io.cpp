@@ -1,5 +1,7 @@
 #include "simulation/bullet_io.h"
 
+using namespace std;
+
 ostream &operator<<(ostream &stream, const btVector3& v) {
   // for some reason i have to do this, else i get a segfault
   float x = v.getX();

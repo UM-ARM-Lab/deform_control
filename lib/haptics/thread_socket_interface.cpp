@@ -5,6 +5,11 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
+using namespace std;
+
+using Eigen::Vector3d;
+using Eigen::Matrix3d;
+
 UDPSocket receiver = UDPSocket();
 UDPSocket sender;
 string buf;

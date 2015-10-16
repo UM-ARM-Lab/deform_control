@@ -13,6 +13,8 @@
 
 #define MAX_RAYCAST_DISTANCE 100.0
 
+using namespace std;
+
 BulletObject::MotionState::Ptr BulletObject::MotionState::clone(BulletObject &newObj) {
     btTransform t; getWorldTransform(t);
     return Ptr(new MotionState(newObj, t));

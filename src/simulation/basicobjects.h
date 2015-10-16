@@ -23,7 +23,7 @@ protected:
 
         void setKinematicPos(const btTransform &pos) {
             if (!obj.isKinematic) {
-                cout << "warning: calling setKinematicPos on the motionstate of a non-kinematic object" << endl;
+                std::cout << "warning: calling setKinematicPos on the motionstate of a non-kinematic object" << std::endl;
                 return;
             }
             btDefaultMotionState::setWorldTransform(pos);
@@ -223,7 +223,7 @@ public:
 
 // A wrapper for btCapsuleShapeX
 class CapsuleObject : public BulletObject {
-private: 
+private:
     btScalar mass, radius, height;
 
 public:
