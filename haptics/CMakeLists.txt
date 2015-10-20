@@ -17,5 +17,5 @@ add_library( ${PROJECT_NAME}
 catkin_package(
     INCLUDE_DIRS    include
     LIBRARIES       ${PROJECT_NAME}
-    SYSTEM_DEPENDS  Eigen3
+    DEPENDS         Eigen3
 )

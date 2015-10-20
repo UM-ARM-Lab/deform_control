@@ -1,10 +1,21 @@
 cmake_minimum_required( VERSION 2.8.3 )
 project( osgBullet )
 
-find_package( catkin REQUIRED COMPONENTS
+set( CATKIN_PACKAGES
     BULLET_PHYSICS
     osgWorks
 )
+
+find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
+
+catkin_package(
+    INCLUDE_DIRS    ${CMAKE_CURRENT_SOURCE_DIR}
+    LIBRARIES       ${PROJECT_NAME}
+    CATKIN_DEPENDS  ${CATKIN_PACKAGES}
+    DEPENDS         system_lib
+)
+
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -std=c++0x")
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
     SYSTEM
@@ -50,10 +61,4 @@ add_dependencies( ${PROJECT_NAME}
 )
 target_link_libraries( ${PROJECT_NAME}
     ${catkin_LIBRARIES}
-)
-
-catkin_package(
-    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-    DEPENDS      osgWorks
-    LIBRARIES    ${PROJECT_NAME}
 )
