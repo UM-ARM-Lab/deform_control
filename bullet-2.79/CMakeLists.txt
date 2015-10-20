@@ -12,6 +12,9 @@ IF(COMMAND cmake_policy)
 ENDIF(COMMAND cmake_policy)
 
 
+find_package( catkin REQUIRED )
+
+
 IF (NOT CMAKE_BUILD_TYPE)
     #SET(CMAKE_BUILD_TYPE "Debug")
     SET(CMAKE_BUILD_TYPE "Release")
@@ -357,3 +360,11 @@ OPTION(BUILD_UNIT_TESTS "Build Unit Tests"	OFF)
 IF (BUILD_UNIT_TESTS)
 	SUBDIRS(UnitTests)
 ENDIF()
+
+
+
+catkin_package(
+    INCLUDE_DIRS src
+    LIBRARIES    ${BULLET_LIBRARIES}
+    DEPENDS      OpenGL
+)
