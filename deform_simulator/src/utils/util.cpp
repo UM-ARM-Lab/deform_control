@@ -1,5 +1,6 @@
 #include "util.h"
-#include "thread_socket_interface.h"
+
+#include <haptics/thread_socket_interface.h>
 #include <boost/foreach.hpp>
 
 using namespace std;

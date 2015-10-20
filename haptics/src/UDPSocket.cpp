@@ -1,4 +1,4 @@
-#include "UDPSocket.h"
+#include "haptics/UDPSocket.h"
 #include <iostream>
 #include <fcntl.h>
 #include <stdio.h>
@@ -104,17 +104,17 @@ int UDPSocket::recv(std::string& s, int flags) const {
 	struct timeval tv;
 	fd_set fdset;
 	int rc, nread;
-	
+
 	memset(&buffer, 0, sizeof(buffer));
 
 	FD_ZERO(&fdset);
 	FD_SET(m_sock, &fdset);
-	
+
 	tv.tv_sec = 0;
 	tv.tv_usec = m_timeout;
-	
+
 	rc = select(m_sock + 1, &fdset, (fd_set *) 0, (fd_set *) 0, &tv);
-	
+
 	if(FD_ISSET(m_sock, &fdset)) {
 #ifdef WIN32
         nread = ::recvfrom(m_sock, buffer, MAXUDPRECV, flags, (sockaddr*)&clientAddr, const_cast< int * __w64 >(&addrLen));

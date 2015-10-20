@@ -1,6 +1,17 @@
-include_directories(${BULLET_DIR}/src ${OSG_INCLUDE_DIRS} ${OSGWORKS_DIR} ${OSGBULLET_DIR})
+cmake_minimum_required( VERSION 2.8.3 )
+project( osgBullet )
 
-set(OSGBULLET_SOURCES
+find_package( catkin REQUIRED COMPONENTS
+    BULLET_PHYSICS
+    osgWorks
+)
+
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
+    SYSTEM
+    ${catkin_INCLUDE_DIRS}
+)
+
+set( OSGBULLET_SOURCES
     osgbCollision/ComputeCylinderVisitor.cpp
     osgbCollision/ComputeTriMeshVisitor.cpp
     osgbCollision/Utils.cpp
@@ -31,5 +42,18 @@ set(OSGBULLET_SOURCES
     osgbInteraction/GestureHandler.cpp
 )
 
-add_library(osgBullet ${OSGBULLET_SOURCES})
-target_link_libraries(osgBullet osgWorks ${BULLET_LIBS} ${OSG_LIBS})
+add_library( ${PROJECT_NAME}
+    ${OSGBULLET_SOURCES}
+)
+add_dependencies( ${PROJECT_NAME}
+    ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries( ${PROJECT_NAME}
+    ${catkin_LIBRARIES}
+)
+
+catkin_package(
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS      osgWorks
+    LIBRARIES    ${PROJECT_NAME}
+)

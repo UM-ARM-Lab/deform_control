@@ -1,9 +1,16 @@
-include_directories( SYSTEM
-    ${BULLET_DIR}/Extras
-    ${BULLET_DIR}/Extras/HACD
-    ${BULLETSIM_SOURCE_DIR}/lib/haptics
-    ${BULLETSIM_SOURCE_DIR}/src
-)
+#include_directories( SYSTEM
+#    ${BULLET_DIR}/Extras
+#    ${BULLET_DIR}/Extras/HACD
+#    ${BULLETSIM_SOURCE_DIR}/lib/haptics
+#    ${BULLETSIM_SOURCE_DIR}/src
+#)
+#target_link_libraries(simulation 
+#    utils 
+#    haptics
+#    osgBullet
+#    ${OSG_LIBS} 
+#    ${BULLET_LIBS} 
+#)
 
 add_library(simulation 
     environment.cpp 
@@ -18,12 +25,10 @@ add_library(simulation
     config_viewer.cpp 
     bullet_io.cpp
 )
-
-target_link_libraries(simulation 
-    utils 
-    haptics
-    osgBullet
+add_dependencies( simulation
+    ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries( simulation
     ${Boost_LIBRARIES} 
-    ${OSG_LIBS} 
-    ${BULLET_LIBS} 
+    ${catkin_LIBRARIES}
 )

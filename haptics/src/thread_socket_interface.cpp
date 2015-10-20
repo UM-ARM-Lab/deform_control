@@ -1,7 +1,7 @@
 /* thread_socket_interface.cpp */
 
-#include "thread_socket_interface.h"
-#include "UDPSocket.h"
+#include "haptics/thread_socket_interface.h"
+#include "haptics/UDPSocket.h"
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 

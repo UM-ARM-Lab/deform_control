@@ -1,67 +1,93 @@
-cmake_minimum_required(VERSION 2.6)
-project(BULLETSIM)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules")
-set(BULLETSIM_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
-option(BUILD_PERCEPTION OFF)
+cmake_minimum_required( VERSION 2.8.3 )
+project( deform_simulator )
 
-IF (NOT CMAKE_BUILD_TYPE)
-    #SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
-    SET(CMAKE_BUILD_TYPE "Debug")
-ENDIF (NOT CMAKE_BUILD_TYPE) 
+## Find catkin macros and libraries
+find_package( catkin REQUIRED COMPONENTS
+    arc_utilities
+    geometry_msgs
+    roscpp
+    BULLET_PHYSICS
+    haptics
+    osgBullet
+)
 
 # external libraries
-find_package(Boost COMPONENTS system filesystem program_options REQUIRED)
-
-find_package(Eigen3 REQUIRED)
-find_package(OpenThreads REQUIRED)
-find_package(osg REQUIRED)
-find_package(osgDB REQUIRED)
-find_package(osgGA REQUIRED)
-find_package(osgText REQUIRED)
-find_package(osgUtil REQUIRED)
-find_package(osgViewer REQUIRED)
-
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -std=c++0x")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fopenmp -std=c1x")
-
-set(OSG_LIBS 
-  ${OPENTHREADS_LIBRARY} 
-  ${OSG_LIBRARY} 
-  ${OSGDB_LIBRARY} 
-  ${OSGGA_LIBRARY} 
-  ${OSGTEXT_LIBRARY} 
-  ${OSGUTIL_LIBRARY} 
-  ${OSGVIEWER_LIBRARY}
-)
-set(OSG_INCLUDE_DIRS 
-  ${OPENTHREADS_INCLUDE_DIR}
-  ${OSG_INCLUDE_DIR}
-  ${OSGDB_INCLUDE_DIR}
-  ${OSGGA_INCLUDE_DIR}
-  ${OSGTEXT_INCLUDE_DIR}
-  ${OSGUTIL_INCLUDE_DIR}
-  ${OSGVIEWER_INCLUDE_DIR}
+find_package( cmake_modules REQUIRED )
+find_package( Boost REQUIRED COMPONENTS 
+    system 
+    filesystem 
+    program_options
 )
 
+find_package( Eigen3 REQUIRED )
 
-# directories for libraries packaged in this tree
-set(BULLET_DIR ${BULLETSIM_SOURCE_DIR}/lib/bullet-2.79)
-set(BULLET_LIBS BulletFileLoader BulletSoftBody BulletDynamics BulletCollision LinearMath HACD)
-set(OSGWORKS_DIR ${BULLETSIM_SOURCE_DIR}/lib/osgWorks-2.0)
-set(OSGBULLET_DIR ${BULLETSIM_SOURCE_DIR}/lib/osgBullet-2.0)
-set(JSON_DIR ${BULLETSIM_SOURCE_DIR}/lib/json)
-set(JSON_INCLUDE_DIR ${JSON_DIR}/include)
-set(TETGEN_DIR ${BULLETSIM_SOURCE_DIR}/lib/tetgen-1.4.3)
+#find_package( OpenThreads REQUIRED )
+#find_package( osg REQUIRED )
+#find_package( osgDB REQUIRED )
+#find_package( osgGA REQUIRED )
+#find_package( osgText REQUIRED )
+#find_package( osgUtil REQUIRED )
+#find_package( osgViewer REQUIRED )
+
+################################################
+## Declare ROS messages, services and actions ##
+################################################
+
+## Generate messages in the 'msg' folder
+# add_message_files(
+#     FILES
+#     Message1.msg
+#     Message2.msg
+# )
+
+## Generate services in the 'srv' folder
+# add_service_files(
+#     FILES
+#     Service1.srv
+#     Service2.srv
+# )
+
+## Generate actions in the 'action' folder
+# add_action_files(
+#     FILES
+#     Action1.action
+#     Action2.action
+# )
+
+## Generate added messages and services with any dependencies listed here
+# generate_messages(
+#     DEPENDENCIES
+#     std_msgs    # Or other packages containing msgs
+# )
+
+###################################
+## catkin specific configuration ##
+###################################
+
+catkin_package(
+#    INCLUDE_DIRS    include
+#    LIBRARIES       ${PROJECT_NAME}
+    CATKIN_DEPENDS  arc_utilities
+                    geometery_msgs
+                    roscpp
+                    BULLET_PHYSICS
+                    haptics
+                    osgBullet
+#    DEPENDS         Eigen
+#                    Boost
+)
 
 
-# other external libraries, hardcoded
-set(WM_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/lib/WildMagic5")
-set(WM_INCLUDE_DIR "${WM_ROOT}/SDK/Include")
-set(WM_LIBRARY_DIR "${WM_ROOT}/SDK/Library/Release")
-set(WM_LIBRARIES Wm5Core Wm5Imagics Wm5Mathematics Wm5Physics)
-set(GUROBI_INCLUDE_DIR "$ENV{GUROBI_HOME}/include")
-set(GUROBI_LIBRARY_DIR "$ENV{GUROBI_HOME}/lib")
+###########
+## Build ##
+###########
 
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -std=c++0x" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fopenmp -std=c1x" )
 
-add_subdirectory(lib)
-add_subdirectory(src)
+include_directories(
+    src 
+    src/utils
+    SYSTEM ${catkin_INCLUDE_DIRS} )
+
+add_subdirectory( src )
