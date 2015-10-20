@@ -11,45 +11,46 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     public:
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
-        GripperKinematicObject(  btVector4 color = btVector4( 0,0,1,0.3 ), int apperture_input = 0.5  );
+        GripperKinematicObject( float apperture_input, btVector4 color = btVector4( 0.6, 0.6, 0.6, 0.9 ) );
 
         void translate( btVector3 transvec );
         void applyTransform( btTransform tm );
         void setWorldTransform( btTransform tm );
-        btTransform getWorldTransform()
-        {
-            return cur_tm;
-        }
-        void getWorldTransform( btTransform& in ){
-            in = cur_tm;
-        }
-        void toggle();
+        btTransform getWorldTransform();
+        void getWorldTransform( btTransform& in );
 
-        // if radius = 0, we are not using radius, we are using an alternate method
-        void toggleattach( btSoftBody * psb, double radius = 0 );
+        // used only for the rope
         void rigidGrab( btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr );
+
+        // Toggles open/close
+        void toggleOpen();
+
+        // Toggles attached/not attached (btSoftBody term)
+        // if radius = 0, we are not using radius, we are using an alternate method
+        void toggleAttach( btSoftBody * psb, double radius = 0 );
+
         void getContactPointsWith( btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts );
-        void appendAnchor( btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence=1 );
-        void releaseAllAnchors( btSoftBody * psb )
-        {
-            psb->m_anchors.clear();
-        }
+        void appendAnchor( btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence = 1 );
+        void releaseAllAnchors( btSoftBody * psb );
+
+        // Used by the manual grippers for cloth
+        void step_openclose( btSoftBody * psb );
 
         EnvironmentObject::Ptr copy( Fork &f ) const;
         void internalCopy( GripperKinematicObject::Ptr o, Fork &f ) const;
-        void step_openclose( btSoftBody * psb );
-
-        /// public for CustomKeyHandler
-        float apperture;
-        bool bOpen;
-        GripperState state;
 
     private:
-        bool bAttached;
-        btTransform cur_tm;
         btVector3 halfextents;
+        btTransform cur_tm;
+
+        GripperState state; // used only for the manual grippers (I think)
+        bool bOpen;         // used only for cloth (I think)
+        float apperture;
+        double closed_gap;  // used only for cloth (I think)
+
+        bool bAttached;
         std::vector<int> vattached_node_inds;
-        double closed_gap;
+
         boost::shared_ptr<btGeneric6DofConstraint> cnt;
 };
 
