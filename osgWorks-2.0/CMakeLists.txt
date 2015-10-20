@@ -1,6 +1,16 @@
-include_directories(${OSG_INCLUDE_DIRS} ${OSGWORKS_DIR})
+cmake_minimum_required( VERSION 2.8.3 )
+project( osgWorks )
 
-set(OSGWORKS_SOURCES
+find_package( catkin REQUIRED COMPONENTS
+    osg
+)
+
+include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
+    SYSTEM
+    ${catkin_INCLUDE_DIRS}
+)
+
+set( OSGWORKS_SOURCES
     osgwQuery/QueryStats.cpp
     osgwQuery/QueryObject.cpp
     osgwQuery/QueryBenchmarks.cpp
@@ -49,5 +59,18 @@ set(OSGWORKS_SOURCES
     osgwTools/PrimitiveSetConversion.cpp
 )
 
-add_library(osgWorks ${OSGWORKS_SOURCES})
-target_link_libraries(osgWorks ${OSG_LIBS})
+add_library( ${PROJECT_NAME}
+    ${OSGWORKS_SOURCES}
+)
+add_dependencies( ${PROJECT_NAME}
+    ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries( ${PROJECT_NAME}
+    ${catkin_LIBRARIES}
+)
+
+catkin_package(
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+    DEPENDS      osg
+    LIBRARIES    ${PROJECT_NAME}
+)
