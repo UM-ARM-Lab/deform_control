@@ -364,7 +364,7 @@ ENDIF()
 
 
 catkin_package(
-    INCLUDE_DIRS src
+    INCLUDE_DIRS src Extras Extras/HACD
     LIBRARIES    ${BULLET_LIBRARIES}
     DEPENDS      OpenGL
 )
