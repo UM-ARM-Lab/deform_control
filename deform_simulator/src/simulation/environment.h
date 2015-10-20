@@ -63,7 +63,8 @@ public:
     // postCopy is called after all objects are copied and inserted into f.env.
     // This is useful for updating constraints, anchors, etc.
     // You're free to use f.forkOf()  or f.copyOf() to get equivalent objects in the new env.
-    virtual void postCopy(EnvironmentObject::Ptr copy, Fork &f) const { }
+    virtual void postCopy(EnvironmentObject::Ptr copy, Fork &f) const
+    { (void)copy; (void)f; }
 
     // methods only to be called by the Environment
     void setEnvironment(Environment *env_) { env = env_; }
@@ -213,8 +214,8 @@ protected:
 
 public:
     typedef boost::shared_ptr<Action> Ptr;
-    Action() : isDone(false), timeElapsed(0.), execTime(1.) { }
-    Action(float execTime_) : isDone(false), timeElapsed(0.), execTime(execTime_) { }
+    Action() : timeElapsed(0.), execTime(1.), isDone(false) { }
+    Action(float execTime_) : timeElapsed(0.), execTime(execTime_), isDone(false) { }
 
     virtual bool done() const { return timeElapsed >= execTime || isDone; }
     virtual void step(float dt) = 0;

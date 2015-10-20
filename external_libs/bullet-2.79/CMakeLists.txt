@@ -362,9 +362,19 @@ IF (BUILD_UNIT_TESTS)
 ENDIF()
 
 
+message( " ---------- ${BULLET_LIBRARIES}" )
+
 
 catkin_package(
-    INCLUDE_DIRS src Extras Extras/HACD
-    LIBRARIES    ${BULLET_LIBRARIES}
-    DEPENDS      OpenGL
+    INCLUDE_DIRS    src
+                    Extras
+                    Extras/HACD
+    LIBRARIES       LinearMath
+                    BulletCollision
+                    BulletDynamics
+                    BulletSoftBody
+                    BulletMultiThreaded
+                    HACD
+                    BulletFileLoader
+    DEPENDS         OpenGL
 )

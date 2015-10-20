@@ -17,13 +17,13 @@ public:
   typedef boost::shared_ptr<PlotObject> Ptr;
 
   void clear();
-  EnvironmentObject::Ptr copy(Fork &f) const { return Ptr(new PlotObject(*this)); }
+  EnvironmentObject::Ptr copy(Fork &f) const { (void)f; return Ptr(new PlotObject(*this)); }
   virtual void init(){
     getEnvironment()->osg->root->addChild(m_geode.get());
   }
   void prePhysics(){}// no physics
   void preDraw(){};
-  void destroy(){} 
+  void destroy(){}
   void setDefaultColor(float r, float g, float b, float a);
   void forceTransparency(float a);
 };
@@ -55,22 +55,22 @@ public:
 class PlotSpheres : public EnvironmentObject  {
 public:
   typedef boost::shared_ptr<PlotSpheres> Ptr;
-    
-  osg::ref_ptr<osg::Geode> m_geode;     
+
+  osg::ref_ptr<osg::Geode> m_geode;
   int m_nDrawables;
-    
+
   void clear();
 
-  EnvironmentObject::Ptr copy(Fork &f) const { return Ptr(new PlotSpheres(*this)); }    
+  EnvironmentObject::Ptr copy(Fork &f) const { (void)f; return Ptr(new PlotSpheres(*this)); }
   virtual void init(){
     getEnvironment()->osg->root->addChild(m_geode.get());
   }
   void prePhysics(){}// no physics
   void preDraw(){};
-  void destroy(){}    
-        
+  void destroy(){}
+
   PlotSpheres();
-  // void setDefaultColor(float r, float g, float b, float a);    
+  // void setDefaultColor(float r, float g, float b, float a);
   void plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::ref_ptr<osg::Vec4Array>& cols, const std::vector<float>& radii);
 
 };

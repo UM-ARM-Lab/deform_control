@@ -1,8 +1,7 @@
 cmake_minimum_required( VERSION 2.8.3 )
 project( deform_simulator )
 
-## Find catkin macros and libraries
-find_package( catkin REQUIRED COMPONENTS
+set( CATKIN_PACKAGES
     arc_utilities
     geometry_msgs
     roscpp
@@ -10,6 +9,9 @@ find_package( catkin REQUIRED COMPONENTS
     haptics
     osgBullet
 )
+
+## Find catkin macros and libraries
+find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
 
 # external libraries
 find_package( cmake_modules REQUIRED )
@@ -67,12 +69,7 @@ find_package( Eigen3 REQUIRED )
 catkin_package(
 #    INCLUDE_DIRS    include
 #    LIBRARIES       ${PROJECT_NAME}
-    CATKIN_DEPENDS  arc_utilities
-                    geometery_msgs
-                    roscpp
-                    BULLET_PHYSICS
-                    haptics
-                    osgBullet
+#    CATKIN_DEPENDS  ${CATKIN_PACKAGES}
 #    DEPENDS         Eigen
 #                    Boost
 )
@@ -87,7 +84,6 @@ set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fopenmp -std=c1x" )
 
 include_directories(
     src 
-    src/utils
     SYSTEM ${catkin_INCLUDE_DIRS} )
 
 add_subdirectory( src )

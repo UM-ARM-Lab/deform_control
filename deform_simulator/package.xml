@@ -10,14 +10,14 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>arc_utilities</build_depend>
-  <build_depend>geometery_msgs</build_depend>
+  <build_depend>geometry_msgs</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>BULLET_PHYSICS</build_depend>
   <build_depend>haptics</build_depend>
   <build_depend>osgBullet</build_depend>
 
   <run_depend>arc_utilities</run_depend>
-  <run_depend>geometery_msgs</run_depend>
+  <run_depend>geometry_msgs</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>BULLET_PHYSICS</run_depend>
   <run_depend>haptics</run_depend>

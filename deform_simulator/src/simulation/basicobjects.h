@@ -14,7 +14,7 @@ protected:
         BulletObject &obj;
 
         MotionState(BulletObject &obj_, const btTransform &trans) :
-            obj(obj_), btDefaultMotionState(trans) { }
+            btDefaultMotionState(trans), obj(obj_) { }
 
         void setWorldTransform(const btTransform &t) {
             if (!obj.isKinematic)
@@ -90,8 +90,8 @@ public:
 
     public:
         typedef boost::shared_ptr<MoveAction> Ptr;
-        MoveAction(BulletObject *obj_) : obj(obj_) { }
-        MoveAction(BulletObject *obj_, const btTransform &start_, const btTransform &end_, float execTime) : obj(obj_), start(start_), end(end_), Action(execTime) { }
+        MoveAction(BulletObject *obj_) : Action(), obj(obj_) { }
+        MoveAction(BulletObject *obj_, const btTransform &start_, const btTransform &end_, float execTime) : Action(execTime), obj(obj_), start(start_), end(end_) { }
         void setEndpoints(const btTransform &start_, const btTransform &end_) {
             start = start_; end = end_;
         }

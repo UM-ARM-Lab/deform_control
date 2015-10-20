@@ -18,13 +18,13 @@ inline osg::Vec3f toOSGVector(const btVector3 &v) { return osg::Vec3f(v.x(), v.y
 
 inline std::vector<btVector3> toBulletVectors(const std::vector< std::vector<float> >& in) {
   std::vector<btVector3> out(in.size());
-  for (int i=0; i<in.size(); i++) out[i] = toBulletVector(in[i]);
+  for (size_t i=0; i<in.size(); i++) out[i] = toBulletVector(in[i]);
   return out;
 }
 
 inline std::vector<btVector3> toBulletVectors(const std::vector< Eigen::Vector3f >& in) {
   std::vector<btVector3> out(in.size());
-  for (int i=0; i<in.size(); i++) out[i] = toBulletVector(in[i]);
+  for (size_t i=0; i<in.size(); i++) out[i] = toBulletVector(in[i]);
   return out;
 }
 
@@ -37,7 +37,7 @@ inline std::vector<btVector3> toBulletVectors(const Eigen::MatrixXf& in) {
 
 inline std::vector< std::vector<float> > toVecVec(const std::vector<btVector3>& in) {
   std::vector< std::vector<float> > out(in.size());
-  for (int i=0; i < in.size(); i++) {
+  for (size_t i=0; i < in.size(); i++) {
     std::vector<float> row(3);
       for (int j=0; j<3; j++) {
 	row[j] = in[i].m_floats[j];
@@ -49,13 +49,13 @@ inline std::vector< std::vector<float> > toVecVec(const std::vector<btVector3>& 
 
 inline std::vector<float> toVec(const Eigen::VectorXf& in) {
   std::vector<float> out(in.rows());
-  for (int i=0; i < out.size(); i++) out[i] = in[i];
+  for (size_t i=0; i < out.size(); i++) out[i] = in[i];
   return out;
 }
 
 inline Eigen::VectorXf toVectorXf(const std::vector<float>& in) {
   Eigen::VectorXf out(in.size());
-  for (int i=0; i<in.size(); i++) out[i] = in[i];
+  for (size_t i=0; i<in.size(); i++) out[i] = in[i];
   return out;
 }
 
@@ -80,27 +80,27 @@ inline Eigen::Affine3f toEigenTransform(const btTransform& transform) {
 
 inline std::vector<Eigen::Vector3f> toEigenVectors(const std::vector< std::vector<float> >& in) {
   std::vector<Eigen::Vector3f> out (in.size());
-  for (int i=0; i < in.size(); i++) out[i] = toEigenVector(in[i]);
+  for (size_t i=0; i < in.size(); i++) out[i] = toEigenVector(in[i]);
   return out;
 }
 
 inline std::vector<Eigen::Vector3f> toEigenVectors(const std::vector<btVector3>& in) {
   std::vector<Eigen::Vector3f> out(in.size());
-  for (int i=0; i<in.size(); i++) out[i] = toEigenVector(in[i]);
+  for (size_t i=0; i<in.size(); i++) out[i] = toEigenVector(in[i]);
   return out;
 }
 
 inline Eigen::MatrixXf toEigenMatrix(const std::vector<btVector3>& in) {
   Eigen::MatrixXf out(in.size(), 3);
-  for (int i=0; i<in.size(); i++) out.row(i) = toEigenVector(in[i]);
+  for (size_t i=0; i<in.size(); i++) out.row(i) = toEigenVector(in[i]);
   return out;
 }
 
 inline Eigen::MatrixXf toEigenMatrix(const std::vector< std::vector<float> >& in) {
   ENSURE(in.size() > 1) ;
   Eigen::MatrixXf out(in.size(),in[0].size());
-  for (int i=0; i<in.size(); i++)
-    for (int j=0; j<in[0].size(); j++)
+  for (size_t i=0; i<in.size(); i++)
+    for (size_t j=0; j<in[0].size(); j++)
       out(i,j) = in[i][j];
   return out;
 }

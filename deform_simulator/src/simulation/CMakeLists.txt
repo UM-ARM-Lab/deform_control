@@ -31,4 +31,5 @@ add_dependencies( simulation
 target_link_libraries( simulation
     ${Boost_LIBRARIES} 
     ${catkin_LIBRARIES}
+    utils
 )
