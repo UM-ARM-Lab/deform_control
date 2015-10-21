@@ -5,9 +5,8 @@ set( CATKIN_PACKAGES
     arc_utilities
     geometry_msgs
     roscpp
-    BULLET_PHYSICS
+    osg_bullet
     haptics
-    osgBullet
 )
 
 ## Find catkin macros and libraries
@@ -70,7 +69,7 @@ catkin_package(
 #    INCLUDE_DIRS    include
 #    LIBRARIES       ${PROJECT_NAME}
 #    CATKIN_DEPENDS  ${CATKIN_PACKAGES}
-#    DEPENDS         Eigen
+#    DEPENDS         Eigen3
 #                    Boost
 )
 
@@ -82,8 +81,15 @@ catkin_package(
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -std=c++0x" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fopenmp -std=c1x" )
 
-include_directories(
-    src 
-    SYSTEM ${catkin_INCLUDE_DIRS} )
+include_directories( src SYSTEM 
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+    ${Boost_INCLUDE_DIRS}
+)
+
+set( deform_simulation_LINK_TARGETS
+    ${catkin_LIBRARIES}
+    ${Boost_LIBRARIES}
+)
 
 add_subdirectory( src )

@@ -1,9 +1,9 @@
 cmake_minimum_required( VERSION 2.8.3 )
-project( osgBullet )
+project( osg_bullet )
 
 set( CATKIN_PACKAGES
-    BULLET_PHYSICS
-    osgWorks
+    bullet_physics
+    osg_works
 )
 
 find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )

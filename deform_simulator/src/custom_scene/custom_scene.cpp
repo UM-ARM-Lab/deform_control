@@ -1,6 +1,7 @@
 #include "custom_scene.h"
 
 #include <limits>
+#include <thread>
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
 
@@ -10,21 +11,14 @@
 
 CustomScene::CustomScene(
         CustomScene::DeformableType deformable_type,
-        CustomScene::TaskType task_type )
+        CustomScene::TaskType task_type,
+        ros::NodeHandle& nh )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
     , task_type_( task_type )
-/*    , gripper_axes_()
-    , grippers_()
-    , auto_grippers_()
-    , rope_( NULL )
-    , cloth_( NULL )
-    , cloth_corner_node_indices_()
-    , cylinder_( NULL )
-    , table_( NULL )
-    , cover_points_()
-*/{
+    , nh_( nh )
+{
     switch ( deformable_type_ )
     {
         case ROPE:
@@ -51,12 +45,6 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
     // table parameters
     const btVector3 table_surface_position = btVector3( TABLE_X, TABLE_Y, TABLE_Z ) * METERS;
     const btVector3 table_half_extents = btVector3( half_side_length, half_side_length, TABLE_THICKNESS*METERS/2 );
-
-    std::cout
-        << table_half_extents[0]/METERS << " "
-        << table_half_extents[1]/METERS << " "
-        << table_half_extents[2]/METERS << " "
-        << std::endl;
 
     // create the table
     table_ = BoxObject::Ptr( new BoxObject( 0, table_half_extents,
@@ -245,7 +233,6 @@ void CustomScene::makeRopeWorld()
     }
 
     std::vector<btVector3> node_pos( rope_->getNodes() );
-    std::cout << "Rope node length: " << ( node_pos[0]-node_pos[node_pos.size()-1] ).length()/METERS << " meters\n";
 }
 
 void CustomScene::makeClothWorld()
@@ -445,6 +432,10 @@ void CustomScene::run( bool syncTime )
 
     //viewer.addEventHandler( new CustomKeyHandler( *this ) );
 
+    // When the viewer closes, shutdown ROS
+    addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
+            boost::bind( ros::shutdown ) );
+
     //addPreStepCallback( std::bind( &CustomScene::getDesiredGripperTrajectory, this ) );
     //addPreStepCallback( std::bind( &CustomScene::doJTracking, this ) );
     addPreStepCallback( std::bind( &CustomScene::drawAxes, this ) );
@@ -455,5 +446,12 @@ void CustomScene::run( bool syncTime )
     startViewer();
     stepFor( BulletConfig::dt, 2 );
 
+    // Start listening for ROS messages
+    std::thread spin_thread( boost::bind( ros::spin ) );
+
+    // Run the simulation
     startFixedTimestepLoop( BulletConfig::dt );
+
+    // clean up the extra thread we started
+    spin_thread.join();
 }

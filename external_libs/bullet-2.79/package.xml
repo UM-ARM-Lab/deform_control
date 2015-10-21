@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>BULLET_PHYSICS</name>
+  <name>bullet_physics</name>
   <version>2.79.0</version>
   <description>Catkin package for Bullet 2.79</description>
   <maintainer email="dale.mcconachie@ssengineering.ca">Dale McConachie</maintainer>

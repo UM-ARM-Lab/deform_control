@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>osgWorks</name>
+  <name>osg_works</name>
   <version>0.0.1</version>
   <description>Catkin package for OSG Works version 2.0</description>
   <maintainer email="dale.mcconachie@ssengineering.ca">Dale McConachie</maintainer>

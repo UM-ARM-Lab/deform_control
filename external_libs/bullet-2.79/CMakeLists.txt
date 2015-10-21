@@ -4,8 +4,11 @@ set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true)
 #this line has to appear before 'PROJECT' in order to be able to disable incremental linking
 SET(MSVC_INCREMENTAL_DEFAULT ON)
 
-PROJECT(BULLET_PHYSICS)
+PROJECT(bullet_physics)
 SET(BULLET_VERSION 2.79)
+# Remap things back into the original "BULLET_PHYSICS" name of the project
+SET(BULLET_PHYSICS_SOURCE_DIR ${PROJECT_SOURCE_DIR})
+SET(BULLET_PHYSICS_BINARY_DIR ${PROJECT_BINARY_DIR})
 
 IF(COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
@@ -360,9 +363,6 @@ OPTION(BUILD_UNIT_TESTS "Build Unit Tests"	OFF)
 IF (BUILD_UNIT_TESTS)
 	SUBDIRS(UnitTests)
 ENDIF()
-
-
-message( " ---------- ${BULLET_LIBRARIES}" )
 
 
 catkin_package(

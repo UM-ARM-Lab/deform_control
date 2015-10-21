@@ -12,16 +12,14 @@
   <build_depend>arc_utilities</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>roscpp</build_depend>
-  <build_depend>BULLET_PHYSICS</build_depend>
+  <build_depend>osg_bullet</build_depend>
   <build_depend>haptics</build_depend>
-  <build_depend>osgBullet</build_depend>
 
   <run_depend>arc_utilities</run_depend>
   <run_depend>geometry_msgs</run_depend>
   <run_depend>roscpp</run_depend>
-  <run_depend>BULLET_PHYSICS</run_depend>
+  <run_depend>osg_bullet</run_depend>
   <run_depend>haptics</run_depend>
-  <run_depend>osgBullet</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
