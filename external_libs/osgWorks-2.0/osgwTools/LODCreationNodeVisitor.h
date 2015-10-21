@@ -44,7 +44,7 @@ public:
 	Override to implement the desired behavior. */
 	virtual bool testGeodeReducable( osg::Geode *geode, unsigned int minVertices, unsigned int minPrimitives ) const
     {
-        return NULL;
+        return false;
     } // testGeodeReducable
 
     virtual ~GeodeReducableCallback() {}
@@ -142,7 +142,7 @@ protected:
 
     GeodeSet _lodCandidates;
     /** _lodPairList Calling code can supply a pair list of rely on defaults
-    Order of items in pairs is 1) smallest pixel size for LOD to be used, 
+    Order of items in pairs is 1) smallest pixel size for LOD to be used,
     2) maximum feature size to be removed as % of node bounding sphere diameter. */
     LODPairList _lodPairList;
     /** if false, _decIgnoreBoundaries prevents elimination of edges that are bounded by only one triangle. */
@@ -151,7 +151,7 @@ protected:
     bool _smoothing;
     /** if true, osgUtil::TriStripVisitor::stripify() is called after decimation and optional smoothing. */
     bool _triStrip;
-    /** if set, _attemptMerge attempts to merge drawables in model file prior to executing lod reduction. 
+    /** if set, _attemptMerge attempts to merge drawables in model file prior to executing lod reduction.
     Subject to limitations of osgUtil::Optimizer::MergeGeometryVisitor. */
     bool _attemptMerge;
     /** _geodesLocated, _geodesProcessed for internal control. */

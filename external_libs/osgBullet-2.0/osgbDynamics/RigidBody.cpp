@@ -109,6 +109,10 @@ btRigidBody* createRigidBody( osgbDynamics::CreationRecord* cr )
             shape = cShape;
             break;
         }
+        default:
+        {
+            break;
+        }
         }
     }
     else

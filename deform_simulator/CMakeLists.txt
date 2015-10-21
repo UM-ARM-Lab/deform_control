@@ -18,6 +18,7 @@ find_package( Boost REQUIRED COMPONENTS
     system 
     filesystem 
     program_options
+    thread
 )
 
 find_package( Eigen3 REQUIRED )

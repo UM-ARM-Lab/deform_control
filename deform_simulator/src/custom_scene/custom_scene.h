@@ -75,8 +75,8 @@ class CustomScene : public Scene
         // Shared world objects
         ////////////////////////////////////////////////////////////////////////
 
-        static constexpr float TABLE_X = 0; // METERS
-        static constexpr float TABLE_Y = 0; // METERS
+        static constexpr float TABLE_X = 0.0; // METERS
+        static constexpr float TABLE_Y = 0.0; // METERS
         static constexpr float TABLE_Z = 0.7; // METERS
         static constexpr float TABLE_THICKNESS = 0.05; // METERS
         BoxObject::Ptr table_;

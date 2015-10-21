@@ -21,8 +21,9 @@ class EventHandler : public osgGA::TrackballManipulator
         void getTransformation(osg::Vec3d &eye, osg::Vec3d &center, osg::Vec3d &up) const;
 };
 
-struct Scene
+class Scene
 {
+public:
     typedef boost::shared_ptr<Scene> Ptr;
 
     OSGInstance::Ptr osg;

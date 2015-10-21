@@ -19,7 +19,7 @@
  *************** <auto-copyright.pl END do not edit this line> ***************/
 
 #ifndef __OSGWTOOLS_TRANSFORM_H__
-#define __OSGWTOOLS_TRANSFORM_H__1
+#define __OSGWTOOLS_TRANSFORM_H__
 
 
 #include "osgwTools/Export.h"
@@ -68,5 +68,5 @@ OSGWTOOLS_EXPORT void transform( const osg::Matrix& m, osg::Geode* geode );
 // osgwTools
 }
 
-// __OSGWTOOLS_GRID_H__
+// __OSGWTOOLS_TRANSFORM_H__
 #endif

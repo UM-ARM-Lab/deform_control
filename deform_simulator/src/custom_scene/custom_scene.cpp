@@ -434,11 +434,12 @@ void CustomScene::run( bool syncTime )
 
     // When the viewer closes, shutdown ROS
     addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-            boost::bind( ros::shutdown ) );
+            boost::bind( &ros::shutdown ) );
 
     //addPreStepCallback( std::bind( &CustomScene::getDesiredGripperTrajectory, this ) );
     //addPreStepCallback( std::bind( &CustomScene::doJTracking, this ) );
-    addPreStepCallback( std::bind( &CustomScene::drawAxes, this ) );
+//    addPreStepCallback( std::bind( &CustomScene::setGripperPose, this ) );
+    addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
 
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed
@@ -447,7 +448,7 @@ void CustomScene::run( bool syncTime )
     stepFor( BulletConfig::dt, 2 );
 
     // Start listening for ROS messages
-    std::thread spin_thread( boost::bind( ros::spin ) );
+    std::thread spin_thread( boost::bind( &ros::spin ) );
 
     // Run the simulation
     startFixedTimestepLoop( BulletConfig::dt );
