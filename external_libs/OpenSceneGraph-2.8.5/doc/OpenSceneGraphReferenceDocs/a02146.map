@@ -1,0 +1,49 @@
+<map id="G" name="G">
+<area shape="rect" id="node7" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; osg::NodeCallback \&gt;" alt="" coords="1165,48,1555,79"/>
+<area shape="rect" id="node16" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; osg::StateAttributeCallback \&gt;" alt="" coords="1140,200,1580,231"/>
+<area shape="rect" id="node20" href="$a00022.html" title="osg::AnimationPathCallback" alt="" coords="609,277,793,308"/>
+<area shape="rect" id="node22" href="$a00107.html" title="Implements cluster culling to cull back facing drawables." alt="" coords="611,331,792,361"/>
+<area shape="rect" id="node24" href="$a00495.html" title="osg::NodeTrackerCallback" alt="" coords="615,384,788,415"/>
+<area shape="rect" id="node26" href="$a00020.html" title="osgAnimation::AnimationManagerBase" alt="" coords="579,437,824,468"/>
+<area shape="rect" id="node34" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; T \&gt;" alt="" coords="556,155,847,185"/>
+<area shape="rect" id="node40" href="$a01051.html" title="osgAnimation::Skeleton::UpdateSkeleton" alt="" coords="572,491,831,521"/>
+<area shape="rect" id="node42" href="$a00341.html" title="GUIEventHandler provides a basic interface for any class which wants to handle a GUI Events..." alt="" coords="617,709,785,740"/>
+<area shape="rect" id="node94" href="$a00088.html" title="osgShadow::MinimalDrawBoundsShadowMap::CameraCullCallback" alt="" coords="496,763,907,793"/>
+<area shape="rect" id="node96" href="$a00089.html" title="osgShadow::ShadowTechnique::CameraCullCallback" alt="" coords="539,816,864,847"/>
+<area shape="rect" id="node98" href="$a00930.html" title="TransformCallback is now deprecated, use osg::AnimationPathCallback instead." alt="" coords="612,869,791,900"/>
+<area shape="rect" id="node2" href="$a00501.html" title="Base class/standard interface for objects which require IO support, cloning and reference counting..." alt="" coords="175,384,263,415"/>
+<area shape="rect" id="node4" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="5,384,123,415"/>
+<area shape="rect" id="node9" href="$a01049.html" title="osgAnimation::UpdateMatrixTransform" alt="" coords="1635,17,1877,48"/>
+<area shape="rect" id="node13" href="$a01050.html" title="osgAnimation::UpdateMorph" alt="" coords="1663,71,1849,101"/>
+<area shape="rect" id="node11" href="$a01045.html" title="osgAnimation::UpdateBone" alt="" coords="1932,17,2111,48"/>
+<area shape="rect" id="node18" href="$a01048.html" title="osgAnimation::UpdateMaterial" alt="" coords="1659,200,1853,231"/>
+<area shape="rect" id="node28" href="$a00019.html" title="osgAnimation::AnimationManager" alt="" coords="1252,256,1468,287"/>
+<area shape="rect" id="node30" href="$a00055.html" title="osgAnimation::BasicAnimationManager" alt="" coords="1235,309,1485,340"/>
+<area shape="rect" id="node32" href="$a00919.html" title="osgAnimation::TimelineAnimationManager" alt="" coords="1227,363,1493,393"/>
+<area shape="rect" id="node36" href="$a01052.html" title="osgAnimation::UpdateTransform" alt="" coords="1256,143,1464,173"/>
+<area shape="rect" id="node44" href="$a00825.html" title="Event handler for adding on screen stats reporting to Viewers." alt="" coords="1268,416,1452,447"/>
+<area shape="rect" id="node46" href="$a00462.html" title="MatrixManipulator is an abstract base class defining the interface, and a certain amount of default f..." alt="" coords="1275,469,1445,500"/>
+<area shape="rect" id="node66" href="$a00750.html" title="Experimental class, not been looked at for a while, but which will be returned to at some point :&#45;\\..." alt="" coords="1267,523,1453,553"/>
+<area shape="rect" id="node68" href="$a00348.html" title="Event handler for adding on screen help to Viewers." alt="" coords="1280,576,1440,607"/>
+<area shape="rect" id="node70" href="$a00396.html" title="InteractiveImage is an event handler that computes the mouse coordinates in an images coordinate fram..." alt="" coords="1245,629,1475,660"/>
+<area shape="rect" id="node72" href="$a00452.html" title="Event handler for increase/decreasing LODScale." alt="" coords="1264,683,1456,713"/>
+<area shape="rect" id="node74" href="$a00625.html" title="Event handler allowing the user to record the animation &quot;path&quot; of a camera." alt="" coords="1237,736,1483,767"/>
+<area shape="rect" id="node76" href="$a00689.html" title="Event handler that will capture the screen on key press." alt="" coords="1251,789,1469,820"/>
+<area shape="rect" id="node78" href="$a00826.html" title="Event handler for adding on screen stats reporting to Viewers." alt="" coords="1277,843,1443,873"/>
+<area shape="rect" id="node80" href="$a00912.html" title="Event handler allowing to change the viewer threading model." alt="" coords="1265,896,1455,927"/>
+<area shape="rect" id="node82" href="$a01116.html" title="Event handler allowing to change the screen resolution (in windowed mode) and toggle between fullscre..." alt="" coords="1257,949,1463,980"/>
+<area shape="rect" id="node84" href="$a00589.html" title="osgVolume::PropertyAdjustmentCallback" alt="" coords="1231,1003,1489,1033"/>
+<area shape="rect" id="node86" href="$a00090.html" title="osgWidget::CameraSwitchHandler" alt="" coords="1251,1056,1469,1087"/>
+<area shape="rect" id="node88" href="$a00419.html" title="osgWidget::KeyboardHandler" alt="" coords="1265,1109,1455,1140"/>
+<area shape="rect" id="node90" href="$a00482.html" title="osgWidget::MouseHandler" alt="" coords="1273,1163,1447,1193"/>
+<area shape="rect" id="node92" href="$a00661.html" title="osgWidget::ResizeHandler" alt="" coords="1273,1216,1447,1247"/>
+<area shape="rect" id="node48" href="$a00023.html" title="osgGA::AnimationPathManipulator" alt="" coords="1647,576,1865,607"/>
+<area shape="rect" id="node50" href="$a00092.html" title="osgGA::CameraViewSwitchManipulator" alt="" coords="1632,629,1880,660"/>
+<area shape="rect" id="node52" href="$a00229.html" title="DriveManipulator is a camera manipulator which provides drive&#45;like functionality." alt="" coords="1673,683,1839,713"/>
+<area shape="rect" id="node54" href="$a00292.html" title="FlightManipulator is a MatrixManipulator which provides flight simulator&#45;like updating of the camera ..." alt="" coords="1672,256,1840,287"/>
+<area shape="rect" id="node56" href="$a00422.html" title="KeySwitchMatrixManipulator is a decorator which allows the type of camera manipulator being used to b..." alt="" coords="1640,309,1872,340"/>
+<area shape="rect" id="node58" href="$a00496.html" title="osgGA::NodeTrackerManipulator" alt="" coords="1652,363,1860,393"/>
+<area shape="rect" id="node60" href="$a00882.html" title="osgGA::TerrainManipulator" alt="" coords="1669,416,1843,447"/>
+<area shape="rect" id="node62" href="$a00923.html" title="osgGA::TrackballManipulator" alt="" coords="1663,469,1849,500"/>
+<area shape="rect" id="node64" href="$a01037.html" title="A UFO manipulator driven with keybindings." alt="" coords="1675,523,1837,553"/>
+</map>

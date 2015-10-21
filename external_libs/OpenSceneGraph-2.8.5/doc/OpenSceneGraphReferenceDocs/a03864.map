@@ -1,0 +1,15 @@
+<map id="G" name="G">
+<area shape="rect" id="node3" href="$a01110.html" title="osgWidget::Widget" alt="" coords="232,165,363,195"/>
+<area shape="rect" id="node19" href="$a01111.html" title="osgWidget::Window" alt="" coords="229,351,365,382"/>
+<area shape="rect" id="node5" href="$a00068.html" title="osgWidget::Frame::Border" alt="" coords="452,5,625,35"/>
+<area shape="rect" id="node7" href="$a00171.html" title="osgWidget::Frame::Corner" alt="" coords="452,58,625,89"/>
+<area shape="rect" id="node9" href="$a00423.html" title="osgWidget::Label" alt="" coords="477,111,600,142"/>
+<area shape="rect" id="node13" href="$a00499.html" title="osgWidget::NotifyWidget" alt="" coords="456,165,621,195"/>
+<area shape="rect" id="node15" href="$a00500.html" title="osgWidget::NullWidget" alt="" coords="463,218,615,249"/>
+<area shape="rect" id="node17" href="$a00246.html" title="osgWidget::Window::EmbeddedWindow" alt="" coords="413,271,664,302"/>
+<area shape="rect" id="node11" href="$a00389.html" title="osgWidget::Input" alt="" coords="716,111,836,142"/>
+<area shape="rect" id="node21" href="$a00072.html" title="The Box object is a Window subclass that can be configured to uniformly (or non&#45;uniformly) position i..." alt="" coords="481,325,596,355"/>
+<area shape="rect" id="node23" href="$a00093.html" title="osgWidget::Canvas" alt="" coords="472,378,605,409"/>
+<area shape="rect" id="node25" href="$a00856.html" title="osgWidget::Table" alt="" coords="477,431,600,462"/>
+<area shape="rect" id="node27" href="$a00304.html" title="osgWidget::Frame" alt="" coords="713,431,839,462"/>
+</map>

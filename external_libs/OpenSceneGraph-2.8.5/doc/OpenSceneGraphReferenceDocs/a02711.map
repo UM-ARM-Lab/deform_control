@@ -1,0 +1,16 @@
+<map id="G" name="G">
+<area shape="rect" id="node14" href="$a00023.html" title="osgGA::AnimationPathManipulator" alt="" coords="1007,5,1225,35"/>
+<area shape="rect" id="node16" href="$a00092.html" title="osgGA::CameraViewSwitchManipulator" alt="" coords="992,58,1240,89"/>
+<area shape="rect" id="node18" href="$a00229.html" title="DriveManipulator is a camera manipulator which provides drive&#45;like functionality." alt="" coords="1033,111,1199,142"/>
+<area shape="rect" id="node20" href="$a00292.html" title="FlightManipulator is a MatrixManipulator which provides flight simulator&#45;like updating of the camera ..." alt="" coords="1032,165,1200,195"/>
+<area shape="rect" id="node22" href="$a00422.html" title="KeySwitchMatrixManipulator is a decorator which allows the type of camera manipulator being used to b..." alt="" coords="1000,218,1232,249"/>
+<area shape="rect" id="node24" href="$a00496.html" title="osgGA::NodeTrackerManipulator" alt="" coords="1012,271,1220,302"/>
+<area shape="rect" id="node26" href="$a00882.html" title="osgGA::TerrainManipulator" alt="" coords="1029,325,1203,355"/>
+<area shape="rect" id="node28" href="$a00923.html" title="osgGA::TrackballManipulator" alt="" coords="1023,378,1209,409"/>
+<area shape="rect" id="node30" href="$a01037.html" title="A UFO manipulator driven with keybindings." alt="" coords="1035,431,1197,462"/>
+<area shape="rect" id="node2" href="$a00341.html" title="GUIEventHandler provides a basic interface for any class which wants to handle a GUI Events..." alt="" coords="553,218,721,249"/>
+<area shape="rect" id="node4" href="$a00493.html" title="osg::NodeCallback" alt="" coords="341,191,472,222"/>
+<area shape="rect" id="node6" href="$a00501.html" title="Base class/standard interface for objects which require IO support, cloning and reference counting..." alt="" coords="172,218,260,249"/>
+<area shape="rect" id="node10" href="$a00255.html" title="osg::Drawable::EventCallback" alt="" coords="309,245,504,275"/>
+<area shape="rect" id="node8" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="5,218,123,249"/>
+</map>

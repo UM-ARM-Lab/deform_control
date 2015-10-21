@@ -1,0 +1,6 @@
+<map id="G" name="G">
+<area shape="rect" id="node1" href="$a00578.html" title="A PrimitiveFunctor is used (in conjunction with osg::Drawable::accept (PrimitiveFunctor&amp;)) to get..." alt="" coords="7,58,151,89"/>
+<area shape="rect" id="node3" href="$a00874.html" title="Provides access to the primitives that compose an osg::Drawable." alt="" coords="201,5,431,35"/>
+<area shape="rect" id="node5" href="$a00941.html" title="Provides access to the triangles that compose an osg::Drawable." alt="" coords="231,58,401,89"/>
+<area shape="rect" id="node7" href="$a00822.html" title="Statistics base class." alt="" coords="253,111,379,142"/>
+</map>

@@ -1,0 +1,643 @@
+<map id="G" name="G">
+<area shape="rect" id="node1" href="$a00048.html" title="osgSim::AzimRange" alt="" coords="1036,1748,1177,1779"/>
+<area shape="rect" id="node3" href="$a00047.html" title="osgSim::AzimElevationSector" alt="" coords="1463,1324,1657,1355"/>
+<area shape="rect" id="node5" href="$a00049.html" title="osgSim::AzimSector" alt="" coords="1489,1271,1631,1301"/>
+<area shape="rect" id="node6" href="$a00180.html" title="osg::CullSettings" alt="" coords="528,6272,648,6303"/>
+<area shape="rect" id="node8" href="$a00087.html" title="Camera &#45; is a subclass of Transform which represents encapsulates the settings of a Camera..." alt="" coords="2481,8113,2577,8144"/>
+<area shape="rect" id="node10" href="$a00181.html" title="A CullStack class which accumulates the current project, modelview matrices and the CullingSet..." alt="" coords="1053,1271,1160,1301"/>
+<area shape="rect" id="node16" href="$a00687.html" title="SceneView is deprecated, and is now just kept for backwards compatibility." alt="" coords="1040,1481,1173,1512"/>
+<area shape="rect" id="node12" href="$a00108.html" title="osg::CollectOccludersVisitor" alt="" coords="1467,1033,1653,1064"/>
+<area shape="rect" id="node14" href="$a00182.html" title="Basic NodeVisitor implementation for rendering a scene." alt="" coords="1496,1113,1624,1144"/>
+<area shape="rect" id="node17" href="$a00242.html" title="osgSim::ElevationRange" alt="" coords="1024,1801,1189,1832"/>
+<area shape="rect" id="node20" href="$a00243.html" title="osgSim::ElevationSector" alt="" coords="1477,1431,1643,1461"/>
+<area shape="rect" id="node21" href="$a00256.html" title="osgWidget::EventInterface" alt="" coords="2443,727,2616,757"/>
+<area shape="rect" id="node23" href="$a01110.html" title="osgWidget::Widget" alt="" coords="2809,727,2940,757"/>
+<area shape="rect" id="node39" href="$a01111.html" title="osgWidget::Window" alt="" coords="2807,860,2943,891"/>
+<area shape="rect" id="node25" href="$a00068.html" title="osgWidget::Frame::Border" alt="" coords="3276,540,3449,571"/>
+<area shape="rect" id="node27" href="$a00171.html" title="osgWidget::Frame::Corner" alt="" coords="3276,593,3449,624"/>
+<area shape="rect" id="node29" href="$a00423.html" title="osgWidget::Label" alt="" coords="3301,647,3424,677"/>
+<area shape="rect" id="node33" href="$a00499.html" title="osgWidget::NotifyWidget" alt="" coords="3280,700,3445,731"/>
+<area shape="rect" id="node35" href="$a00500.html" title="osgWidget::NullWidget" alt="" coords="3287,753,3439,784"/>
+<area shape="rect" id="node37" href="$a00246.html" title="osgWidget::Window::EmbeddedWindow" alt="" coords="3237,807,3488,837"/>
+<area shape="rect" id="node31" href="$a00389.html" title="osgWidget::Input" alt="" coords="4021,647,4141,677"/>
+<area shape="rect" id="node41" href="$a00072.html" title="The Box object is a Window subclass that can be configured to uniformly (or non&#45;uniformly) position i..." alt="" coords="3305,860,3420,891"/>
+<area shape="rect" id="node43" href="$a00093.html" title="osgWidget::Canvas" alt="" coords="3296,913,3429,944"/>
+<area shape="rect" id="node45" href="$a00856.html" title="osgWidget::Table" alt="" coords="3301,967,3424,997"/>
+<area shape="rect" id="node47" href="$a00304.html" title="osgWidget::Frame" alt="" coords="4019,967,4144,997"/>
+<area shape="rect" id="node48" href="$a00339.html" title="Abstract base class defining the interface by which GUIEventHandlers may request actions of the GUI s..." alt="" coords="1020,7820,1193,7851"/>
+<area shape="rect" id="node50" href="$a00332.html" title="Base class for providing Windowing API agnostic access to creating and managing graphics window and e..." alt="" coords="1467,8193,1653,8224"/>
+<area shape="rect" id="node58" href="$a01089.html" title="View holds a single view on a scene, this view may be composed of one or more slave cameras..." alt="" coords="1501,7820,1619,7851"/>
+<area shape="rect" id="node52" href="$a00333.html" title="osgViewer::GraphicsWindowEmbedded" alt="" coords="1944,8087,2192,8117"/>
+<area shape="rect" id="node54" href="$a00335.html" title="osgViewer::GraphicsWindowWin32" alt="" coords="1957,8140,2179,8171"/>
+<area shape="rect" id="node56" href="$a00336.html" title="osgViewer::GraphicsWindowX11" alt="" coords="1963,8193,2173,8224"/>
+<area shape="rect" id="node60" href="$a01099.html" title="Viewer holds a single view on to a single scene." alt="" coords="2004,7793,2132,7824"/>
+<area shape="rect" id="node61" href="$a00460.html" title="osg::Matrixd" alt="" coords="541,6539,635,6569"/>
+<area shape="rect" id="node63" href="$a00634.html" title="osg::RefMatrixd" alt="" coords="1049,1535,1164,1565"/>
+<area shape="rect" id="node64" href="$a00461.html" title="osg::Matrixf" alt="" coords="543,7072,633,7103"/>
+<area shape="rect" id="node66" href="$a00635.html" title="osg::RefMatrixf" alt="" coords="1052,8564,1161,8595"/>
+<area shape="rect" id="node67" href="$a00473.html" title="MixinVector is a base class that allows inheritance to be used to easily emulate derivation from std:..." alt="" coords="1469,4999,1651,5029"/>
+<area shape="rect" id="node69" href="$a00217.html" title="osg::DrawArrayLengths" alt="" coords="1989,5005,2147,5036"/>
+<area shape="rect" id="node71" href="$a00223.html" title="osg::DrawElementsUByte" alt="" coords="1983,5071,2153,5101"/>
+<area shape="rect" id="node73" href="$a00224.html" title="osg::DrawElementsUInt" alt="" coords="1989,5128,2147,5159"/>
+<area shape="rect" id="node75" href="$a00225.html" title="osg::DrawElementsUShort" alt="" coords="1981,5207,2155,5237"/>
+<area shape="rect" id="node76" href="$a00473.html" title="osg::MixinVector\&lt; T \&gt;" alt="" coords="1032,8353,1181,8384"/>
+<area shape="rect" id="node78" href="$a00862.html" title="osg::TemplateArray\&lt; T, ARRAYTYPE, DataSize, DataType \&gt;" alt="" coords="1371,8673,1749,8704"/>
+<area shape="rect" id="node80" href="$a00867.html" title="osg::TemplateIndexArray\&lt; T, ARRAYTYPE, DataSize, DataType \&gt;" alt="" coords="1863,8300,2273,8331"/>
+<area shape="rect" id="node81" href="$a00507.html" title="osg::Observer" alt="" coords="77,11019,181,11049"/>
+<area shape="rect" id="node83" href="$a00508.html" title="osg::observer_ptr\&lt; osgAnimation::AnimationManagerBase \&gt;" alt="" coords="403,11072,773,11103"/>
+<area shape="rect" id="node85" href="$a00508.html" title="Smart pointer for observed objects, that automatically set pointers to them to null when they deleted..." alt="" coords="511,11019,665,11049"/>
+<area shape="rect" id="node87" href="$a00745.html" title="Encapsulates the current applied OpenGL modes, attributes and vertex arrays settings, implements lazy state updating and provides accessors for querying the current state." alt="" coords="547,10965,629,10996"/>
+<area shape="rect" id="node88" href="$a00513.html" title="osgViewer::OpenGLQuerySupport" alt="" coords="999,9788,1215,9819"/>
+<area shape="rect" id="node90" href="$a00654.html" title="osgViewer::Renderer" alt="" coords="1489,9711,1631,9741"/>
+<area shape="rect" id="node91" href="$a00557.html" title="A plane class." alt="" coords="1065,5156,1148,5187"/>
+<area shape="rect" id="node93" href="$a00378.html" title="osg::InfinitePlane" alt="" coords="1499,5052,1621,5083"/>
+<area shape="rect" id="node94" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="71,7739,188,7769"/>
+<area shape="rect" id="node96" href="$a00028.html" title="osg::ApplicationUsage" alt="" coords="512,5579,664,5609"/>
+<area shape="rect" id="node98" href="$a00270.html" title="Encapsulates queries of extension availability, obtains extension function pointers, and provides convenience wrappers for calling extension functions." alt="" coords="495,5632,681,5663"/>
+<area shape="rect" id="node100" href="$a00271.html" title="Encapsulates queries of extension availability, obtains extension function pointers, and provides convenience wrappers for calling extension functions." alt="" coords="484,5685,692,5716"/>
+<area shape="rect" id="node102" href="$a00272.html" title="Encapsulates queries of extension availability, obtains extension function pointers, and provides convenience wrappers for calling extension functions." alt="" coords="496,5739,680,5769"/>
+<area shape="rect" id="node104" href="$a00265.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="489,5792,687,5823"/>
+<area shape="rect" id="node106" href="$a00269.html" title="Encapsulates queries of extension availability, obtains extension function pointers, and provides convenience wrappers for calling extension functions." alt="" coords="493,5845,683,5876"/>
+<area shape="rect" id="node108" href="$a00179.html" title="A CullingSet class which contains a frustum and a list of occluders." alt="" coords="533,5899,643,5929"/>
+<area shape="rect" id="node110" href="$a00102.html" title="Callback for overriding the CullVisitor&#39;s default clamping of the projection matrix to computed n..." alt="" coords="433,5952,743,5983"/>
+<area shape="rect" id="node112" href="$a00212.html" title="DisplaySettings class for encapsulating what visuals are required and have been set up..." alt="" coords="517,6005,659,6036"/>
+<area shape="rect" id="node114" href="$a00266.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="500,6059,676,6089"/>
+<area shape="rect" id="node116" href="$a00281.html" title="osg::FBOExtensions" alt="" coords="517,6112,659,6143"/>
+<area shape="rect" id="node118" href="$a00267.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="475,6165,701,6196"/>
+<area shape="rect" id="node120" href="$a00307.html" title="Class which encapsulates the frame number, reference time and calendar time of specific frame..." alt="" coords="525,6325,651,6356"/>
+<area shape="rect" id="node122" href="$a00320.html" title="osg::GL2Extensions" alt="" coords="519,6379,657,6409"/>
+<area shape="rect" id="node124" href="$a00660.html" title="osg::GraphicsContext::ResizedCallback" alt="" coords="461,6432,715,6463"/>
+<area shape="rect" id="node126" href="$a00924.html" title="GraphicsContext Traits object provides the specification of what type of graphics context is required..." alt="" coords="495,4355,681,4385"/>
+<area shape="rect" id="node128" href="$a01114.html" title="Callback to be implemented to provide access to Windowing API&#39;s ability to create Windows/pbuffer..." alt="" coords="431,6485,745,6516"/>
+<area shape="rect" id="node130" href="$a00443.html" title="LineSegment class for representing a line segment." alt="" coords="525,6592,651,6623"/>
+<area shape="rect" id="node132" href="$a00263.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="491,6645,685,6676"/>
+<area shape="rect" id="node134" href="$a00497.html" title="Visitor for type safe operations on osg::Nodes." alt="" coords="1048,700,1165,731"/>
+<area shape="rect" id="node214" href="$a00198.html" title="Callback for managing database paging, such as generated by PagedLOD nodes." alt="" coords="452,6219,724,6249"/>
+<area shape="rect" id="node218" href="$a00359.html" title="Callback for managing database paging, such as generated by PagedLOD nodes." alt="" coords="461,6699,715,6729"/>
+<area shape="rect" id="node222" href="$a00498.html" title="Handler processing output of notification stream." alt="" coords="524,6752,652,6783"/>
+<area shape="rect" id="node226" href="$a00501.html" title="Base class/standard interface for objects which require IO support, cloning and reference counting..." alt="" coords="544,6805,632,6836"/>
+<area shape="rect" id="node968" href="$a00514.html" title="Base class for implementing graphics operations." alt="" coords="535,6859,641,6889"/>
+<area shape="rect" id="node989" href="$a00516.html" title="osg::OperationQueue" alt="" coords="516,6912,660,6943"/>
+<area shape="rect" id="node991" href="$a00517.html" title="OperationThread is a helper class for running Operation within a single thread." alt="" coords="515,7232,661,7263"/>
+<area shape="rect" id="node995" href="$a00268.html" title="Encapsulates queries of extension availability, obtains extension function pointers, and provides convenience wrappers for calling extension functions." alt="" coords="512,6965,664,6996"/>
+<area shape="rect" id="node997" href="$a00547.html" title="PerContextProgram (PCP) is an OSG&#45;internal encapsulation of glPrograms per&#45;GL context." alt="" coords="477,7019,699,7049"/>
+<area shape="rect" id="node999" href="$a00627.html" title="osg::RefBlock" alt="" coords="536,9365,640,9396"/>
+<area shape="rect" id="node1002" href="$a00628.html" title="osg::RefBlockCount" alt="" coords="519,7125,657,7156"/>
+<area shape="rect" id="node1004" href="$a00548.html" title="PerContextShader (PCS) is an OSG&#45;internal encapsulation of glShader per&#45;GL context." alt="" coords="485,7179,691,7209"/>
+<area shape="rect" id="node1007" href="$a00235.html" title="osg::State::DynamicObjectRenderingCompletedCallback" alt="" coords="415,7339,761,7369"/>
+<area shape="rect" id="node1011" href="$a00823.html" title="osg::Stats" alt="" coords="547,7285,629,7316"/>
+<area shape="rect" id="node1013" href="$a00273.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="477,7392,699,7423"/>
+<area shape="rect" id="node1015" href="$a00888.html" title="osg::TestResult" alt="" coords="532,7445,644,7476"/>
+<area shape="rect" id="node1017" href="$a00850.html" title="osg::Texture1D::SubloadCallback" alt="" coords="481,7499,695,7529"/>
+<area shape="rect" id="node1019" href="$a00849.html" title="osg::Texture2D::SubloadCallback" alt="" coords="481,7552,695,7583"/>
+<area shape="rect" id="node1021" href="$a00275.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="481,7605,695,7636"/>
+<area shape="rect" id="node1023" href="$a00847.html" title="osg::Texture2DArray::SubloadCallback" alt="" coords="465,7659,711,7689"/>
+<area shape="rect" id="node1025" href="$a00276.html" title="Encapsulates queries of extension availability, obtains extension function pointers, and provides convenience wrappers for calling extension functions." alt="" coords="497,7712,679,7743"/>
+<area shape="rect" id="node1027" href="$a00845.html" title="osg::Texture3D::SubloadCallback" alt="" coords="481,7819,695,7849"/>
+<area shape="rect" id="node1029" href="$a00274.html" title="Encapsulates queries of extension availability, obtains extension function pointers, and provides convenience wrappers for calling extension functions." alt="" coords="505,7872,671,7903"/>
+<area shape="rect" id="node1031" href="$a00909.html" title="osg::Texture::TextureObject" alt="" coords="497,7925,679,7956"/>
+<area shape="rect" id="node1033" href="$a00277.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="477,7979,699,8009"/>
+<area shape="rect" id="node1035" href="$a00848.html" title="osg::TextureCubeMap::SubloadCallback" alt="" coords="461,8032,715,8063"/>
+<area shape="rect" id="node1037" href="$a00846.html" title="osg::TextureRectangle::SubloadCallback" alt="" coords="460,8085,716,8116"/>
+<area shape="rect" id="node1039" href="$a00264.html" title="Extensions class which encapsulates the querying of extensions and associated function pointers..." alt="" coords="483,8139,693,8169"/>
+<area shape="rect" id="node1041" href="$a00009.html" title="osgAnimation::ActionVisitor" alt="" coords="497,9792,679,9823"/>
+<area shape="rect" id="node1049" href="$a00099.html" title="osgAnimation::Channel" alt="" coords="511,7765,665,7796"/>
+<area shape="rect" id="node1053" href="$a00421.html" title="osgAnimation::KeyframeContainer" alt="" coords="479,8192,697,8223"/>
+<area shape="rect" id="node1059" href="$a00480.html" title="osgAnimation::Motion" alt="" coords="515,8245,661,8276"/>
+<area shape="rect" id="node1067" href="$a00664.html" title="osgAnimation::RigTransform" alt="" coords="495,8299,681,8329"/>
+<area shape="rect" id="node1073" href="$a00673.html" title="osgAnimation::Sampler" alt="" coords="509,8352,667,8383"/>
+<area shape="rect" id="node1077" href="$a00860.html" title="osgAnimation::Target" alt="" coords="516,8405,660,8436"/>
+<area shape="rect" id="node1081" href="$a00864.html" title="osgAnimation::TemplateCompositeSampler\&lt; VALUESAMPLERTYPE, TIMESAMPLERTYPE \&gt;" alt="" coords="303,8459,873,8489"/>
+<area shape="rect" id="node1083" href="$a00043.html" title="osgDB::AuthenticationDetails" alt="" coords="492,8512,684,8543"/>
+<area shape="rect" id="node1085" href="$a00044.html" title="osgDB::AuthenticationMap" alt="" coords="500,8565,676,8596"/>
+<area shape="rect" id="node1087" href="$a00197.html" title="osgDB::DatabasePager::DatabaseRequest" alt="" coords="455,8619,721,8649"/>
+<area shape="rect" id="node1089" href="$a00199.html" title="osgDB::DatabasePager::DatabaseThread" alt="" coords="459,8672,717,8703"/>
+<area shape="rect" id="node1091" href="$a00658.html" title="osgDB::DatabasePager::RequestQueue" alt="" coords="463,8725,713,8756"/>
+<area shape="rect" id="node1095" href="$a00214.html" title="Wrapper class for specifying read and write functions for extending the .osg file format..." alt="" coords="508,8779,668,8809"/>
+<area shape="rect" id="node1097" href="$a00234.html" title="DynamicLibrary &#45; encapsulates the loading and unloading of dynamic libraries, typically used for load..." alt="" coords="509,8832,667,8863"/>
+<area shape="rect" id="node1099" href="$a00285.html" title="osgDB::FileCache" alt="" coords="525,8885,651,8916"/>
+<area shape="rect" id="node1101" href="$a00889.html" title="Used as UserData attached to generated osg::Image&#39;s." alt="" coords="463,8939,713,8969"/>
+<area shape="rect" id="node1103" href="$a00358.html" title="osgDB::ImagePager::ImageRequest" alt="" coords="473,8992,703,9023"/>
+<area shape="rect" id="node1105" href="$a00362.html" title="osgDB::ImagePager::ImageThread" alt="" coords="477,9045,699,9076"/>
+<area shape="rect" id="node1107" href="$a00659.html" title="osgDB::ImagePager::RequestQueue" alt="" coords="472,9099,704,9129"/>
+<area shape="rect" id="node1111" href="$a00619.html" title="osgDB::ReaderWriterInfo" alt="" coords="505,9152,671,9183"/>
+<area shape="rect" id="node1113" href="$a00640.html" title="Registry is a singleton factory which stores the reader/writers which are linked in at runtime for re..." alt="" coords="529,9205,647,9236"/>
+<area shape="rect" id="node1115" href="$a00620.html" title="osgDB::Registry::ReadFileCallback" alt="" coords="475,9259,701,9289"/>
+<area shape="rect" id="node1117" href="$a01117.html" title="osgDB::Registry::WriteFileCallback" alt="" coords="476,9312,700,9343"/>
+<area shape="rect" id="node1119" href="$a00700.html" title="osgDB::Serializer" alt="" coords="527,9685,649,9716"/>
+<area shape="rect" id="node1131" href="$a00639.html" title="osgFX::Registry" alt="" coords="531,9419,645,9449"/>
+<area shape="rect" id="node1133" href="$a00861.html" title="This is the base class for effect techniques." alt="" coords="525,9472,651,9503"/>
+<area shape="rect" id="node1135" href="$a00257.html" title="EventQueue implementation for collecting and adapting windowing events." alt="" coords="519,9525,657,9556"/>
+<area shape="rect" id="node1137" href="$a00167.html" title="callback class to use to allow matrix manipulators to query the application for the local coordinate ..." alt="" coords="424,9579,752,9609"/>
+<area shape="rect" id="node1139" href="$a00116.html" title="Command manager receives commands from draggers and dispatches them to selections." alt="" coords="475,9632,701,9663"/>
+<area shape="rect" id="node1141" href="$a00143.html" title="osgManipulator::Constraint" alt="" coords="500,9739,676,9769"/>
+<area shape="rect" id="node1145" href="$a00481.html" title="Base class for motion commands that are generated by draggers." alt="" coords="480,9899,696,9929"/>
+<area shape="rect" id="node1159" href="$a00585.html" title="Base class for Projectors." alt="" coords="503,10165,673,10196"/>
+<area shape="rect" id="node1173" href="$a00303.html" title="you can overwrite the fragment shader if you like to modify it yourself, own fragment shader can be u..." alt="" coords="391,9845,785,9876"/>
+<area shape="rect" id="node1175" href="$a01097.html" title="Base container class for view dependent shadow resources." alt="" coords="411,5101,765,5132"/>
+<area shape="rect" id="node1187" href="$a00312.html" title="Stores a double precision geographic location, latitude and longitude." alt="" coords="493,9952,683,9983"/>
+<area shape="rect" id="node1189" href="$a00365.html" title="Helper class for managing the reuse of ImpostorSprite resources." alt="" coords="484,10005,692,10036"/>
+<area shape="rect" id="node1191" href="$a00532.html" title="osgSim::OverlayNode::OverlayData" alt="" coords="473,10059,703,10089"/>
+<area shape="rect" id="node1193" href="$a00676.html" title="Users may provide their own ScalarPrinter by deriving from this base class and overriding the printSc..." alt="" coords="481,10112,695,10143"/>
+<area shape="rect" id="node1195" href="$a00678.html" title="ScalarsToColors defines the interface to map a scalar value to a color, and provides a default implem..." alt="" coords="504,10219,672,10249"/>
+<area shape="rect" id="node1199" href="$a00917.html" title="Callback for post processing loaded TerrainTile, and for filling in missing elements such as external..." alt="" coords="453,10272,723,10303"/>
+<area shape="rect" id="node1203" href="$a01057.html" title="osgTerrain::ValidDataOperator" alt="" coords="491,10485,685,10516"/>
+<area shape="rect" id="node1209" href="$a00299.html" title="osgText::Font3D::Font3DImplementation" alt="" coords="460,10325,716,10356"/>
+<area shape="rect" id="node1211" href="$a00324.html" title="osgText::Font3D::Glyph3D" alt="" coords="500,10379,676,10409"/>
+<area shape="rect" id="node1213" href="$a00300.html" title="osgText::Font::FontImplementation" alt="" coords="476,10432,700,10463"/>
+<area shape="rect" id="node1215" href="$a00176.html" title="This is the base class for cube map generators." alt="" coords="497,10805,679,10836"/>
+<area shape="rect" id="node1223" href="$a00203.html" title="osgUtil::DelaunayTriangulator" alt="" coords="493,10539,683,10569"/>
+<area shape="rect" id="node1225" href="$a00237.html" title="osgUtil::EdgeCollector::Edge" alt="" coords="493,10592,683,10623"/>
+<area shape="rect" id="node1227" href="$a00239.html" title="osgUtil::EdgeCollector::Edgeloop" alt="" coords="481,10645,695,10676"/>
+<area shape="rect" id="node1229" href="$a00562.html" title="osgUtil::EdgeCollector::Point" alt="" coords="495,10699,681,10729"/>
+<area shape="rect" id="node1231" href="$a00939.html" title="osgUtil::EdgeCollector::Triangle" alt="" coords="487,10752,689,10783"/>
+<area shape="rect" id="node1233" href="$a00616.html" title="Callback used to implement the reading of external files, allowing support for paged databases to be ..." alt="" coords="457,10859,719,10889"/>
+<area shape="rect" id="node1237" href="$a00402.html" title="Pure virtual base class for implementing custom intersection technique." alt="" coords="523,5048,653,5079"/>
+<area shape="rect" id="node1247" href="$a00404.html" title="osgUtil::IntersectVisitor::IntersectState" alt="" coords="464,10912,712,10943"/>
+<area shape="rect" id="node1249" href="$a00414.html" title="Callback for customizing what operations are permitted on objects in the scene graph." alt="" coords="401,4408,775,4439"/>
+<area shape="rect" id="node1251" href="$a00035.html" title="osgUtil::Optimizer::TextureAtlasBuilder::Atlas" alt="" coords="445,4461,731,4492"/>
+<area shape="rect" id="node1253" href="$a00729.html" title="osgUtil::Optimizer::TextureAtlasBuilder::Source" alt="" coords="440,4515,736,4545"/>
+<area shape="rect" id="node1255" href="$a00221.html" title="osgUtil::RenderBin::DrawCallback" alt="" coords="480,4568,696,4599"/>
+<area shape="rect" id="node1257" href="$a00728.html" title="osgUtil::RenderBin::SortCallback" alt="" coords="483,4621,693,4652"/>
+<area shape="rect" id="node1259" href="$a00656.html" title="Container class for all data required for rendering of drawables." alt="" coords="520,4675,656,4705"/>
+<area shape="rect" id="node1261" href="$a00135.html" title="Callback for overidding the default method for compute the offset projection and view matrices..." alt="" coords="421,4728,755,4759"/>
+<area shape="rect" id="node1263" href="$a00148.html" title="osgUtil::Simplifier::ContinueSimplificationCallback" alt="" coords="433,4781,743,4812"/>
+<area shape="rect" id="node1265" href="$a00748.html" title="StateGraph &#45; contained in a renderBin, defines the scene to be drawn." alt="" coords="520,4835,656,4865"/>
+<area shape="rect" id="node1267" href="$a00859.html" title="The TangentSpaceGenerator class generates three arrays containing tangent&#45;space basis vectors..." alt="" coords="483,4888,693,4919"/>
+<area shape="rect" id="node1269" href="$a00887.html" title="Originally a simple class for tessellating a single polygon boundary." alt="" coords="521,4941,655,4972"/>
+<area shape="rect" id="node1271" href="$a00577.html" title="osgUtil::Tessellator::Prim" alt="" coords="504,4995,672,5025"/>
+<area shape="rect" id="node1273" href="$a01113.html" title="WindowData is used to pass in the Win32 window handle attached the GraphicsContext::Traits structure..." alt="" coords="437,5205,739,5236"/>
+<area shape="rect" id="node1275" href="$a01112.html" title="WindowData is used to pass in the X11 window handle attached the GraphicsContext::Traits structure..." alt="" coords="443,5259,733,5289"/>
+<area shape="rect" id="node1277" href="$a00685.html" title="Scene holds the higher level reference to a single scene graph." alt="" coords="525,5312,651,5343"/>
+<area shape="rect" id="node1279" href="$a00095.html" title="Abstract base class for what to do when a screen capture happens." alt="" coords="424,5365,752,5396"/>
+<area shape="rect" id="node1283" href="$a00084.html" title="osgWidget::Callback" alt="" coords="517,5419,659,5449"/>
+<area shape="rect" id="node1285" href="$a00086.html" title="osgWidget::CallbackInterface" alt="" coords="492,5472,684,5503"/>
+<area shape="rect" id="node1291" href="$a00693.html" title="osgWidget::ScriptEngine" alt="" coords="507,5525,669,5556"/>
+<area shape="rect" id="node137" href="$a00134.html" title="osg::ComputeBoundsVisitor" alt="" coords="1468,167,1652,197"/>
+<area shape="rect" id="node139" href="$a00418.html" title="osg::KdTreeBuilder" alt="" coords="1495,220,1625,251"/>
+<area shape="rect" id="node141" href="$a00063.html" title="osgAnimation::BoneMapVisitor" alt="" coords="1460,273,1660,304"/>
+<area shape="rect" id="node143" href="$a00448.html" title="This class is instancied by the AnimationManagerBase, it will link animation target to updatecallback..." alt="" coords="1475,327,1645,357"/>
+<area shape="rect" id="node145" href="$a00286.html" title="osgAnimation::RigGeometry::FindNearestParentSkeleton" alt="" coords="1385,380,1735,411"/>
+<area shape="rect" id="node147" href="$a00718.html" title="osgDB::SharedStateManager" alt="" coords="1465,433,1655,464"/>
+<area shape="rect" id="node149" href="$a00258.html" title="Basic EventVisitor implementation for animating a scene." alt="" coords="1491,487,1629,517"/>
+<area shape="rect" id="node151" href="$a00394.html" title="Insert impostor nodes into scene graph." alt="" coords="1459,540,1661,571"/>
+<area shape="rect" id="node153" href="$a00051.html" title="Helper base class for implementing Optimizer techniques." alt="" coords="1464,807,1656,837"/>
+<area shape="rect" id="node194" href="$a00211.html" title="A visitor for traversing a scene graph establishing which OpenGL visuals are required to support rend..." alt="" coords="1445,593,1675,624"/>
+<area shape="rect" id="node196" href="$a00227.html" title="osgUtil::DrawElementTypeSimplifierVisitor" alt="" coords="1427,647,1693,677"/>
+<area shape="rect" id="node198" href="$a00322.html" title="Visitor for traversing scene graph and setting each osg::Drawable&#39;s _useDisplayList flag..." alt="" coords="1476,700,1644,731"/>
+<area shape="rect" id="node200" href="$a00401.html" title="InteresectionVisitor is used to testing for intersections with the scene, traversing the scene using ..." alt="" coords="1473,753,1647,784"/>
+<area shape="rect" id="node202" href="$a00405.html" title="Deprecated &#45; use IntersectionVisitor instead." alt="" coords="1481,60,1639,91"/>
+<area shape="rect" id="node206" href="$a00720.html" title="A simplifier for reducing the number of traingles in osg::Geometry." alt="" coords="1499,860,1621,891"/>
+<area shape="rect" id="node208" href="$a00726.html" title="A smoothing visitor for calculating smoothed normals for osg::GeoSet&#39;s which contains surface pri..." alt="" coords="1476,913,1644,944"/>
+<area shape="rect" id="node210" href="$a00827.html" title="StatsVisitor for collecting statistics about scene graph." alt="" coords="1491,967,1629,997"/>
+<area shape="rect" id="node212" href="$a01055.html" title="Basic UpdateVisitor implementation for animating a scene." alt="" coords="1487,113,1633,144"/>
+<area shape="rect" id="node155" href="$a00100.html" title="osgUtil::Optimizer::CheckGeometryVisitor" alt="" coords="1936,220,2200,251"/>
+<area shape="rect" id="node157" href="$a00113.html" title="Optimize the LOD groups, by combining adjacent LOD&#39;s which have complementary ranges..." alt="" coords="1941,273,2195,304"/>
+<area shape="rect" id="node159" href="$a00114.html" title="Combine Static Transform nodes that sit above one another." alt="" coords="1908,327,2228,357"/>
+<area shape="rect" id="node161" href="$a00170.html" title="Copy any shared subgraphs, enabling flattening of static transforms." alt="" coords="1916,380,2220,411"/>
+<area shape="rect" id="node163" href="$a00289.html" title="Flatten MatrixTransform/Billboard pairs." alt="" coords="1937,433,2199,464"/>
+<area shape="rect" id="node165" href="$a00290.html" title="FlattenStaticTransformsDuplicatingSharedSubgraphsVisitor is similar to to FlattenStaticTransformsVisi..." alt="" coords="1829,487,2307,517"/>
+<area shape="rect" id="node167" href="$a00291.html" title="Flatten Static Transform nodes by applying their transform to the geometry on the leaves of the scene..." alt="" coords="1913,540,2223,571"/>
+<area shape="rect" id="node169" href="$a00466.html" title="Combine geodes." alt="" coords="1943,593,2193,624"/>
+<area shape="rect" id="node171" href="$a00467.html" title="osgUtil::Optimizer::MergeGeometryVisitor" alt="" coords="1936,647,2200,677"/>
+<area shape="rect" id="node173" href="$a00645.html" title="Remove rendundant nodes, such as groups with one single child." alt="" coords="1921,700,2215,731"/>
+<area shape="rect" id="node175" href="$a00646.html" title="Remove loaded proxy nodes." alt="" coords="1903,753,2233,784"/>
+<area shape="rect" id="node177" href="$a00651.html" title="Remove redundant nodes, such as groups with one single child." alt="" coords="1909,807,2227,837"/>
+<area shape="rect" id="node179" href="$a00730.html" title="Spatialize scene into a balanced quad/oct tree." alt="" coords="1933,860,2203,891"/>
+<area shape="rect" id="node181" href="$a00751.html" title="Optimize State in the scene graph by removing duplicate state, replacing it with shared instances..." alt="" coords="1967,913,2169,944"/>
+<area shape="rect" id="node183" href="$a00787.html" title="Optimize the setting of StateSet and Geometry objects in scene so that they have a STATIC DataVarianc..." alt="" coords="1919,967,2217,997"/>
+<area shape="rect" id="node185" href="$a00885.html" title="Tessellate all geodes, to remove POLYGONS." alt="" coords="1953,1020,2183,1051"/>
+<area shape="rect" id="node187" href="$a00907.html" title="Optimize texture usage in the scene graph by combining textures into texture atlas Use of texture atl..." alt="" coords="1947,1073,2189,1104"/>
+<area shape="rect" id="node189" href="$a00911.html" title="For all textures apply settings." alt="" coords="1961,113,2175,144"/>
+<area shape="rect" id="node191" href="$a00944.html" title="A tri stripping visitor for converting Geometry surface primitives into tri strips." alt="" coords="1995,167,2141,197"/>
+<area shape="rect" id="node204" href="$a00550.html" title="Picking intersection visitor specialises the IntersectVistor to allow more convinient handling of mou..." alt="" coords="2001,60,2135,91"/>
+<area shape="rect" id="node216" href="$a00196.html" title="Database paging class which manages the loading of files in a background thread, and synchronizing of..." alt="" coords="1028,1217,1185,1248"/>
+<area shape="rect" id="node220" href="$a00357.html" title="osgDB::ImagePager" alt="" coords="1037,1375,1176,1405"/>
+<area shape="rect" id="node224" href="$a00743.html" title="Redirects notification stream to stderr (severity &lt;= WARN) or stdout (severity &gt; WARN)..." alt="" coords="1016,1428,1197,1459"/>
+<area shape="rect" id="node228" href="$a00021.html" title="AnimationPath encapsulates a time varying transformation pathway." alt="" coords="1040,7660,1173,7691"/>
+<area shape="rect" id="node230" href="$a00032.html" title="osg::Array" alt="" coords="1065,8247,1148,8277"/>
+<area shape="rect" id="node236" href="$a00041.html" title="Pure virtual AudioSink bass class that is used to connect the audio system with AudioStreams." alt="" coords="1052,7767,1161,7797"/>
+<area shape="rect" id="node238" href="$a00042.html" title="Pure virtual AudioStream base class." alt="" coords="1044,7873,1169,7904"/>
+<area shape="rect" id="node240" href="$a00080.html" title="osg::BufferObject" alt="" coords="1045,7980,1168,8011"/>
+<area shape="rect" id="node250" href="$a00220.html" title="Draw callback for custom operations." alt="" coords="1016,7927,1197,7957"/>
+<area shape="rect" id="node252" href="$a00164.html" title="A class for representing convex clipping volumes made up of several ConvexPlanarPolygon." alt="" coords="1015,8140,1199,8171"/>
+<area shape="rect" id="node254" href="$a00216.html" title="Pure virtual base class for drawable geometry." alt="" coords="2016,8353,2120,8384"/>
+<area shape="rect" id="node291" href="$a00132.html" title="Callback to allow users to override the default computation of bounding volume." alt="" coords="961,8300,1252,8331"/>
+<area shape="rect" id="node293" href="$a00177.html" title="osg::Drawable::CullCallback" alt="" coords="1015,2228,1199,2259"/>
+<area shape="rect" id="node299" href="$a00219.html" title="Callback attached to an Drawable which allows the users to customize the drawing of an exist Drawable..." alt="" coords="1012,1641,1201,1672"/>
+<area shape="rect" id="node301" href="$a00255.html" title="osg::Drawable::EventCallback" alt="" coords="1009,1588,1204,1619"/>
+<area shape="rect" id="node354" href="$a01046.html" title="osg::Drawable::UpdateCallback" alt="" coords="1005,8033,1208,8064"/>
+<area shape="rect" id="node360" href="$a00245.html" title="EllipsoidModel encapsulates the ellipsoid used to model astronomical bodies, such as sun..." alt="" coords="1040,1695,1173,1725"/>
+<area shape="rect" id="node362" href="$a00328.html" title="Base class for providing Windowing API agnostic access to creating and managing graphics context..." alt="" coords="1033,8193,1180,8224"/>
+<area shape="rect" id="node369" href="$a00353.html" title="Image class for encapsulating the storage texture image data." alt="" coords="1064,8087,1149,8117"/>
+<area shape="rect" id="node383" href="$a00491.html" title="Base class for all internal nodes in the scene graph." alt="" coords="1067,8457,1147,8488"/>
+<area shape="rect" id="node543" href="$a00133.html" title="Callback to allow users to override the default computation of bounding volume." alt="" coords="964,1908,1249,1939"/>
+<area shape="rect" id="node545" href="$a00493.html" title="osg::NodeCallback" alt="" coords="1041,1961,1172,1992"/>
+<area shape="rect" id="node585" href="$a00580.html" title="osg::PrimitiveSet" alt="" coords="1045,5209,1168,5240"/>
+<area shape="rect" id="node597" href="$a00653.html" title="osg::RenderBuffer" alt="" coords="1044,2068,1169,2099"/>
+<area shape="rect" id="node599" href="$a00705.html" title="osg::Shader is an application&#45;level abstraction of an OpenGL glShader." alt="" coords="1061,2121,1152,2152"/>
+<area shape="rect" id="node601" href="$a00713.html" title="Base class for all shape types." alt="" coords="1063,2625,1151,2656"/>
+<area shape="rect" id="node624" href="$a00746.html" title="Base class for state attributes." alt="" coords="1041,3932,1172,3963"/>
+<area shape="rect" id="node724" href="$a00747.html" title="osg::StateAttributeCallback" alt="" coords="1016,2281,1197,2312"/>
+<area shape="rect" id="node729" href="$a00749.html" title="Stores a set of modes and attributes which represent a set of OpenGL state." alt="" coords="1056,2572,1157,2603"/>
+<area shape="rect" id="node731" href="$a00083.html" title="osg::StateSet::Callback" alt="" coords="1027,2015,1187,2045"/>
+<area shape="rect" id="node734" href="$a00886.html" title="Describe several hints that can be passed to a Tessellator (like the one used by ShapeDrawable) as a ..." alt="" coords="1032,3879,1181,3909"/>
+<area shape="rect" id="node736" href="$a00925.html" title="TransferFunction is a class that provide a 1D,2D or 3D colour look up table that can be used on the G..." alt="" coords="1033,5316,1180,5347"/>
+<area shape="rect" id="node740" href="$a01039.html" title="Uniform encapsulates glUniform values." alt="" coords="1059,5049,1155,5080"/>
+<area shape="rect" id="node742" href="$a00082.html" title="osg::Uniform::Callback" alt="" coords="1029,5103,1184,5133"/>
+<area shape="rect" id="node744" href="$a01090.html" title="View &#45; maintains a master camera view and a list of slave cameras that are relative to this master ca..." alt="" coords="1068,7289,1145,7320"/>
+<area shape="rect" id="node747" href="$a00004.html" title="osgAnimation::Action" alt="" coords="1033,5476,1180,5507"/>
+<area shape="rect" id="node759" href="$a00085.html" title="osgAnimation::Action::Callback" alt="" coords="1005,5636,1208,5667"/>
+<area shape="rect" id="node763" href="$a00018.html" title="osgAnimation::Animation" alt="" coords="1024,5423,1189,5453"/>
+<area shape="rect" id="node765" href="$a00025.html" title="osgAnimation::AnimationUpdateCallbackBase" alt="" coords="963,2175,1251,2205"/>
+<area shape="rect" id="node770" href="$a00741.html" title="osgAnimation::StackedTransformElement" alt="" coords="976,5796,1237,5827"/>
+<area shape="rect" id="node782" href="$a01086.html" title="osgAnimation::VertexInfluenceMap" alt="" coords="995,5743,1219,5773"/>
+<area shape="rect" id="node784" href="$a00617.html" title="pure virtual base class for reading and writing of non native formats." alt="" coords="1036,5929,1177,5960"/>
+<area shape="rect" id="node788" href="$a00520.html" title="Options base class used for passing options into plugins to control their operation." alt="" coords="1009,6089,1204,6120"/>
+<area shape="rect" id="node792" href="$a00340.html" title="Event class for storing Keyboard, mouse and window events." alt="" coords="1021,6036,1192,6067"/>
+<area shape="rect" id="node794" href="$a00172.html" title="osgParticle::Counter" alt="" coords="1037,6143,1176,6173"/>
+<area shape="rect" id="node802" href="$a00397.html" title="An abstract base class for implementing interpolators." alt="" coords="1028,6209,1185,6240"/>
+<area shape="rect" id="node806" href="$a00518.html" title="An abstract base class used by ModularProgram to perform operations on particles before they are upda..." alt="" coords="1035,6276,1179,6307"/>
+<area shape="rect" id="node816" href="$a00556.html" title="An abstract base class for implementing particle placers." alt="" coords="1041,6383,1172,6413"/>
+<area shape="rect" id="node830" href="$a00719.html" title="An abstract base class used by ModularEmitter to &quot;shoot&quot; the particles after they have been..." alt="" coords="1037,6436,1176,6467"/>
+<area shape="rect" id="node834" href="$a00708.html" title="ShadowedScene provides a mechanism for decorating a scene that the needs to have shadows cast upon it..." alt="" coords="1005,6703,1208,6733"/>
+<area shape="rect" id="node870" href="$a00060.html" title="osgSim::BlinkSequence" alt="" coords="1027,6489,1187,6520"/>
+<area shape="rect" id="node872" href="$a00433.html" title="osgSim::LightPointSystem" alt="" coords="1019,6543,1195,6573"/>
+<area shape="rect" id="node874" href="$a00505.html" title="When the OpenFlight importer encounters an Object record, it stores the data in one of these classes..." alt="" coords="1017,6596,1196,6627"/>
+<area shape="rect" id="node876" href="$a00694.html" title="osgSim::Sector" alt="" coords="1051,1855,1163,1885"/>
+<area shape="rect" id="node885" href="$a00699.html" title="sequence group which can be used to synchronize related blink sequences." alt="" coords="1024,6649,1189,6680"/>
+<area shape="rect" id="node887" href="$a00715.html" title="osgSim::ShapeAttributeList" alt="" coords="1016,6756,1197,6787"/>
+<area shape="rect" id="node889" href="$a00424.html" title="osgTerrain::Layer" alt="" coords="1045,6809,1168,6840"/>
+<area shape="rect" id="node903" href="$a00449.html" title="osgTerrain::Locator" alt="" coords="1040,6863,1173,6893"/>
+<area shape="rect" id="node905" href="$a00883.html" title="osgTerrain::TerrainTechnique" alt="" coords="1013,6969,1200,7000"/>
+<area shape="rect" id="node909" href="$a00297.html" title="Pure virtual base class for fonts." alt="" coords="1056,6916,1157,6947"/>
+<area shape="rect" id="node911" href="$a00298.html" title="Pure virtual base class for fonts." alt="" coords="1048,7023,1165,7053"/>
+<area shape="rect" id="node913" href="$a00572.html" title="PositionalStateContainer base class." alt="" coords="1001,7076,1212,7107"/>
+<area shape="rect" id="node915" href="$a00652.html" title="RenderBin base class." alt="" coords="1041,7129,1172,7160"/>
+<area shape="rect" id="node920" href="$a00130.html" title="CompsiteViewer holds a or more views to a one more scenes." alt="" coords="1465,7716,1655,7747"/>
+<area shape="rect" id="node922" href="$a01100.html" title="ViewerBase is the view base class that is inherited by both Viewer and CompositeViewer." alt="" coords="1028,7713,1185,7744"/>
+<area shape="rect" id="node926" href="$a00425.html" title="osgVolume::Layer" alt="" coords="1044,7183,1169,7213"/>
+<area shape="rect" id="node932" href="$a00450.html" title="osgVolume::Locator" alt="" coords="1039,7343,1175,7373"/>
+<area shape="rect" id="node934" href="$a00586.html" title="osgVolume::Property" alt="" coords="1036,7236,1177,7267"/>
+<area shape="rect" id="node956" href="$a01106.html" title="osgVolume::VolumeTechnique" alt="" coords="1009,7396,1204,7427"/>
+<area shape="rect" id="node962" href="$a00076.html" title="osgWidget::BrowserManager" alt="" coords="1013,7500,1200,7531"/>
+<area shape="rect" id="node964" href="$a00842.html" title="osgWidget::Style" alt="" coords="1047,7553,1167,7584"/>
+<area shape="rect" id="node966" href="$a00844.html" title="osgWidget::StyleManager" alt="" coords="1021,7607,1192,7637"/>
+<area shape="rect" id="node232" href="$a00370.html" title="osg::IndexArray" alt="" coords="1503,8620,1617,8651"/>
+<area shape="rect" id="node242" href="$a00241.html" title="osg::ElementBufferObject" alt="" coords="1475,8033,1645,8064"/>
+<area shape="rect" id="node244" href="$a00551.html" title="osg::PixelBufferObject" alt="" coords="1484,7873,1636,7904"/>
+<area shape="rect" id="node246" href="$a00554.html" title="This object represent a general class of pixel buffer objects, which are capable of allocating buffer..." alt="" coords="1471,7927,1649,7957"/>
+<area shape="rect" id="node248" href="$a01084.html" title="osg::VertexBufferObject" alt="" coords="1480,7980,1640,8011"/>
+<area shape="rect" id="node256" href="$a00228.html" title="DrawPixels is an osg::Drawable subclass which encapsulates the drawing of images using glDrawPixels..." alt="" coords="2472,8007,2587,8037"/>
+<area shape="rect" id="node258" href="$a00313.html" title="osg::Geometry" alt="" coords="2476,8060,2583,8091"/>
+<area shape="rect" id="node269" href="$a00716.html" title="Allow the use of Shapes as Drawables, so that they can be rendered with reduced effort." alt="" coords="2459,8220,2600,8251"/>
+<area shape="rect" id="node271" href="$a00543.html" title="The heart of this class library; its purpose is to hold a set of particles and manage particle creati..." alt="" coords="2439,8273,2620,8304"/>
+<area shape="rect" id="node275" href="$a00574.html" title="Internal drawable used to render batches of cells." alt="" coords="2363,8327,2696,8357"/>
+<area shape="rect" id="node277" href="$a00509.html" title="OccluderGeometry provides a sepecialised geometry representation of objects in scene that occlude lig..." alt="" coords="2427,8380,2632,8411"/>
+<area shape="rect" id="node279" href="$a00711.html" title="osgShadow::ShadowVolumeGeometry" alt="" coords="2408,8433,2651,8464"/>
+<area shape="rect" id="node281" href="$a00364.html" title="An ImposterSprite is a textured quad which is rendered in place of 3D geometry." alt="" coords="2451,8487,2608,8517"/>
+<area shape="rect" id="node283" href="$a00898.html" title="osgText::TextBase" alt="" coords="2464,8540,2595,8571"/>
+<area shape="rect" id="node260" href="$a00610.html" title="osg::QueryGeometry" alt="" coords="2804,8087,2945,8117"/>
+<area shape="rect" id="node262" href="$a00478.html" title="osgAnimation::MorphGeometry" alt="" coords="2773,8140,2976,8171"/>
+<area shape="rect" id="node264" href="$a00663.html" title="osgAnimation::RigGeometry" alt="" coords="2783,7980,2967,8011"/>
+<area shape="rect" id="node266" href="$a00202.html" title="DelaunayTriangulator: Utility class that triangulates an irregular network of sample points..." alt="" coords="2784,8033,2965,8064"/>
+<area shape="rect" id="node273" href="$a00138.html" title="ConnectConnectedParticleSystem is a specialise ConnectedParticleSystem for effects like missle trails..." alt="" coords="2753,8273,2996,8304"/>
+<area shape="rect" id="node285" href="$a00896.html" title="osgText::Text" alt="" coords="2824,8513,2925,8544"/>
+<area shape="rect" id="node289" href="$a00897.html" title="osgText::Text3D" alt="" coords="2816,8567,2933,8597"/>
+<area shape="rect" id="node287" href="$a00279.html" title="osgText::FadeText" alt="" coords="3297,8513,3428,8544"/>
+<area shape="rect" id="node295" href="$a00107.html" title="Implements cluster culling to cull back facing drawables." alt="" coords="1469,2121,1651,2152"/>
+<area shape="rect" id="node297" href="$a00396.html" title="InteractiveImage is an event handler that computes the mouse coordinates in an images coordinate fram..." alt="" coords="1953,2084,2183,2115"/>
+<area shape="rect" id="node303" href="$a00341.html" title="GUIEventHandler provides a basic interface for any class which wants to handle a GUI Events..." alt="" coords="1476,1377,1644,1408"/>
+<area shape="rect" id="node305" href="$a00825.html" title="Event handler for adding on screen stats reporting to Viewers." alt="" coords="1976,1231,2160,1261"/>
+<area shape="rect" id="node307" href="$a00462.html" title="MatrixManipulator is an abstract base class defining the interface, and a certain amount of default f..." alt="" coords="1983,1127,2153,1157"/>
+<area shape="rect" id="node327" href="$a00750.html" title="Experimental class, not been looked at for a while, but which will be returned to at some point :&#45;\\..." alt="" coords="1975,1284,2161,1315"/>
+<area shape="rect" id="node329" href="$a00348.html" title="Event handler for adding on screen help to Viewers." alt="" coords="1988,1337,2148,1368"/>
+<area shape="rect" id="node332" href="$a00452.html" title="Event handler for increase/decreasing LODScale." alt="" coords="1972,1391,2164,1421"/>
+<area shape="rect" id="node334" href="$a00625.html" title="Event handler allowing the user to record the animation &quot;path&quot; of a camera." alt="" coords="1945,1444,2191,1475"/>
+<area shape="rect" id="node336" href="$a00689.html" title="Event handler that will capture the screen on key press." alt="" coords="1959,1497,2177,1528"/>
+<area shape="rect" id="node338" href="$a00826.html" title="Event handler for adding on screen stats reporting to Viewers." alt="" coords="1985,1551,2151,1581"/>
+<area shape="rect" id="node340" href="$a00912.html" title="Event handler allowing to change the viewer threading model." alt="" coords="1973,1604,2163,1635"/>
+<area shape="rect" id="node342" href="$a01116.html" title="Event handler allowing to change the screen resolution (in windowed mode) and toggle between fullscre..." alt="" coords="1965,1657,2171,1688"/>
+<area shape="rect" id="node344" href="$a00589.html" title="osgVolume::PropertyAdjustmentCallback" alt="" coords="1939,1924,2197,1955"/>
+<area shape="rect" id="node346" href="$a00090.html" title="osgWidget::CameraSwitchHandler" alt="" coords="1959,1711,2177,1741"/>
+<area shape="rect" id="node348" href="$a00419.html" title="osgWidget::KeyboardHandler" alt="" coords="1973,1764,2163,1795"/>
+<area shape="rect" id="node350" href="$a00482.html" title="osgWidget::MouseHandler" alt="" coords="1981,1817,2155,1848"/>
+<area shape="rect" id="node352" href="$a00661.html" title="osgWidget::ResizeHandler" alt="" coords="1981,1871,2155,1901"/>
+<area shape="rect" id="node309" href="$a00023.html" title="osgGA::AnimationPathManipulator" alt="" coords="2420,1207,2639,1237"/>
+<area shape="rect" id="node311" href="$a00092.html" title="osgGA::CameraViewSwitchManipulator" alt="" coords="2405,1260,2653,1291"/>
+<area shape="rect" id="node313" href="$a00229.html" title="DriveManipulator is a camera manipulator which provides drive&#45;like functionality." alt="" coords="2447,1313,2612,1344"/>
+<area shape="rect" id="node315" href="$a00292.html" title="FlightManipulator is a MatrixManipulator which provides flight simulator&#45;like updating of the camera ..." alt="" coords="2445,1367,2613,1397"/>
+<area shape="rect" id="node317" href="$a00422.html" title="KeySwitchMatrixManipulator is a decorator which allows the type of camera manipulator being used to b..." alt="" coords="2413,940,2645,971"/>
+<area shape="rect" id="node319" href="$a00496.html" title="osgGA::NodeTrackerManipulator" alt="" coords="2425,1153,2633,1184"/>
+<area shape="rect" id="node321" href="$a00882.html" title="osgGA::TerrainManipulator" alt="" coords="2443,993,2616,1024"/>
+<area shape="rect" id="node323" href="$a00923.html" title="osgGA::TrackballManipulator" alt="" coords="2436,1047,2623,1077"/>
+<area shape="rect" id="node325" href="$a01037.html" title="A UFO manipulator driven with keybindings." alt="" coords="2448,1100,2611,1131"/>
+<area shape="rect" id="node356" href="$a01054.html" title="osgAnimation::MorphGeometry::UpdateVertex" alt="" coords="1416,8140,1704,8171"/>
+<area shape="rect" id="node358" href="$a01053.html" title="osgAnimation::RigGeometry::UpdateVertex" alt="" coords="1425,8087,1695,8117"/>
+<area shape="rect" id="node365" href="$a00552.html" title="osgViewer::PixelBufferWin32" alt="" coords="1465,8513,1655,8544"/>
+<area shape="rect" id="node367" href="$a00553.html" title="osgViewer::PixelBufferX11" alt="" coords="1472,8567,1648,8597"/>
+<area shape="rect" id="node371" href="$a00361.html" title="Image Stream class." alt="" coords="1496,8247,1624,8277"/>
+<area shape="rect" id="node375" href="$a00323.html" title="osgText::Font::Glyph" alt="" coords="1488,8353,1632,8384"/>
+<area shape="rect" id="node377" href="$a00075.html" title="Pure virtual base class for that provides the browser inteface for integration with 3rd party impleme..." alt="" coords="1473,8407,1647,8437"/>
+<area shape="rect" id="node379" href="$a00545.html" title="Pure virtual base class for interfacing with implementation of PDF reader." alt="" coords="1487,8460,1633,8491"/>
+<area shape="rect" id="node381" href="$a01104.html" title="Pure virtual base class for VncImage that is sublcassed by vnc plugin to provide the actual implement..." alt="" coords="1485,8300,1635,8331"/>
+<area shape="rect" id="node373" href="$a00360.html" title="Image Buffer class." alt="" coords="1996,8247,2140,8277"/>
+<area shape="rect" id="node385" href="$a00311.html" title="A Geode is a &quot;geometry node&quot;, that is, a leaf node on the scene graph that can have &quot;r..." alt="" coords="1516,8828,1604,8859"/>
+<area shape="rect" id="node399" href="$a00338.html" title="General group node which maintains a list of children." alt="" coords="1517,9207,1603,9237"/>
+<area shape="rect" id="node525" href="$a00542.html" title="A common base interface for those classes which need to do something on particles." alt="" coords="1463,8935,1657,8965"/>
+<area shape="rect" id="node537" href="$a00544.html" title="A useful node class for updating particle systems automatically." alt="" coords="1447,8881,1673,8912"/>
+<area shape="rect" id="node539" href="$a00576.html" title="osgParticle::PrecipitationEffect" alt="" coords="1460,8988,1660,9019"/>
+<area shape="rect" id="node541" href="$a00432.html" title="osgSim::LightPointNode" alt="" coords="1480,9041,1640,9072"/>
+<area shape="rect" id="node387" href="$a00056.html" title="Billboard is a derived form of Geode that orients its osg::Drawable children to face the eye point..." alt="" coords="2017,8407,2119,8437"/>
+<area shape="rect" id="node389" href="$a00675.html" title="A ScalarBar is an osg::Geode to render a colored bar representing a range of scalars." alt="" coords="2003,8460,2133,8491"/>
+<area shape="rect" id="node391" href="$a00735.html" title="A SphereSegment is a Geode to represent an portion of a sphere (potentially the whole sphere)..." alt="" coords="1985,8513,2151,8544"/>
+<area shape="rect" id="node393" href="$a00074.html" title="Convinience class that provides a interactive quad that can be placed directly in the scene..." alt="" coords="1999,8567,2137,8597"/>
+<area shape="rect" id="node395" href="$a00546.html" title="Convinience class that provides a interactive quad that can be placed directly in the scene..." alt="" coords="1993,8620,2143,8651"/>
+<area shape="rect" id="node397" href="$a01103.html" title="Convinience Vnc Client class that provides a interactive quad that can be placed directly in the scen..." alt="" coords="1995,8673,2141,8704"/>
+<area shape="rect" id="node401" href="$a00104.html" title="A Group node for clearing the color and depth buffers." alt="" coords="2013,9260,2123,9291"/>
+<area shape="rect" id="node403" href="$a00105.html" title="Node for defining the position of ClipPlanes in the scene." alt="" coords="2017,9313,2119,9344"/>
+<area shape="rect" id="node405" href="$a00168.html" title="CoordinateSystem encapsulate the coordinate system that is associated with objects in a scene..." alt="" coords="1975,9367,2161,9397"/>
+<area shape="rect" id="node407" href="$a00434.html" title="Leaf Node for defining a light in the scene." alt="" coords="2008,9420,2128,9451"/>
+<area shape="rect" id="node409" href="$a00451.html" title="LOD &#45; Level Of Detail group node which allows switching between children depending on distance from e..." alt="" coords="2031,9793,2105,9824"/>
+<area shape="rect" id="node415" href="$a00510.html" title="OccluderNode is a Group node which allows OccluderNodeing between children." alt="" coords="2001,9527,2135,9557"/>
+<area shape="rect" id="node417" href="$a00511.html" title="osg::OcclusionQueryNode" alt="" coords="1981,9580,2155,9611"/>
+<area shape="rect" id="node419" href="$a00583.html" title="Projection nodes set up the frustum/orthographic projection used when rendering the scene..." alt="" coords="2013,9633,2123,9664"/>
+<area shape="rect" id="node421" href="$a00603.html" title="ProxyNode." alt="" coords="2011,9687,2125,9717"/>
+<area shape="rect" id="node423" href="$a00698.html" title="Sequence is a Group node which allows automatic, time based switching between children." alt="" coords="2013,9740,2123,9771"/>
+<area shape="rect" id="node425" href="$a00852.html" title="Switch is a Group node that allows switching between children." alt="" coords="2023,8727,2113,8757"/>
+<area shape="rect" id="node429" href="$a00894.html" title="Node for defining the position of TexGen in the scene." alt="" coords="2005,9847,2131,9877"/>
+<area shape="rect" id="node431" href="$a00928.html" title="A Transform is a group node for which all children are transformed by a 4x4 matrix." alt="" coords="2013,9900,2123,9931"/>
+<area shape="rect" id="node483" href="$a00240.html" title="The base class for special effects." alt="" coords="2017,10087,2119,10117"/>
+<area shape="rect" id="node495" href="$a00487.html" title="This node provides control over the which texture units are active and the blending weighting between..." alt="" coords="1979,9953,2157,9984"/>
+<area shape="rect" id="node497" href="$a00541.html" title="osgParticle::ParticleEffect" alt="" coords="1983,9473,2153,9504"/>
+<area shape="rect" id="node509" href="$a00706.html" title="ShadowedScene provides a mechansim for decorating a scene that the needs to have shadows cast upon it..." alt="" coords="1971,10140,2165,10171"/>
+<area shape="rect" id="node511" href="$a00486.html" title="MultiSwitch is a Group node which allows switching between sets of selected children." alt="" coords="1997,8887,2139,8917"/>
+<area shape="rect" id="node513" href="$a00533.html" title="OverlayNode is for creating texture overlays on scenes, with the overlay texture being generated by p..." alt="" coords="1993,8940,2143,8971"/>
+<area shape="rect" id="node515" href="$a01102.html" title="VisibilityGroup renders (traverses) it&#39;s children only when the camera is inside a specified visi..." alt="" coords="1989,8993,2147,9024"/>
+<area shape="rect" id="node517" href="$a00881.html" title="Terrain provides a framework for loosely coupling height field data with height rendering algorithms..." alt="" coords="2004,9047,2132,9077"/>
+<area shape="rect" id="node519" href="$a00884.html" title="Terrain provides a framework for loosely coupling height field data with height rendering algorithms..." alt="" coords="1993,9100,2143,9131"/>
+<area shape="rect" id="node521" href="$a01105.html" title="Volume provides a framework for loosely coupling 3d image VolumeTile&#39;s with volume algorithms..." alt="" coords="2000,9153,2136,9184"/>
+<area shape="rect" id="node523" href="$a01107.html" title="VolumeTile provides a framework for loosely coupling 3d image data with rendering algorithms..." alt="" coords="1989,9207,2147,9237"/>
+<area shape="rect" id="node411" href="$a00534.html" title="PagedLOD." alt="" coords="2473,9713,2585,9744"/>
+<area shape="rect" id="node413" href="$a00363.html" title="Impostor &#45; is a form of Level Of Detail group node which allows both switching between children depen..." alt="" coords="2467,9660,2592,9691"/>
+<area shape="rect" id="node427" href="$a01115.html" title="osgWidget::WindowManager" alt="" coords="2436,8167,2623,8197"/>
+<area shape="rect" id="node433" href="$a00045.html" title="AutoTransform is a derived form of Transform that automatically scales or rotates to keep its childre..." alt="" coords="2461,9820,2597,9851"/>
+<area shape="rect" id="node436" href="$a00091.html" title="CameraView &#45; is a Transform that is used to specify camera views from within the scene graph..." alt="" coords="2468,9873,2591,9904"/>
+<area shape="rect" id="node438" href="$a00464.html" title="MatrixTransform &#45; is a subclass of Transform which has an osg::Matrix which represents a 4x4 transfor..." alt="" coords="2457,9927,2601,9957"/>
+<area shape="rect" id="node479" href="$a00573.html" title="PositionAttitudeTransform &#45; is a Transform." alt="" coords="2429,9980,2629,10011"/>
+<area shape="rect" id="node481" href="$a00213.html" title="DOFTransform &#45; encapsulates Multigen DOF behavior." alt="" coords="2451,9767,2608,9797"/>
+<area shape="rect" id="node440" href="$a00062.html" title="osgAnimation::Bone" alt="" coords="2805,9953,2944,9984"/>
+<area shape="rect" id="node442" href="$a00722.html" title="osgAnimation::Skeleton" alt="" coords="2795,10007,2955,10037"/>
+<area shape="rect" id="node444" href="$a00027.html" title="Class that performs the Anti Squish by making the scaling uniform along all axes." alt="" coords="2784,9847,2965,9877"/>
+<area shape="rect" id="node446" href="$a00697.html" title="Selection listens to motion commands generated by draggers." alt="" coords="2789,9900,2960,9931"/>
+<area shape="rect" id="node448" href="$a00215.html" title="Base class for draggers." alt="" coords="3281,9900,3444,9931"/>
+<area shape="rect" id="node450" href="$a00124.html" title="CompositeDragger allows to create complex draggers that are composed of a hierarchy of Draggers..." alt="" coords="3969,10007,4193,10037"/>
+<area shape="rect" id="node466" href="$a00668.html" title="Dragger for performing 3D rotation on a cylinder." alt="" coords="3957,10060,4205,10091"/>
+<area shape="rect" id="node468" href="$a00669.html" title="Dragger for performing 3D rotation on a sphere." alt="" coords="3960,9740,4203,9771"/>
+<area shape="rect" id="node470" href="$a00680.html" title="Dragger for performing 1D scaling." alt="" coords="3976,9793,4187,9824"/>
+<area shape="rect" id="node472" href="$a00682.html" title="Dragger for performing 2D scaling." alt="" coords="3976,9847,4187,9877"/>
+<area shape="rect" id="node474" href="$a00932.html" title="Dragger for performing 1D translation." alt="" coords="3965,9900,4197,9931"/>
+<area shape="rect" id="node476" href="$a00933.html" title="Dragger for performing 2D translation." alt="" coords="3965,9953,4197,9984"/>
+<area shape="rect" id="node452" href="$a00683.html" title="Dragger for performing scaling on all 3 axes." alt="" coords="4532,10060,4753,10091"/>
+<area shape="rect" id="node454" href="$a00855.html" title="TabBoxDragger consists of 6 TabPlaneDraggers to form a box dragger that performs translation and scal..." alt="" coords="4540,10113,4745,10144"/>
+<area shape="rect" id="node456" href="$a00857.html" title="Tab plane dragger consists of a plane with tabs on it&#39;s corners and edges for scaling..." alt="" coords="4535,10167,4751,10197"/>
+<area shape="rect" id="node458" href="$a00858.html" title="Dragger for performing rotation in all axes." alt="" coords="4508,9847,4777,9877"/>
+<area shape="rect" id="node460" href="$a00922.html" title="Dragger for performing rotation in all axes." alt="" coords="4536,9900,4749,9931"/>
+<area shape="rect" id="node462" href="$a00934.html" title="Dragger for performing translation in all three axes." alt="" coords="4521,9953,4764,9984"/>
+<area shape="rect" id="node464" href="$a00937.html" title="Tab plane dragger consists of a plane with tabs on it&#39;s corners and edges for scaling..." alt="" coords="4519,10007,4767,10037"/>
+<area shape="rect" id="node485" href="$a00026.html" title="This single&#45;pass effect implements a sort of anisotropic lighting that replaces the standard OpenGL l..." alt="" coords="2440,10087,2619,10117"/>
+<area shape="rect" id="node487" href="$a00081.html" title="This effect makes surfaces appear bumpy." alt="" coords="2455,10140,2604,10171"/>
+<area shape="rect" id="node489" href="$a00096.html" title="This effect implements a technique called &#39;Cel&#45;Shading&#39; to produce a cartoon&#45;style (non photo..." alt="" coords="2473,10193,2585,10224"/>
+<area shape="rect" id="node491" href="$a00692.html" title="This is a two&#45;passes effect; the first pass renders the subgraph as usual while the second pass switc..." alt="" coords="2477,10247,2581,10277"/>
+<area shape="rect" id="node493" href="$a00731.html" title="This effect applies additive specular highlights at fragment level (instead of OpenGL&#39;s vertex&#45;le..." alt="" coords="2441,10033,2617,10064"/>
+<area shape="rect" id="node499" href="$a00260.html" title="osgParticle::ExplosionDebrisEffect" alt="" coords="2419,9367,2640,9397"/>
+<area shape="rect" id="node501" href="$a00261.html" title="osgParticle::ExplosionEffect" alt="" coords="2436,9527,2623,9557"/>
+<area shape="rect" id="node503" href="$a00287.html" title="osgParticle::FireEffect" alt="" coords="2455,9580,2604,9611"/>
+<area shape="rect" id="node505" href="$a00724.html" title="osgParticle::SmokeEffect" alt="" coords="2444,9420,2615,9451"/>
+<area shape="rect" id="node507" href="$a00725.html" title="osgParticle::SmokeTrailEffect" alt="" coords="2432,9473,2627,9504"/>
+<area shape="rect" id="node527" href="$a00247.html" title="An abstract base class for particle emitters." alt="" coords="2001,8833,2135,8864"/>
+<area shape="rect" id="node531" href="$a00581.html" title="An abstract ParticleProcessor descendant for modifying particles &quot;on the fly&quot; during the cu..." alt="" coords="1997,8780,2139,8811"/>
+<area shape="rect" id="node529" href="$a00476.html" title="An emitter class that holds three objects to control the creation of particles." alt="" coords="2439,8833,2620,8864"/>
+<area shape="rect" id="node533" href="$a00294.html" title="A program class for performing operations on particles using a sequence of operators." alt="" coords="2444,8780,2615,8811"/>
+<area shape="rect" id="node535" href="$a00477.html" title="A program class for performing operations on particles using a sequence of operators." alt="" coords="2435,8727,2624,8757"/>
+<area shape="rect" id="node547" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; osg::NodeCallback \&gt;" alt="" coords="1365,2015,1755,2045"/>
+<area shape="rect" id="node555" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; osg::StateAttributeCallback \&gt;" alt="" coords="1340,2175,1780,2205"/>
+<area shape="rect" id="node559" href="$a00022.html" title="osg::AnimationPathCallback" alt="" coords="1468,1751,1652,1781"/>
+<area shape="rect" id="node562" href="$a00495.html" title="osg::NodeTrackerCallback" alt="" coords="1473,1804,1647,1835"/>
+<area shape="rect" id="node564" href="$a00020.html" title="osgAnimation::AnimationManagerBase" alt="" coords="1437,1961,1683,1992"/>
+<area shape="rect" id="node572" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; T \&gt;" alt="" coords="1415,2068,1705,2099"/>
+<area shape="rect" id="node576" href="$a01051.html" title="osgAnimation::Skeleton::UpdateSkeleton" alt="" coords="1431,1857,1689,1888"/>
+<area shape="rect" id="node579" href="$a00088.html" title="osgShadow::MinimalDrawBoundsShadowMap::CameraCullCallback" alt="" coords="1355,1591,1765,1621"/>
+<area shape="rect" id="node581" href="$a00089.html" title="osgShadow::ShadowTechnique::CameraCullCallback" alt="" coords="1397,1644,1723,1675"/>
+<area shape="rect" id="node583" href="$a00930.html" title="TransformCallback is now deprecated, use osg::AnimationPathCallback instead." alt="" coords="1471,1697,1649,1728"/>
+<area shape="rect" id="node549" href="$a01049.html" title="osgAnimation::UpdateMatrixTransform" alt="" coords="1947,2191,2189,2221"/>
+<area shape="rect" id="node553" href="$a01050.html" title="osgAnimation::UpdateMorph" alt="" coords="1975,2244,2161,2275"/>
+<area shape="rect" id="node551" href="$a01045.html" title="osgAnimation::UpdateBone" alt="" coords="2440,2191,2619,2221"/>
+<area shape="rect" id="node557" href="$a01048.html" title="osgAnimation::UpdateMaterial" alt="" coords="1971,2404,2165,2435"/>
+<area shape="rect" id="node566" href="$a00019.html" title="osgAnimation::AnimationManager" alt="" coords="1960,2137,2176,2168"/>
+<area shape="rect" id="node568" href="$a00055.html" title="osgAnimation::BasicAnimationManager" alt="" coords="1943,1977,2193,2008"/>
+<area shape="rect" id="node570" href="$a00919.html" title="osgAnimation::TimelineAnimationManager" alt="" coords="1935,2031,2201,2061"/>
+<area shape="rect" id="node574" href="$a01052.html" title="osgAnimation::UpdateTransform" alt="" coords="1964,2351,2172,2381"/>
+<area shape="rect" id="node588" href="$a00218.html" title="osg::DrawArrays" alt="" coords="1501,5156,1619,5187"/>
+<area shape="rect" id="node590" href="$a00222.html" title="osg::DrawElements" alt="" coords="1493,5209,1627,5240"/>
+<area shape="rect" id="node603" href="$a00071.html" title="osg::Box" alt="" coords="1523,2385,1597,2416"/>
+<area shape="rect" id="node605" href="$a00094.html" title="osg::Capsule" alt="" coords="1511,2439,1609,2469"/>
+<area shape="rect" id="node607" href="$a00129.html" title="osg::CompositeShape" alt="" coords="1485,2492,1635,2523"/>
+<area shape="rect" id="node609" href="$a00136.html" title="osg::Cone" alt="" coords="1520,2545,1600,2576"/>
+<area shape="rect" id="node611" href="$a00192.html" title="osg::Cylinder" alt="" coords="1511,2599,1609,2629"/>
+<area shape="rect" id="node613" href="$a00346.html" title="osg::HeightField" alt="" coords="1503,2652,1617,2683"/>
+<area shape="rect" id="node616" href="$a00417.html" title="Implementation of a kdtree for Geometry leaves, to enable fast intersection tests." alt="" coords="1515,2705,1605,2736"/>
+<area shape="rect" id="node618" href="$a00732.html" title="osg::Sphere" alt="" coords="1515,2759,1605,2789"/>
+<area shape="rect" id="node620" href="$a00943.html" title="osg::TriangleMesh" alt="" coords="1496,2332,1624,2363"/>
+<area shape="rect" id="node622" href="$a00163.html" title="osg::ConvexHull" alt="" coords="2009,2457,2127,2488"/>
+<area shape="rect" id="node626" href="$a00015.html" title="Encapsulates OpenGL glAlphaFunc." alt="" coords="1504,3292,1616,3323"/>
+<area shape="rect" id="node628" href="$a00057.html" title="Encapsulates OpenGL blend/transparency state." alt="" coords="1503,3345,1617,3376"/>
+<area shape="rect" id="node630" href="$a00058.html" title="Encapsulates OpenGL BlendEquation state." alt="" coords="1493,3399,1627,3429"/>
+<area shape="rect" id="node632" href="$a00059.html" title="Encapsulates OpenGL blend/transparency state." alt="" coords="1504,3452,1616,3483"/>
+<area shape="rect" id="node634" href="$a00101.html" title="Encapsulates OpenGL ClampColor state." alt="" coords="1501,3505,1619,3536"/>
+<area shape="rect" id="node636" href="$a00106.html" title="Encapsulates OpenGL glClipPlane()." alt="" coords="1507,3559,1613,3589"/>
+<area shape="rect" id="node638" href="$a00110.html" title="Encapsulates OpenGL glColorMaskFunc/Op/Mask functions." alt="" coords="1504,3612,1616,3643"/>
+<area shape="rect" id="node640" href="$a00111.html" title="Encapsulates OpenGL color matrix functionality." alt="" coords="1501,3665,1619,3696"/>
+<area shape="rect" id="node642" href="$a00178.html" title="Class to globally enable/disable OpenGL&#39;s polygon culling mode." alt="" coords="1509,3719,1611,3749"/>
+<area shape="rect" id="node644" href="$a00206.html" title="Encapsulate OpenGL glDepthFunc/Mask/Range functions." alt="" coords="1517,3772,1603,3803"/>
+<area shape="rect" id="node646" href="$a00296.html" title="Fog &#45; encapsulates OpenGL fog state." alt="" coords="1524,3825,1596,3856"/>
+<area shape="rect" id="node648" href="$a00302.html" title="FragmentProgram &#45; encapsulates the OpenGL ARB fragment program state." alt="" coords="1483,3879,1637,3909"/>
+<area shape="rect" id="node650" href="$a00306.html" title="osg::FrameBufferObject" alt="" coords="1480,3932,1640,3963"/>
+<area shape="rect" id="node652" href="$a00308.html" title="Class to specify the orientation of front&#45;facing polygons." alt="" coords="1505,3985,1615,4016"/>
+<area shape="rect" id="node654" href="$a00350.html" title="osg::Hint" alt="" coords="1523,4039,1597,4069"/>
+<area shape="rect" id="node656" href="$a00428.html" title="Light state class which encapsulates OpenGL glLight() functionality." alt="" coords="1521,4092,1599,4123"/>
+<area shape="rect" id="node658" href="$a00430.html" title="osg::LightModel" alt="" coords="1503,4145,1617,4176"/>
+<area shape="rect" id="node660" href="$a00446.html" title="osg::LineStipple" alt="" coords="1503,4199,1617,4229"/>
+<area shape="rect" id="node662" href="$a00447.html" title="LineWidth &#45; encapsulates the OpenGL glLineWidth for setting the width of lines in pixels..." alt="" coords="1507,4252,1613,4283"/>
+<area shape="rect" id="node664" href="$a00453.html" title="Encapsulates OpenGL LogicOp state." alt="" coords="1511,4305,1609,4336"/>
+<area shape="rect" id="node666" href="$a00456.html" title="Material &#45; encapsulates OpenGL glMaterial state." alt="" coords="1512,4359,1608,4389"/>
+<area shape="rect" id="node668" href="$a00484.html" title="Multisample &#45; encapsulates the OpenGL Multisample state." alt="" coords="1500,4412,1620,4443"/>
+<area shape="rect" id="node670" href="$a00561.html" title="Point &#45; encapsulates the OpenGL point smoothing and size state." alt="" coords="1520,4465,1600,4496"/>
+<area shape="rect" id="node672" href="$a00565.html" title="PointSprite base class which encapsulates enabling of point sprites ." alt="" coords="1503,4572,1617,4603"/>
+<area shape="rect" id="node674" href="$a00566.html" title="State Class for setting OpenGL&#39;s polygon culling mode." alt="" coords="1496,4625,1624,4656"/>
+<area shape="rect" id="node676" href="$a00567.html" title="PolygonOffset &#45; encapsulates the OpenGL glPolygonOffset state." alt="" coords="1493,4679,1627,4709"/>
+<area shape="rect" id="node678" href="$a00568.html" title="osg::PolygonStipple" alt="" coords="1492,4732,1628,4763"/>
+<area shape="rect" id="node680" href="$a00582.html" title="osg::Program is an application&#45;level abstraction of an OpenGL glProgram." alt="" coords="1511,4785,1609,4816"/>
+<area shape="rect" id="node682" href="$a00688.html" title="Encapsulate OpenGL glScissor." alt="" coords="1513,4839,1607,4869"/>
+<area shape="rect" id="node684" href="$a00704.html" title="Class which encapsulates glShadeModel(..)." alt="" coords="1499,4892,1621,4923"/>
+<area shape="rect" id="node686" href="$a00835.html" title="Encapsulate OpenGL glStencilFunc/Op/Mask functions." alt="" coords="1515,4945,1605,4976"/>
+<area shape="rect" id="node688" href="$a00836.html" title="Encapsulate OpenGL two sided glStencilFunc/Op/Mask functions." alt="" coords="1487,2812,1633,2843"/>
+<area shape="rect" id="node690" href="$a00890.html" title="TexEnv encapsulates the OpenGL glTexEnv (texture environment) state." alt="" coords="1513,2865,1607,2896"/>
+<area shape="rect" id="node692" href="$a00891.html" title="TexEnvCombine encapsulates the OpenGL glTexEnvCombine (texture environment) state." alt="" coords="1488,2919,1632,2949"/>
+<area shape="rect" id="node694" href="$a00892.html" title="TexEnvFilter &#45; encapsulates the OpenGL glTexEnv (GL_TEXTURE_FILTER_CONTROL) state." alt="" coords="1499,2972,1621,3003"/>
+<area shape="rect" id="node696" href="$a00893.html" title="TexGen encapsulates the OpenGL glTexGen (texture coordinate generation) state." alt="" coords="1512,3025,1608,3056"/>
+<area shape="rect" id="node698" href="$a00895.html" title="A texture matrix state class that encapsulates OpenGL texture matrix functionality." alt="" coords="1513,3079,1607,3109"/>
+<area shape="rect" id="node700" href="$a00900.html" title="Texture pure virtual base class that encapsulates OpenGl texture functionality common to the various ..." alt="" coords="1513,4519,1607,4549"/>
+<area shape="rect" id="node718" href="$a01088.html" title="VertexProgram &#45; encapsulates the OpenGL ARB vertex program state." alt="" coords="1492,3132,1628,3163"/>
+<area shape="rect" id="node720" href="$a01101.html" title="Encapsulate OpenGL glViewport." alt="" coords="1509,3185,1611,3216"/>
+<area shape="rect" id="node722" href="$a01056.html" title="This class is used internally by osgFX::Effect to choose between different techniques dynamically..." alt="" coords="1501,3239,1619,3269"/>
+<area shape="rect" id="node702" href="$a00901.html" title="Encapsulates OpenGl 1D texture functionality." alt="" coords="2013,4572,2123,4603"/>
+<area shape="rect" id="node704" href="$a00902.html" title="Encapsulates OpenGl 2D texture functionality." alt="" coords="2013,4359,2123,4389"/>
+<area shape="rect" id="node708" href="$a00903.html" title="Texture2DArray state class which encapsulates OpenGL 2D array texture functionality." alt="" coords="1999,4625,2137,4656"/>
+<area shape="rect" id="node710" href="$a00904.html" title="Texture2DMultisample state class which encapsulates OpenGL 2D multisampled texture functionality..." alt="" coords="1979,4679,2157,4709"/>
+<area shape="rect" id="node712" href="$a00905.html" title="Encapsulates OpenGl 2D texture functionality." alt="" coords="2013,4412,2123,4443"/>
+<area shape="rect" id="node714" href="$a00908.html" title="TextureCubeMap state class which encapsulates OpenGL texture cubemap functionality." alt="" coords="1993,4465,2143,4496"/>
+<area shape="rect" id="node716" href="$a00910.html" title="Texture state class which encapsulates OpenGL texture functionality." alt="" coords="1992,4519,2144,4549"/>
+<area shape="rect" id="node706" href="$a00327.html" title="osgText::Font::GlyphTexture" alt="" coords="2436,4359,2623,4389"/>
+<area shape="rect" id="node727" href="$a01047.html" title="osg::ImageSequence::UpdateCallback" alt="" coords="1439,2279,1681,2309"/>
+<area shape="rect" id="node738" href="$a00926.html" title="1D variant of TransferFunction." alt="" coords="1479,5263,1641,5293"/>
+<area shape="rect" id="node749" href="$a00005.html" title="osgAnimation::ActionAnimation" alt="" coords="1459,5369,1661,5400"/>
+<area shape="rect" id="node751" href="$a00006.html" title="blend in from 0 to weight in duration" alt="" coords="1465,5423,1655,5453"/>
+<area shape="rect" id="node753" href="$a00007.html" title="blend out from weight to 0 in duration" alt="" coords="1460,5529,1660,5560"/>
+<area shape="rect" id="node755" href="$a00008.html" title="osgAnimation::ActionStripAnimation" alt="" coords="1445,5476,1675,5507"/>
+<area shape="rect" id="node757" href="$a00918.html" title="osgAnimation::Timeline" alt="" coords="1481,5316,1639,5347"/>
+<area shape="rect" id="node761" href="$a00670.html" title="Callback used to run new action on the timeline." alt="" coords="1476,5583,1644,5613"/>
+<area shape="rect" id="node772" href="$a00736.html" title="osgAnimation::StackedMatrixElement" alt="" coords="1440,5743,1680,5773"/>
+<area shape="rect" id="node774" href="$a00737.html" title="osgAnimation::StackedQuaternionElement" alt="" coords="1427,5796,1693,5827"/>
+<area shape="rect" id="node776" href="$a00738.html" title="osgAnimation::StackedRotateAxisElement" alt="" coords="1425,5849,1695,5880"/>
+<area shape="rect" id="node778" href="$a00739.html" title="osgAnimation::StackedScaleElement" alt="" coords="1441,5636,1679,5667"/>
+<area shape="rect" id="node780" href="$a00742.html" title="osgAnimation::StackedTranslateElement" alt="" coords="1431,5689,1689,5720"/>
+<area shape="rect" id="node786" href="$a00030.html" title="Base class for implementing database Archives." alt="" coords="1504,5903,1616,5933"/>
+<area shape="rect" id="node790" href="$a00356.html" title="osgDB::ImageOptions" alt="" coords="1485,5956,1635,5987"/>
+<area shape="rect" id="node796" href="$a00139.html" title="osgParticle::ConstantRateCounter" alt="" coords="1451,6063,1669,6093"/>
+<area shape="rect" id="node798" href="$a01064.html" title="osgParticle::VariableRateCounter" alt="" coords="1455,6009,1665,6040"/>
+<area shape="rect" id="node800" href="$a00612.html" title="osgParticle::RandomRateCounter" alt="" coords="1961,6009,2175,6040"/>
+<area shape="rect" id="node804" href="$a00440.html" title="A linear interpolator." alt="" coords="1463,6116,1657,6147"/>
+<area shape="rect" id="node808" href="$a00002.html" title="An operator class that applies a constant acceleration to the particles." alt="" coords="1472,6223,1648,6253"/>
+<area shape="rect" id="node810" href="$a00017.html" title="An operator class that applies a constant angular acceleration to the particles." alt="" coords="1449,6276,1671,6307"/>
+<area shape="rect" id="node812" href="$a00293.html" title="An operator that simulates the friction of a fluid." alt="" coords="1453,6329,1667,6360"/>
+<area shape="rect" id="node814" href="$a00301.html" title="An operator that applies a constant force to the particles." alt="" coords="1472,6169,1648,6200"/>
+<area shape="rect" id="node818" href="$a00098.html" title="An abstract placer base class for placers which need a center point." alt="" coords="1469,6383,1651,6413"/>
+<area shape="rect" id="node826" href="$a00485.html" title="A polyline&#45;shaped particle placer." alt="" coords="1455,6436,1665,6467"/>
+<area shape="rect" id="node828" href="$a00696.html" title="A segment&#45;shaped particle placer." alt="" coords="1469,6489,1651,6520"/>
+<area shape="rect" id="node820" href="$a00073.html" title="A box&#45;shaped particle placer." alt="" coords="1991,6436,2145,6467"/>
+<area shape="rect" id="node822" href="$a00564.html" title="A point&#45;shaped particle placer." alt="" coords="1988,6329,2148,6360"/>
+<area shape="rect" id="node824" href="$a00695.html" title="A sector&#45;shaped particle placer." alt="" coords="1984,6383,2152,6413"/>
+<area shape="rect" id="node832" href="$a00611.html" title="A shooter class that shoots particles radially." alt="" coords="1473,6543,1647,6573"/>
+<area shape="rect" id="node836" href="$a00535.html" title="osgShadow::ParallelSplitShadowMap" alt="" coords="1443,6809,1677,6840"/>
+<area shape="rect" id="node838" href="$a00707.html" title="ShadowedTexture provides an implementation of shadow textures." alt="" coords="1476,6649,1644,6680"/>
+<area shape="rect" id="node842" href="$a00709.html" title="ShadowedTexture provides an implementation of shadow textures." alt="" coords="1467,6703,1653,6733"/>
+<area shape="rect" id="node844" href="$a00710.html" title="ShadowedTexture provides an implementation of shadow textures." alt="" coords="1467,6756,1653,6787"/>
+<area shape="rect" id="node846" href="$a01098.html" title="ViewDependentShadowTechnique is a base class for all View Dependent Shadow techniques." alt="" coords="1415,6596,1705,6627"/>
+<area shape="rect" id="node840" href="$a00727.html" title="SoftShadowMap provides an implementation of soft shadows with shadow maps." alt="" coords="1972,6649,2164,6680"/>
+<area shape="rect" id="node848" href="$a00200.html" title="Class used as a layer for debuging resources used by derived xxxShadowMap classes." alt="" coords="1965,6596,2171,6627"/>
+<area shape="rect" id="node850" href="$a00744.html" title="osgShadow::StandardShadowMap" alt="" coords="2420,6596,2639,6627"/>
+<area shape="rect" id="node852" href="$a00472.html" title="osgShadow::MinimalShadowMap" alt="" coords="2768,6596,2981,6627"/>
+<area shape="rect" id="node854" href="$a00470.html" title="osgShadow::MinimalCullBoundsShadowMap" alt="" coords="3224,6543,3501,6573"/>
+<area shape="rect" id="node860" href="$a00471.html" title="osgShadow::MinimalDrawBoundsShadowMap" alt="" coords="3220,6596,3505,6627"/>
+<area shape="rect" id="node866" href="$a00584.html" title="osgShadow::ProjectionShadowMap\&lt; MinimalShadowMap, LightSpacePerspectiveShadowMapAlgorithm \&gt;" alt="" coords="3047,6649,3679,6680"/>
+<area shape="rect" id="node856" href="$a00584.html" title="osgShadow::ProjectionShadowMap\&lt; MinimalCullBoundsShadowMap, LightSpacePerspectiveShadowMapAlgorithm \&gt;" alt="" coords="3732,6543,4431,6573"/>
+<area shape="rect" id="node858" href="$a00436.html" title="osgShadow::LightSpacePerspectiveShadowMapCB" alt="" coords="4484,6543,4801,6573"/>
+<area shape="rect" id="node862" href="$a00584.html" title="osgShadow::ProjectionShadowMap\&lt; MinimalDrawBoundsShadowMap, LightSpacePerspectiveShadowMapAlgorithm \&gt;" alt="" coords="3728,6596,4435,6627"/>
+<area shape="rect" id="node864" href="$a00437.html" title="osgShadow::LightSpacePerspectiveShadowMapDB" alt="" coords="4484,6596,4801,6627"/>
+<area shape="rect" id="node868" href="$a00438.html" title="osgShadow::LightSpacePerspectiveShadowMapVB" alt="" coords="3923,6649,4240,6680"/>
+<area shape="rect" id="node880" href="$a00137.html" title="osgSim::ConeSector" alt="" coords="1489,1484,1631,1515"/>
+<area shape="rect" id="node882" href="$a00210.html" title="osgSim::DirectionalSector" alt="" coords="1473,1537,1647,1568"/>
+<area shape="rect" id="node891" href="$a00125.html" title="osgTerrain::CompositeLayer" alt="" coords="1468,6863,1652,6893"/>
+<area shape="rect" id="node895" href="$a00149.html" title="osgTerrain::ContourLayer" alt="" coords="1477,6969,1643,7000"/>
+<area shape="rect" id="node897" href="$a00347.html" title="osgTerrain::HeightFieldLayer" alt="" coords="1467,7023,1653,7053"/>
+<area shape="rect" id="node899" href="$a00354.html" title="osgTerrain::ImageLayer" alt="" coords="1481,7076,1639,7107"/>
+<area shape="rect" id="node901" href="$a00602.html" title="osgTerrain::ProxyLayer" alt="" coords="1483,6916,1637,6947"/>
+<area shape="rect" id="node893" href="$a00853.html" title="osgTerrain::SwitchLayer" alt="" coords="1988,6863,2148,6893"/>
+<area shape="rect" id="node907" href="$a00315.html" title="osgTerrain::GeometryTechnique" alt="" coords="1457,7129,1663,7160"/>
+<area shape="rect" id="node917" href="$a00657.html" title="RenderStage base class." alt="" coords="1488,7183,1632,7213"/>
+<area shape="rect" id="node928" href="$a00126.html" title="osgVolume::CompositeLayer" alt="" coords="1467,7236,1653,7267"/>
+<area shape="rect" id="node930" href="$a00355.html" title="osgVolume::ImageLayer" alt="" coords="1479,7289,1641,7320"/>
+<area shape="rect" id="node936" href="$a00128.html" title="osgVolume::CompositeProperty" alt="" coords="1457,7396,1663,7427"/>
+<area shape="rect" id="node940" href="$a00429.html" title="osgVolume::LightingProperty" alt="" coords="1467,7503,1653,7533"/>
+<area shape="rect" id="node942" href="$a00465.html" title="osgVolume::MaximumIntensityProjectionProperty" alt="" coords="1407,7556,1713,7587"/>
+<area shape="rect" id="node944" href="$a00677.html" title="osgVolume::ScalarProperty" alt="" coords="1471,7343,1649,7373"/>
+<area shape="rect" id="node954" href="$a00927.html" title="osgVolume::TransferFunctionProperty" alt="" coords="1441,7449,1679,7480"/>
+<area shape="rect" id="node938" href="$a00854.html" title="osgVolume::SwitchProperty" alt="" coords="1977,7449,2159,7480"/>
+<area shape="rect" id="node946" href="$a00016.html" title="osgVolume::AlphaFuncProperty" alt="" coords="1967,7343,2169,7373"/>
+<area shape="rect" id="node948" href="$a00415.html" title="osgVolume::IsoSurfaceProperty" alt="" coords="1965,7396,2171,7427"/>
+<area shape="rect" id="node950" href="$a00672.html" title="osgVolume::SampleDensityProperty" alt="" coords="1953,7236,2183,7267"/>
+<area shape="rect" id="node952" href="$a00938.html" title="osgVolume::TransparencyProperty" alt="" coords="1957,7289,2179,7320"/>
+<area shape="rect" id="node958" href="$a00288.html" title="osgVolume::FixedFunctionTechnique" alt="" coords="1443,7663,1677,7693"/>
+<area shape="rect" id="node960" href="$a00615.html" title="osgVolume::RayTracedTechnique" alt="" coords="1453,7609,1667,7640"/>
+<area shape="rect" id="node970" href="$a00050.html" title="BarrierOperation allows one to synchronize multiple GraphicsThreads with each other." alt="" coords="1035,8617,1179,8648"/>
+<area shape="rect" id="node972" href="$a00330.html" title="osg::GraphicsOperation" alt="" coords="1028,8511,1185,8541"/>
+<area shape="rect" id="node974" href="$a00061.html" title="osg::BlockAndFlushOperation" alt="" coords="1463,9260,1657,9291"/>
+<area shape="rect" id="node976" href="$a00295.html" title="osg::FlushDeletedGLObjectsOperation" alt="" coords="1439,9313,1681,9344"/>
+<area shape="rect" id="node978" href="$a00642.html" title="ReleaseContext_Block_MakeCurrentOperation releases the context for another thread to acquire..." alt="" coords="1400,9580,1720,9611"/>
+<area shape="rect" id="node980" href="$a00671.html" title="osg::RunOperations" alt="" coords="1492,9367,1628,9397"/>
+<area shape="rect" id="node982" href="$a00851.html" title="SwapBufferOperation calls swap buffers on the GraphicsContext." alt="" coords="1469,9473,1651,9504"/>
+<area shape="rect" id="node984" href="$a00122.html" title="osgDB::DatabasePager::CompileOperation" alt="" coords="1427,9420,1693,9451"/>
+<area shape="rect" id="node986" href="$a00321.html" title="osgUtil::GLObjectsOperation" alt="" coords="1467,9527,1653,9557"/>
+<area shape="rect" id="node993" href="$a00331.html" title="GraphicsThread is a helper class for running OpenGL GraphicsOperation within a single thread assigned..." alt="" coords="1036,8671,1177,8701"/>
+<area shape="rect" id="node1009" href="$a00250.html" title="osg::EndOfDynamicDrawBlock" alt="" coords="1008,8724,1205,8755"/>
+<area shape="rect" id="node1043" href="$a00103.html" title="osgAnimation::ClearActionVisitor" alt="" coords="1000,9895,1213,9925"/>
+<area shape="rect" id="node1045" href="$a01044.html" title="osgAnimation::UpdateActionVisitor" alt="" coords="995,9841,1219,9872"/>
+<area shape="rect" id="node1047" href="$a00824.html" title="osgAnimation::StatsActionVisitor" alt="" coords="1453,9841,1667,9872"/>
+<area shape="rect" id="node1051" href="$a00863.html" title="osgAnimation::TemplateChannel\&lt; SamplerType \&gt;" alt="" coords="952,8777,1261,8808"/>
+<area shape="rect" id="node1055" href="$a00870.html" title="osgAnimation::TemplateKeyframeContainer\&lt; T \&gt;" alt="" coords="955,8884,1259,8915"/>
+<area shape="rect" id="node1057" href="$a00871.html" title="osgAnimation::TemplateKeyframeContainer\&lt; Vec3Packed \&gt;" alt="" coords="923,8831,1291,8861"/>
+<area shape="rect" id="node1061" href="$a00127.html" title="osgAnimation::CompositeMotion" alt="" coords="1001,9044,1212,9075"/>
+<area shape="rect" id="node1063" href="$a00457.html" title="osgAnimation::MathMotionTemplate\&lt; T \&gt;" alt="" coords="976,8937,1237,8968"/>
+<area shape="rect" id="node1065" href="$a00674.html" title="osgAnimation::SamplerMotionTemplate\&lt; T \&gt;" alt="" coords="967,8991,1247,9021"/>
+<area shape="rect" id="node1069" href="$a00665.html" title="This class manage format for hardware skinning." alt="" coords="987,9151,1227,9181"/>
+<area shape="rect" id="node1071" href="$a00666.html" title="This class manage format for hardware skinning." alt="" coords="988,9097,1225,9128"/>
+<area shape="rect" id="node1075" href="$a00876.html" title="osgAnimation::TemplateSampler\&lt; F \&gt;" alt="" coords="985,9204,1228,9235"/>
+<area shape="rect" id="node1079" href="$a00880.html" title="osgAnimation::TemplateTarget\&lt; T \&gt;" alt="" coords="992,9257,1221,9288"/>
+<area shape="rect" id="node1093" href="$a00622.html" title="osgDB::DatabasePager::ReadQueue" alt="" coords="991,9311,1223,9341"/>
+<area shape="rect" id="node1109" href="$a00623.html" title="osgDB::ImagePager::ReadQueue" alt="" coords="1000,9364,1213,9395"/>
+<area shape="rect" id="node1121" href="$a00067.html" title="osgDB::BoolSerializer\&lt; C \&gt;" alt="" coords="1016,9521,1197,9552"/>
+<area shape="rect" id="node1123" href="$a00253.html" title="osgDB::EnumSerializer\&lt; C, P \&gt;" alt="" coords="1004,9575,1209,9605"/>
+<area shape="rect" id="node1125" href="$a00841.html" title="osgDB::StringSerializer\&lt; C \&gt;" alt="" coords="1012,9628,1201,9659"/>
+<area shape="rect" id="node1127" href="$a00877.html" title="osgDB::TemplateSerializer\&lt; C, P \&gt;" alt="" coords="993,9681,1220,9712"/>
+<area shape="rect" id="node1129" href="$a01081.html" title="osgDB::Vec4Serializer\&lt; C \&gt;" alt="" coords="1015,9468,1199,9499"/>
+<area shape="rect" id="node1143" href="$a00337.html" title="Constraint to snap motion commands to a sugar cube grid." alt="" coords="1007,9735,1207,9765"/>
+<area shape="rect" id="node1147" href="$a00667.html" title="Command for rotation in 3D." alt="" coords="992,10161,1221,10192"/>
+<area shape="rect" id="node1149" href="$a00679.html" title="Command for 1D scaling." alt="" coords="993,10215,1220,10245"/>
+<area shape="rect" id="node1151" href="$a00681.html" title="Command for 2D scaling." alt="" coords="993,9948,1220,9979"/>
+<area shape="rect" id="node1153" href="$a00684.html" title="Command for uniform 3D scaling." alt="" coords="980,10001,1233,10032"/>
+<area shape="rect" id="node1155" href="$a00935.html" title="Command for translating in a line." alt="" coords="975,10055,1239,10085"/>
+<area shape="rect" id="node1157" href="$a00936.html" title="Command for translating in a plane." alt="" coords="969,10108,1244,10139"/>
+<area shape="rect" id="node1161" href="$a00194.html" title="CylinderProjector projects points onto the given cylinder." alt="" coords="999,10428,1215,10459"/>
+<area shape="rect" id="node1165" href="$a00442.html" title="LineProjector projects points onto the closest point on the given line." alt="" coords="1009,10268,1204,10299"/>
+<area shape="rect" id="node1167" href="$a00559.html" title="PlaneProjector projects points onto the given line." alt="" coords="1005,10375,1208,10405"/>
+<area shape="rect" id="node1169" href="$a00734.html" title="SphereProjector projects points onto the given sphere." alt="" coords="1001,10321,1212,10352"/>
+<area shape="rect" id="node1163" href="$a00193.html" title="CylinderPlaneProjector projects points onto the given cylinder." alt="" coords="1435,10428,1685,10459"/>
+<area shape="rect" id="node1171" href="$a00733.html" title="SpherePlaneProjector projects points onto a sphere, failing which it project onto a plane oriented to..." alt="" coords="1439,10321,1681,10352"/>
+<area shape="rect" id="node1177" href="$a01091.html" title="osgShadow::DebugShadowMap::ViewData" alt="" coords="973,647,1240,677"/>
+<area shape="rect" id="node1179" href="$a01096.html" title="osgShadow::StandardShadowMap::ViewData" alt="" coords="1419,7,1701,37"/>
+<area shape="rect" id="node1181" href="$a01095.html" title="osgShadow::MinimalShadowMap::ViewData" alt="" coords="1931,7,2205,37"/>
+<area shape="rect" id="node1183" href="$a01092.html" title="osgShadow::MinimalCullBoundsShadowMap::ViewData" alt="" coords="2359,7,2700,37"/>
+<area shape="rect" id="node1185" href="$a01094.html" title="osgShadow::MinimalDrawBoundsShadowMap::ViewData" alt="" coords="2355,887,2704,917"/>
+<area shape="rect" id="node1197" href="$a00112.html" title="ColorRange is a ScalarsToColors object to define a color spectrum for a scalar range." alt="" coords="1036,10481,1177,10512"/>
+<area shape="rect" id="node1201" href="$a01109.html" title="Helper callback for managing optional sets of layers, that loading of is deffered to this callback..." alt="" coords="979,10535,1235,10565"/>
+<area shape="rect" id="node1205" href="$a00490.html" title="osgTerrain::NoDataValue" alt="" coords="1024,10641,1189,10672"/>
+<area shape="rect" id="node1207" href="$a01058.html" title="osgTerrain::ValidRange" alt="" coords="1029,10588,1184,10619"/>
+<area shape="rect" id="node1217" href="$a00343.html" title="This cube map generator produces an Half&#45;way vector map, useful for hardware&#45;based specular lighting ..." alt="" coords="1007,10832,1207,10863"/>
+<area shape="rect" id="node1219" href="$a00349.html" title="This cube map generator produces a specular highlight map." alt="" coords="1005,10725,1208,10756"/>
+<area shape="rect" id="node1221" href="$a00632.html" title="This is the most simple cube map generator." alt="" coords="1001,10779,1212,10809"/>
+<area shape="rect" id="node1235" href="$a00195.html" title="osgSim::DatabaseCacheReadCallback" alt="" coords="984,10885,1229,10916"/>
+<area shape="rect" id="node1239" href="$a00403.html" title="Concrete class for passing multiple intersectors through the scene graph." alt="" coords="1024,540,1189,571"/>
+<area shape="rect" id="node1241" href="$a00445.html" title="Concrete class for implementing line intersections with the scene graph." alt="" coords="1003,593,1211,624"/>
+<area shape="rect" id="node1243" href="$a00558.html" title="Concrete class for implementing polytope intersections with the scene graph." alt="" coords="1024,433,1189,464"/>
+<area shape="rect" id="node1245" href="$a00571.html" title="Concrete class for implementing polytope intersections with the scene graph." alt="" coords="1016,487,1197,517"/>
+<area shape="rect" id="node1281" href="$a01119.html" title="Concrete implementation of a CaptureOperation that writes the screen capture to a file..." alt="" coords="961,951,1252,981"/>
+<area shape="rect" id="node1287" href="$a00310.html" title="osgWidget::FunctionCallback\&lt; T \&gt;" alt="" coords="996,1004,1217,1035"/>
+<area shape="rect" id="node1289" href="$a00502.html" title="osgWidget::ObjectCallback\&lt; T \&gt;" alt="" coords="1001,1057,1212,1088"/>
+<area shape="rect" id="node1293" href="$a00455.html" title="osgWidget::LuaEngine" alt="" coords="1032,1111,1181,1141"/>
+<area shape="rect" id="node1295" href="$a00607.html" title="osgWidget::PythonEngine" alt="" coords="1021,1164,1192,1195"/>
+<area shape="rect" id="node1296" href="$a00690.html" title="osg::GraphicsContext::ScreenIdentifier" alt="" coords="7,4355,252,4385"/>
+<area shape="rect" id="node1298" href="$a00843.html" title="osgWidget::StyleInterface" alt="" coords="2444,780,2615,811"/>
+<area shape="rect" id="node1301" href="$a01038.html" title="osgWidget::UIObjectParent\&lt; Widget \&gt;" alt="" coords="2408,833,2651,864"/>
+<area shape="rect" id="node1303" href="$a01038.html" title="osgWidget::UIObjectParent\&lt; Window \&gt;" alt="" coords="1944,2297,2192,2328"/>
+</map>

@@ -1,0 +1,9 @@
+<map id="G" name="G">
+<area shape="rect" id="node5" href="$a00667.html" title="Command for rotation in 3D." alt="" coords="457,5,687,35"/>
+<area shape="rect" id="node7" href="$a00679.html" title="Command for 1D scaling." alt="" coords="459,58,685,89"/>
+<area shape="rect" id="node9" href="$a00681.html" title="Command for 2D scaling." alt="" coords="459,111,685,142"/>
+<area shape="rect" id="node11" href="$a00684.html" title="Command for uniform 3D scaling." alt="" coords="445,165,699,195"/>
+<area shape="rect" id="node13" href="$a00935.html" title="Command for translating in a line." alt="" coords="440,218,704,249"/>
+<area shape="rect" id="node15" href="$a00936.html" title="Command for translating in a plane." alt="" coords="435,271,709,302"/>
+<area shape="rect" id="node2" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="5,138,123,169"/>
+</map>

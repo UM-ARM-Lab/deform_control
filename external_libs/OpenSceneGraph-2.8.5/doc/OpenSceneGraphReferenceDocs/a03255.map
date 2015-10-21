@@ -1,0 +1,9 @@
+<map id="G" name="G">
+<area shape="rect" id="node5" href="$a00194.html" title="CylinderProjector projects points onto the given cylinder." alt="" coords="391,5,607,35"/>
+<area shape="rect" id="node9" href="$a00442.html" title="LineProjector projects points onto the closest point on the given line." alt="" coords="401,58,596,89"/>
+<area shape="rect" id="node11" href="$a00559.html" title="PlaneProjector projects points onto the given line." alt="" coords="397,111,600,142"/>
+<area shape="rect" id="node13" href="$a00734.html" title="SphereProjector projects points onto the given sphere." alt="" coords="393,165,604,195"/>
+<area shape="rect" id="node2" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="5,85,123,115"/>
+<area shape="rect" id="node7" href="$a00193.html" title="CylinderPlaneProjector projects points onto the given cylinder." alt="" coords="656,5,907,35"/>
+<area shape="rect" id="node15" href="$a00733.html" title="SpherePlaneProjector projects points onto a sphere, failing which it project onto a plane oriented to..." alt="" coords="660,165,903,195"/>
+</map>

@@ -1,0 +1,26 @@
+<map id="G" name="G">
+<area shape="rect" id="node1" href="dir_fdde497a44bc2ad60436cd99eb3a6120.html" title="osgWidget" alt="" coords="135,5,218,53"/>
+<area shape="rect" id="node2" href="dir_cfad059aeddd64f08f58db983c47ee52.html" title="osgText" alt="" coords="22,197,94,245"/>
+<area shape="rect" id="edge6" href="dir_000014_000010.html" title="1" alt="" coords="77,174,85,193"/>
+<area shape="rect" id="node3" href="dir_490816e7aed42e7c32bec58f81cb85b4.html" title="osgGA" alt="" coords="371,197,443,245"/>
+<area shape="rect" id="edge8" href="dir_000014_000003.html" title="3" alt="" coords="401,168,409,187"/>
+<area shape="rect" id="node4" href="dir_a0c3ec32f420588bea621794fe3f1f57.html" title="osgViewer" alt="" coords="180,101,263,149"/>
+<area shape="rect" id="edge10" href="dir_000014_000012.html" title="3" alt="" coords="206,71,214,90"/>
+<area shape="rect" id="node5" href="dir_edb0f20b6788411a6549af0317651034.html" title="osgUtil" alt="" coords="283,293,355,341"/>
+<area shape="rect" id="edge12" href="dir_000014_000011.html" title="1" alt="" coords="324,266,332,284"/>
+<area shape="rect" id="node6" href="dir_9c499a3105d16a72921c752fe644674e.html" title="osgDB" alt="" coords="115,293,187,341"/>
+<area shape="rect" id="edge14" href="dir_000014_000001.html" title="2" alt="" coords="158,266,166,285"/>
+<area shape="rect" id="node7" href="dir_13b8297afc4167259301ebbeb8b102d4.html" title="osg" alt="" coords="155,389,227,437"/>
+<area shape="rect" id="edge16" href="dir_000014_000000.html" title="18" alt="" coords="135,372,150,390"/>
+<area shape="rect" id="edge2" href="dir_000010_000001.html" title="2" alt="" coords="116,265,124,283"/>
+<area shape="rect" id="edge4" href="dir_000010_000000.html" title="11" alt="" coords="138,363,152,382"/>
+<area shape="rect" id="edge18" href="dir_000003_000011.html" title="1" alt="" coords="356,276,364,294"/>
+<area shape="rect" id="edge20" href="dir_000003_000000.html" title="36" alt="" coords="239,403,254,421"/>
+<area shape="rect" id="edge22" href="dir_000012_000010.html" title="1" alt="" coords="110,189,118,208"/>
+<area shape="rect" id="edge24" href="dir_000012_000003.html" title="13" alt="" coords="351,177,366,196"/>
+<area shape="rect" id="edge26" href="dir_000012_000011.html" title="8" alt="" coords="302,264,310,283"/>
+<area shape="rect" id="edge28" href="dir_000012_000001.html" title="4" alt="" coords="170,270,178,288"/>
+<area shape="rect" id="edge30" href="dir_000012_000000.html" title="9" alt="" coords="200,362,208,381"/>
+<area shape="rect" id="edge32" href="dir_000011_000000.html" title="117" alt="" coords="232,376,253,394"/>
+<area shape="rect" id="edge34" href="dir_000001_000000.html" title="46" alt="" coords="174,359,189,378"/>
+</map>

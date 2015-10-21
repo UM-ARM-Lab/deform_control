@@ -1,0 +1,12 @@
+<map id="G" name="G">
+<area shape="rect" id="node7" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; osg::NodeCallback \&gt;" alt="" coords="1203,5,1592,35"/>
+<area shape="rect" id="node15" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; osg::StateAttributeCallback \&gt;" alt="" coords="1177,126,1617,157"/>
+<area shape="rect" id="node19" href="$a00024.html" title="osgAnimation::AnimationUpdateCallback\&lt; T \&gt;" alt="" coords="653,58,944,89"/>
+<area shape="rect" id="node2" href="$a00501.html" title="Base class/standard interface for objects which require IO support, cloning and reference counting..." alt="" coords="175,58,263,89"/>
+<area shape="rect" id="node4" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="5,58,123,89"/>
+<area shape="rect" id="node9" href="$a01049.html" title="osgAnimation::UpdateMatrixTransform" alt="" coords="1671,58,1913,89"/>
+<area shape="rect" id="node13" href="$a01050.html" title="osgAnimation::UpdateMorph" alt="" coords="1699,5,1885,35"/>
+<area shape="rect" id="node11" href="$a01045.html" title="osgAnimation::UpdateBone" alt="" coords="1967,58,2145,89"/>
+<area shape="rect" id="node17" href="$a01048.html" title="osgAnimation::UpdateMaterial" alt="" coords="1695,126,1889,157"/>
+<area shape="rect" id="node21" href="$a01052.html" title="osgAnimation::UpdateTransform" alt="" coords="1293,58,1501,89"/>
+</map>
