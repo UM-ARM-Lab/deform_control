@@ -22,6 +22,7 @@ add_library(simulation
     convexdecomp.cpp 
     recording.cpp 
     config_bullet.cpp 
+    config_scene.cpp 
     config_viewer.cpp 
     bullet_io.cpp
 )

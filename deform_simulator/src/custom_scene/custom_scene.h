@@ -7,6 +7,7 @@
 #include "simulation/rope.h"
 
 #include "simulation/config_bullet.h"
+#include "simulation/config_scene.h"
 #include "simulation/config_viewer.h"
 
 #include "gripper_kinematic_object.h"

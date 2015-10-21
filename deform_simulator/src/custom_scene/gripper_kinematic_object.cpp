@@ -1,5 +1,6 @@
 #include "gripper_kinematic_object.h"
 
+#include "utils/config.h"
 #include "utils/conversions.h"
 
 GripperKinematicObject::GripperKinematicObject( float apperture_input, btVector4 color )

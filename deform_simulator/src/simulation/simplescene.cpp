@@ -173,6 +173,7 @@ void Scene::addKeyCallback(char c, Callback cb) {
 void Scene::addVoidCallback(osgGA::GUIEventAdapter::EventType t, VoidCallback cb) {
     addCallback(t, std::bind<bool>(VoidCallbackWrapper(cb)));
 }
+
 void Scene::addVoidKeyCallback(char c, VoidCallback cb) {
     addKeyCallback(c, std::bind<bool>(VoidCallbackWrapper(cb)));
 }
@@ -210,9 +211,3 @@ bool EventHandler::handle(const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdap
 
     return false;
 }
-
-bool SceneConfig::enableIK = true;
-bool SceneConfig::enableHaptics = false;
-bool SceneConfig::enableRobotCollision = false;
-bool SceneConfig::useFakeGrabber = false;
-float SceneConfig::mouseDragScale = 1.;
