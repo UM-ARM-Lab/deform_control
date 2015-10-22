@@ -5,6 +5,15 @@
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
 
+// TODO: find a way to not need to do this
+// Making CLANG happy...
+constexpr float CustomScene::TABLE_X;
+constexpr float CustomScene::TABLE_Y;
+constexpr float CustomScene::TABLE_Z;
+constexpr float CustomScene::CLOTH_X;
+constexpr float CustomScene::CLOTH_Y;
+constexpr float CustomScene::CLOTH_Z;
+
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor and Destructor
 ////////////////////////////////////////////////////////////////////////////////

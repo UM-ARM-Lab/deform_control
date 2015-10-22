@@ -5,7 +5,11 @@ add_library( custom_scene
     #    custom_key_handler.cpp
     gripper_kinematic_object.cpp
 )
+add_dependencies ( custom_scene
+    ${catkin_EXPORTED_TARGETS}
+    ${PROJECT_NAME}_gencpp
+)
 target_link_libraries( custom_scene 
     simulation
-    ${deform_simulation_LINK_TARGETS}
+    ${${PROJECT_NAME}_LINK_TARGETS}
 )

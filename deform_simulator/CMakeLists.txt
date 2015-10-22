@@ -10,7 +10,7 @@ set( CATKIN_PACKAGES
 )
 
 ## Find catkin macros and libraries
-find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
+find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} message_generation )
 
 # external libraries
 find_package( cmake_modules REQUIRED )
@@ -36,11 +36,11 @@ find_package( Eigen3 REQUIRED )
 ################################################
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#     FILES
-#     Message1.msg
-#     Message2.msg
-# )
+add_message_files(
+    FILES
+    GripperTrajectory.msg 
+    GripperTrajectoryStamped.msg 
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -57,10 +57,11 @@ find_package( Eigen3 REQUIRED )
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#     DEPENDENCIES
-#     std_msgs    # Or other packages containing msgs
-# )
+generate_messages(
+    DEPENDENCIES
+    geometry_msgs
+    std_msgs
+)
 
 ###################################
 ## catkin specific configuration ##
@@ -69,9 +70,10 @@ find_package( Eigen3 REQUIRED )
 catkin_package(
 #    INCLUDE_DIRS    include
 #    LIBRARIES       ${PROJECT_NAME}
-#    CATKIN_DEPENDS  ${CATKIN_PACKAGES}
-#    DEPENDS         Eigen3
-#                    Boost
+    CATKIN_DEPENDS  ${CATKIN_PACKAGES}
+                    message_runtime
+    DEPENDS         Eigen3
+                    Boost
 )
 
 
@@ -88,7 +90,7 @@ include_directories( src SYSTEM
     ${Boost_INCLUDE_DIRS}
 )
 
-set( deform_simulation_LINK_TARGETS
+set( ${PROJECT_NAME}_LINK_TARGETS
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
 )

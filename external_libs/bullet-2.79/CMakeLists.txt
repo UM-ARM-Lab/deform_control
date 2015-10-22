@@ -17,6 +17,8 @@ ENDIF(COMMAND cmake_policy)
 
 find_package( catkin REQUIRED )
 
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -std=c++0x -Wno-deprecated-register")
+
 
 IF (NOT CMAKE_BUILD_TYPE)
     #SET(CMAKE_BUILD_TYPE "Debug")
