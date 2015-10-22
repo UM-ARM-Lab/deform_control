@@ -39,7 +39,9 @@ find_package( Eigen3 REQUIRED )
 add_message_files(
     FILES
     GripperTrajectory.msg 
-    GripperTrajectoryStamped.msg 
+    GripperTrajectoryStamped.msg
+    ObjectConfiguration.msg
+    ObjectConfigurationStamped.msg
 )
 
 ## Generate services in the 'srv' folder

@@ -5,6 +5,8 @@
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
 
+#include "utils/conversions.h"
+
 // TODO: find a way to not need to do this
 // Making CLANG happy...
 constexpr float CustomScene::TABLE_X;
@@ -21,7 +23,10 @@ constexpr float CustomScene::CLOTH_Z;
 CustomScene::CustomScene(
         CustomScene::DeformableType deformable_type,
         CustomScene::TaskType task_type,
-        ros::NodeHandle& nh )
+        ros::NodeHandle& nh,
+        std::string cmd_gripper_traj_topic,
+        std::string gripper_traj_topic,
+        std::string object_traj_topic )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
@@ -43,10 +48,14 @@ CustomScene::CustomScene(
             throw new std::invalid_argument( "Unknown deformable object type" );
         }
     };
+
+    cmd_gripper_traj_sub_ = nh.subscribe(
+            cmd_gripper_traj_topic, 1, &CustomScene::cmdGripperTrajCallback, this );
+    next_index_to_use_ = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Initialization helper functions
+// Construction helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
 void CustomScene::makeTable( const float half_side_length, const bool set_cover_points )
@@ -186,6 +195,7 @@ void CustomScene::makeCloth()
     psb->m_cfg.kDP = 0.05;
     psb->generateBendingConstraints(2, pm);
     psb->randomizeConstraints();
+    // TODO why are these both being called?
     psb->setTotalMass(1, true);
     psb->setTotalMass(0.1);
     psb->generateClusters(0);
@@ -409,19 +419,38 @@ void CustomScene::findClothCornerNodes()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// Plotting helpers
+// ROS Callbacks
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::initializePloting()
+void CustomScene::cmdGripperTrajCallback(
+        const deform_simulator::GripperTrajectoryStamped& gripper_traj )
 {
-    /*
-    plot_points_.reset( new PlotPoints( 5 ) );
-    env->add( plot_points_ );
+    boost::mutex::scoped_lock lock( input_mtx_ );
 
-    plot_lines_.reset( new PlotLines( 2 ) );
-    plot_lines_->setPoints( std::vector<btVector3> (), std::vector<btVector4> () );
-    env->add( plot_lines_ );
-    */
+    cmd_gripper_traj_ = gripper_traj;
+    next_index_to_use_ = 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Pre-step Callbacks
+////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::moveGrippers()
+{
+    boost::mutex::scoped_lock lock( input_mtx_ );
+
+    if ( next_index_to_use_ < cmd_gripper_traj_.trajectories.size() )
+    {
+        // TODO check for valid gripper names (and length of names vector)
+        for ( size_t ind = 0; ind < cmd_gripper_traj_.gripper_names.size(); ind++ )
+        {
+            grippers_[cmd_gripper_traj_.gripper_names[ind]]->
+                setWorldTransform( toBulletTransform(
+                            cmd_gripper_traj_.trajectories[ind].pose[next_index_to_use_]) );
+        }
+    }
+
+    next_index_to_use_++;
 }
 
 void CustomScene::drawAxes()
@@ -437,8 +466,6 @@ void CustomScene::drawAxes()
 ////////////////////////////////////////////////////////////////////////////////
 void CustomScene::run( bool syncTime )
 {
-    //initializePloting();
-
     //viewer.addEventHandler( new CustomKeyHandler( *this ) );
 
     // When the viewer closes, shutdown ROS
@@ -447,8 +474,11 @@ void CustomScene::run( bool syncTime )
 
     //addPreStepCallback( std::bind( &CustomScene::getDesiredGripperTrajectory, this ) );
     //addPreStepCallback( std::bind( &CustomScene::doJTracking, this ) );
-//    addPreStepCallback( std::bind( &CustomScene::setGripperPose, this ) );
+    addPreStepCallback( boost::bind( &CustomScene::moveGrippers, this ) );
     addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
+
+    //addPostStepCallback( boost::bind( &CustomScene::publishGripperPose, this ) );
+    //addPostStepCallback( boost::bind( &CustomScene::publishObjectConfiguration, this ) );
 
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed

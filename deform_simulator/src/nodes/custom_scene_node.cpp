@@ -26,7 +26,7 @@ int main(int argc, char *argv[])
     ros::NodeHandle nh;
 
     // TODO move these settings to a CustomSceneConfig class
-    CustomScene cs = CustomScene(
+    CustomScene cs(
             CustomScene::DeformableType::ROPE,
             CustomScene::TaskType::COVERAGE,
             nh );

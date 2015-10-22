@@ -1,0 +1,3 @@
+std_msgs/Header header
+deform_simulator/ObjectConfiguration config
+duration start_time

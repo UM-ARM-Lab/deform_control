@@ -5,6 +5,8 @@
 #include <Eigen/Geometry>
 #include <osg/Geometry>
 
+#include <geometry_msgs/Pose.h>
+
 #include "my_assert.h"
 
 inline btVector3 toBulletVector(const std::vector<float>& vec) {return btVector3(vec[0],vec[1],vec[2]);}
@@ -111,4 +113,22 @@ inline void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node
     {
         nodeposvec[i] = m_nodes[i].m_x;
     }
+}
+
+inline btQuaternion toBulletQuaternion( const geometry_msgs::Quaternion& quat )
+{
+    return btQuaternion( quat.x, quat.y, quat.z, quat.w );
+}
+
+inline btVector3 toBulletVector3( const geometry_msgs::Point& pos )
+{
+    return btVector3( pos.x, pos.y, pos.z );
+}
+
+inline btTransform toBulletTransform( const geometry_msgs::Pose& pose )
+{
+    btQuaternion rot = toBulletQuaternion( pose.orientation );
+    btVector3 trans = toBulletVector3( pose.position );
+    btTransform tf( rot, trans );
+    return tf;
 }

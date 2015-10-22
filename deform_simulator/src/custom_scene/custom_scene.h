@@ -1,6 +1,8 @@
 #ifndef CUSTOM_SCENE_H
 #define CUSTOM_SCENE_H
 
+#include <boost/thread/mutex.hpp>
+
 #include "simulation/environment.h"
 #include "simulation/simplescene.h"
 #include "simulation/softbodies.h"
@@ -13,6 +15,9 @@
 #include "gripper_kinematic_object.h"
 
 #include <ros/ros.h>
+
+#include "deform_simulator/GripperTrajectoryStamped.h"
+#include "deform_simulator/ObjectConfigurationStamped.h"
 
 class CustomScene : public Scene
 {
@@ -29,12 +34,16 @@ class CustomScene : public Scene
             COLAB_FOLDING
         };
 
-        CustomScene( DeformableType deformable_type, TaskType task_type, ros::NodeHandle& nh );
+        CustomScene( DeformableType deformable_type, TaskType task_type, ros::NodeHandle& nh,
+                std::string cmd_gripper_traj_topic = "cmd_gripper_traj",
+                std::string gripper_traj_topic = "gripper_traj",
+                std::string object_traj_topic = "object_traj" );
+
         void run( bool syncTime = false );
 
     private:
         ////////////////////////////////////////////////////////////////////////
-        // Construction functions
+        // Construction helper functions
         ////////////////////////////////////////////////////////////////////////
 
         void makeTable( const float half_side_length, const bool set_cover_points = false );
@@ -47,10 +56,16 @@ class CustomScene : public Scene
         void findClothCornerNodes();
 
         ////////////////////////////////////////////////////////////////////////
-        // Plotting functions
+        // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
 
-        void initializePloting();
+        void cmdGripperTrajCallback( const deform_simulator::GripperTrajectoryStamped& gripper_traj );
+
+        ////////////////////////////////////////////////////////////////////////
+        // Pre-step Callbacks
+        ////////////////////////////////////////////////////////////////////////
+
+        void moveGrippers();
         void drawAxes();
 
         PlotPoints::Ptr plot_points_;
@@ -120,6 +135,16 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         ros::NodeHandle nh_;
+
+        // global input mutex
+        boost::mutex input_mtx_;
+
+        ros::Subscriber cmd_gripper_traj_sub_;
+        deform_simulator::GripperTrajectoryStamped cmd_gripper_traj_;
+        size_t next_index_to_use_;
+
+        ros::Publisher gripper_pose_pub_;
+        ros::Publisher object_configuration_pub_;
 };
 
 #endif

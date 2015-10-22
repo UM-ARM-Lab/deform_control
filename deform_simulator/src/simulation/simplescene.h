@@ -62,7 +62,9 @@ public:
     };
 
     std::vector<VoidCallback> prestepCallbacks;
+    std::vector<VoidCallback> poststepCallbacks;
     void addPreStepCallback(VoidCallback cb);
+    void addPostStepCallback(VoidCallback cb);
 
     Scene();
 
