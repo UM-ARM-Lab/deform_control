@@ -1,5 +1,3 @@
-add_subdirectory(utils)
-add_subdirectory(simulation)
-add_subdirectory(custom_scene)
-add_subdirectory(tests)
-add_subdirectory(nodes)
+add_subdirectory( utils )
+add_subdirectory( simulation )
+add_subdirectory( custom_scene )

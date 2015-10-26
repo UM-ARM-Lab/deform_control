@@ -1,4 +1,4 @@
-#include "plotting.h"
+#include "simulation/plotting.h"
 #include "utils/util.h"
 #include <osg/Geometry>
 #include <osg/LineWidth>

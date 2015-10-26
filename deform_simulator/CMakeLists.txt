@@ -70,7 +70,7 @@ generate_messages(
 ###################################
 
 catkin_package(
-#    INCLUDE_DIRS    include
+    INCLUDE_DIRS    include
 #    LIBRARIES       ${PROJECT_NAME}
     CATKIN_DEPENDS  ${CATKIN_PACKAGES}
                     message_runtime
@@ -86,7 +86,7 @@ catkin_package(
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -std=c++0x" )
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fopenmp -std=c1x" )
 
-include_directories( src SYSTEM 
+include_directories( include SYSTEM 
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
@@ -98,3 +98,4 @@ set( ${PROJECT_NAME}_LINK_TARGETS
 )
 
 add_subdirectory( src )
+add_subdirectory( nodes )

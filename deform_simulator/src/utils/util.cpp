@@ -1,4 +1,4 @@
-#include "util.h"
+#include "utils/util.h"
 
 #include <haptics/thread_socket_interface.h>
 #include <boost/foreach.hpp>

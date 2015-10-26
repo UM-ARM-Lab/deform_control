@@ -1,4 +1,4 @@
-#include "config_viewer.h"
+#include "simulation/config_viewer.h"
 
 btVector3 ViewerConfig::cameraHomePosition = btVector3(5, 0, 5);
 int ViewerConfig::windowHeight = 800;

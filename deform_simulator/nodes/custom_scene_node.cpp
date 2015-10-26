@@ -1,6 +1,6 @@
 #include "custom_scene/custom_scene.h"
 
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
     // Read in all ROS parameters
     ros::init( argc, argv, "custom_scene", ros::init_options::NoSigintHandler );

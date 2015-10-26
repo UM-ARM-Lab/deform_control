@@ -1,4 +1,4 @@
-#include "gripper_kinematic_object.h"
+#include "custom_scene/gripper_kinematic_object.h"
 
 #include "utils/config.h"
 #include "utils/conversions.h"

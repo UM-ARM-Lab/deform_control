@@ -1,4 +1,4 @@
-#include "environment.h"
+#include "simulation/environment.h"
 #include "utils/config.h"
 
 OSGInstance::OSGInstance() {

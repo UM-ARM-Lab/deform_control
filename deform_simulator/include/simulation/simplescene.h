@@ -3,9 +3,9 @@
 #include <osgViewer/Viewer>
 #include <osgbCollision/GLDebugDrawer.h>
 #include <osgGA/TrackballManipulator>
-#include "environment.h"
-#include "basicobjects.h"
-#include "plotting.h"
+#include "simulation/environment.h"
+#include "simulation/basicobjects.h"
+#include "simulation/plotting.h"
 
 class Scene;
 

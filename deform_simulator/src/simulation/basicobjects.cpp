@@ -1,5 +1,3 @@
-#include "basicobjects.h"
-#include "config_bullet.h"
 #include <osg/BlendFunc>
 #include <osg/Geometry>
 #include <osg/Geode>
@@ -9,7 +7,10 @@
 #include <osgbCollision/CollisionShapes.h>
 #include <Serialize/BulletFileLoader/btBulletFile.h>
 #include <boost/scoped_array.hpp>
-#include "SetColorsVisitor.h"
+
+#include "simulation/SetColorsVisitor.h"
+#include "simulation/basicobjects.h"
+#include "simulation/config_bullet.h"
 
 #define MAX_RAYCAST_DISTANCE 100.0
 

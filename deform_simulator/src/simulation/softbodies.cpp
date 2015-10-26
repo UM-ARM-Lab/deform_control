@@ -1,4 +1,4 @@
-#include "softbodies.h"
+#include "simulation/softbodies.h"
 #include "utils/util.h"
 
 #include <osg/LightModel>

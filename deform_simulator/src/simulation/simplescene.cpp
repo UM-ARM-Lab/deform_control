@@ -1,8 +1,8 @@
 #include <functional>
 
-#include "simplescene.h"
-#include "config_bullet.h"
-#include "config_viewer.h"
+#include "simulation/simplescene.h"
+#include "simulation/config_bullet.h"
+#include "simulation/config_viewer.h"
 #include "utils/util.h"
 
 #include <iostream>

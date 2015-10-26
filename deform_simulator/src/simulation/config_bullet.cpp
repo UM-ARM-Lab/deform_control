@@ -1,4 +1,4 @@
-#include "config_bullet.h"
+#include "simulation/config_bullet.h"
 btVector3 BulletConfig::gravity = btVector3(0,0,-9.8);
 float BulletConfig::dt = .01;
 int BulletConfig::maxSubSteps = 200;

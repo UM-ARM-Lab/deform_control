@@ -1,8 +1,8 @@
 #ifndef _SOFTBODIES_H_
 #define _SOFTBODIES_H_
 
-#include "environment.h"
-#include "basicobjects.h"
+#include "simulation/environment.h"
+#include "simulation/basicobjects.h"
 
 class BulletSoftObject : public EnvironmentObject {
 protected:

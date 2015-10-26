@@ -1,7 +1,7 @@
 #pragma once
-#include "environment.h"
-#include "basicobjects.h"
-#include "btBulletDynamicsCommon.h"
+#include "simulation/environment.h"
+#include "simulation/basicobjects.h"
+#include <btBulletDynamicsCommon.h>
 #include <vector>
 
 class CapsuleRope : public CompoundObject<BulletObject> {

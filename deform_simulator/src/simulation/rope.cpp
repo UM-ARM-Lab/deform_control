@@ -1,5 +1,5 @@
-#include "rope.h"
-#include "basicobjects.h"
+#include "simulation/rope.h"
+#include "simulation/basicobjects.h"
 #include <iostream>
 using namespace std;
 
@@ -113,14 +113,14 @@ void CapsuleRope::destroy() {
   CompoundObject<BulletObject>::destroy();
 }
 
-vector<btVector3> CapsuleRope::getNodes() { 
+vector<btVector3> CapsuleRope::getNodes() {
   vector<btVector3> out(children.size());
   for (int i=0; i < children.size(); i++)
     out[i] = children[i]->rigidBody->getCenterOfMassPosition();
   return out;
 }
 
-vector<btVector3> CapsuleRope::getControlPoints() { 
+vector<btVector3> CapsuleRope::getControlPoints() {
   vector<btVector3> out;
   out.reserve(children.size()+1);
   for (int i=0; i < children.size(); i++) {

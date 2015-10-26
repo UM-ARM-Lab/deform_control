@@ -2,7 +2,7 @@
 #define _BASICOBJECTS_H_
 
 #include <osg/MatrixTransform>
-#include "environment.h"
+#include "simulation/environment.h"
 
 // an object that is entirely specified as a bullet btRigidBody
 // (the OSG model will be created from the btRigidBody, and
