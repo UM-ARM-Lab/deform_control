@@ -107,14 +107,8 @@ inline Eigen::MatrixXf toEigenMatrix(const std::vector< std::vector<float> >& in
   return out;
 }
 
-inline void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec) {
-    nodeposvec.resize(m_nodes.size());
-    for(int i =0; i < m_nodes.size(); i++)
-    {
-        nodeposvec[i] = m_nodes[i].m_x;
-    }
-}
 
+// TODO move all of these into a separate header in arc_utilities
 inline btQuaternion toBulletQuaternion( const geometry_msgs::Quaternion& quat )
 {
     return btQuaternion( quat.x, quat.y, quat.z, quat.w );
@@ -122,7 +116,7 @@ inline btQuaternion toBulletQuaternion( const geometry_msgs::Quaternion& quat )
 
 inline btVector3 toBulletVector3( const geometry_msgs::Point& pos )
 {
-    return btVector3( pos.x, pos.y, pos.z );
+    return btVector3( pos.x, pos.y, pos.z )*METERS;
 }
 
 inline btTransform toBulletTransform( const geometry_msgs::Pose& pose )
@@ -131,4 +125,62 @@ inline btTransform toBulletTransform( const geometry_msgs::Pose& pose )
     btVector3 trans = toBulletVector3( pose.position );
     btTransform tf( rot, trans );
     return tf;
+}
+
+
+inline geometry_msgs::Quaternion toRosQuaternion( const btQuaternion& quat )
+{
+    geometry_msgs::Quaternion ros;
+    ros.x = quat.x();
+    ros.y = quat.y();
+    ros.z = quat.z();
+    ros.w = quat.w();
+    return ros;
+}
+
+inline geometry_msgs::Point toRosPoint( const btVector3& vec )
+{
+    geometry_msgs::Point point;
+    point.x = vec.x() / METERS;
+    point.y = vec.y() / METERS;
+    point.z = vec.z() / METERS;
+    return point;
+}
+
+inline geometry_msgs::Pose toRosPose( const btTransform& tf )
+{
+    geometry_msgs::Pose pose;
+    pose.position = toRosPoint( tf.getOrigin() );
+    pose.orientation = toRosQuaternion( tf.getRotation() );
+    return pose;
+}
+
+inline std::vector< geometry_msgs::Point > toRosPointVector( const std::vector< btVector3 >& bt )
+{
+    std::vector< geometry_msgs::Point > ros( bt.size() );
+    for ( size_t i = 0; i < bt.size() ; i++ )
+    {
+        ros[i] = toRosPoint( bt[i] );
+    }
+    return ros;
+}
+
+
+inline void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector< btVector3 > &nodeposvec)
+{
+    nodeposvec.resize( m_nodes.size() );
+    for( int i =0; i < m_nodes.size(); i++ )
+    {
+        nodeposvec[i] = m_nodes[i].m_x;
+    }
+}
+
+inline std::vector< btVector3 > nodeArrayToNodePosVector( const btAlignedObjectArray<btSoftBody::Node> &m_nodes )
+{
+    std::vector< btVector3 > nodeposvec( m_nodes.size() );
+    for(int i = 0; i < m_nodes.size(); i++)
+    {
+        nodeposvec[i] = m_nodes[i].m_x;
+    }
+    return nodeposvec;
 }

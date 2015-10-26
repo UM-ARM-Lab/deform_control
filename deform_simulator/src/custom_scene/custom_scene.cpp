@@ -25,14 +25,16 @@ CustomScene::CustomScene(
         CustomScene::TaskType task_type,
         ros::NodeHandle& nh,
         std::string cmd_gripper_traj_topic,
-        std::string gripper_traj_topic,
-        std::string object_traj_topic )
+        std::string gripper_pose_topic,
+        std::string object_configuration_topic )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
     , task_type_( task_type )
     , nh_( nh )
 {
+    // Build the world
+    // TODO: make this setable/resetable via a ROS service call
     switch ( deformable_type_ )
     {
         case ROPE:
@@ -49,9 +51,17 @@ CustomScene::CustomScene(
         }
     };
 
+    // Subscribe to desired gripper trajectories
     cmd_gripper_traj_sub_ = nh.subscribe(
             cmd_gripper_traj_topic, 1, &CustomScene::cmdGripperTrajCallback, this );
     next_index_to_use_ = 0;
+
+    // Publish to feedback channels
+    gripper_pose_pub_ = nh.advertise< deform_simulator::GripperPoseStamped >(
+            gripper_pose_topic, 1 );
+
+    object_configuration_pub_ = nh.advertise< deform_simulator::ObjectConfigurationStamped >(
+            object_configuration_topic, 1 );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -419,6 +429,28 @@ void CustomScene::findClothCornerNodes()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Internal helper functions
+////////////////////////////////////////////////////////////////////////////////
+
+std::vector< btVector3 > CustomScene::getDeformableObjectNodes()
+{
+    std::vector< btVector3 > nodes;
+
+    switch ( deformable_type_ )
+    {
+        case ROPE:
+            nodes = rope_->getNodes();
+            break;
+
+        case CLOTH:
+            nodes = nodeArrayToNodePosVector( cloth_->softBody->m_nodes );
+            break;
+    }
+
+    return nodes;
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // ROS Callbacks
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -448,9 +480,8 @@ void CustomScene::moveGrippers()
                 setWorldTransform( toBulletTransform(
                             cmd_gripper_traj_.trajectories[ind].pose[next_index_to_use_]) );
         }
+        next_index_to_use_++;
     }
-
-    next_index_to_use_++;
 }
 
 void CustomScene::drawAxes()
@@ -462,8 +493,46 @@ void CustomScene::drawAxes()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Post-step Callbacks
+////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::publishRosMessages()
+{
+    ros::Time stamp = ros::Time::now();
+
+    publishGripperPose( stamp );
+    publishObjectConfiguration( stamp );
+}
+
+void CustomScene::publishGripperPose( const ros::Time& stamp )
+{
+    // TODO don't rebuild this message every time
+    deform_simulator::GripperPoseStamped msg;
+
+    msg.header.stamp = stamp;
+    for ( auto &gripper: grippers_ )
+    {
+        msg.name.push_back( gripper.first );
+        msg.pose.push_back( toRosPose( gripper.second->getWorldTransform() ) );
+    }
+    gripper_pose_pub_.publish( msg );
+}
+
+void CustomScene::publishObjectConfiguration( const ros::Time& stamp )
+{
+    // TODO don't rebuild this message every time
+    deform_simulator::ObjectConfigurationStamped msg;
+
+    msg.header.stamp = stamp;
+    msg.config = toRosPointVector( getDeformableObjectNodes() );
+
+    object_configuration_pub_.publish( msg );
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Main function that makes things happen
 ////////////////////////////////////////////////////////////////////////////////
+
 void CustomScene::run( bool syncTime )
 {
     //viewer.addEventHandler( new CustomKeyHandler( *this ) );
@@ -472,13 +541,10 @@ void CustomScene::run( bool syncTime )
     addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
             boost::bind( &ros::shutdown ) );
 
-    //addPreStepCallback( std::bind( &CustomScene::getDesiredGripperTrajectory, this ) );
-    //addPreStepCallback( std::bind( &CustomScene::doJTracking, this ) );
     addPreStepCallback( boost::bind( &CustomScene::moveGrippers, this ) );
     addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
 
-    //addPostStepCallback( boost::bind( &CustomScene::publishGripperPose, this ) );
-    //addPostStepCallback( boost::bind( &CustomScene::publishObjectConfiguration, this ) );
+    addPostStepCallback( boost::bind( &CustomScene::publishRosMessages, this ) );
 
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed

@@ -16,6 +16,7 @@
 
 #include <ros/ros.h>
 
+#include "deform_simulator/GripperPoseStamped.h"
 #include "deform_simulator/GripperTrajectoryStamped.h"
 #include "deform_simulator/ObjectConfigurationStamped.h"
 
@@ -36,8 +37,12 @@ class CustomScene : public Scene
 
         CustomScene( DeformableType deformable_type, TaskType task_type, ros::NodeHandle& nh,
                 std::string cmd_gripper_traj_topic = "cmd_gripper_traj",
-                std::string gripper_traj_topic = "gripper_traj",
-                std::string object_traj_topic = "object_traj" );
+                std::string gripper_pose_topic = "gripper_pose",
+                std::string object_configuration_topic = "object_configuration" );
+
+        ////////////////////////////////////////////////////////////////////////
+        // Main function that makes things happen
+        ////////////////////////////////////////////////////////////////////////
 
         void run( bool syncTime = false );
 
@@ -56,6 +61,12 @@ class CustomScene : public Scene
         void findClothCornerNodes();
 
         ////////////////////////////////////////////////////////////////////////
+        // Internal helper functions
+        ////////////////////////////////////////////////////////////////////////
+
+        std::vector< btVector3 > getDeformableObjectNodes();
+
+        ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
 
@@ -70,6 +81,14 @@ class CustomScene : public Scene
 
         PlotPoints::Ptr plot_points_;
         PlotLines::Ptr plot_lines_;
+
+        ////////////////////////////////////////////////////////////////////////
+        // Post-step Callbacks
+        ////////////////////////////////////////////////////////////////////////
+
+        void publishRosMessages();
+        void publishGripperPose( const ros::Time& stamp );
+        void publishObjectConfiguration( const ros::Time& stamp );
 
         ////////////////////////////////////////////////////////////////////////
         // Task Variables TODO to be moved into a CustomSceneConfig file

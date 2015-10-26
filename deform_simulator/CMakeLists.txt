@@ -38,9 +38,9 @@ find_package( Eigen3 REQUIRED )
 ## Generate messages in the 'msg' folder
 add_message_files(
     FILES
+    GripperPoseStamped.msg
     GripperTrajectory.msg 
     GripperTrajectoryStamped.msg
-    ObjectConfiguration.msg
     ObjectConfigurationStamped.msg
 )
 
