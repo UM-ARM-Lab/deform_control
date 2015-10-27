@@ -65,6 +65,7 @@ void Scene::step(float dt, int maxsteps, float internaldt) {
         prestepCallbacks[i]();
 
     env->step(dt, maxsteps, internaldt);
+    // TODO: ensure all this fork business is cleaned up
     for (std::set<Fork::Ptr>::iterator i = forks.begin(); i != forks.end(); ++i)
         (*i)->env->step(dt, maxsteps, internaldt);
 

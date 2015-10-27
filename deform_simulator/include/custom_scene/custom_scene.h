@@ -16,9 +16,14 @@
 
 #include <ros/ros.h>
 
-#include "deform_simulator/GripperPoseStamped.h"
 #include "deform_simulator/GripperTrajectoryStamped.h"
-#include "deform_simulator/ObjectConfigurationStamped.h"
+#include "deform_simulator/SimulatorFbkStamped.h"
+// This pragma is here because the service call has an empty request message
+// thus the allocator that it is passed never gets used
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include "deform_simulator/GetGripperNames.h"
+#pragma GCC diagnostic pop
 
 class CustomScene : public Scene
 {
@@ -35,10 +40,11 @@ class CustomScene : public Scene
             COLAB_FOLDING
         };
 
-        CustomScene( DeformableType deformable_type, TaskType task_type, ros::NodeHandle& nh,
-                std::string cmd_gripper_traj_topic = "cmd_gripper_traj",
-                std::string gripper_pose_topic = "gripper_pose",
-                std::string object_configuration_topic = "object_configuration" );
+        CustomScene( DeformableType deformable_type, TaskType task_type,
+                ros::NodeHandle& nh,
+                const std::string& cmd_gripper_traj_topic = "cmd_gripper_traj",
+                const std::string& simulator_fbk_topic = "simulator_fbk",
+                const std::string& get_gripper_names_topic = "get_gripper_names" );
 
         ////////////////////////////////////////////////////////////////////////
         // Main function that makes things happen
@@ -71,6 +77,9 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         void cmdGripperTrajCallback( const deform_simulator::GripperTrajectoryStamped& gripper_traj );
+        bool getGripperNamesCallback(
+                deform_simulator::GetGripperNames::Request& req,
+                deform_simulator::GetGripperNames::Response& res );
 
         ////////////////////////////////////////////////////////////////////////
         // Pre-step Callbacks
@@ -86,9 +95,7 @@ class CustomScene : public Scene
         // Post-step Callbacks
         ////////////////////////////////////////////////////////////////////////
 
-        void publishRosMessages();
-        void publishGripperPose( const ros::Time& stamp );
-        void publishObjectConfiguration( const ros::Time& stamp );
+        void publishSimulatorFbk();
 
         ////////////////////////////////////////////////////////////////////////
         // Task Variables TODO to be moved into a CustomSceneConfig file
@@ -162,8 +169,9 @@ class CustomScene : public Scene
         deform_simulator::GripperTrajectoryStamped cmd_gripper_traj_;
         size_t next_index_to_use_;
 
-        ros::Publisher gripper_pose_pub_;
-        ros::Publisher object_configuration_pub_;
+        ros::Publisher simulator_fbk_pub_;
+
+        ros::ServiceServer gripper_names_srv_;
 };
 
 #endif

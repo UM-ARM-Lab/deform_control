@@ -24,9 +24,9 @@ CustomScene::CustomScene(
         CustomScene::DeformableType deformable_type,
         CustomScene::TaskType task_type,
         ros::NodeHandle& nh,
-        std::string cmd_gripper_traj_topic,
-        std::string gripper_pose_topic,
-        std::string object_configuration_topic )
+        const std::string& cmd_gripper_traj_topic,
+        const std::string& simulator_fbk_topic,
+        const std::string& get_gripper_names_topic )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
@@ -52,16 +52,50 @@ CustomScene::CustomScene(
     };
 
     // Subscribe to desired gripper trajectories
-    cmd_gripper_traj_sub_ = nh.subscribe(
+    cmd_gripper_traj_sub_ = nh_.subscribe(
             cmd_gripper_traj_topic, 1, &CustomScene::cmdGripperTrajCallback, this );
     next_index_to_use_ = 0;
 
-    // Publish to feedback channels
-    gripper_pose_pub_ = nh.advertise< deform_simulator::GripperPoseStamped >(
-            gripper_pose_topic, 1 );
+    // Publish to the feedback channel
+    simulator_fbk_pub_ = nh_.advertise< deform_simulator::SimulatorFbkStamped >(
+            simulator_fbk_topic, 1 );
 
-    object_configuration_pub_ = nh.advertise< deform_simulator::ObjectConfigurationStamped >(
-            object_configuration_topic, 1 );
+    // Create a service to let others know the internal gripper names
+    gripper_names_srv_ = nh_.advertiseService(
+            get_gripper_names_topic, &CustomScene::getGripperNamesCallback, this );
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Main function that makes things happen
+////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::run( bool syncTime )
+{
+    //viewer.addEventHandler( new CustomKeyHandler( *this ) );
+
+    // When the viewer closes, shutdown ROS
+    addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
+            boost::bind( &ros::shutdown ) );
+
+    addPreStepCallback( boost::bind( &CustomScene::moveGrippers, this ) );
+    addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
+
+    addPostStepCallback( boost::bind( &CustomScene::publishSimulatorFbk, this ) );
+
+    // if syncTime is set, the simulator blocks until the real time elapsed
+    // matches the simulator time elapsed
+    setSyncTime( syncTime );
+    startViewer();
+    stepFor( BulletConfig::dt, 2 );
+
+    // Start listening for ROS messages
+    std::thread spin_thread( boost::bind( &ros::spin ) );
+
+    // Run the simulation
+    startFixedTimestepLoop( BulletConfig::dt );
+
+    // clean up the extra thread we started
+    spin_thread.join();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -463,6 +497,18 @@ void CustomScene::cmdGripperTrajCallback(
     next_index_to_use_ = 0;
 }
 
+bool CustomScene::getGripperNamesCallback(
+        deform_simulator::GetGripperNames::Request& req,
+        deform_simulator::GetGripperNames::Response& res )
+{
+    (void)req;
+    for ( auto& gripper: grippers_ )
+    {
+        res.names.push_back( gripper.first );
+    }
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Pre-step Callbacks
 ////////////////////////////////////////////////////////////////////////////////
@@ -496,68 +542,26 @@ void CustomScene::drawAxes()
 // Post-step Callbacks
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::publishRosMessages()
+void CustomScene::publishSimulatorFbk()
 {
-    ros::Time stamp = ros::Time::now();
+    // TODO: don't rebuild this every time
+    deform_simulator::SimulatorFbkStamped msg;
 
-    publishGripperPose( stamp );
-    publishObjectConfiguration( stamp );
-}
-
-void CustomScene::publishGripperPose( const ros::Time& stamp )
-{
-    // TODO don't rebuild this message every time
-    deform_simulator::GripperPoseStamped msg;
-
-    msg.header.stamp = stamp;
+    // fill out the gripper data
     for ( auto &gripper: grippers_ )
     {
-        msg.name.push_back( gripper.first );
-        msg.pose.push_back( toRosPose( gripper.second->getWorldTransform() ) );
+        msg.gripper_names.push_back( gripper.first );
+        msg.gripper_poses.push_back( toRosPose( gripper.second->getWorldTransform() ) );
     }
-    gripper_pose_pub_.publish( msg );
-}
 
-void CustomScene::publishObjectConfiguration( const ros::Time& stamp )
-{
-    // TODO don't rebuild this message every time
-    deform_simulator::ObjectConfigurationStamped msg;
+    // fill out the object configuration data
+    msg.object_configuration = toRosPointVector( getDeformableObjectNodes() );
 
-    msg.header.stamp = stamp;
-    msg.config = toRosPointVector( getDeformableObjectNodes() );
+    // update the sim_time
+    // TODO: is this actually correct?
+    msg.sim_time = viewer.getFrameStamp()->getSimulationTime();
 
-    object_configuration_pub_.publish( msg );
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Main function that makes things happen
-////////////////////////////////////////////////////////////////////////////////
-
-void CustomScene::run( bool syncTime )
-{
-    //viewer.addEventHandler( new CustomKeyHandler( *this ) );
-
-    // When the viewer closes, shutdown ROS
-    addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-            boost::bind( &ros::shutdown ) );
-
-    addPreStepCallback( boost::bind( &CustomScene::moveGrippers, this ) );
-    addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
-
-    addPostStepCallback( boost::bind( &CustomScene::publishRosMessages, this ) );
-
-    // if syncTime is set, the simulator blocks until the real time elapsed
-    // matches the simulator time elapsed
-    setSyncTime( syncTime );
-    startViewer();
-    stepFor( BulletConfig::dt, 2 );
-
-    // Start listening for ROS messages
-    std::thread spin_thread( boost::bind( &ros::spin ) );
-
-    // Run the simulation
-    startFixedTimestepLoop( BulletConfig::dt );
-
-    // clean up the extra thread we started
-    spin_thread.join();
+    // publish the message
+    msg.header.stamp = ros::Time::now();
+    simulator_fbk_pub_.publish( msg );
 }
