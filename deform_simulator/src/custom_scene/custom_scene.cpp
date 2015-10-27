@@ -526,7 +526,7 @@ void CustomScene::moveGrippers()
         {
             grippers_[cmd_gripper_traj_.gripper_names[ind]]->
                 setWorldTransform( toBulletTransform(
-                            cmd_gripper_traj_.trajectories[ind].pose[next_index_to_use_]) );
+                            cmd_gripper_traj_.trajectories[ind].pose[next_index_to_use_], METERS ) );
         }
         next_index_to_use_++;
     }
@@ -553,11 +553,11 @@ void CustomScene::publishSimulatorFbk()
     for ( auto &gripper: grippers_ )
     {
         msg.gripper_names.push_back( gripper.first );
-        msg.gripper_poses.push_back( toRosPose( gripper.second->getWorldTransform() ) );
+        msg.gripper_poses.push_back( toRosPose( gripper.second->getWorldTransform(), METERS ) );
     }
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector( getDeformableObjectNodes() );
+    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
 
     // update the sim_time
     // TODO: is this actually correct?
