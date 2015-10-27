@@ -1,7 +1,10 @@
 #include "custom_scene/gripper_kinematic_object.h"
 
+#include <bullet_helpers/bullet_internal_conversions.hpp>
+
 #include "utils/config.h"
-#include "utils/conversions.h"
+
+using namespace BulletHelpers;
 
 GripperKinematicObject::GripperKinematicObject( float apperture_input, btVector4 color )
     : halfextents( btVector3( 0.015, 0.015, 0.005 )*METERS )

@@ -4,8 +4,10 @@
 #include <thread>
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
+#include <bullet_helpers/bullet_internal_conversions.hpp>
+#include <bullet_helpers/bullet_ros_conversions.hpp>
 
-#include "utils/conversions.h"
+using namespace BulletHelpers;
 
 // TODO: find a way to not need to do this
 // Making CLANG happy...

@@ -7,12 +7,13 @@ set( CATKIN_PACKAGES
     roscpp
     osg_bullet
     haptics
+    bullet_helpers
 )
 
 ## Find catkin macros and libraries
 find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} message_generation )
 
-# external libraries
+## System dependencies are found with CMake's conventions
 find_package( cmake_modules REQUIRED )
 find_package( Boost REQUIRED COMPONENTS 
     system 
@@ -22,14 +23,6 @@ find_package( Boost REQUIRED COMPONENTS
 )
 
 find_package( Eigen3 REQUIRED )
-
-#find_package( OpenThreads REQUIRED )
-#find_package( osg REQUIRED )
-#find_package( osgDB REQUIRED )
-#find_package( osgGA REQUIRED )
-#find_package( osgText REQUIRED )
-#find_package( osgUtil REQUIRED )
-#find_package( osgViewer REQUIRED )
 
 ################################################
 ## Declare ROS messages, services and actions ##
