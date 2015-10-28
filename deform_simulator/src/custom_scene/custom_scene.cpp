@@ -28,7 +28,8 @@ CustomScene::CustomScene(
         ros::NodeHandle& nh,
         const std::string& cmd_gripper_traj_topic,
         const std::string& simulator_fbk_topic,
-        const std::string& get_gripper_names_topic )
+        const std::string& get_gripper_names_topic,
+        const std::string& get_object_initial_configuration_topic )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
@@ -53,6 +54,10 @@ CustomScene::CustomScene(
         }
     };
 
+    // Store the initial configuration as it will be needed by other libraries
+    // TODO: find a better way to do this that exposes less internals
+    object_initial_configuration_ = toRosPointVector( getDeformableObjectNodes(), METERS );
+
     // Subscribe to desired gripper trajectories
     cmd_gripper_traj_sub_ = nh_.subscribe(
             cmd_gripper_traj_topic, 1, &CustomScene::cmdGripperTrajCallback, this );
@@ -65,6 +70,10 @@ CustomScene::CustomScene(
     // Create a service to let others know the internal gripper names
     gripper_names_srv_ = nh_.advertiseService(
             get_gripper_names_topic, &CustomScene::getGripperNamesCallback, this );
+
+    // Create a service to let others know the object initial configuration
+    object_initial_configuration_srv_ = nh_.advertiseService(
+            get_object_initial_configuration_topic, &CustomScene::getObjectInitialConfigurationCallback, this );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -508,6 +517,15 @@ bool CustomScene::getGripperNamesCallback(
     {
         res.names.push_back( gripper.first );
     }
+    return true;
+}
+
+bool CustomScene::getObjectInitialConfigurationCallback(
+        deform_simulator::GetObjectInitialConfiguration::Request& req,
+        deform_simulator::GetObjectInitialConfiguration::Response& res )
+{
+    (void)req;
+    res.config = object_initial_configuration_;
     return true;
 }
 

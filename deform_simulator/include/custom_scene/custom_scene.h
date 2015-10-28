@@ -16,6 +16,10 @@
 
 #include <ros/ros.h>
 
+// This pragma is here because the ROS message generator has an extra ';' on one
+// line of code, and we can't push this off to be a system include
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
 #include "deform_simulator/GripperTrajectoryStamped.h"
 #include "deform_simulator/SimulatorFbkStamped.h"
 // This pragma is here because the service call has an empty request message
@@ -23,6 +27,8 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "deform_simulator/GetGripperNames.h"
+#include "deform_simulator/GetObjectInitialConfiguration.h"
+#pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 
 class CustomScene : public Scene
@@ -44,7 +50,8 @@ class CustomScene : public Scene
                 ros::NodeHandle& nh,
                 const std::string& cmd_gripper_traj_topic = "cmd_gripper_traj",
                 const std::string& simulator_fbk_topic = "simulator_fbk",
-                const std::string& get_gripper_names_topic = "get_gripper_names" );
+                const std::string& get_gripper_names_topic = "get_gripper_names",
+                const std::string& get_object_initial_configuration_topic = "get_object_initial_configuration" );
 
         ////////////////////////////////////////////////////////////////////////
         // Main function that makes things happen
@@ -80,6 +87,9 @@ class CustomScene : public Scene
         bool getGripperNamesCallback(
                 deform_simulator::GetGripperNames::Request& req,
                 deform_simulator::GetGripperNames::Response& res );
+        bool getObjectInitialConfigurationCallback(
+                deform_simulator::GetObjectInitialConfiguration::Request& req,
+                deform_simulator::GetObjectInitialConfiguration::Response& res );
 
         ////////////////////////////////////////////////////////////////////////
         // Pre-step Callbacks
@@ -154,7 +164,7 @@ class CustomScene : public Scene
         // Coverage task objects
         ////////////////////////////////////////////////////////////////////////
 
-        std::vector<btVector3> cover_points_;
+        std::vector< btVector3 > cover_points_;
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Objects and Helpers
@@ -172,6 +182,8 @@ class CustomScene : public Scene
         ros::Publisher simulator_fbk_pub_;
 
         ros::ServiceServer gripper_names_srv_;
+        ros::ServiceServer object_initial_configuration_srv_;
+        std::vector< geometry_msgs::Point > object_initial_configuration_;
 };
 
 #endif
