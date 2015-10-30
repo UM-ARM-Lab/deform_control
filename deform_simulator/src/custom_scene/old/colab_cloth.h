@@ -76,7 +76,7 @@ public:
     bool bOpen;
     bool bAttached;
     btVector3 halfextents;
-    std::vector<int> vattached_node_inds;
+    std::vector<size_t> vattached_node_inds;
     double closed_gap;
     GripperState state;
     boost::shared_ptr<btGeneric6DofConstraint> cnt;

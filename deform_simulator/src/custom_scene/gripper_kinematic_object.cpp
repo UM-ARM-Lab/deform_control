@@ -286,6 +286,11 @@ void GripperKinematicObject::releaseAllAnchors( btSoftBody * psb )
     psb->m_anchors.clear();
 }
 
+std::vector<size_t> GripperKinematicObject::getAttachedNodeIndices()
+{
+    return vattached_node_inds;
+}
+
 
 void GripperKinematicObject::step_openclose( btSoftBody * psb )
 {

@@ -40,6 +40,7 @@ add_message_files(
 add_service_files(
     FILES
     GetGripperNames.srv
+    GetGripperAttachedNodeIndices.srv
     GetObjectInitialConfiguration.srv
 )
 

@@ -1047,13 +1047,6 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
     std::vector<btVector3> rot_line_pnts;
     std::vector<btVector4> plot_cols;
 
-
-//    Eigen::VectorXf  V_before(numnodes*3);
-//    for(int k = 0; k < numnodes; k++)
-//    {
-//        for(int j = 0; j < 3; j++)
-//            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-//    }
     omp_set_num_threads(4);
 
     std::vector<btVector3> node_pos;
@@ -1069,37 +1062,15 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
         #pragma omp parallel shared(J)
         {
 
-        #pragma omp for
-        for(int i = 0; i < perts.size(); i++)
-        {
-            Eigen::VectorXf  V_pos(numnodes*3);
-
-//                    btTransform dummy_tm(btQuaternion(0,0,0,1),btVector3(0,0,0));
-//                    StepState innerstate;
-
-//                    if( i >= 3)
-//                    {
-//                        if(g == 0)
-//                            simulateInNewFork(innerstate, jacobian_sim_time, perts[i],dummy_tm);
-//                        else
-//                            simulateInNewFork(innerstate, jacobian_sim_time, dummy_tm,perts[i]);
-
-//                        Eigen::VectorXf  V_after(V_before);
-//                        for(int k = 0; k < numnodes; k++)
-//                        {
-//                            for(int j = 0; j < 3; j++)
-//                                V_after(3*k + j) = innerstate.cloth->softBody->m_nodes[k].m_x[j];
-//                        }
-//
-//                        V_pos = (V_after - V_before)/rot_angle;
-
-//                    }
+            #pragma omp for
+            for(int i = 0; i < perts.size(); i++)
+            {
+                Eigen::VectorXf  V_pos(numnodes*3);
 
                 for(int k = 0; k < numnodes; k++)
                 {
                     int closest_ind;
                     double dist = getDistfromNodeToClosestAttachedNodeInGripper(gripper, k, closest_ind);
-                    //if(k < 10) cout << "dist: " << dist << " node_map " << gripper_node_distance_map[g][k] << endl;
 
                     if(i < 3) //translation
                     {
@@ -1108,17 +1079,6 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
                         //btVector3 transvec = perts[i].getOrigin()*exp(-gripper_node_distance_map[g][k]*dropoff_const);
                         for(int j = 0; j < 3; j++)
                             V_pos(3*k + j) = transvec[j];
-
-
-
-
-    //                    if(i == 2)
-    //                    {
-    //                        rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x);
-    //                        rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x + transvec);
-    //                        plot_cols.push_back(btVector4(1,0,0,1));
-    //                        //cout <<"z " << k << ": transvec " << transvec[0] << " " << transvec[1] << " " << transvec[2] << " dist: " << dist << "(" << closest_ind << ")" << endl;
-    //                    }
                     }
                     else // rotation
                     {
@@ -1135,43 +1095,10 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
                         btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
                         btVector3 transvec = (T0_attached.inverse()*T0_newattached).getOrigin()/rot_angle * exp(-dist*dropoff_const);
 
-
-
                         for(int j = 0; j < 3; j++)
                             V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
 
-//                        if(i == 3)
-//                        {
-
-//                            btVector3 unitvec = transvec*step_length;///transvec.length();
-
-//                            rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x);
-//                            rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x + unitvec);
-//                            plot_cols.push_back(btVector4(1,0,0,1));
-
-//                            unitvec = innerstate.cloth->softBody->m_nodes[k].m_x - clothptr->softBody->m_nodes[k].m_x;
-//                            unitvec = unitvec/unitvec.length()*transvec.length()*step_length;
-
-//                            rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x);
-//                            rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x + unitvec);
-//                            plot_cols.push_back(btVector4(0,0,1,1));
-
-
-//                        }
-
-//                            if(i == 3)
-//                            {
-
-//                                rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x);
-//                                rot_line_pnts.push_back(clothptr->softBody->m_nodes[k].m_x + transvec);
-//                                plot_cols.push_back(btVector4(1,0,0,1));
-
-//                                //cout << k << ": transvec " << transvec[0] << " " << transvec[1] << " " << transvec[2] << " dist: " << dist << endl;
-//                            }
-
                     }
-
-
                 }
                 J.col(perts.size()*g + i) = V_pos;
             }
@@ -1179,86 +1106,7 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 
     }
 
-
-    //rot_lines->setPoints(rot_line_pnts,plot_cols);
-
     return J;
-}
-
-Eigen::MatrixXf CustomScene::computeJacobian_parallel()
-{
-    boost::posix_time::ptime begTick(boost::posix_time::microsec_clock::local_time());
-
-    //printf("starting jacobian computation\n");
-    //stopLoop();
-    bool bBackupLoopState = loopState.skip_step;
-    loopState.skip_step = true;
-
-    int numnodes = clothptr->softBody->m_nodes.size();
-    Eigen::VectorXf  V_before(numnodes*3);
-
-
-    for(int k = 0; k < numnodes; k++)
-    {
-        for(int j = 0; j < 3; j++)
-            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-    }
-
-
-
-    std::vector<btTransform> perts;
-    float step_length = 0.2;
-    float rot_angle = 0.2;
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
-#ifdef DO_ROTATION
-    perts.push_back(btTransform(btQuaternion(btVector3(1,0,0),rot_angle),btVector3(0,0,0)));
-    perts.push_back(btTransform(btQuaternion(btVector3(0,1,0),rot_angle),btVector3(0,0,0)));
-    perts.push_back(btTransform(btQuaternion(btVector3(0,0,1),rot_angle),btVector3(0,0,0)));
-    omp_set_num_threads(7); //need to find a better way to do this
-#else
-    omp_set_num_threads(4);
-#endif
-
-    Eigen::MatrixXf J(numnodes*3,perts.size());
-    #pragma omp parallel shared(J)
-    {
-
-        //schedule(static, 1)
-        #pragma omp for nowait
-        for(int i = 0; i < perts.size(); i++)
-        {
-
-            btTransform dummy_tm;
-            StepState innerstate;
-            simulateInNewFork(innerstate, jacobian_sim_time, perts[i],dummy_tm);
-
-            Eigen::VectorXf  V_after(V_before);
-            for(int k = 0; k < numnodes; k++)
-            {
-                for(int j = 0; j < 3; j++)
-                    V_after(3*k + j) = innerstate.cloth->softBody->m_nodes[k].m_x[j];
-            }
-            float divider;
-            if(i < 3)
-                divider = step_length;
-            else
-                divider = rot_angle;
-
-            J.col(i) = (V_after - V_before)/divider;
-        }
-    }
-
-    //cout << J<< endl;
-    boost::posix_time::ptime endTick(boost::posix_time::microsec_clock::local_time());
-    //std::cout << "time: " << boost::posix_time::to_simple_string(endTick - begTick) << std::endl;
-
-    loopState.skip_step = bBackupLoopState;
-    //printf("done jacobian computation\n");
-    return J;
-
-
 }
 
 Eigen::MatrixXf CustomScene::computeJacobian()
@@ -1410,6 +1258,8 @@ void CustomScene::doJTracking()
 #endif
     GripperKinematicObject::Ptr gripper;
     std::vector<float> vclosest_dist(num_auto_grippers);
+
+    // THIS IS OBJECT AVOIDANCE
     if(obj)
     {
 

@@ -22,6 +22,7 @@
 #pragma GCC diagnostic ignored "-Wpedantic"
 #include "deform_simulator/GripperTrajectoryStamped.h"
 #include "deform_simulator/SimulatorFbkStamped.h"
+#include "deform_simulator/GetGripperAttachedNodeIndices.h"
 // This pragma is here because the service call has an empty request message
 // thus the allocator that it is passed never gets used
 #pragma GCC diagnostic push
@@ -51,6 +52,7 @@ class CustomScene : public Scene
                 const std::string& cmd_gripper_traj_topic = "cmd_gripper_traj",
                 const std::string& simulator_fbk_topic = "simulator_fbk",
                 const std::string& get_gripper_names_topic = "get_gripper_names",
+                const std::string& get_gripper_attached_node_indices_topic = "get_gripper_attached_node_indices",
                 const std::string& get_object_initial_configuration_topic = "get_object_initial_configuration" );
 
         ////////////////////////////////////////////////////////////////////////
@@ -87,6 +89,9 @@ class CustomScene : public Scene
         bool getGripperNamesCallback(
                 deform_simulator::GetGripperNames::Request& req,
                 deform_simulator::GetGripperNames::Response& res );
+        bool getGripperAttachedNodeIndicesCallback(
+                deform_simulator::GetGripperAttachedNodeIndices::Request& req,
+                deform_simulator::GetGripperAttachedNodeIndices::Response& res );
         bool getObjectInitialConfigurationCallback(
                 deform_simulator::GetObjectInitialConfiguration::Request& req,
                 deform_simulator::GetObjectInitialConfiguration::Response& res );
@@ -182,6 +187,7 @@ class CustomScene : public Scene
         ros::Publisher simulator_fbk_pub_;
 
         ros::ServiceServer gripper_names_srv_;
+        ros::ServiceServer gripper_attached_node_indices_srv_;
         ros::ServiceServer object_initial_configuration_srv_;
         std::vector< geometry_msgs::Point > object_initial_configuration_;
 };

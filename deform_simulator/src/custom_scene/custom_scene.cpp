@@ -29,6 +29,7 @@ CustomScene::CustomScene(
         const std::string& cmd_gripper_traj_topic,
         const std::string& simulator_fbk_topic,
         const std::string& get_gripper_names_topic,
+        const std::string& get_gripper_attached_node_indices_topic,
         const std::string& get_object_initial_configuration_topic )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
@@ -70,6 +71,10 @@ CustomScene::CustomScene(
     // Create a service to let others know the internal gripper names
     gripper_names_srv_ = nh_.advertiseService(
             get_gripper_names_topic, &CustomScene::getGripperNamesCallback, this );
+
+    // Create a service to let others know what nodes the grippers are attached too
+    gripper_attached_node_indices_srv_ = nh_.advertiseService(
+            get_gripper_attached_node_indices_topic, &CustomScene::getGripperAttachedNodeIndicesCallback, this );
 
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
@@ -517,6 +522,16 @@ bool CustomScene::getGripperNamesCallback(
     {
         res.names.push_back( gripper.first );
     }
+    return true;
+}
+
+bool CustomScene::getGripperAttachedNodeIndicesCallback(
+        deform_simulator::GetGripperAttachedNodeIndices::Request& req,
+        deform_simulator::GetGripperAttachedNodeIndices::Response& res )
+{
+    // TODO: error check input
+    GripperKinematicObject::Ptr gripper = grippers_[req.name];
+    res.indices = gripper->getAttachedNodeIndices();
     return true;
 }
 

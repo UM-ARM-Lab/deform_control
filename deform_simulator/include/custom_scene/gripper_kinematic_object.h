@@ -33,6 +33,8 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         void appendAnchor( btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence = 1 );
         void releaseAllAnchors( btSoftBody * psb );
 
+        std::vector<size_t> getAttachedNodeIndices();
+
         // Used by the manual grippers for cloth
         void step_openclose( btSoftBody * psb );
 
@@ -49,7 +51,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         double closed_gap;  // used only for cloth (I think)
 
         bool bAttached;
-        std::vector<int> vattached_node_inds;
+        std::vector<size_t> vattached_node_inds;
 
         boost::shared_ptr<btGeneric6DofConstraint> cnt;
 };
