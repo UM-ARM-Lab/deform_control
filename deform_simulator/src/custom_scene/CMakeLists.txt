@@ -1,8 +1,10 @@
-SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic" )
+SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -Wpedantic" )
 
 add_library( custom_scene
+    ../../include/custom_scene/custom_scene.h
     custom_scene.cpp
     #    custom_key_handler.cpp
+    ../../include/custom_scene/gripper_kinematic_object.h
     gripper_kinematic_object.cpp
 )
 add_dependencies ( custom_scene
