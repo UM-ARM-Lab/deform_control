@@ -28,7 +28,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "deform_simulator/GetGripperNames.h"
-#include "deform_simulator/GetObjectInitialConfiguration.h"
+#include "deform_simulator/GetPointSet.h"
 #pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 
@@ -53,7 +53,8 @@ class CustomScene : public Scene
                 const std::string& simulator_fbk_topic = "simulator_fbk",
                 const std::string& get_gripper_names_topic = "get_gripper_names",
                 const std::string& get_gripper_attached_node_indices_topic = "get_gripper_attached_node_indices",
-                const std::string& get_object_initial_configuration_topic = "get_object_initial_configuration" );
+                const std::string& get_object_initial_configuration_topic = "get_object_initial_configuration",
+                const std::string& get_cover_points_topic = "get_cover_points" );
 
         ////////////////////////////////////////////////////////////////////////
         // Main function that makes things happen
@@ -92,9 +93,12 @@ class CustomScene : public Scene
         bool getGripperAttachedNodeIndicesCallback(
                 deform_simulator::GetGripperAttachedNodeIndices::Request& req,
                 deform_simulator::GetGripperAttachedNodeIndices::Response& res );
+        bool getCoverPointsCallback(
+                deform_simulator::GetPointSet::Request& req,
+                deform_simulator::GetPointSet::Response& res );
         bool getObjectInitialConfigurationCallback(
-                deform_simulator::GetObjectInitialConfiguration::Request& req,
-                deform_simulator::GetObjectInitialConfiguration::Response& res );
+                deform_simulator::GetPointSet::Request& req,
+                deform_simulator::GetPointSet::Response& res );
 
         ////////////////////////////////////////////////////////////////////////
         // Pre-step Callbacks
@@ -188,6 +192,7 @@ class CustomScene : public Scene
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
+        ros::ServiceServer cover_points_srv_;
         ros::ServiceServer object_initial_configuration_srv_;
         std::vector< geometry_msgs::Point > object_initial_configuration_;
 };

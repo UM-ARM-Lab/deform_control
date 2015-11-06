@@ -41,7 +41,7 @@ add_service_files(
     FILES
     GetGripperNames.srv
     GetGripperAttachedNodeIndices.srv
-    GetObjectInitialConfiguration.srv
+    GetPointSet.srv
 )
 
 ## Generate actions in the 'action' folder

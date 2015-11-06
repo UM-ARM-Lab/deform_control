@@ -32,7 +32,8 @@ CustomScene::CustomScene(
         const std::string& simulator_fbk_topic,
         const std::string& get_gripper_names_topic,
         const std::string& get_gripper_attached_node_indices_topic,
-        const std::string& get_object_initial_configuration_topic )
+        const std::string& get_object_initial_configuration_topic,
+        const std::string& get_cover_points_topic )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
@@ -77,6 +78,10 @@ CustomScene::CustomScene(
     // Create a service to let others know what nodes the grippers are attached too
     gripper_attached_node_indices_srv_ = nh_.advertiseService(
             get_gripper_attached_node_indices_topic, &CustomScene::getGripperAttachedNodeIndicesCallback, this );
+
+    // Create a service to let others know the cover points
+    cover_points_srv_ = nh_.advertiseService(
+            get_cover_points_topic, &CustomScene::getCoverPointsCallback, this );
 
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
@@ -537,12 +542,21 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     return true;
 }
 
-bool CustomScene::getObjectInitialConfigurationCallback(
-        deform_simulator::GetObjectInitialConfiguration::Request& req,
-        deform_simulator::GetObjectInitialConfiguration::Response& res )
+bool CustomScene::getCoverPointsCallback(
+        deform_simulator::GetPointSet::Request& req,
+        deform_simulator::GetPointSet::Response& res )
 {
     (void)req;
-    res.config = object_initial_configuration_;
+    res.points = toRosPointVector( cover_points_, METERS );
+    return true;
+}
+
+bool CustomScene::getObjectInitialConfigurationCallback(
+        deform_simulator::GetPointSet::Request& req,
+        deform_simulator::GetPointSet::Response& res )
+{
+    (void)req;
+    res.points = object_initial_configuration_;
     return true;
 }
 
