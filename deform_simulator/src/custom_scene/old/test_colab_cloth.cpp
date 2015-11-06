@@ -1208,6 +1208,8 @@ int CustomScene::getNumDeformableObjectNodes()
 
 }
 
+
+
 //this is getting called before the step loop
 void CustomScene::doJTracking()
 {
@@ -1259,7 +1261,7 @@ void CustomScene::doJTracking()
     GripperKinematicObject::Ptr gripper;
     std::vector<float> vclosest_dist(num_auto_grippers);
 
-    // THIS IS OBJECT AVOIDANCE
+    // THIS IS OBJECT AVOIDANCE OF THE GRIPPER
     if(obj)
     {
 
@@ -1496,7 +1498,6 @@ void CustomScene::doJTracking()
 
 
             node_change = node_change + node_delta.length();
-
         }
 #endif
 
@@ -1507,7 +1508,6 @@ void CustomScene::doJTracking()
         computeDeformableObjectDistanceMatrix(filtered_new_nodes,new_distance_matrix);
 
         Eigen::MatrixXf node_distance_difference = new_distance_matrix - deformableobject_distance_matrix;
-
 
         for(int i = 0; i < node_distance_difference.rows(); i++)
         {
@@ -1789,6 +1789,8 @@ void CustomScene::doJTracking()
     bInTrackingLoop = false;
 
 }
+
+
 
 void CustomScene::regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr  gripper_to_detach)
 {

@@ -6,6 +6,7 @@ set( CATKIN_PACKAGES
     osg_bullet
     roscpp
     geometry_msgs
+    arc_utilities
 )
 
 find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
@@ -69,10 +70,12 @@ set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++0x -Wall -Wextra -Wpedantic
 
 ## Declare a C++ library
 add_library( ${PROJECT_NAME}
-    include/${PROJECT_NAME}/bullet_ros_conversions.hpp
-    src/bullet_ros_conversions.cpp
     include/${PROJECT_NAME}/bullet_internal_conversions.hpp
     src/bullet_internal_conversions.cpp
+    include/${PROJECT_NAME}/bullet_ros_conversions.hpp
+    src/bullet_ros_conversions.cpp
+    include/${PROJECT_NAME}/bullet_pretty_print.hpp
+    src/bullet_pretty_print.cpp
 )
 add_dependencies( ${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 target_link_libraries( ${PROJECT_NAME} ${catkin_LIBRARIES} )

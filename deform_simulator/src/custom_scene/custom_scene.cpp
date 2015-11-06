@@ -7,6 +7,8 @@
 #include <bullet_helpers/bullet_internal_conversions.hpp>
 #include <bullet_helpers/bullet_ros_conversions.hpp>
 
+#include "bullet_helpers/bullet_pretty_print.hpp"
+
 using namespace BulletHelpers;
 
 // TODO: find a way to not need to do this
@@ -552,16 +554,22 @@ void CustomScene::moveGrippers()
 {
     boost::mutex::scoped_lock lock( input_mtx_ );
 
-    if ( next_index_to_use_ < cmd_gripper_traj_.trajectories.size() )
+    // check to see if we've received any instructions for our grippers
+    if ( cmd_gripper_traj_.trajectories.size() > 0 )
     {
-        // TODO check for valid gripper names (and length of names vector)
-        for ( size_t ind = 0; ind < cmd_gripper_traj_.gripper_names.size(); ind++ )
+        // TODO allow for different lengths of trajectories?
+        if ( next_index_to_use_ < cmd_gripper_traj_.trajectories[0].pose.size() )
         {
-            grippers_[cmd_gripper_traj_.gripper_names[ind]]->
-                setWorldTransform( toBulletTransform(
-                            cmd_gripper_traj_.trajectories[ind].pose[next_index_to_use_], METERS ) );
+            // TODO check for valid gripper names (and length of names vector)
+            for ( size_t ind = 0; ind < cmd_gripper_traj_.gripper_names.size(); ind++ )
+            {
+                btTransform tf = toBulletTransform(
+                        cmd_gripper_traj_.trajectories[ind].pose[next_index_to_use_], METERS );
+
+                grippers_[cmd_gripper_traj_.gripper_names[ind]]->setWorldTransform( tf );
+            }
+            next_index_to_use_++;
         }
-        next_index_to_use_++;
     }
 }
 

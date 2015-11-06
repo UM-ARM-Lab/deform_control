@@ -12,10 +12,12 @@
   <build_depend>osg_bullet</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>geometry_msgs</build_depend>
+  <build_depend>arc_utilities</build_depend>
  
   <run_depend>osg_bullet</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>geometry_msgs</run_depend>
+  <run_depend>arc_utilities</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
