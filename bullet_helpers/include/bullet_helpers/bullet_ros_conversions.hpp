@@ -2,10 +2,12 @@
 #define BULLET_ROS_CONVERSIONS_HPP
 
 #include <btBulletDynamicsCommon.h>
+#include <osg/Geometry>
 
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Transform.h>
+#include <visualization_msgs/Marker.h>
 
 namespace BulletHelpers
 {
@@ -64,6 +66,91 @@ namespace BulletHelpers
         }
         return ros;
     }
+
+    // We have to essentially double the entries for every internal point
+    // of marker.points and marker.colors
+    inline void convertLineStripToLineList( visualization_msgs::Marker& marker )
+    {
+        const size_t num_lines = marker.points.size();
+
+        auto points = marker.points;
+        auto colors = marker.colors;
+
+        assert( points.size() >= 2 );
+        assert( points.size() == colors.size() );
+
+        marker.points.resize( num_lines * 2 - 2 );
+        marker.colors.resize( num_lines * 2 - 2 );
+        marker.points[0] = points[0];
+        marker.colors[0] = colors[0];
+
+        for ( size_t ind = 1; ind < num_lines - 1 ; ind++ )
+        {
+            marker.points[2*ind-1] = points[ind];
+            marker.points[2*ind] = points[ind];
+
+            marker.colors[2*ind-1] = colors[ind];
+            marker.colors[2*ind] = colors[ind];
+        }
+
+        *marker.points.end() = *points.end();
+        *marker.colors.end() = *colors.end();
+    }
+
+    inline std::vector< btVector3 > toBulletPointVector( const std::vector< geometry_msgs::Point >& ros, float bt_scale )
+    {
+        std::vector< btVector3 > bt( ros.size() );
+        for ( size_t i = 0; i < ros.size() ; i++ )
+        {
+            bt[i] = toBulletVector3( ros[i], bt_scale );
+        }
+        return bt;
+    }
+
+    inline btVector4 toBulletColor( const std_msgs::ColorRGBA& ros )
+    {
+        return btVector4( ros.r, ros.g, ros.b, ros.a );
+    }
+
+    inline std::vector< btVector4 > toBulletColorArray( const std::vector< std_msgs::ColorRGBA >& ros )
+    {
+        std::vector< btVector4 > bt( ros.size() );
+        for ( size_t i = 0; i < ros.size() ; i++ )
+        {
+            bt[i] = toBulletColor( ros[i] );
+        }
+        return bt;
+    }
+
+    inline std::vector< btVector4 > toBulletColorArray( const std_msgs::ColorRGBA& ros, size_t num_copies )
+    {
+        return std::vector< btVector4 >( num_copies, toBulletColor( ros ) );
+    }
+
+
+    inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array( const std::vector< geometry_msgs::Point >& ros, float bt_scale )
+    {
+        osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
+        out->reserve( ros.size() );
+        for( auto point: ros )
+        {
+            out->push_back( osg::Vec3( point.x, point.y, point.z ) * bt_scale );
+        }
+        return out;
+    }
+
+    inline osg::ref_ptr<osg::Vec4Array> toOsgRefVec4Array( const std::vector< std_msgs::ColorRGBA >& ros )
+    {
+        osg::ref_ptr<osg::Vec4Array> out = new osg::Vec4Array();
+        out->reserve( ros.size() );
+        for( auto color: ros )
+        {
+            out->push_back( osg::Vec4( color.r, color.g, color.b, color.a ) );
+        }
+        return out;
+    }
+
+    //PlotLines::setPoints(const osg::ref_ptr<osg::Vec3Array>& osgPts, const osg::ref_ptr<osg::Vec4Array>& osgCols) {
 }
 
 #endif // BULLET_ROS_CONVERSIONS_HPP

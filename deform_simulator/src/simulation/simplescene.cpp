@@ -101,7 +101,7 @@ void Scene::idleFor(float time) {
     float endTime = time + viewer.getFrameStamp()->getSimulationTime();
     while (viewer.getFrameStamp()->getSimulationTime() < endTime && !viewer.done()) {
       draw();
-      sleep(1/60.);
+      usleep(10000);
     }
 }
 
@@ -138,7 +138,7 @@ void Scene::startFixedTimestepLoop(float dt) {
         {
             if(drawingOn && !viewer.done())
                 draw();
-            sleep(1/60.);
+            usleep(10000);
         }
         else
             step(dt);
@@ -153,7 +153,7 @@ void Scene::idle(bool b) {
     loopState.paused = b;
     while (loopState.paused && drawingOn && !viewer.done()) {
       draw();
-      sleep(1/60.);
+      usleep(10000);
     }
     loopState.prevTime = loopState.currTime = viewer.getFrameStamp()->getSimulationTime();
 }

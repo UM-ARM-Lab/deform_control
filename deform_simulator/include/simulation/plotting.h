@@ -22,7 +22,7 @@ public:
     getEnvironment()->osg->root->addChild(m_geode.get());
   }
   void prePhysics(){}// no physics
-  void preDraw(){};
+  void preDraw(){}
   void destroy(){}
   void setDefaultColor(float r, float g, float b, float a);
   void forceTransparency(float a);
@@ -66,7 +66,7 @@ public:
     getEnvironment()->osg->root->addChild(m_geode.get());
   }
   void prePhysics(){}// no physics
-  void preDraw(){};
+  void preDraw(){}
   void destroy(){}
 
   PlotSpheres();

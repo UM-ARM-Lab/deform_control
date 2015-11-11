@@ -6,6 +6,7 @@ set( CATKIN_PACKAGES
     osg_bullet
     roscpp
     geometry_msgs
+    visualization_msgs
     arc_utilities
 )
 

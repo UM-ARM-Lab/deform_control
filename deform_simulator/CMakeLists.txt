@@ -4,6 +4,7 @@ project( deform_simulator )
 set( CATKIN_PACKAGES
     arc_utilities
     geometry_msgs
+    visualization_msgs
     roscpp
     osg_bullet
     haptics
@@ -32,16 +33,18 @@ find_package( Eigen3 REQUIRED )
 add_message_files(
     FILES
     GripperTrajectory.msg 
-    GripperTrajectoryStamped.msg
     SimulatorFbkStamped.msg
 )
 
 ## Generate services in the 'srv' folder
 add_service_files(
     FILES
+    CmdGrippersTrajectory.srv
     GetGripperNames.srv
     GetGripperAttachedNodeIndices.srv
+    GetGripperPose.srv
     GetPointSet.srv
+    SetVisualizationMarker.srv
 )
 
 ## Generate actions in the 'action' folder
@@ -54,8 +57,9 @@ add_service_files(
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
     DEPENDENCIES
-    geometry_msgs
     std_msgs
+    geometry_msgs
+    visualization_msgs
 )
 
 ###################################

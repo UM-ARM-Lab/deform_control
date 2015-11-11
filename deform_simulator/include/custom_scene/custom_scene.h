@@ -15,20 +15,23 @@
 #include "gripper_kinematic_object.h"
 
 #include <ros/ros.h>
+#include <visualization_msgs/Marker.h>
 
 // This pragma is here because the ROS message generator has an extra ';' on one
 // line of code, and we can't push this off to be a system include
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-#include "deform_simulator/GripperTrajectoryStamped.h"
 #include "deform_simulator/SimulatorFbkStamped.h"
 #include "deform_simulator/GetGripperAttachedNodeIndices.h"
-// This pragma is here because the service call has an empty request message
-// thus the allocator that it is passed never gets used
+#include "deform_simulator/GetGripperPose.h"
+// This pragma is here because the service call has an empty request
+// (or response) message thus the allocator that it is passed never gets used
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "deform_simulator/GetGripperNames.h"
 #include "deform_simulator/GetPointSet.h"
+#include "deform_simulator/CmdGrippersTrajectory.h"
+#include "deform_simulator/SetVisualizationMarker.h"
 #pragma GCC diagnostic pop
 #pragma GCC diagnostic pop
 
@@ -53,8 +56,10 @@ class CustomScene : public Scene
                 const std::string& simulator_fbk_topic = "simulator_fbk",
                 const std::string& get_gripper_names_topic = "get_gripper_names",
                 const std::string& get_gripper_attached_node_indices_topic = "get_gripper_attached_node_indices",
+                const std::string& get_gripper_pose_topic = "get_gripper_pose",
                 const std::string& get_object_initial_configuration_topic = "get_object_initial_configuration",
-                const std::string& get_cover_points_topic = "get_cover_points" );
+                const std::string& get_cover_points_topic = "get_cover_points",
+                const std::string& set_visualization_marker_topic = "set_visualization_marker" );
 
         ////////////////////////////////////////////////////////////////////////
         // Main function that makes things happen
@@ -77,6 +82,13 @@ class CustomScene : public Scene
         void findClothCornerNodes();
 
         ////////////////////////////////////////////////////////////////////////
+        // Main loop helper functions
+        ////////////////////////////////////////////////////////////////////////
+
+        void moveGrippers();
+        void publishSimulatorFbk();
+
+        ////////////////////////////////////////////////////////////////////////
         // Internal helper functions
         ////////////////////////////////////////////////////////////////////////
 
@@ -86,35 +98,50 @@ class CustomScene : public Scene
         // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
 
-        void cmdGripperTrajCallback( const deform_simulator::GripperTrajectoryStamped& gripper_traj );
+        bool cmdGripperTrajCallback(
+                deform_simulator::CmdGrippersTrajectory::Request& req,
+                deform_simulator::CmdGrippersTrajectory::Response& res );
         bool getGripperNamesCallback(
                 deform_simulator::GetGripperNames::Request& req,
                 deform_simulator::GetGripperNames::Response& res );
         bool getGripperAttachedNodeIndicesCallback(
                 deform_simulator::GetGripperAttachedNodeIndices::Request& req,
                 deform_simulator::GetGripperAttachedNodeIndices::Response& res );
+        bool getGripperPoseCallback(
+                deform_simulator::GetGripperPose::Request& req,
+                deform_simulator::GetGripperPose::Response& res );
         bool getCoverPointsCallback(
                 deform_simulator::GetPointSet::Request& req,
                 deform_simulator::GetPointSet::Response& res );
         bool getObjectInitialConfigurationCallback(
                 deform_simulator::GetPointSet::Request& req,
                 deform_simulator::GetPointSet::Response& res );
+        bool setVisualizationCallback(
+                deform_simulator::SetVisualizationMarker::Request& req,
+                deform_simulator::SetVisualizationMarker::Response& res );
+
+        ////////////////////////////////////////////////////////////////////
+        // ROS Objects and Helpers
+        ////////////////////////////////////////////////////////////////////
+
+        // Our internal version of ros::spin()
+        static void spin( double loop_rate );
 
         ////////////////////////////////////////////////////////////////////////
         // Pre-step Callbacks
         ////////////////////////////////////////////////////////////////////////
 
-        void moveGrippers();
         void drawAxes();
 
         PlotPoints::Ptr plot_points_;
         PlotLines::Ptr plot_lines_;
 
+        std::map< std::string,  PlotLines::Ptr > visualization_line_markers_;
+        std::map< std::string,  PlotSpheres::Ptr > visualization_sphere_markers_;
+
         ////////////////////////////////////////////////////////////////////////
         // Post-step Callbacks
         ////////////////////////////////////////////////////////////////////////
-
-        void publishSimulatorFbk();
 
         ////////////////////////////////////////////////////////////////////////
         // Task Variables TODO to be moved into a CustomSceneConfig file
@@ -153,7 +180,7 @@ class CustomScene : public Scene
         static constexpr float ROPE_CYLINDER_RADIUS = 0.15; // METERS
         static constexpr float ROPE_CYLINDER_HEIGHT = 0.3; // METERS
         CylinderStaticObject::Ptr cylinder_;
-        boost::shared_ptr<CapsuleRope> rope_;
+        boost::shared_ptr< CapsuleRope > rope_;
 
         ////////////////////////////////////////////////////////////////////////
         // Cloth world objects
@@ -184,16 +211,20 @@ class CustomScene : public Scene
         // global input mutex
         boost::mutex input_mtx_;
 
-        ros::Subscriber cmd_gripper_traj_sub_;
-        deform_simulator::GripperTrajectoryStamped cmd_gripper_traj_;
-        size_t next_index_to_use_;
+        ros::ServiceServer cmd_grippers_traj_srv_;
+        deform_simulator::CmdGrippersTrajectory::Request next_gripper_traj_;
+        deform_simulator::CmdGrippersTrajectory::Request curr_gripper_traj_;
+        size_t gripper_traj_index_;
+        bool new_gripper_traj_ready_;
 
         ros::Publisher simulator_fbk_pub_;
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
+        ros::ServiceServer gripper_pose_srv_;
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer object_initial_configuration_srv_;
+        ros::ServiceServer set_visualization_marker_srv_;
         std::vector< geometry_msgs::Point > object_initial_configuration_;
 };
 

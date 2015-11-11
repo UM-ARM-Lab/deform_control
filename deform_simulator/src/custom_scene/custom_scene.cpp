@@ -1,7 +1,9 @@
 #include "custom_scene/custom_scene.h"
 
 #include <limits>
-#include <thread>
+#include <string>
+#include <boost/thread.hpp>
+#include <ros/callback_queue.h>
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
 #include <bullet_helpers/bullet_internal_conversions.hpp>
@@ -24,22 +26,24 @@ constexpr float CustomScene::CLOTH_Z;
 // Constructor and Destructor
 ////////////////////////////////////////////////////////////////////////////////
 
-CustomScene::CustomScene(
-        CustomScene::DeformableType deformable_type,
+CustomScene::CustomScene(CustomScene::DeformableType deformable_type,
         CustomScene::TaskType task_type,
         ros::NodeHandle& nh,
         const std::string& cmd_gripper_traj_topic,
         const std::string& simulator_fbk_topic,
         const std::string& get_gripper_names_topic,
         const std::string& get_gripper_attached_node_indices_topic,
+        const std::string& get_gripper_pose_topic,
         const std::string& get_object_initial_configuration_topic,
-        const std::string& get_cover_points_topic )
+        const std::string& get_cover_points_topic,
+        const std::string& set_visualization_marker_topic )
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
     , task_type_( task_type )
     , nh_( nh )
 {
+    ROS_INFO_NAMED( "custom_scene", "Buiding the world" );
     // Build the world
     // TODO: make this setable/resetable via a ROS service call
     switch ( deformable_type_ )
@@ -62,15 +66,12 @@ CustomScene::CustomScene(
     // TODO: find a better way to do this that exposes less internals
     object_initial_configuration_ = toRosPointVector( getDeformableObjectNodes(), METERS );
 
-    // Subscribe to desired gripper trajectories
-    cmd_gripper_traj_sub_ = nh_.subscribe(
-            cmd_gripper_traj_topic, 1, &CustomScene::cmdGripperTrajCallback, this );
-    next_index_to_use_ = 0;
-
+    ROS_INFO_NAMED( "custom_scene", "Creating subscribers and publishers" );
     // Publish to the feedback channel
     simulator_fbk_pub_ = nh_.advertise< deform_simulator::SimulatorFbkStamped >(
-            simulator_fbk_topic, 1 );
+            simulator_fbk_topic, 20 );
 
+    ROS_INFO_NAMED( "custom_scene", "Creating services" );
     // Create a service to let others know the internal gripper names
     gripper_names_srv_ = nh_.advertiseService(
             get_gripper_names_topic, &CustomScene::getGripperNamesCallback, this );
@@ -79,6 +80,10 @@ CustomScene::CustomScene(
     gripper_attached_node_indices_srv_ = nh_.advertiseService(
             get_gripper_attached_node_indices_topic, &CustomScene::getGripperAttachedNodeIndicesCallback, this );
 
+    // Create a service to let others know the current gripper pose
+    gripper_pose_srv_ = nh_.advertiseService(
+            get_gripper_pose_topic, &CustomScene::getGripperPoseCallback, this);
+
     // Create a service to let others know the cover points
     cover_points_srv_ = nh_.advertiseService(
             get_cover_points_topic, &CustomScene::getCoverPointsCallback, this );
@@ -86,6 +91,18 @@ CustomScene::CustomScene(
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
             get_object_initial_configuration_topic, &CustomScene::getObjectInitialConfigurationCallback, this );
+
+    // Create a service to take gripper trajectories
+    cmd_grippers_traj_srv_ = nh_.advertiseService(
+            cmd_gripper_traj_topic, &CustomScene::cmdGripperTrajCallback, this );
+    gripper_traj_index_ = 0;
+    new_gripper_traj_ready_ = false;
+
+    // Create a service to take visualization instructions
+    set_visualization_marker_srv_ = nh_.advertiseService(
+            set_visualization_marker_topic, &CustomScene::setVisualizationCallback, this );
+
+    ROS_INFO_NAMED( "custom_scene", "Simulation ready." );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,22 +117,45 @@ void CustomScene::run( bool syncTime )
     addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
             boost::bind( &ros::shutdown ) );
 
-    addPreStepCallback( boost::bind( &CustomScene::moveGrippers, this ) );
     addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
 
-    addPostStepCallback( boost::bind( &CustomScene::publishSimulatorFbk, this ) );
+    // TODO: remove this hardcoded spin rate
+    boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
 
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed
     setSyncTime( syncTime );
     startViewer();
-    stepFor( BulletConfig::dt, 2 );
-
-    // Start listening for ROS messages
-    std::thread spin_thread( boost::bind( &ros::spin ) );
 
     // Run the simulation
-    startFixedTimestepLoop( BulletConfig::dt );
+    while ( ros::ok() )
+    {
+        // if we have some desired trajectories, execute them
+        boost::mutex::scoped_lock lock( input_mtx_ );
+        if ( new_gripper_traj_ready_ )
+        {
+            curr_gripper_traj_ = next_gripper_traj_;
+            gripper_traj_index_ = 0;
+            new_gripper_traj_ready_ = false;
+        }
+        lock.unlock();
+
+        // If we have not reached the end of the current gripper trajectory, execute the next step
+        if ( curr_gripper_traj_.trajectories.size() > 0 &&
+             gripper_traj_index_ < curr_gripper_traj_.trajectories[0].pose.size() )
+        {
+            moveGrippers();
+
+            step( BulletConfig::dt );
+
+            publishSimulatorFbk();
+        }
+        else
+        {
+            // TODO: replace this with something that redraws/allows user input
+            step( 0 );
+        }
+    }
 
     // clean up the extra thread we started
     spin_thread.join();
@@ -184,7 +224,7 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     cylinder_ = CylinderStaticObject::Ptr( new CylinderStaticObject(
                 0, ROPE_CYLINDER_RADIUS*METERS, ROPE_CYLINDER_HEIGHT*METERS,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 179.0/255.0, 176.0/255.0, 160.0/255.0, 1 );
+    cylinder_->setColor( 179.0/255.0, 176.0/255.0, 160.0/255.0, 0.25 );
 
     // add the cylinder to the world
     env->add( cylinder_ );
@@ -486,6 +526,47 @@ void CustomScene::findClothCornerNodes()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Main loop helper functions
+////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::moveGrippers()
+{
+    // TODO check for valid gripper names (and length of names vector)
+    for ( size_t ind = 0; ind < curr_gripper_traj_.gripper_names.size(); ind++ )
+    {
+        btTransform tf = toBulletTransform(
+                    curr_gripper_traj_.trajectories[ind].pose[gripper_traj_index_], METERS );
+
+        grippers_[curr_gripper_traj_.gripper_names[ind]]->setWorldTransform( tf );
+    }
+    gripper_traj_index_++;
+}
+
+void CustomScene::publishSimulatorFbk()
+{
+    // TODO: don't rebuild this every time
+    deform_simulator::SimulatorFbkStamped msg;
+
+    // fill out the gripper data
+    for ( auto &gripper: grippers_ )
+    {
+        msg.gripper_names.push_back( gripper.first );
+        msg.gripper_poses.push_back( toRosPose( gripper.second->getWorldTransform(), METERS ) );
+    }
+
+    // fill out the object configuration data
+    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
+
+    // update the sim_time
+    // TODO: is this actually correct?
+    msg.sim_time = viewer.getFrameStamp()->getSimulationTime();
+
+    // publish the message
+    msg.header.stamp = ros::Time::now();
+    simulator_fbk_pub_.publish( msg );
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // Internal helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -511,13 +592,19 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes()
 // ROS Callbacks
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::cmdGripperTrajCallback(
-        const deform_simulator::GripperTrajectoryStamped& gripper_traj )
+bool CustomScene::cmdGripperTrajCallback(
+        deform_simulator::CmdGrippersTrajectory::Request& req,
+        deform_simulator::CmdGrippersTrajectory::Response& res)
 {
+    (void)res;
     boost::mutex::scoped_lock lock( input_mtx_ );
 
-    cmd_gripper_traj_ = gripper_traj;
-    next_index_to_use_ = 0;
+    assert( req.trajectories.size() == req.gripper_names.size() );
+
+    next_gripper_traj_ = req;
+    new_gripper_traj_ready_ = true;
+
+    return true;
 }
 
 bool CustomScene::getGripperNamesCallback(
@@ -542,6 +629,16 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     return true;
 }
 
+bool CustomScene::getGripperPoseCallback(
+        deform_simulator::GetGripperPose::Request& req,
+        deform_simulator::GetGripperPose::Response& res )
+{
+    // TODO: error check input
+    GripperKinematicObject::Ptr gripper = grippers_[req.name];
+    res.pose = toRosPose( gripper->getWorldTransform(), METERS );
+    return true;
+}
+
 bool CustomScene::getCoverPointsCallback(
         deform_simulator::GetPointSet::Request& req,
         deform_simulator::GetPointSet::Response& res )
@@ -560,32 +657,94 @@ bool CustomScene::getObjectInitialConfigurationCallback(
     return true;
 }
 
+bool CustomScene::setVisualizationCallback(
+        deform_simulator::SetVisualizationMarker::Request& req,
+        deform_simulator::SetVisualizationMarker::Response& res )
+{
+    // TODO: be able to delete markers
+
+    //std::map< std::string, std::vector< EnvironmentObject::Ptr > > visualizaton_markers_;
+    (void)res;
+
+    std::string id = req.marker.ns + std::to_string( req.marker.id );
+
+    switch ( req.marker.type )
+    {
+        case visualization_msgs::Marker::SPHERE:
+        {
+            if ( visualization_sphere_markers_.count(id) == 0 )
+            {
+                ROS_INFO_STREAM( "Creating new Marker::SPHERE" );
+                PlotSpheres::Ptr spheres( new PlotSpheres() );
+                spheres->plot( toOsgRefVec3Array( req.marker.points, METERS ),
+                               toOsgRefVec4Array( req.marker.colors ),
+                               std::vector< float >( req.marker.points.size(), req.marker.scale.x * METERS ) );
+                visualization_sphere_markers_[id] = spheres;
+
+                env->add( spheres );
+            }
+            else
+            {
+                PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
+                spheres->plot( toOsgRefVec3Array( req.marker.points, METERS ),
+                               toOsgRefVec4Array( req.marker.colors ),
+                               std::vector< float >( req.marker.points.size(), req.marker.scale.x * METERS ) );
+            }
+            break;
+        }
+        case visualization_msgs::Marker::LINE_STRIP:
+        {
+            convertLineStripToLineList( req.marker );
+        }
+        case visualization_msgs::Marker::LINE_LIST:
+        {
+            // if the object is new, add it
+            if ( visualization_line_markers_.count( id ) == 0 )
+            {
+                ROS_INFO_STREAM( "Creating new Marker::LINE_LIST" );
+                PlotLines::Ptr line_strip( new PlotLines( req.marker.scale.x * METERS ) );
+                line_strip->setPoints( toBulletPointVector( req.marker.points, METERS ),
+                                       toBulletColorArray( req.marker.colors ));
+                visualization_line_markers_[id] = line_strip;
+
+                env->add( line_strip );
+            }
+            else
+            {
+                PlotLines::Ptr line_strip = visualization_line_markers_[id];
+                line_strip->setPoints( toBulletPointVector( req.marker.points, METERS ),
+                                       toBulletColorArray( req.marker.colors ));
+            }
+            break;
+        }
+        default:
+        {
+            ROS_ERROR_STREAM_NAMED( "custom_scene_visualization",
+                    "Marker type " << req.marker.type << " not implemented" );
+            return false;
+        }
+    }
+
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// ROS Objects and Helpers
+////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::spin( double loop_rate )
+{
+    ros::NodeHandle ph("~");
+    ROS_INFO_NAMED( "custom_scene" , "Starting feedback spinner" );
+    while ( ros::ok() )
+    {
+        ros::getGlobalCallbackQueue()->callAvailable( ros::WallDuration( loop_rate ) );
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Pre-step Callbacks
 ////////////////////////////////////////////////////////////////////////////////
-
-void CustomScene::moveGrippers()
-{
-    boost::mutex::scoped_lock lock( input_mtx_ );
-
-    // check to see if we've received any instructions for our grippers
-    if ( cmd_gripper_traj_.trajectories.size() > 0 )
-    {
-        // TODO allow for different lengths of trajectories?
-        if ( next_index_to_use_ < cmd_gripper_traj_.trajectories[0].pose.size() )
-        {
-            // TODO check for valid gripper names (and length of names vector)
-            for ( size_t ind = 0; ind < cmd_gripper_traj_.gripper_names.size(); ind++ )
-            {
-                btTransform tf = toBulletTransform(
-                        cmd_gripper_traj_.trajectories[ind].pose[next_index_to_use_], METERS );
-
-                grippers_[cmd_gripper_traj_.gripper_names[ind]]->setWorldTransform( tf );
-            }
-            next_index_to_use_++;
-        }
-    }
-}
 
 void CustomScene::drawAxes()
 {
@@ -598,27 +757,3 @@ void CustomScene::drawAxes()
 ////////////////////////////////////////////////////////////////////////////////
 // Post-step Callbacks
 ////////////////////////////////////////////////////////////////////////////////
-
-void CustomScene::publishSimulatorFbk()
-{
-    // TODO: don't rebuild this every time
-    deform_simulator::SimulatorFbkStamped msg;
-
-    // fill out the gripper data
-    for ( auto &gripper: grippers_ )
-    {
-        msg.gripper_names.push_back( gripper.first );
-        msg.gripper_poses.push_back( toRosPose( gripper.second->getWorldTransform(), METERS ) );
-    }
-
-    // fill out the object configuration data
-    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
-
-    // update the sim_time
-    // TODO: is this actually correct?
-    msg.sim_time = viewer.getFrameStamp()->getSimulationTime();
-
-    // publish the message
-    msg.header.stamp = ros::Time::now();
-    simulator_fbk_pub_.publish( msg );
-}
