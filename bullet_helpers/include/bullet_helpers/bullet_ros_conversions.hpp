@@ -81,20 +81,11 @@ namespace BulletHelpers
 
         marker.points.resize( num_lines * 2 - 2 );
         marker.colors.resize( num_lines * 2 - 2 );
-        marker.points[0] = points[0];
-        marker.colors[0] = colors[0];
-
-        for ( size_t ind = 1; ind < num_lines - 1 ; ind++ )
+        for ( size_t ind = 1; ind < num_lines*2 - 2 ; ind++ )
         {
-            marker.points[2*ind-1] = points[ind];
-            marker.points[2*ind] = points[ind];
-
-            marker.colors[2*ind-1] = colors[ind];
-            marker.colors[2*ind] = colors[ind];
+            marker.points[ind] = points[(ind+1)/2];
+            marker.colors[ind] = colors[(ind+1)/2];
         }
-
-        *marker.points.end() = *points.end();
-        *marker.colors.end() = *colors.end();
     }
 
     inline std::vector< btVector3 > toBulletPointVector( const std::vector< geometry_msgs::Point >& ros, float bt_scale )

@@ -26,17 +26,8 @@ constexpr float CustomScene::CLOTH_Z;
 // Constructor and Destructor
 ////////////////////////////////////////////////////////////////////////////////
 
-CustomScene::CustomScene(CustomScene::DeformableType deformable_type,
-        CustomScene::TaskType task_type,
-        ros::NodeHandle& nh,
-        const std::string& cmd_gripper_traj_topic,
-        const std::string& simulator_fbk_topic,
-        const std::string& get_gripper_names_topic,
-        const std::string& get_gripper_attached_node_indices_topic,
-        const std::string& get_gripper_pose_topic,
-        const std::string& get_object_initial_configuration_topic,
-        const std::string& get_cover_points_topic,
-        const std::string& set_visualization_marker_topic )
+CustomScene::CustomScene( ros::NodeHandle& nh,
+        smmap::DeformableType deformable_type, smmap::TaskType task_type)
     : plot_points_( new PlotPoints( 0.1*METERS ) )
     , plot_lines_( new PlotLines( 0.25*METERS ) )
     , deformable_type_( deformable_type )
@@ -48,11 +39,11 @@ CustomScene::CustomScene(CustomScene::DeformableType deformable_type,
     // TODO: make this setable/resetable via a ROS service call
     switch ( deformable_type_ )
     {
-        case ROPE:
+        case smmap::DeformableType::ROPE:
             makeRopeWorld();
             break;
 
-        case CLOTH:
+        case smmap::DeformableType::CLOTH:
             makeClothWorld();
             break;
 
@@ -68,39 +59,43 @@ CustomScene::CustomScene(CustomScene::DeformableType deformable_type,
 
     ROS_INFO_NAMED( "custom_scene", "Creating subscribers and publishers" );
     // Publish to the feedback channel
-    simulator_fbk_pub_ = nh_.advertise< deform_simulator::SimulatorFbkStamped >(
-            simulator_fbk_topic, 20 );
+    simulator_fbk_pub_ = nh_.advertise< smmap_msgs::SimulatorFbkStamped >(
+            smmap::SimulatorFeedbackTopic( nh_ ), 20 );
 
     ROS_INFO_NAMED( "custom_scene", "Creating services" );
     // Create a service to let others know the internal gripper names
     gripper_names_srv_ = nh_.advertiseService(
-            get_gripper_names_topic, &CustomScene::getGripperNamesCallback, this );
+            smmap::GetGripperNamesTopic( nh_ ), &CustomScene::getGripperNamesCallback, this );
 
     // Create a service to let others know what nodes the grippers are attached too
     gripper_attached_node_indices_srv_ = nh_.advertiseService(
-            get_gripper_attached_node_indices_topic, &CustomScene::getGripperAttachedNodeIndicesCallback, this );
+            smmap::GetGripperAttachedNodeIndicesTopic( nh_ ), &CustomScene::getGripperAttachedNodeIndicesCallback, this );
 
     // Create a service to let others know the current gripper pose
     gripper_pose_srv_ = nh_.advertiseService(
-            get_gripper_pose_topic, &CustomScene::getGripperPoseCallback, this);
+            smmap::GetGripperPoseTopic( nh_ ), &CustomScene::getGripperPoseCallback, this);
 
     // Create a service to let others know the cover points
     cover_points_srv_ = nh_.advertiseService(
-            get_cover_points_topic, &CustomScene::getCoverPointsCallback, this );
+            smmap::GetCoverPointsTopic( nh_ ), &CustomScene::getCoverPointsCallback, this );
 
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
-            get_object_initial_configuration_topic, &CustomScene::getObjectInitialConfigurationCallback, this );
+            smmap::GetObjectInitialConfigurationTopic( nh_ ), &CustomScene::getObjectInitialConfigurationCallback, this );
 
     // Create a service to take gripper trajectories
     cmd_grippers_traj_srv_ = nh_.advertiseService(
-            cmd_gripper_traj_topic, &CustomScene::cmdGripperTrajCallback, this );
+            smmap::CommandGripperTrajTopic( nh_ ), &CustomScene::cmdGripperTrajCallback, this );
     gripper_traj_index_ = 0;
     new_gripper_traj_ready_ = false;
 
-    // Create a service to take visualization instructions
-    set_visualization_marker_srv_ = nh_.advertiseService(
-            set_visualization_marker_topic, &CustomScene::setVisualizationCallback, this );
+    // Create a subscriber to take visualization instructions
+    visualization_marker_sub_ = nh_.subscribe(
+            smmap::VisualizationMarkerTopic( nh_ ), 20, &CustomScene::visualizationMarkerCallback, this );
+
+    // Create a subscriber to take visualization instructions
+    visualization_marker_array_sub_ = nh_.subscribe(
+            smmap::VisualizationMarkerArrayTopic( nh_ ), 20, &CustomScene::visualizationMarkerArrayCallback, this );
 
     ROS_INFO_NAMED( "custom_scene", "Simulation ready." );
 }
@@ -224,7 +219,7 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     cylinder_ = CylinderStaticObject::Ptr( new CylinderStaticObject(
                 0, ROPE_CYLINDER_RADIUS*METERS, ROPE_CYLINDER_HEIGHT*METERS,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 179.0/255.0, 176.0/255.0, 160.0/255.0, 0.25 );
+    cylinder_->setColor( 150.0/255.0, 150.0/255.0, 150.0/255.0, 0.0 );
 
     // add the cylinder to the world
     env->add( cylinder_ );
@@ -234,7 +229,8 @@ void CustomScene::makeCylinder( const bool set_cover_points )
         // find the points that we want to cover with a rope
         for( float theta = 0; theta < 2 * M_PI; theta += 0.3 )
         {
-            for( float h = 0; h < ROPE_CYLINDER_HEIGHT*METERS; h += 0.2 )
+//            for( float h = 0; h < ROPE_CYLINDER_HEIGHT*METERS; h += ROPE_CYLINDER_HEIGHT*METERS/30.0 )
+            float h = ROPE_RADIUS*METERS * 4;
             {
                 cover_points_.push_back(
                         cylinder_com_origin
@@ -329,7 +325,7 @@ void CustomScene::makeRopeWorld()
     // Here we assume that we are already working with a rope object
     switch ( task_type_ )
     {
-        case COVERAGE:
+        case smmap::TaskType::COVERAGE:
         {
             const bool table_set_cover_points = false;
             const bool cylinder_set_cover_points = true;
@@ -365,7 +361,7 @@ void CustomScene::makeClothWorld()
 {
     switch ( task_type_ )
     {
-        case COVERAGE:
+        case smmap::TaskType::COVERAGE:
         {
             const bool set_cover_points = true;
             makeTable( CLOTH_TABLE_HALF_SIDE_LENGTH*METERS, set_cover_points );
@@ -407,7 +403,7 @@ void CustomScene::makeClothWorld()
 
             break;
         }
-        case COLAB_FOLDING:
+        case smmap::TaskType::COLAB_FOLDING:
         {
             makeCloth();
 
@@ -545,7 +541,7 @@ void CustomScene::moveGrippers()
 void CustomScene::publishSimulatorFbk()
 {
     // TODO: don't rebuild this every time
-    deform_simulator::SimulatorFbkStamped msg;
+    smmap_msgs::SimulatorFbkStamped msg;
 
     // fill out the gripper data
     for ( auto &gripper: grippers_ )
@@ -576,11 +572,11 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes()
 
     switch ( deformable_type_ )
     {
-        case ROPE:
+        case smmap::DeformableType::ROPE:
             nodes = rope_->getNodes();
             break;
 
-        case CLOTH:
+        case smmap::DeformableType::CLOTH:
             nodes = nodeArrayToNodePosVector( cloth_->softBody->m_nodes );
             break;
     }
@@ -593,8 +589,8 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes()
 ////////////////////////////////////////////////////////////////////////////////
 
 bool CustomScene::cmdGripperTrajCallback(
-        deform_simulator::CmdGrippersTrajectory::Request& req,
-        deform_simulator::CmdGrippersTrajectory::Response& res)
+        smmap_msgs::CmdGrippersTrajectory::Request& req,
+        smmap_msgs::CmdGrippersTrajectory::Response& res)
 {
     (void)res;
     boost::mutex::scoped_lock lock( input_mtx_ );
@@ -608,8 +604,8 @@ bool CustomScene::cmdGripperTrajCallback(
 }
 
 bool CustomScene::getGripperNamesCallback(
-        deform_simulator::GetGripperNames::Request& req,
-        deform_simulator::GetGripperNames::Response& res )
+        smmap_msgs::GetGripperNames::Request& req,
+        smmap_msgs::GetGripperNames::Response& res )
 {
     (void)req;
     for ( auto& gripper: grippers_ )
@@ -620,8 +616,8 @@ bool CustomScene::getGripperNamesCallback(
 }
 
 bool CustomScene::getGripperAttachedNodeIndicesCallback(
-        deform_simulator::GetGripperAttachedNodeIndices::Request& req,
-        deform_simulator::GetGripperAttachedNodeIndices::Response& res )
+        smmap_msgs::GetGripperAttachedNodeIndices::Request& req,
+        smmap_msgs::GetGripperAttachedNodeIndices::Response& res )
 {
     // TODO: error check input
     GripperKinematicObject::Ptr gripper = grippers_[req.name];
@@ -630,8 +626,8 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
 }
 
 bool CustomScene::getGripperPoseCallback(
-        deform_simulator::GetGripperPose::Request& req,
-        deform_simulator::GetGripperPose::Response& res )
+        smmap_msgs::GetGripperPose::Request& req,
+        smmap_msgs::GetGripperPose::Response& res )
 {
     // TODO: error check input
     GripperKinematicObject::Ptr gripper = grippers_[req.name];
@@ -640,8 +636,8 @@ bool CustomScene::getGripperPoseCallback(
 }
 
 bool CustomScene::getCoverPointsCallback(
-        deform_simulator::GetPointSet::Request& req,
-        deform_simulator::GetPointSet::Response& res )
+        smmap_msgs::GetPointSet::Request& req,
+        smmap_msgs::GetPointSet::Response& res )
 {
     (void)req;
     res.points = toRosPointVector( cover_points_, METERS );
@@ -649,26 +645,21 @@ bool CustomScene::getCoverPointsCallback(
 }
 
 bool CustomScene::getObjectInitialConfigurationCallback(
-        deform_simulator::GetPointSet::Request& req,
-        deform_simulator::GetPointSet::Response& res )
+        smmap_msgs::GetPointSet::Request& req,
+        smmap_msgs::GetPointSet::Response& res )
 {
     (void)req;
     res.points = object_initial_configuration_;
     return true;
 }
 
-bool CustomScene::setVisualizationCallback(
-        deform_simulator::SetVisualizationMarker::Request& req,
-        deform_simulator::SetVisualizationMarker::Response& res )
+// TODO: be able to delete markers and have a timeout
+void CustomScene::visualizationMarkerCallback(
+        visualization_msgs::Marker marker )
 {
-    // TODO: be able to delete markers
+    std::string id = marker.ns + std::to_string( marker.id );
 
-    //std::map< std::string, std::vector< EnvironmentObject::Ptr > > visualizaton_markers_;
-    (void)res;
-
-    std::string id = req.marker.ns + std::to_string( req.marker.id );
-
-    switch ( req.marker.type )
+    switch ( marker.type )
     {
         case visualization_msgs::Marker::SPHERE:
         {
@@ -676,9 +667,9 @@ bool CustomScene::setVisualizationCallback(
             {
                 ROS_INFO_STREAM( "Creating new Marker::SPHERE" );
                 PlotSpheres::Ptr spheres( new PlotSpheres() );
-                spheres->plot( toOsgRefVec3Array( req.marker.points, METERS ),
-                               toOsgRefVec4Array( req.marker.colors ),
-                               std::vector< float >( req.marker.points.size(), req.marker.scale.x * METERS ) );
+                spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
+                               toOsgRefVec4Array( marker.colors ),
+                               std::vector< float >( marker.points.size(), marker.scale.x * METERS ) );
                 visualization_sphere_markers_[id] = spheres;
 
                 env->add( spheres );
@@ -686,15 +677,15 @@ bool CustomScene::setVisualizationCallback(
             else
             {
                 PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
-                spheres->plot( toOsgRefVec3Array( req.marker.points, METERS ),
-                               toOsgRefVec4Array( req.marker.colors ),
-                               std::vector< float >( req.marker.points.size(), req.marker.scale.x * METERS ) );
+                spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
+                               toOsgRefVec4Array( marker.colors ),
+                               std::vector< float >( marker.points.size(), marker.scale.x * METERS ) );
             }
             break;
         }
         case visualization_msgs::Marker::LINE_STRIP:
         {
-            convertLineStripToLineList( req.marker );
+            convertLineStripToLineList( marker );
         }
         case visualization_msgs::Marker::LINE_LIST:
         {
@@ -702,9 +693,9 @@ bool CustomScene::setVisualizationCallback(
             if ( visualization_line_markers_.count( id ) == 0 )
             {
                 ROS_INFO_STREAM( "Creating new Marker::LINE_LIST" );
-                PlotLines::Ptr line_strip( new PlotLines( req.marker.scale.x * METERS ) );
-                line_strip->setPoints( toBulletPointVector( req.marker.points, METERS ),
-                                       toBulletColorArray( req.marker.colors ));
+                PlotLines::Ptr line_strip( new PlotLines( marker.scale.x * METERS ) );
+                line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
+                                       toBulletColorArray( marker.colors ));
                 visualization_line_markers_[id] = line_strip;
 
                 env->add( line_strip );
@@ -712,20 +703,24 @@ bool CustomScene::setVisualizationCallback(
             else
             {
                 PlotLines::Ptr line_strip = visualization_line_markers_[id];
-                line_strip->setPoints( toBulletPointVector( req.marker.points, METERS ),
-                                       toBulletColorArray( req.marker.colors ));
+                line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
+                                       toBulletColorArray( marker.colors ));
             }
             break;
         }
         default:
         {
             ROS_ERROR_STREAM_NAMED( "custom_scene_visualization",
-                    "Marker type " << req.marker.type << " not implemented" );
-            return false;
+                    "Marker type " << marker.type << " not implemented" );
         }
     }
+}
 
-    return true;
+// TODO: be able to delete markers and have a timeout
+void CustomScene::visualizationMarkerArrayCallback(
+        visualization_msgs::MarkerArray marker_array )
+{
+    ROS_ERROR_STREAM_NAMED( "custom_scene_visualization", "MarkerArray visualization is not implemented" );
 }
 
 ////////////////////////////////////////////////////////////////////////////////

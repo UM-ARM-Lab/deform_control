@@ -9,10 +9,11 @@ set( CATKIN_PACKAGES
     osg_bullet
     haptics
     bullet_helpers
+    smmap
 )
 
 ## Find catkin macros and libraries
-find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} message_generation )
+find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
 
 ## System dependencies are found with CMake's conventions
 find_package( cmake_modules REQUIRED )
@@ -29,38 +30,7 @@ find_package( Eigen3 REQUIRED )
 ## Declare ROS messages, services and actions ##
 ################################################
 
-## Generate messages in the 'msg' folder
-add_message_files(
-    FILES
-    GripperTrajectory.msg 
-    SimulatorFbkStamped.msg
-)
-
-## Generate services in the 'srv' folder
-add_service_files(
-    FILES
-    CmdGrippersTrajectory.srv
-    GetGripperNames.srv
-    GetGripperAttachedNodeIndices.srv
-    GetGripperPose.srv
-    GetPointSet.srv
-    SetVisualizationMarker.srv
-)
-
-## Generate actions in the 'action' folder
-# add_action_files(
-#     FILES
-#     Action1.action
-#     Action2.action
-# )
-
-## Generate added messages and services with any dependencies listed here
-generate_messages(
-    DEPENDENCIES
-    std_msgs
-    geometry_msgs
-    visualization_msgs
-)
+# Declared in the smmap_msgs package
 
 ###################################
 ## catkin specific configuration ##
@@ -70,7 +40,6 @@ catkin_package(
     INCLUDE_DIRS    include
 #    LIBRARIES       ${PROJECT_NAME}
     CATKIN_DEPENDS  ${CATKIN_PACKAGES}
-                    message_runtime
     DEPENDS         Eigen3
                     Boost
 )
