@@ -170,6 +170,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
     table_ = BoxObject::Ptr( new BoxObject( 0, table_half_extents,
                 btTransform( btQuaternion( 0, 0, 0, 1 ),
                     table_surface_position - btVector3( 0, 0, TABLE_THICKNESS*METERS/2 ) ) ) );
+    table_->setColor( 0.4, 0.4, 0.4, 1 );
     // TODO why was this not set for the rope and only for the cloth?
     table_->rigidBody->setFriction(1);
 
@@ -219,7 +220,7 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     cylinder_ = CylinderStaticObject::Ptr( new CylinderStaticObject(
                 0, ROPE_CYLINDER_RADIUS*METERS, ROPE_CYLINDER_HEIGHT*METERS,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 150.0/255.0, 150.0/255.0, 150.0/255.0, 0.0 );
+    cylinder_->setColor( 0.1, 0.1, 0.1, 0 );
 
     // add the cylinder to the world
     env->add( cylinder_ );
@@ -229,8 +230,8 @@ void CustomScene::makeCylinder( const bool set_cover_points )
         // find the points that we want to cover with a rope
         for( float theta = 0; theta < 2 * M_PI; theta += 0.3 )
         {
-//            for( float h = 0; h < ROPE_CYLINDER_HEIGHT*METERS; h += ROPE_CYLINDER_HEIGHT*METERS/30.0 )
-            float h = ROPE_RADIUS*METERS * 4;
+            for( float h = 0; h < ROPE_CYLINDER_HEIGHT*METERS; h += ROPE_CYLINDER_HEIGHT*METERS/30.0 )
+//            float h = ROPE_RADIUS*METERS;
             {
                 cover_points_.push_back(
                         cylinder_com_origin
