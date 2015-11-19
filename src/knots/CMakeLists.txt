@@ -3,6 +3,7 @@ include_directories(
   ${PCL_INCLUDE_DIRS}
   ${GUROBI_INCLUDE_DIR}
   ${TETGEN_DIR}
+  /usr/include/pcl-1.7
 )
 
 link_directories(
