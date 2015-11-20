@@ -546,7 +546,8 @@ int CustomScene::getNumDeformableObjectNodes()
 //this is getting called before the step loop
 void CustomScene::doJTracking()
 {
-    // let the rope settle between itterations
+    // let the rope settle between iterations
+/*
     itrnumber++;
     if(itrnumber != 3)
     {
@@ -558,6 +559,7 @@ void CustomScene::doJTracking()
         loopState.skip_step = true;
         itrnumber = 0;
     }
+*/
 
 #ifdef DO_ROTATION
     int dof_per_gripper = 6;
@@ -588,7 +590,6 @@ void CustomScene::doJTracking()
         btTransform transtm1,transtm2;
         Eigen::MatrixXf J;
 
-        float true_error = 0;
         float error = 0;
         std::vector<btVector3> plotpoints;
         std::vector<btVector4> plotcols;
@@ -613,7 +614,7 @@ void CustomScene::doJTracking()
         //printf("%f\n",box_muller(0,sigma));
 #endif
 
-        if(bFirstTrackingIteration)
+        if(true || bFirstTrackingIteration)
         {
             filtered_new_nodes = raw_new_nodes;
         }
@@ -621,7 +622,6 @@ void CustomScene::doJTracking()
         {
             for(size_t i = 0; i< raw_new_nodes.size(); i++)
             {
-
                 filtered_new_nodes[i] = mu*(raw_new_nodes[i] - filtered_new_nodes[i]) + filtered_new_nodes[i];
 
             }
@@ -629,6 +629,7 @@ void CustomScene::doJTracking()
 
 #ifdef DO_COVERAGE
         std::vector<btVector3> rot_line_pnts;
+        std::vector<btVector4> rot_line_cols;
         std::vector<btVector4> plot_cols;
 
         for(size_t i = 0; i < cover_points.size(); i++)
@@ -649,7 +650,7 @@ void CustomScene::doJTracking()
 
             rot_line_pnts.push_back(cover_points[i]);
             rot_line_pnts.push_back(filtered_new_nodes[closest_ind]);
-            plot_cols.push_back(btVector4(0.8,0,0.8,1));
+            rot_line_cols.push_back(btVector4(0.8,0,0.8,1));
 
             error = error + targvec.length();
 
@@ -665,7 +666,8 @@ void CustomScene::doJTracking()
                     true_closest_ind = j;
                 }
             }
-            true_error += (cover_points[i] - clean_new_nodes[true_closest_ind]).length();
+            if (true_closest_ind != closest_ind)
+                cout << "Difference found!!!!!!!!!!\n";
             ////
 
             if(closest_dist < 0.2)
@@ -687,8 +689,7 @@ void CustomScene::doJTracking()
     #endif
 
         }
-        rot_lines->setPoints(rot_line_pnts,plot_cols);
-
+        rot_lines->setPoints(rot_line_pnts, rot_line_cols);
 #else
         float node_change = 0;
         for( map<int,int>::iterator ii=node_mirror_map.begin(); ii!=node_mirror_map.end(); ++ii)
@@ -745,9 +746,6 @@ void CustomScene::doJTracking()
 
 
         plot_points->setPoints(plotpoints,plotcols);
-
-        cout << error << " " << true_error << std::endl;
-
 
 #ifdef USE_ADAPTIVE_JACOBIAN
         if(bFirstTrackingIteration)
@@ -898,7 +896,6 @@ void CustomScene::doJTracking()
 
 
         getDeformableObjectNodes(prev_node_pos);
-
 
 
         last_jacobian = J;
@@ -1383,88 +1380,6 @@ BulletSoftObject::Ptr CustomScene::createCloth(btScalar s, const btVector3 &cent
     return BulletSoftObject::Ptr(new BulletSoftObject(psb));
 }
 
-void CustomScene::createFork() {
-    if(fork)
-    {
-        destroyFork();
-    }
-    bullet2.reset(new BulletInstance);
-    bullet2->setGravity(BulletConfig::gravity);
-    osg2.reset(new OSGInstance);
-    osg->root->addChild(osg2->root.get());
-
-    fork.reset(new Fork(env, bullet2, osg2));
-    registerFork(fork);
-
-    //cout << "forked!" << endl;
-
-#ifdef USE_PR2
-    origRobot = pr2m.pr2;
-    EnvironmentObject::Ptr p = fork->forkOf(pr2m.pr2);
-    if (!p) {
-        cout << "failed to get forked version of robot!" << endl;
-        return;
-    }
-    tmpRobot = boost::static_pointer_cast<RaveRobotObject>(p);
-    cout << (tmpRobot->getEnvironment() == env.get()) << endl;
-    cout << (tmpRobot->getEnvironment() == fork->env.get()) << endl;
-#endif
-    left_gripper1_fork = boost::static_pointer_cast<GripperKinematicObject> (fork->forkOf(left_gripper1));
-    right_gripper1_fork = boost::static_pointer_cast<GripperKinematicObject> (fork->forkOf(right_gripper1));
-    clothptr_fork = boost::static_pointer_cast<BulletSoftObject> (fork->forkOf(clothptr));
-
-}
-
-void CustomScene::destroyFork() {
-    if(left_gripper1.get() == left_gripper1_fork.get())
-    {
-        left_gripper1 = left_gripper1_orig;
-        right_gripper1 = right_gripper1_orig;
-        clothptr = clothptr_orig;
-    }
-
-    unregisterFork(fork);
-    osg->root->removeChild(osg2->root.get());
-    fork.reset();
-    left_gripper1_fork.reset();
-    right_gripper1_fork.reset();
-    clothptr_fork.reset();
-}
-
-void CustomScene::swapFork() {
-#ifdef USE_PR2
-    // swaps the forked robot with the real one
-    cout << "swapping!" << endl;
-    int leftidx = pr2m.pr2Left->index;
-    int rightidx = pr2m.pr2Right->index;
-    origRobot.swap(tmpRobot);
-    pr2m.pr2 = origRobot;
-    pr2m.pr2Left = pr2m.pr2->getManipByIndex(leftidx);
-    pr2m.pr2Right = pr2m.pr2->getManipByIndex(rightidx);
-#endif
-    if(left_gripper1.get() == left_gripper1_orig.get())
-    {
-        left_gripper1 = left_gripper1_fork;
-        right_gripper1 = right_gripper1_fork;
-        clothptr = clothptr_fork;
-    }
-    else
-    {
-        left_gripper1 = left_gripper1_orig;
-        right_gripper1 = right_gripper1_orig;
-        clothptr = clothptr_orig;
-    }
-
-
-
-/*    vector<int> indices; vector<dReal> vals;
-    for (size_t i = 0; i < tmpRobot->robot->GetDOF(); ++i) {
-        indices.push_back(i);
-        vals.push_back(0);
-    }
-    tmpRobot->setDOFValues(indices, vals);*/
-}
-
 
 int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_matrix, int first_dim_minmax, int second_dim_minmax, int third_dim_minmax)
 {
@@ -1521,12 +1436,6 @@ void CustomScene::drawAxes()
         left_axes1->setup(left_gripper1->getWorldTransform(),1);
     if(!!left_axes2)
         left_axes2->setup(left_gripper2->getWorldTransform(),1);
-}
-
-void CustomScene::drawClosestPoints()
-{
-
-
 }
 
 
@@ -2075,11 +1984,8 @@ void CustomScene::run() {
 
     addPreStepCallback(boost::bind(&CustomScene::doJTracking, this));
     addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
-    addPreStepCallback(boost::bind(&CustomScene::drawClosestPoints, this));
-
 
     const float dt = BulletConfig::dt;
-
 
 #ifdef ROPE
     makeRopeWorld();
