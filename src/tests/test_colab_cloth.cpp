@@ -5,7 +5,7 @@
 void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec)
 {
     nodeposvec.resize(m_nodes.size());
-    for(int i =0; i < m_nodes.size(); i++)
+    for(int i = 0; i < m_nodes.size(); i++)
     {
         nodeposvec[i] = m_nodes[i].m_x;
     }
@@ -88,7 +88,7 @@ void GripperKinematicObject::toggleattach(btSoftBody * psb, double radius) {
             //if no contacts, return without toggling bAttached
             if(rcontacts.size() == 0)
                 continue;
-            for (int i = 0; i < rcontacts.size(); ++i) {
+            for (size_t i = 0; i < rcontacts.size(); ++i) {
                 //const btSoftBody::RContact &c = rcontacts[i];
                 btSoftBody::Node *node = rcontacts[i].m_node;
                 //btRigidBody* colLink = c.m_cti.m_colObj;
@@ -262,38 +262,11 @@ void GripperKinematicObject::toggle()
 
 
 
-void CustomScene::simulateInNewFork(StepState& innerstate, float sim_time, btTransform& left_gripper1_tm, btTransform& left_gripper2_tm)
-{
-
-    innerstate.bullet.reset(new BulletInstance);
-    innerstate.bullet->setGravity(BulletConfig::gravity);
-    innerstate.osg.reset(new OSGInstance);
-    innerstate.fork.reset(new Fork(env, innerstate.bullet, innerstate.osg));
-    innerstate.cloth = boost::static_pointer_cast<BulletSoftObject>(innerstate.fork->forkOf(clothptr));
-    innerstate.left_gripper1 = boost::static_pointer_cast<GripperKinematicObject>(innerstate.fork->forkOf(left_gripper1));
-    innerstate.left_gripper2 = boost::static_pointer_cast<GripperKinematicObject>(innerstate.fork->forkOf(left_gripper2));
-
-    innerstate.left_gripper1->applyTransform(left_gripper1_tm);
-    innerstate.left_gripper2->applyTransform(left_gripper2_tm);
-
-    float time = sim_time;
-    while (time > 0) {
-        // run pre-step callbacks
-        //for (int j = 0; j < prestepCallbacks.size(); ++j)
-        //    prestepCallbacks[j]();
-
-        innerstate.fork->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-        time -= BulletConfig::dt;
-    }
-
-}
-
-
 double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
 {
     double min_dist = 1000000;
     closest_ind = -1;
-    for(int i =0; i < gripper->vattached_node_inds.size(); i++)
+    for(size_t i = 0; i < gripper->vattached_node_inds.size(); i++)
     {
         double new_dist = deformableobject_distance_matrix(gripper->vattached_node_inds[i],input_ind);
         if(new_dist < min_dist)
@@ -306,90 +279,6 @@ double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinemat
     return min_dist;
 
 
-}
-
-
-void printMatrixXf(Eigen::MatrixXf mat)
-{
-    cout << endl;
-    for(int i = 0; i < mat.rows(); i++)
-    {
-        for(int j = 0; j < mat.cols();j++)
-        {
-            cout << mat(i,j) << " ";
-
-        }
-        cout << endl;
-    }
-}
-
-Eigen::MatrixXf CustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point)
-{
-   int num_Jcols_per_gripper = 3;
-#ifdef DO_ROTATION
-    #ifdef USE_QUATERNION
-        ///NOT IMPLEMENTED!!!!
-        num_Jcols_per_gripper += 4;
-    #else
-        num_Jcols_per_gripper += 3;
-    #endif
-#endif
-
-
-    Eigen::MatrixXf J(points_in_world_frame.size()*3,num_Jcols_per_gripper*num_auto_grippers);
-    GripperKinematicObject::Ptr gripper;
-    Eigen::VectorXf  V_pos(points_in_world_frame.size()*3);
-
-    for(int g = 0; g < num_auto_grippers; g++)
-    {
-        if(g == 0)
-            gripper = left_gripper1;
-        else if(g == 1)
-            gripper = left_gripper2;
-
-        btVector3 transvec;
-        for(int i = 0; i < num_Jcols_per_gripper; i++)
-        {
-
-            for(int k = 0; k < points_in_world_frame.size(); k++)
-            {
-                //no effect if this point doesn't correspond to this gripper
-                if(autogripper_indices_per_point[k] != g)
-                {
-                    for(int j = 0; j < 3; j++)
-                        V_pos(3*k + j) = 0;
-                    //cout << V_pos[0] << " " << V_pos[1] << " " << V_pos[2] << endl;
-                    continue;
-                }
-
-
-                if(i == 0)
-                    transvec = btVector3(1,0,0);
-                else if(i == 1)
-                    transvec = btVector3(0,1,0);
-                else if(i == 2)
-                    transvec = btVector3(0,0,1);
-                else if(i == 3)
-                    transvec =  (gripper->getWorldTransform()*btVector4(1,0,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
-                else if(i == 4)
-                    transvec =  (gripper->getWorldTransform()*btVector4(0,1,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
-                else if(i == 5)
-                    transvec =  (gripper->getWorldTransform()*btVector4(0,0,1,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
-
-                for(int j = 0; j < 3; j++)
-                    V_pos(3*k + j) = transvec[j];
-
-                //cout << V_pos[0] << " " << V_pos[1] << " " << V_pos[2] << endl;
-
-            }
-
-            J.col(num_Jcols_per_gripper*g + i) = V_pos;
-            //cout << endl << J << endl; //printmatrix
-
-        }
-
-    }
-    return J;
 }
 
 
@@ -451,7 +340,7 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
         {
 
         #pragma omp for
-        for(int i = 0; i < perts.size(); i++)
+        for(size_t i = 0; i < perts.size(); i++)
         {
             Eigen::VectorXf  V_pos(numnodes*3);
 
@@ -566,165 +455,7 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
     return J;
 }
 
-Eigen::MatrixXf CustomScene::computeJacobian_parallel()
-{
-    boost::posix_time::ptime begTick(boost::posix_time::microsec_clock::local_time());
 
-    //printf("starting jacobian computation\n");
-    //stopLoop();
-    bool bBackupLoopState = loopState.skip_step;
-    loopState.skip_step = true;
-
-    int numnodes = clothptr->softBody->m_nodes.size();
-    Eigen::VectorXf  V_before(numnodes*3);
-
-
-    for(int k = 0; k < numnodes; k++)
-    {
-        for(int j = 0; j < 3; j++)
-            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-    }
-
-
-
-    std::vector<btTransform> perts;
-    float step_length = 0.2;
-    float rot_angle = 0.2;
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
-#ifdef DO_ROTATION
-    perts.push_back(btTransform(btQuaternion(btVector3(1,0,0),rot_angle),btVector3(0,0,0)));
-    perts.push_back(btTransform(btQuaternion(btVector3(0,1,0),rot_angle),btVector3(0,0,0)));
-    perts.push_back(btTransform(btQuaternion(btVector3(0,0,1),rot_angle),btVector3(0,0,0)));
-    omp_set_num_threads(7); //need to find a better way to do this
-#else
-    omp_set_num_threads(4);
-#endif
-
-    Eigen::MatrixXf J(numnodes*3,perts.size());
-    #pragma omp parallel shared(J)
-    {
-
-        //schedule(static, 1)
-        #pragma omp for nowait
-        for(int i = 0; i < perts.size(); i++)
-        {
-
-            btTransform dummy_tm;
-            StepState innerstate;
-            simulateInNewFork(innerstate, jacobian_sim_time, perts[i],dummy_tm);
-
-            Eigen::VectorXf  V_after(V_before);
-            for(int k = 0; k < numnodes; k++)
-            {
-                for(int j = 0; j < 3; j++)
-                    V_after(3*k + j) = innerstate.cloth->softBody->m_nodes[k].m_x[j];
-            }
-            float divider;
-            if(i < 3)
-                divider = step_length;
-            else
-                divider = rot_angle;
-
-            J.col(i) = (V_after - V_before)/divider;
-        }
-    }
-
-    //cout << J<< endl;
-    boost::posix_time::ptime endTick(boost::posix_time::microsec_clock::local_time());
-    //std::cout << "time: " << boost::posix_time::to_simple_string(endTick - begTick) << std::endl;
-
-    loopState.skip_step = bBackupLoopState;
-    //printf("done jacobian computation\n");
-    return J;
-
-
-}
-
-
-
-
-
-Eigen::MatrixXf CustomScene::computeJacobian()
-{
-    boost::posix_time::ptime begTick(boost::posix_time::microsec_clock::local_time());
-
-    //printf("starting jacobian computation\n");
-    //stopLoop();
-    bool bBackupLoopState = loopState.skip_step;
-    loopState.skip_step = true;
-
-    int numnodes = clothptr->softBody->m_nodes.size();
-    Eigen::VectorXf  V_before(numnodes*3);
-    Eigen::VectorXf  V_after(V_before);
-
-    for(int k = 0; k < numnodes; k++)
-    {
-        for(int j = 0; j < 3; j++)
-            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-    }
-
-    Eigen::MatrixXf J(numnodes*3,3);
-
-    std::vector<btTransform> perts;
-    float step_length = 0.2;
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
-    perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
-    float time;
-
-    for(int i = 0; i < 3 ; i++)
-    {
-        createFork();
-        swapFork(); //now pointers are set to the forked objects
-
-        //apply perturbation
-        left_gripper1->applyTransform(perts[i]);
-
-        time = jacobian_sim_time;
-        while (time > 0) {
-            float startTime=viewer.getFrameStamp()->getSimulationTime(), endTime;
-            if (syncTime && drawingOn)
-                endTime = viewer.getFrameStamp()->getSimulationTime();
-
-            // run pre-step callbacks
-            //for (int j = 0; j < prestepCallbackssize(); ++j)
-            //    prestepCallbacks[j]();
-
-            fork->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-            draw();
-
-            if (syncTime && drawingOn) {
-                float timeLeft = BulletConfig::dt - (endTime - startTime);
-                idleFor(timeLeft);
-                startTime = endTime + timeLeft;
-            }
-
-
-            time -= BulletConfig::dt;
-
-        }
-
-        for(int k = 0; k < numnodes; k++)
-        {
-            for(int j = 0; j < 3; j++)
-                V_after(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
-        }
-
-        destroyFork();
-        J.col(i) = (V_after - V_before)/step_length;
-    }
-
-    //cout << J<< endl;
-    boost::posix_time::ptime endTick(boost::posix_time::microsec_clock::local_time());
-    //std::cout << "time: " << boost::posix_time::to_simple_string(endTick - begTick) << std::endl;
-
-
-    loopState.skip_step = bBackupLoopState;
-    //printf("done jacobian computation\n");
-    return J;
-}
 
 Eigen::MatrixXf pinv(const Eigen::MatrixXf &a)
 {
@@ -810,42 +541,23 @@ int CustomScene::getNumDeformableObjectNodes()
 #else
     return clothptr->softBody->m_nodes.size();
 #endif
-
 }
 
 //this is getting called before the step loop
 void CustomScene::doJTracking()
 {
-
-    //if(!clothptr)
-    //    return;
-
-    //this loop is already being executed by someone else, abort
-    if(bInTrackingLoop)
-        return;
-    else
-        bInTrackingLoop = true;
-
-
-
-
+    // let the rope settle between itterations
     itrnumber++;
     if(itrnumber != 3)
     {
         loopState.skip_step = false;
-        bInTrackingLoop = false;
         return;
     }
     else
     {
+        loopState.skip_step = true;
         itrnumber = 0;
     }
-
-
-    loopState.skip_step = true;
-
-    bool bAvoidObstacle = false;
-
 
 #ifdef DO_ROTATION
     int dof_per_gripper = 6;
@@ -854,124 +566,35 @@ void CustomScene::doJTracking()
 #endif
     Eigen::MatrixXf Jcollision = Eigen::MatrixXf::Zero(num_auto_grippers * 3, num_auto_grippers*dof_per_gripper);
     Eigen::VectorXf V_step_collision =  Eigen::VectorXf::Zero(num_auto_grippers * 3);
-///////////////
 
+    ///////////////
 #ifdef ROPE
     BulletObject::Ptr obj = cylinder;
 #else
     BulletObject::Ptr obj = table;
 #endif
     GripperKinematicObject::Ptr gripper;
-    std::vector<float> vclosest_dist(num_auto_grippers);
-    if(obj)
-    {
-
-        std::vector<btVector3> plotpoints;
-        std::vector<btVector4> plotcols;
-        for(int g =0; g < num_auto_grippers; g++)
-        {
-            if(g == 0)
-                gripper = left_gripper1;
-            else if(g == 1)
-                gripper = left_gripper2;
-
-            vclosest_dist[g] = BT_LARGE_FLOAT;
-
-            btGjkEpaPenetrationDepthSolver epaSolver;
-            btPointCollector gjkOutput;
-
-            btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
-
-            btGjkPairDetector::ClosestPointInput input;
-
-            gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
-            obj->motionState->getWorldTransform(input.m_transformB);
-            input.m_maximumDistanceSquared = BT_LARGE_FLOAT;
-            gjkOutput.m_distance = BT_LARGE_FLOAT;
-            convexConvex.getClosestPoints(input, gjkOutput, 0);
-
-
-            if (gjkOutput.m_hasResult)
-            {
-                   //cout << "has result" << endl;
-                   //printf("distance: %10.4f\n", gjkOutput.m_distance);
-
-                   btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
-                   btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
-
-                   plotpoints.push_back(startPt);
-                   plotpoints.push_back(endPt);
-
-                   //if(gjkOutput.m_distance < 0.5)
-                   //{
-                       bAvoidObstacle = true;
-                       std::vector<btVector3> jacpoints;
-                       std::vector<int> jacpoint_grippers;
-                       jacpoints.push_back(endPt);
-                       jacpoint_grippers.push_back(g);
-                       Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints,jacpoint_grippers);
-                       Eigen::VectorXf V_coll_step(3);
-                       V_coll_step[0] = endPt[0] - startPt[0];
-                       V_coll_step[1] = endPt[1] - startPt[1];
-                       V_coll_step[2] = endPt[2] - startPt[2];
-                       V_coll_step = V_coll_step/V_coll_step.norm();
-
-                       plotcols.push_back(btVector4(1,0,0,1));
-
-                       if(gjkOutput.m_distance < vclosest_dist[g])
-                       {
-                           vclosest_dist[g] = gjkOutput.m_distance;
-                           if(vclosest_dist[g] < 0)
-                               V_coll_step = -V_coll_step;
-                       }
-                       V_step_collision[g*3 + 0] = V_coll_step[0];
-                       V_step_collision[g*3 + 1] = V_coll_step[1];
-                       V_step_collision[g*3 + 2] = V_coll_step[2];
-                   //}
-                   //else
-                   //    plotcols.push_back(btVector4(0,0,1,1));
-             }
-             //rot_lines->setPoints(plotpoints,plotcols);
-            }
-
-    }
-    else
-    {
-        //cout << "No object found for collision avoidance!" << endl;
-    }
-
 //////////////////
 
-    int numnodes = getNumDeformableObjectNodes();
-
-    float approx_thresh = 5;
-
-    float step_limit = 0.05;
-    Eigen::VectorXf V_step(numnodes*3);
-    Eigen::VectorXf V_delta(numnodes*3);
-
-    Eigen::VectorXf V_trans;
-    //btVector3 transvec;
-    btTransform transtm1,transtm2;
-    Eigen::MatrixXf J;
-
-    //currently this while loop only goes through once before exiting
-    while(bTracking)
+    if(bTracking)
     {
-        for(int i = 0; i < numnodes*3;i++)
-        {
-            V_step(i) = 0;
-            V_delta(i) = 0;
+        int numnodes = getNumDeformableObjectNodes();
 
-        }
+        float step_limit = 0.05;
+        Eigen::VectorXf V_step = Eigen::VectorXf::Zero(numnodes*3);
+        Eigen::VectorXf V_delta = Eigen::VectorXf::Zero(numnodes*3);
+
+        Eigen::VectorXf V_trans;
+        btTransform transtm1,transtm2;
+        Eigen::MatrixXf J;
+
+        float true_error = 0;
         float error = 0;
         std::vector<btVector3> plotpoints;
         std::vector<btVector4> plotcols;
-        float node_change = 0;
 
         std::vector<btVector3> raw_new_nodes;
         std::vector<btVector3> clean_new_nodes;//only for ground-truth
-
 
         //low-pass filter
         float mu = 1.0; //(0 = no change, 1.0 = no filtering)
@@ -982,7 +605,7 @@ void CustomScene::doJTracking()
         //float sigma = 0.01875;//1,0.75,0.5,0.1,0.05,0.025; for rope //0.00625, 0.00125, 0.01875, 0.025 for cloth
 
         //Box-Mueller
-        for(int i =0; i < raw_new_nodes.size(); i++)
+        for(size_t i = 0; i < raw_new_nodes.size(); i++)
         {
             raw_new_nodes[i] = raw_new_nodes[i] + btVector3(box_muller(0,sigma),box_muller(0,sigma),box_muller(0,sigma));
         }
@@ -996,7 +619,7 @@ void CustomScene::doJTracking()
         }
         else
         {
-            for(int i =0; i< raw_new_nodes.size(); i++)
+            for(size_t i = 0; i< raw_new_nodes.size(); i++)
             {
 
                 filtered_new_nodes[i] = mu*(raw_new_nodes[i] - filtered_new_nodes[i]) + filtered_new_nodes[i];
@@ -1004,17 +627,15 @@ void CustomScene::doJTracking()
             }
         }
 
-        float true_error = 0;
-
 #ifdef DO_COVERAGE
         std::vector<btVector3> rot_line_pnts;
         std::vector<btVector4> plot_cols;
 
-        for(int i = 0; i < cover_points.size(); i++)
+        for(size_t i = 0; i < cover_points.size(); i++)
         {
             int closest_ind = -1;
             float closest_dist = 1000000;
-            for(int j = 0; j < filtered_new_nodes.size(); j++)
+            for(size_t j = 0; j < filtered_new_nodes.size(); j++)
             {
                 float dist = (cover_points[i] - filtered_new_nodes[j]).length();
                 if(dist < closest_dist)
@@ -1025,12 +646,17 @@ void CustomScene::doJTracking()
             }
 
             btVector3 targvec = cover_points[i] - filtered_new_nodes[closest_ind];
+
+            rot_line_pnts.push_back(cover_points[i]);
+            rot_line_pnts.push_back(filtered_new_nodes[closest_ind]);
+            plot_cols.push_back(btVector4(0.8,0,0.8,1));
+
             error = error + targvec.length();
 
             ////test code
             int true_closest_ind = -1;
             float true_closest_dist = 1000000;
-            for(int j = 0; j < clean_new_nodes.size(); j++)
+            for(size_t j = 0; j < clean_new_nodes.size(); j++)
             {
                 float dist = (cover_points[i] - clean_new_nodes[j]).length();
                 if(dist < true_closest_dist)
@@ -1045,20 +671,10 @@ void CustomScene::doJTracking()
             if(closest_dist < 0.2)
                 continue;
 
-//            for(int j = 0; j < filtered_new_nodes.size(); j++)
-//            {
-//                btVector3 targvec = cover_points[i] - filtered_new_nodes[j];
-//                targvec = exp(-0.1*targvec.length())*targvec;
-//                for(int k = 0; k < 3; k++)
-//                    V_step(3*closest_ind + k) += targvec[k]; //accumulate targvecs
-//            }
-
-
             for(int j = 0; j < 3; j++)
                 V_step(3*closest_ind + j) += targvec[j]; //accumulate targvecs
 
             plotpoints.push_back(filtered_new_nodes[closest_ind]);
-            //plotpoints.push_back(cover_points[i]);
             plotcols.push_back(btVector4(targvec.length(),0,0,1));
 
     #ifdef ROPE
@@ -1071,11 +687,10 @@ void CustomScene::doJTracking()
     #endif
 
         }
-    #ifndef ROPE
         rot_lines->setPoints(rot_line_pnts,plot_cols);
-    #endif
 
 #else
+        float node_change = 0;
         for( map<int,int>::iterator ii=node_mirror_map.begin(); ii!=node_mirror_map.end(); ++ii)
         {
             //btVector3 targpoint = point_reflector->reflect(clothptr->softBody->m_nodes[(*ii).second].m_x);
@@ -1097,9 +712,7 @@ void CustomScene::doJTracking()
             plotpoints.push_back(filtered_new_nodes[(*ii).first]);
             plotcols.push_back(btVector4(targvec.length(),0,0,1));
 
-
             node_change = node_change + node_delta.length();
-
         }
 #endif
 
@@ -1112,7 +725,7 @@ void CustomScene::doJTracking()
         Eigen::MatrixXf node_distance_difference = new_distance_matrix - deformableobject_distance_matrix;
 
 
-        for(int i = 0; i < node_distance_difference.rows(); i++)
+        for(size_t i = 0; i < node_distance_difference.rows(); i++)
         {
             for(int j = i; j < node_distance_difference.cols(); j++)
             {
@@ -1128,18 +741,13 @@ void CustomScene::doJTracking()
                 }
             }
         }
-
-
 #endif
 
 
         plot_points->setPoints(plotpoints,plotcols);
 
-        //cout << "Error: " << error << " ";
-        cout << error;
-        cout << " " << true_error;
+        cout << error << " " << true_error << std::endl;
 
-        //cout << "(Node Change " << node_change <<")";
 
 #ifdef USE_ADAPTIVE_JACOBIAN
         if(bFirstTrackingIteration)
@@ -1172,93 +780,122 @@ void CustomScene::doJTracking()
         //Eigen::MatrixXf Jt(J.transpose());
         //V_trans = Jt*V_step;
 
-        Eigen::MatrixXf Jpinv_collision= pinv(Jcollision.transpose()*Jcollision)*Jcollision.transpose();
         Eigen::MatrixXf Jpinv= pinv(J.transpose()*J)*J.transpose();
 
-#ifdef ROPE
-        float k2 = 10;
-#else
-        float k2 = 100;
-#endif
-        //V_trans = Jpinv*V_step;
         Eigen::VectorXf q_desired = Jpinv*V_step;
-        Eigen::VectorXf q_desired_nullspace = (Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
-        Eigen::VectorXf q_collision = Jpinv_collision*V_step_collision;
-
-        Eigen::VectorXf term1 = q_collision + q_desired_nullspace;
-        Eigen::VectorXf term2 = q_desired;
-        std::vector<float> vK(num_auto_grippers);
-
-        for(int g = 0; g < num_auto_grippers; g++)
+#ifdef AVOID_COLLISION
+        if(obj)
         {
-            //cout << " dist" << g << ": " << vclosest_dist[g];
-            vK[g] = exp(-k2*vclosest_dist[g]);
-            if(vK[g] > 1)
-                vK[g] = 1;
+#ifdef ROPE
+            float k2 = 10;
+#else
+            float k2 = 100;
+#endif
 
-            //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
-            term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
-            term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
-            //cout << " " << term1.transpose();
+            std::vector<btVector3> plotpoints;
+            std::vector<btVector4> plotcols;
+
+            std::vector<float> vclosest_dist(num_auto_grippers);
+            for(int g =0; g < num_auto_grippers; g++)
+            {
+                if(g == 0)
+                    gripper = left_gripper1;
+                else if(g == 1)
+                    gripper = left_gripper2;
+
+                vclosest_dist[g] = BT_LARGE_FLOAT;
+
+                btGjkEpaPenetrationDepthSolver epaSolver;
+                btPointCollector gjkOutput;
+
+                btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*> (gripper->getChildren()[0]->collisionShape.get()),dynamic_cast<btConvexShape*> (obj->collisionShape.get()),&sGjkSimplexSolver,&epaSolver);
+
+                btGjkPairDetector::ClosestPointInput input;
+
+                gripper->children[0]->motionState->getWorldTransform(input.m_transformA);
+                obj->motionState->getWorldTransform(input.m_transformB);
+                input.m_maximumDistanceSquared = BT_LARGE_FLOAT;
+                gjkOutput.m_distance = BT_LARGE_FLOAT;
+                convexConvex.getClosestPoints(input, gjkOutput, 0);
+
+
+                if (gjkOutput.m_hasResult)
+                {
+                       //cout << "has result" << endl;
+                       //printf("distance: %10.4f\n", gjkOutput.m_distance);
+
+                       btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+                       btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
+
+                       plotpoints.push_back(startPt);
+                       plotpoints.push_back(endPt);
+
+                       //if(gjkOutput.m_distance < 0.5)
+                       //{
+                           std::vector<btVector3> jacpoints;
+                           std::vector<int> jacpoint_grippers;
+                           jacpoints.push_back(endPt);
+                           jacpoint_grippers.push_back(g);
+                           Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints,jacpoint_grippers);
+                           Eigen::VectorXf V_coll_step(3);
+                           V_coll_step[0] = endPt[0] - startPt[0];
+                           V_coll_step[1] = endPt[1] - startPt[1];
+                           V_coll_step[2] = endPt[2] - startPt[2];
+                           V_coll_step = V_coll_step/V_coll_step.norm();
+
+                           plotcols.push_back(btVector4(1,0,0,1));
+
+                           if(gjkOutput.m_distance < vclosest_dist[g])
+                           {
+                               vclosest_dist[g] = gjkOutput.m_distance;
+                               if(vclosest_dist[g] < 0)
+                                   V_coll_step = -V_coll_step;
+                           }
+                           V_step_collision[g*3 + 0] = V_coll_step[0];
+                           V_step_collision[g*3 + 1] = V_coll_step[1];
+                           V_step_collision[g*3 + 2] = V_coll_step[2];
+                       //}
+                       //else
+                       //    plotcols.push_back(btVector4(0,0,1,1));
+                 }
+                 //rot_lines->setPoints(plotpoints,plotcols);
+            }
+
+            Eigen::MatrixXf Jpinv_collision= pinv(Jcollision.transpose()*Jcollision)*Jcollision.transpose();
+
+            Eigen::VectorXf q_desired_nullspace = (Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
+            Eigen::VectorXf q_collision = Jpinv_collision*V_step_collision;
+
+            Eigen::VectorXf term1 = q_collision + q_desired_nullspace;
+            Eigen::VectorXf term2 = q_desired;
+            std::vector<float> vK(num_auto_grippers);
+
+            for(int g = 0; g < num_auto_grippers; g++)
+            {
+                //cout << " dist" << g << ": " << vclosest_dist[g];
+                vK[g] = exp(-k2*vclosest_dist[g]);
+                if(vK[g] > 1)
+                    vK[g] = 1;
+
+                //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
+                term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
+                term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
+                //cout << " " << term1.transpose();
+            }
+            V_trans = term1 + term2;
         }
-
-
-        //Eigen::VectorXf term1 = K*(q_collision);// + q_desired_nullspace);
-        //Eigen::VectorXf term2 = (1 - K)*q_desired;
-
-        V_trans = term1 + term2;
-        //V_trans = term2;
-        //cout << " collision step: " << (Jpinv_collision*V_step_collision).norm() << " term1: " <<  term1.norm() << " desired: " << term2.norm();
-
-
-
-
+        else
+        {
+            V_trans = q_desired;
+            //cout << "No object found for collision avoidance!" << endl;
+        }
+#else
+        V_trans = q_desired;
+#endif
 
         if(V_trans.norm() > step_limit)
             V_trans = V_trans/V_trans.norm()*step_limit;
 
-
-//        if(!bAvoidObstacle)
-//        {
-//            //cout << "J: " << J.rows() << " " << J.cols() << endl;
-//            //cout << "V_step: " << V_step.rows() << " " << V_step.cols() << endl;
-//            //cout << "V_trans: " << V_trans.rows() << " " << V_trans.cols() << endl;
-//            V_trans = Jpinv*V_step;
-//            //cout << " (Command norm " << V_trans.norm()<<")";
-
-//            if(V_trans.norm() > step_limit)
-//                V_trans = V_trans/V_trans.norm()*step_limit;
-
-//        }
-//        else
-//        {
-//            Eigen::MatrixXf Jpinv_collision= pinv(Jcollision.transpose()*Jcollision)*Jcollision.transpose();
-//            //Eigen::VectorXf V_trans_collision = Jpinv_collision*V_step_collision;
-//            //if(V_trans_collision.norm() > step_limit)
-//            //    V_trans_collision = V_trans_collision/V_trans_collision.norm()*step_limit;
-
-//            V_trans = Jpinv_collision*V_step_collision + 0.1*(Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols()) - Jpinv_collision*Jcollision)*Jpinv*V_step;
-
-//            if(V_trans.norm() > step_limit)
-//                V_trans = V_trans/V_trans.norm()*step_limit;
-
-
-//            //cout << endl << V_trans_collision.transpose() << endl;
-//            //V_trans = V_trans_collision;
-//        }
-
-//        //gaussian filter
-//        float std_dev = 0.25;
-//        float magsqr = V_trans.transpose()*V_trans;
-//        V_trans = V_trans*exp(-magsqr/(2*std_dev*std_dev));
-//        cout << " (Filtered command norm " << V_trans.norm()<<")";
-
-//        //low-pass filter
-//        float mu2 = .01; //(0 = no change, 1.0 = no filtering)
-//        if(!bFirstTrackingIteration)
-//        {
-//            V_trans = mu2*(V_trans - last_movement) + last_movement;
-//        }
 
         getDeformableObjectNodes(prev_node_pos);
 
@@ -1269,20 +906,6 @@ void CustomScene::doJTracking()
         bFirstTrackingIteration = false;
 
 
-//        //dead band
-//        if(abs(V_step.norm() - last_V_step.norm()) < 2)
-//        {
-//            last_V_step = V_step;
-//            cout << endl;
-//            break;
-//        }
-//        else
-//        {
-//            last_V_step = V_step;
-//        }
-
-        //cout << "trans vec: " << V_trans.transpose() << endl;
-        //transvec = btVector3(V_trans(0),V_trans(1),V_trans(2));
 #ifdef DO_ROTATION
     #ifdef USE_QUATERNION
         ///NOT IMPLEMENTED!
@@ -1325,73 +948,25 @@ void CustomScene::doJTracking()
         //check is it more semetric than it would have been had you done nothing
         //simulateInNewFork(innerstate, BulletConfig::dt, transvec);
 
-        float errors[2];
-//        omp_set_num_threads(2);
-//        #pragma omp parallel
-//        {
-//            #pragma omp for nowait
-//            for(int i = 0; i < 2 ; i++)
-//            {
-//                StepState innerstate;
-//                //btTransform simtm(btQuaternion(0,0,0,1),transvec);
-//                btTransform simtm1 = transtm1;
-//                btTransform simtm2 = transtm2;
-//                if(i == 1)
-//                {
-//                    simtm1 = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
-//                    simtm2 = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
-//                }
-//                simulateInNewFork(innerstate, jacobian_sim_time, simtm1, simtm2);
-//                errors[i] = 0;
-//                for( map<int,int>::iterator ii=node_mirror_map.begin(); ii!=node_mirror_map.end(); ++ii)
-//                {
-//                    btVector3 targpoint = point_reflector->reflect(innerstate.cloth->softBody->m_nodes[(*ii).second].m_x);
-
-//                    btVector3 targvec = targpoint - innerstate.cloth->softBody->m_nodes[(*ii).first].m_x;
-//                    errors[i] = errors[i] + targvec.length();
-//                }
-//            }
-//        }
-
-
-
-        if(0 && errors[0] >= errors[1])
-        {
-            cout << "Error increase, not moving (new error: " <<  error << ")" << endl;
-            //idleFor(0.2);
-            //left_gripper1->translate(-transvec);
-            //stepFor(BulletConfig::dt, 0.2);
-            //bTracking = false;
-            //stepFor(BulletConfig::dt, jacobian_sim_time);
-            break;
-        }
-        else
-        {
-            cout << endl;
-            left_gripper1->applyTransform(transtm1);
-            left_gripper2->applyTransform(transtm2);
+        left_gripper1->applyTransform(transtm1);
+        left_gripper2->applyTransform(transtm2);
 
 #ifdef USE_PR2
-            btTransform left1(left_gripper1->getWorldTransform());
-            btTransform TOR_newtrans = left1*TBullet_PR2GripperRight;
-            TOR_newtrans.setOrigin(left1.getOrigin());
-            pr2m.pr2Right->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
+        btTransform left1(left_gripper1->getWorldTransform());
+        btTransform TOR_newtrans = left1*TBullet_PR2GripperRight;
+        TOR_newtrans.setOrigin(left1.getOrigin());
+        pr2m.pr2Right->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
 
-            btTransform left2(left_gripper2->getWorldTransform());
-            TOR_newtrans = left2*TBullet_PR2GripperLeft;
-            TOR_newtrans.setOrigin(left2.getOrigin());
-            pr2m.pr2Left->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
+        btTransform left2(left_gripper2->getWorldTransform());
+        TOR_newtrans = left2*TBullet_PR2GripperLeft;
+        TOR_newtrans.setOrigin(left2.getOrigin());
+        pr2m.pr2Left->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
 #endif
-            //stepFor(BulletConfig::dt, jacobian_sim_time);
-        }
-        break;
-
     }
 
     loopState.skip_step = false;
-    bInTrackingLoop = false;
-
 }
+
 
 
 void CustomScene::regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr  gripper_to_detach)
@@ -1768,6 +1343,9 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
             }
         }
         break;
+
+    default:
+        break;
     }
     return false;
 }
@@ -1798,7 +1376,7 @@ BulletSoftObject::Ptr CustomScene::createCloth(btScalar s, const btVector3 &cent
     psb->generateClusters(0);
     //psb->generateClusters(500);
 
-/*    for (int i = 0; i < psb->m_clusters.size(); ++i) {
+/*    for (size_t i = 0; i < psb->m_clusters.size(); ++i) {
         psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.1;
     }*/
 
@@ -1880,7 +1458,7 @@ void CustomScene::swapFork() {
 
 
 /*    vector<int> indices; vector<dReal> vals;
-    for (int i = 0; i < tmpRobot->robot->GetDOF(); ++i) {
+    for (size_t i = 0; i < tmpRobot->robot->GetDOF(); ++i) {
         indices.push_back(i);
         vals.push_back(0);
     }
@@ -1895,7 +1473,7 @@ int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_mat
     btVector3 projected_pnt;
     int extremal_ind = -1;
     bool bDimOK_1,bDimOK_2,bDimOK_3;
-    for(int i = 0; i < pnt_vec.size();i++)
+    for(size_t i = 0; i < pnt_vec.size();i++)
     {
         projected_pnt = projection_matrix * pnt_vec[i];
 
@@ -1979,7 +1557,7 @@ void CustomScene::makeRopeWorld()
     int nLinks = 50;
 
     vector<btVector3> ctrlPts;
-    for (int i=0; i< nLinks; i++) {
+    for (int i = 0; i< nLinks; i++) {
       ctrlPts.push_back(METERS*btVector3(.5+segment_len*i,0,table_height+5*rope_radius));
     }
 
@@ -1992,9 +1570,9 @@ void CustomScene::makeRopeWorld()
     env->add(table);
 
     vector<BulletObject::Ptr> children =  ropePtr->getChildren();
-    for (int j=0; j<children.size(); j++) {
-      //children[j]->setColor(1,0,0,1);
-        children[j]->setColor(0.15,0.65,0.15,1.0);
+    for (size_t i = 0; i<children.size(); i++) {
+      //children[i]->setColor(1,0,0,1);
+        children[i]->setColor(0.15,0.65,0.15,1.0);
     }
 
 
@@ -2002,7 +1580,7 @@ void CustomScene::makeRopeWorld()
 #ifdef DO_COVERAGE
 
 //    //translation offset
-//    for(int i =0; i < children.size(); i++)
+//    for(size_t i = 0; i < children.size(); i++)
 //    {
 //        cover_points.push_back(children[i]->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,2,0));
 //    }
@@ -2065,7 +1643,7 @@ void CustomScene::makeRopeWorld()
 
         gripper_node_distance_map[i].resize(node_pos.size());
 
-        for(int j = 0; j < node_pos.size(); j++)
+        for(size_t j = 0; j < node_pos.size(); j++)
         {
             gripper_node_distance_map[i][j] = (node_pos[gripper_closestobjectnodeind[i]]-node_pos[j]).length();
         }
@@ -2084,9 +1662,9 @@ void CustomScene::makeRopeWorld()
 void CustomScene::computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix)
 {
     distance_matrix = Eigen::MatrixXf( node_pos.size(), node_pos.size());
-    for(int i = 0; i < node_pos.size(); i++)
+    for(size_t i = 0; i < node_pos.size(); i++)
     {
-        for(int j = i; j < node_pos.size(); j++)
+        for(size_t j = i; j < node_pos.size(); j++)
         {
             distance_matrix(i,j) = (node_pos[i]-node_pos[j]).length();
             distance_matrix(j,i) = distance_matrix(i,j);
@@ -2103,8 +1681,6 @@ void CustomScene::initializePloting()
     rot_lines.reset(new PlotLines(2));
     rot_lines->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
     env->add(rot_lines);
-
-
 }
 
 void CustomScene::makeClothWorld()
@@ -2207,10 +1783,6 @@ void CustomScene::makeClothWorld()
     //psb->appendAnchor(2,left_grabber->rigidBody.get());
 
 
-    int min_x_ind = -1;
-    int max_x_ind = -1;
-    int min_y_ind = -1;
-    int max_y_ind = -1;
     double min_x = 100;
     double max_x = -100;
     double min_y = 100;
@@ -2266,14 +1838,6 @@ void CustomScene::makeClothWorld()
     min_y = corner_pnts[0][1];
 
 
-    //btTransform tm_left = btTransform(btQuaternion( 0,    0.9877,    0.1564 ,   0), psb->m_nodes[min_x_ind].m_x+btVector3(0,0,2));
-    //btTransform tm_right = btTransform(btQuaternion( 0,    0.9877,    0.1564 ,   0), psb->m_nodes[max_x_ind].m_x+btVector3(0,0,2));
-    //left_grabber->motionState->setKinematicPos(tm_left);
-    //right_grabber->motionState->setKinematicPos(tm_right);
-
-    //psb->appendAnchor(min_x_ind,left_grabber->rigidBody.get());
-    //psb->appendAnchor(max_x_ind,right_grabber->rigidBody.get());
-
 
     btTransform tm_left1 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[0] + btVector3(left_gripper1->children[0]->halfExtents[0],left_gripper1->children[0]->halfExtents[1],0));
     left_gripper1->setWorldTransform(tm_left1);
@@ -2297,19 +1861,16 @@ void CustomScene::makeClothWorld()
     {
         gripper_node_distance_map[i].resize(node_pos.size());
 
-        for(int j = 0; j < node_pos.size(); j++)
+        for(size_t j = 0; j < node_pos.size(); j++)
         {
             gripper_node_distance_map[i][j] = (corner_pnts[i]-node_pos[j]).length();
         }
     }
 
 #ifdef DO_COVERAGE
-//    right_gripper1->setWorldTransform(tm_left2);
-//    left_gripper2->setWorldTransform(tm_right1);
-
     corner_grasp_point_inds.resize(4);
 
-    for(int i = 0; i < 4; i++)
+    for(size_t i = 0; i < 4; i++)
     {
 
         btVector3 tm_origin;
@@ -2324,7 +1885,7 @@ void CustomScene::makeClothWorld()
         else
             tm_origin = tm_right2.getOrigin();
 
-        for(int j = 0; j < node_pos.size(); j++)
+        for(size_t j = 0; j < node_pos.size(); j++)
         {
             float dist = (node_pos[j]-tm_origin).length();
             if(dist < closest_dist)
@@ -2350,7 +1911,7 @@ void CustomScene::makeClothWorld()
 
     point_reflector.reset(new PointReflector(mid_x, min_y, max_y));
     //find node that most closely matches reflection of point
-    for(int i = 0; i < node_pos.size(); i++)
+    for(size_t i = 0; i < node_pos.size(); i++)
     {
         if(node_pos[i][0] < mid_x) //look at points in left half
         //if(node_pos[i][0] < mid_x && (abs(node_pos[i][0] - min_x) < 0.01 || abs(node_pos[i][1] - min_y) < 0.01 || abs(node_pos[i][1] - max_y) < 0.01))
@@ -2359,7 +1920,7 @@ void CustomScene::makeClothWorld()
             btVector3 new_vec = point_reflector->reflect(node_pos[i]);
             float closest_dist = 100000;
             int closest_ind = -1;
-            for(int j = 0; j < node_pos.size(); j++)
+            for(size_t j = 0; j < node_pos.size(); j++)
             {
                 float dist = (node_pos[j]-new_vec).length();//(node_pos[j][0]-reflected_x)*(node_pos[j][0]-reflected_x) + (node_pos[j][1]-node_pos[i][1])*(node_pos[j][1]-node_pos[i][1]);
                 if(dist < closest_dist)
@@ -2383,7 +1944,7 @@ void CustomScene::makeClothWorld()
 
     double user_length= 1000;
     double robot_length= 1000;
-    for(int i = 0; i < node_pos.size(); i++)
+    for(size_t i = 0; i < node_pos.size(); i++)
     {
         double this_user_length = (node_pos[i]-user_target_mid_point).length();
         if( this_user_length < user_length)
@@ -2502,7 +2063,7 @@ void CustomScene::makeClothWorld()
 //    proj_mat[1][0] =   ; proj_mat[1][1] =  ;  proj_mat[1][2] = ;
 //    proj_mat[2][0] =   ; proj_mat[2][1] =  ;  proj_mat[2][2] = ;
 
-//    for(int i = 0; i<cloth_boundary_inds.size();i++)
+//    for(size_t i = 0; i<cloth_boundary_inds.size();i++)
 //    {
 
 //    }

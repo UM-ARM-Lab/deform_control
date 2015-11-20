@@ -221,7 +221,7 @@ public:
 
 // A wrapper for btCapsuleShapeX
 class CapsuleObject : public BulletObject {
-private: 
+private:
     btScalar mass, radius, height;
 
 public:

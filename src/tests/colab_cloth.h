@@ -27,8 +27,8 @@
 
 //#define USE_ADAPTIVE_JACOBIAN //not working
 #define USE_RADIUS_CONTACT
-#define PRESERVE_LENGTH
-#define AVOID_COLLISION
+//#define PRESERVE_LENGTH
+//#define AVOID_COLLISION
 
 #ifdef USE_PR2
 #include <openrave/kinbody.h>
@@ -511,7 +511,11 @@ public:
 #else
         CustomScene(){
 #endif
-        bTracking = bInTrackingLoop = false;
+        bTracking = true;
+        bFirstTrackingIteration = true;
+        itrnumber = 0;
+
+        bInTrackingLoop = false;
         inputState.transGrabber0 =  inputState.rotateGrabber0 =
                 inputState.transGrabber1 =  inputState.rotateGrabber1 =
                 inputState.transGrabber2 =  inputState.rotateGrabber2 =

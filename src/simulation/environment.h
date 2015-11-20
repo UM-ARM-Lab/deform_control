@@ -202,9 +202,9 @@ public:
 
 class Action {
 protected:
+    bool isDone;
     float timeElapsed;
     float execTime;
-    bool isDone;
     int plotOnly;
 
     void setDone(bool b) { isDone = b; }
