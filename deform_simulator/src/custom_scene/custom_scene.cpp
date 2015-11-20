@@ -220,7 +220,7 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     cylinder_ = CylinderStaticObject::Ptr( new CylinderStaticObject(
                 0, ROPE_CYLINDER_RADIUS*METERS, ROPE_CYLINDER_HEIGHT*METERS,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 0.1, 0.1, 0.1, 0 );
+    cylinder_->setColor( 0.1, 0.1, 0.1, 1 );
 
     // add the cylinder to the world
     env->add( cylinder_ );
@@ -717,11 +717,13 @@ void CustomScene::visualizationMarkerCallback(
     }
 }
 
-// TODO: be able to delete markers and have a timeout
 void CustomScene::visualizationMarkerArrayCallback(
         visualization_msgs::MarkerArray marker_array )
 {
-    ROS_ERROR_STREAM_NAMED( "custom_scene_visualization", "MarkerArray visualization is not implemented" );
+    for ( visualization_msgs::Marker marker: marker_array.markers )
+    {
+        visualizationMarkerCallback( marker );
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
