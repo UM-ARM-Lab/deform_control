@@ -95,7 +95,8 @@ struct Environment {
     void addConstraint(EnvironmentObject::Ptr cnt);
     void removeConstraint(EnvironmentObject::Ptr cnt);
 
-    void step(btScalar dt, int maxSubSteps, btScalar fixedTimeStep);
+    // Returns the amount of time that has passed in the simulator
+    double step(btScalar dt, int maxSubSteps, btScalar fixedTimeStep);
 };
 
 
