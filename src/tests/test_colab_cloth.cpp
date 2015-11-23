@@ -1,5 +1,30 @@
 #include "colab_cloth.h"
+#include <string>
 
+#define UNUSED(x) (void)(x)
+
+inline std::string PrettyPrint(const btVector3& vector_to_print, const bool add_delimiters = false, const std::string& separator = "")
+{
+    UNUSED(add_delimiters);
+    UNUSED(separator);
+    return "btVector3: <x: " + std::to_string(vector_to_print.x()) + " y: " + std::to_string(vector_to_print.y()) + " z: " + std::to_string(vector_to_print.z()) + ">";
+}
+
+inline std::string PrettyPrint(const btQuaternion& quaternion_to_print, const bool add_delimiters = false, const std::string& separator = "")
+{
+    UNUSED(add_delimiters);
+    UNUSED(separator);
+    return "btQuaternion <x: " + std::to_string(quaternion_to_print.x()) + " y: " + std::to_string(quaternion_to_print.y()) + " z: " + std::to_string(quaternion_to_print.z()) + " w: " + std::to_string(quaternion_to_print.w()) + ">";
+}
+
+inline std::string PrettyPrint(const btTransform& transform_to_print, const bool add_delimiters = false, const std::string& separator = "")
+{
+    UNUSED(add_delimiters);
+    UNUSED(separator);
+    btVector3 vector_to_print = transform_to_print.getOrigin();
+    btQuaternion quaternion_to_print(transform_to_print.getRotation());
+    return "btTransform <x: " + std::to_string(vector_to_print.x()) + " y: " + std::to_string(vector_to_print.y()) + " z: " + std::to_string(vector_to_print.z()) + ">, <x: " + std::to_string(quaternion_to_print.x()) + " y: " + std::to_string(quaternion_to_print.y()) + " z: " + std::to_string(quaternion_to_print.z()) + " w: " + std::to_string(quaternion_to_print.w()) + ">";
+}
 
 
 void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec)
@@ -259,7 +284,66 @@ void GripperKinematicObject::toggle()
 }
 
 
+Eigen::MatrixXd CustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point)
+{
+   int num_Jcols_per_gripper = 3;
+#ifdef DO_ROTATION
+    #ifdef USE_QUATERNION
+        ///NOT IMPLEMENTED!!!!
+        num_Jcols_per_gripper += 4;
+    #else
+        num_Jcols_per_gripper += 3;
+    #endif
+#endif
 
+
+    Eigen::MatrixXd J(points_in_world_frame.size()*3,num_Jcols_per_gripper*num_auto_grippers);
+    GripperKinematicObject::Ptr gripper;
+    Eigen::VectorXd  V_pos(points_in_world_frame.size()*3);
+
+    for(int g = 0; g < num_auto_grippers; g++)
+    {
+        if(g == 0)
+            gripper = left_gripper1;
+        else if(g == 1)
+            gripper = left_gripper2;
+
+        btVector3 transvec;
+        for(int i = 0; i < num_Jcols_per_gripper; i++)
+        {
+            for(size_t k = 0; k < points_in_world_frame.size(); k++)
+            {
+                //no effect if this point doesn't correspond to this gripper
+                if(autogripper_indices_per_point[k] != g)
+                {
+                    for(int j = 0; j < 3; j++)
+                        V_pos(3*k + j) = 0;
+                    //cout << V_pos[0] << " " << V_pos[1] << " " << V_pos[2] << endl;
+                    continue;
+                }
+
+                if(i == 0)
+                    transvec = btVector3(1,0,0);
+                else if(i == 1)
+                    transvec = btVector3(0,1,0);
+                else if(i == 2)
+                    transvec = btVector3(0,0,1);
+                else if(i == 3)
+                    transvec =  (gripper->getWorldTransform()*btVector4(1,0,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                else if(i == 4)
+                    transvec =  (gripper->getWorldTransform()*btVector4(0,1,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                else if(i == 5)
+                    transvec =  (gripper->getWorldTransform()*btVector4(0,0,1,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+
+                for(int j = 0; j < 3; j++)
+                    V_pos(3*k + j) = transvec[j];
+            }
+
+            J.col(num_Jcols_per_gripper*g + i) = V_pos;
+        }
+    }
+    return J;
+}
 
 
 double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
@@ -282,7 +366,9 @@ double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinemat
 }
 
 
-Eigen::MatrixXf CustomScene::computeJacobian_approx()
+
+
+Eigen::MatrixXd CustomScene::computeJacobian_approx()
 {
 #ifdef ROPE
     double dropoff_const = 0.5;//0.5;
@@ -292,8 +378,8 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
     int numnodes = getNumDeformableObjectNodes();//clothptr->softBody->m_nodes.size();
 
     std::vector<btTransform> perts;
-    float step_length = 0.2;
-    float rot_angle = 0.2;
+    double step_length = 0.2;
+    double rot_angle = 0.2;
     perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(step_length,0,0)));
     perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,step_length,0)));
     perts.push_back(btTransform(btQuaternion(0,0,0,1),btVector3(0,0,step_length)));
@@ -311,14 +397,14 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 #endif
 
 
-    Eigen::MatrixXf J(numnodes*3,perts.size()*num_auto_grippers);
+    Eigen::MatrixXd J(numnodes*3,perts.size()*num_auto_grippers);
     GripperKinematicObject::Ptr gripper;
 
     std::vector<btVector3> rot_line_pnts;
     std::vector<btVector4> plot_cols;
 
 
-//    Eigen::VectorXf  V_before(numnodes*3);
+//    Eigen::VectorXd  V_before(numnodes*3);
 //    for(int k = 0; k < numnodes; k++)
 //    {
 //        for(int j = 0; j < 3; j++)
@@ -342,7 +428,7 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
         #pragma omp for
         for(size_t i = 0; i < perts.size(); i++)
         {
-            Eigen::VectorXf  V_pos(numnodes*3);
+            Eigen::VectorXd  V_pos(numnodes*3);
 
 //                    btTransform dummy_tm(btQuaternion(0,0,0,1),btVector3(0,0,0));
 //                    StepState innerstate;
@@ -354,7 +440,7 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 //                        else
 //                            simulateInNewFork(innerstate, jacobian_sim_time, dummy_tm,perts[i]);
 
-//                        Eigen::VectorXf  V_after(V_before);
+//                        Eigen::VectorXd  V_after(V_before);
 //                        for(int k = 0; k < numnodes; k++)
 //                        {
 //                            for(int j = 0; j < 3; j++)
@@ -373,7 +459,9 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 
                     if(i < 3) //translation
                     {
-                        btVector3 transvec = ((gripper->getWorldTransform()*perts[i]).getOrigin() - gripper->getWorldTransform().getOrigin())*exp(-dist*dropoff_const)/step_length;
+                        btVector3 transvec =
+                            ((gripper->getWorldTransform()*perts[i]).getOrigin() - gripper->getWorldTransform().getOrigin())
+                            *exp(-dist*dropoff_const)/step_length;
                         //WRONG: btVector3 transvec = perts[i].getOrigin()*exp(-dist*dropoff_const)/step_length;
                         //btVector3 transvec = perts[i].getOrigin()*exp(-gripper_node_distance_map[g][k]*dropoff_const);
                         for(int j = 0; j < 3; j++)
@@ -457,25 +545,25 @@ Eigen::MatrixXf CustomScene::computeJacobian_approx()
 
 
 
-Eigen::MatrixXf pinv(const Eigen::MatrixXf &a)
+Eigen::MatrixXd pinv(const Eigen::MatrixXd &a)
 {
     // see : http://en.wikipedia.org/wiki/Moore-Penrose_pseudoinverse#The_general_case_and_the_SVD_method
 
     if ( a.rows()<a.cols() )
     {
         cout << "pinv error!" << endl;
-        return Eigen::MatrixXf();
+        return Eigen::MatrixXd();
     }
 
     // SVD
-    Eigen::JacobiSVD< Eigen::MatrixXf> svdA(a,Eigen::ComputeFullU | Eigen::ComputeFullV);
+    Eigen::JacobiSVD< Eigen::MatrixXd> svdA(a,Eigen::ComputeFullU | Eigen::ComputeFullV);
 
-    Eigen::MatrixXf vSingular = svdA.singularValues();
+    Eigen::MatrixXd vSingular = svdA.singularValues();
 
     // Build a diagonal matrix with the Inverted Singular values
     // The pseudo inverted singular matrix is easy to compute :
     // is formed by replacing every nonzero entry by its reciprocal (inversing).
-    Eigen::MatrixXf vPseudoInvertedSingular(svdA.matrixV().cols(),1);
+    Eigen::MatrixXd vPseudoInvertedSingular(svdA.matrixV().cols(),1);
 
     for (int iRow =0; iRow<vSingular.rows(); iRow++)
     {
@@ -490,7 +578,7 @@ Eigen::MatrixXf pinv(const Eigen::MatrixXf &a)
     }
 
     // A little optimization here
-    Eigen::MatrixXf mAdjointU = svdA.matrixU().adjoint().block(0,0,vSingular.rows(),svdA.matrixU().adjoint().cols());
+    Eigen::MatrixXd mAdjointU = svdA.matrixU().adjoint().block(0,0,vSingular.rows(),svdA.matrixU().adjoint().cols());
 
     // Pseudo-Inversion : V * S * U'
     return (svdA.matrixV() *  vPseudoInvertedSingular.asDiagonal()) * mAdjointU  ;
@@ -546,10 +634,14 @@ int CustomScene::getNumDeformableObjectNodes()
 //this is getting called before the step loop
 void CustomScene::doJTracking()
 {
+//    std::cout << "Sim time: " << simTime << std::endl;
+
+
+
     // let the rope settle between iterations
-/*
+    // skip every 2nd itteration
     itrnumber++;
-    if(itrnumber != 3)
+    if(itrnumber != 2)
     {
         loopState.skip_step = false;
         return;
@@ -559,15 +651,15 @@ void CustomScene::doJTracking()
         loopState.skip_step = true;
         itrnumber = 0;
     }
-*/
+
 
 #ifdef DO_ROTATION
     int dof_per_gripper = 6;
 #else
     int dof_per_gripper = 3;
 #endif
-    Eigen::MatrixXf Jcollision = Eigen::MatrixXf::Zero(num_auto_grippers * 3, num_auto_grippers*dof_per_gripper);
-    Eigen::VectorXf V_step_collision =  Eigen::VectorXf::Zero(num_auto_grippers * 3);
+    Eigen::MatrixXd Jcollision = Eigen::MatrixXd::Zero(num_auto_grippers * 3, num_auto_grippers*dof_per_gripper);
+    Eigen::VectorXd V_step_collision =  Eigen::VectorXd::Zero(num_auto_grippers * 3);
 
     ///////////////
 #ifdef ROPE
@@ -583,12 +675,12 @@ void CustomScene::doJTracking()
         int numnodes = getNumDeformableObjectNodes();
 
         float step_limit = 0.05;
-        Eigen::VectorXf V_step = Eigen::VectorXf::Zero(numnodes*3);
-        Eigen::VectorXf V_delta = Eigen::VectorXf::Zero(numnodes*3);
+        Eigen::VectorXd V_step = Eigen::VectorXd::Zero(numnodes*3);
+        Eigen::VectorXd V_delta = Eigen::VectorXd::Zero(numnodes*3);
 
-        Eigen::VectorXf V_trans;
+        Eigen::VectorXd V_trans;
         btTransform transtm1,transtm2;
-        Eigen::MatrixXf J;
+        Eigen::MatrixXd J;
 
         float error = 0;
         std::vector<btVector3> plotpoints;
@@ -627,15 +719,38 @@ void CustomScene::doJTracking()
             }
         }
 
+
+
+
+
+
+
+
+
+/*        std::cout << "Current config:\n";
+        for (size_t ind = 0; ind < filtered_new_nodes.size(); ind++)
+        {
+            std::cout << filtered_new_nodes[ind].x() << "\t"
+                << filtered_new_nodes[ind].y() << "\t"
+                << filtered_new_nodes[ind].z() << "\n";
+        }
+*/
+
+
+
+
+
+
 #ifdef DO_COVERAGE
         std::vector<btVector3> rot_line_pnts;
         std::vector<btVector4> rot_line_cols;
         std::vector<btVector4> plot_cols;
 
+//        int last_ind = -1;
         for(size_t i = 0; i < cover_points.size(); i++)
         {
             int closest_ind = -1;
-            float closest_dist = 1000000;
+            double closest_dist = 1000000000;
             for(size_t j = 0; j < filtered_new_nodes.size(); j++)
             {
                 float dist = (cover_points[i] - filtered_new_nodes[j]).length();
@@ -647,6 +762,25 @@ void CustomScene::doJTracking()
             }
 
             btVector3 targvec = cover_points[i] - filtered_new_nodes[closest_ind];
+
+
+
+
+
+
+//            if (last_ind != closest_ind)
+//                std::cout << std::endl;
+//            last_ind = closest_ind;
+
+//            std::cout << "Cover ind: " << i << " Rope ind: " << closest_ind << " delta: " << PrettyPrint( targvec ) << std::endl;
+
+//            if (closest_ind == 20)
+//                std::cout << targvec.x() << "\t"
+//                    << targvec.y() << "\t"
+//                    << targvec.z() << std::endl;
+
+
+
 
             rot_line_pnts.push_back(cover_points[i]);
             rot_line_pnts.push_back(filtered_new_nodes[closest_ind]);
@@ -670,8 +804,8 @@ void CustomScene::doJTracking()
                 cout << "Difference found!!!!!!!!!!\n";
             ////
 
-            if(closest_dist < 0.2)
-                continue;
+//            if(closest_dist < 0.2)
+//                continue;
 
             for(int j = 0; j < 3; j++)
                 V_step(3*closest_ind + j) += targvec[j]; //accumulate targvecs
@@ -719,14 +853,14 @@ void CustomScene::doJTracking()
 
 #ifdef PRESERVE_LENGTH
         float tolerance = 0.1;
-        Eigen::MatrixXf new_distance_matrix;
+        Eigen::MatrixXd new_distance_matrix;
 
         computeDeformableObjectDistanceMatrix(filtered_new_nodes,new_distance_matrix);
 
-        Eigen::MatrixXf node_distance_difference = new_distance_matrix - deformableobject_distance_matrix;
+        Eigen::MatrixXd node_distance_difference = new_distance_matrix - deformableobject_distance_matrix;
 
 
-        for(size_t i = 0; i < node_distance_difference.rows(); i++)
+        for(int i = 0; i < node_distance_difference.rows(); i++)
         {
             for(int j = i; j < node_distance_difference.cols(); j++)
             {
@@ -765,6 +899,10 @@ void CustomScene::doJTracking()
         J = computeJacobian_approx();
 #endif
 
+
+
+
+
 //        //low-pass filter
 //        float mu2 = 0.05; //(0 = no change, 1.0 = no filtering)
 //        if(!bFirstTrackingIteration)
@@ -775,12 +913,29 @@ void CustomScene::doJTracking()
 
 
 
-        //Eigen::MatrixXf Jt(J.transpose());
+
+/*
+        std::cout << "Rope delta:\n";
+        Eigen::MatrixXd tmp = V_step;
+        tmp.resize(3, 49);
+        std::cout << tmp.transpose() << std::endl;
+*/
+
+
+
+
+
+
+
+
+
+
+        //Eigen::MatrixXd Jt(J.transpose());
         //V_trans = Jt*V_step;
 
-        Eigen::MatrixXf Jpinv= pinv(J.transpose()*J)*J.transpose();
+        Eigen::MatrixXd Jpinv= pinv(J.transpose()*J)*J.transpose();
 
-        Eigen::VectorXf q_desired = Jpinv*V_step;
+        Eigen::VectorXd q_desired = Jpinv*V_step;
 #ifdef AVOID_COLLISION
         if(obj)
         {
@@ -835,7 +990,7 @@ void CustomScene::doJTracking()
                            jacpoints.push_back(endPt);
                            jacpoint_grippers.push_back(g);
                            Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints,jacpoint_grippers);
-                           Eigen::VectorXf V_coll_step(3);
+                           Eigen::VectorXd V_coll_step(3);
                            V_coll_step[0] = endPt[0] - startPt[0];
                            V_coll_step[1] = endPt[1] - startPt[1];
                            V_coll_step[2] = endPt[2] - startPt[2];
@@ -859,13 +1014,13 @@ void CustomScene::doJTracking()
                  //rot_lines->setPoints(plotpoints,plotcols);
             }
 
-            Eigen::MatrixXf Jpinv_collision= pinv(Jcollision.transpose()*Jcollision)*Jcollision.transpose();
+            Eigen::MatrixXd Jpinv_collision= pinv(Jcollision.transpose()*Jcollision)*Jcollision.transpose();
 
-            Eigen::VectorXf q_desired_nullspace = (Eigen::MatrixXf::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
-            Eigen::VectorXf q_collision = Jpinv_collision*V_step_collision;
+            Eigen::VectorXd q_desired_nullspace = (Eigen::MatrixXd::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
+            Eigen::VectorXd q_collision = Jpinv_collision*V_step_collision;
 
-            Eigen::VectorXf term1 = q_collision + q_desired_nullspace;
-            Eigen::VectorXf term2 = q_desired;
+            Eigen::VectorXd term1 = q_collision + q_desired_nullspace;
+            Eigen::VectorXd term2 = q_desired;
             std::vector<float> vK(num_auto_grippers);
 
             for(int g = 0; g < num_auto_grippers; g++)
@@ -947,6 +1102,12 @@ void CustomScene::doJTracking()
 
         left_gripper1->applyTransform(transtm1);
         left_gripper2->applyTransform(transtm2);
+
+
+
+//        cout << PrettyPrint( left_gripper1->getWorldTransform() ) << std::endl;
+
+
 
 #ifdef USE_PR2
         btTransform left1(left_gripper1->getWorldTransform());
@@ -1465,14 +1626,16 @@ void CustomScene::makeRopeWorld()
     const float table_thickness = .05;
     int nLinks = 50;
 
-    vector<btVector3> ctrlPts;
-    for (int i = 0; i< nLinks; i++) {
-      ctrlPts.push_back(METERS*btVector3(.5+segment_len*i,0,table_height+5*rope_radius));
-    }
-
     table = BoxObject::Ptr(new BoxObject(0,METERS*btVector3(.75,.75,table_thickness/2),
                 btTransform(btQuaternion(0, 0, 0, 1), METERS*btVector3(1,0,table_height-table_thickness/2))));
 
+//    std::cout << "Table: " << PrettyPrint( table->rigidBody->getCenterOfMassTransform() ) << std::endl;
+
+    vector<btVector3> ctrlPts;
+    for (int i = 0; i< nLinks; i++) {
+      ctrlPts.push_back(METERS*btVector3(0.5+segment_len*i,0,table_height+5*rope_radius));
+//      cout << PrettyPrint( ctrlPts.back() ) << std::endl;
+    }
     ropePtr.reset(new CapsuleRope(ctrlPts,.01*METERS));
 
     env->add(ropePtr);
@@ -1504,17 +1667,26 @@ void CustomScene::makeRopeWorld()
     //cylinder
     float radius = 3;
     float height = 6;
-    num_auto_grippers = 1;
-    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, btTransform(btQuaternion(0, 0, 0, 1), table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,5,height/2))));
+    cylinder = CylinderStaticObject::Ptr(new CylinderStaticObject(0, radius, height, btTransform(btQuaternion(0, 0, 0, 1),
+                    table->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(0,5,height/2))));
     env->add(cylinder);
     cylinder->setColor(179.0/255.0,176.0/255.0,160.0/255.0,1);
+
     for(float theta = 0; theta < 2*3.1415; theta += 0.3)
     {
         for(float h = 0; h < height; h += 0.2)
-            cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+btVector3(radius*cos(theta)+.01*METERS/2,radius*sin(theta)+.01*METERS/2,h-height/2));
+        {
+            cover_points.push_back(cylinder->rigidBody->getCenterOfMassTransform().getOrigin()+
+                    btVector3((radius+.01*METERS/2)*cos(theta),(radius+.01*METERS/2)*sin(theta),h-height/2));
+//            std::cout << PrettyPrint( cover_points.back() ) << std::endl;
+        }
 
     }
     cout << "num cover points " << cover_points.size() << endl;
+//    std::cout << "Cylinder: " << PrettyPrint( cylinder->rigidBody->getCenterOfMassTransform() ) << std::endl;
+
+    // grippers
+    num_auto_grippers = 1;
     left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
     right_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
     right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
@@ -1568,9 +1740,9 @@ void CustomScene::makeRopeWorld()
 
 }
 
-void CustomScene::computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix)
+void CustomScene::computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXd& distance_matrix)
 {
-    distance_matrix = Eigen::MatrixXf( node_pos.size(), node_pos.size());
+    distance_matrix = Eigen::MatrixXd( node_pos.size(), node_pos.size());
     for(size_t i = 0; i < node_pos.size(); i++)
     {
         for(size_t j = i; j < node_pos.size(); j++)

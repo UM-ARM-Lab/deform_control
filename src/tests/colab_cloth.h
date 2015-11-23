@@ -27,8 +27,8 @@
 
 //#define USE_ADAPTIVE_JACOBIAN //not working
 #define USE_RADIUS_CONTACT
-//#define PRESERVE_LENGTH
-//#define AVOID_COLLISION
+#define PRESERVE_LENGTH
+#define AVOID_COLLISION
 
 #ifdef USE_PR2
 #include <openrave/kinbody.h>
@@ -482,17 +482,17 @@ public:
     float jacobian_sim_time;
     std::vector<btVector3> prev_node_pos;
     std::vector<btVector3> filtered_new_nodes;
-    Eigen::VectorXf last_V_step;
+    Eigen::VectorXd last_V_step;
     PlotPoints::Ptr plot_points;
     PlotPoints::Ptr left_center_point;
     PlotAxes::Ptr left_axes1,left_axes2;
     PlotLines::Ptr rot_lines;
-    Eigen::MatrixXf deformableobject_distance_matrix;
+    Eigen::MatrixXd deformableobject_distance_matrix;
     int user_mid_point_ind, robot_mid_point_ind;
-    Eigen::MatrixXf last_jacobian;
-    Eigen::VectorXf last_movement;
+    Eigen::MatrixXd last_jacobian;
+    Eigen::VectorXd last_movement;
     std::vector<btVector3> cover_points;
-    //Eigen::VectorXf last_clothstate;
+    //Eigen::VectorXd last_clothstate;
     bool bFirstTrackingIteration;
     int itrnumber;
     std::vector<int> corner_ind;
@@ -557,17 +557,17 @@ public:
     void createFork();
     void destroyFork();
     void swapFork();
-    Eigen::MatrixXf computeJacobian();
-    Eigen::MatrixXf computeJacobian_parallel();
-    Eigen::MatrixXf computeJacobian_approx();
-    Eigen::MatrixXf computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point);
+    Eigen::MatrixXd computeJacobian();
+    Eigen::MatrixXd computeJacobian_parallel();
+    Eigen::MatrixXd computeJacobian_approx();
+    Eigen::MatrixXd computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point);
     double getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind);
     void simulateInNewFork(StepState& innerstate, float sim_time, btTransform& left_gripper1_tm, btTransform& left_gripper2_tm);
     void doJTracking();
     void drawAxes();
     void drawClosestPoints();
     void regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr  gripper_to_detach);
-    void computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXf& distance_matrix);
+    void computeDeformableObjectDistanceMatrix( const std::vector<btVector3>& node_pos, Eigen::MatrixXd& distance_matrix);
     void getDeformableObjectNodes(std::vector<btVector3>& vnodes);
     int getNumDeformableObjectNodes();
     void makeRopeWorld();
