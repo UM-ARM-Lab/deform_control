@@ -8,7 +8,7 @@
 #include <iostream>
 using namespace std;
 
-Scene::Scene() {
+Scene::Scene() : simTime(0) {
     osg.reset(new OSGInstance());
     bullet.reset(new BulletInstance());
     bullet->setGravity(BulletConfig::gravity);
@@ -64,7 +64,7 @@ void Scene::step(float dt, int maxsteps, float internaldt) {
     for (size_t i = 0; i < prestepCallbacks.size(); ++i)
         prestepCallbacks[i]();
 
-    env->step(dt, maxsteps, internaldt);
+    simTime += env->step(dt, maxsteps, internaldt);
     // TODO: ensure all this fork business is cleaned up
     for (std::set<Fork::Ptr>::iterator i = forks.begin(); i != forks.end(); ++i)
         (*i)->env->step(dt, maxsteps, internaldt);

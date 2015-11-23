@@ -115,4 +115,7 @@ public:
     void runAction(Action::Ptr a, float dt) { runAction(*a.get(), dt); }
 
     virtual void draw();
+
+    // tracks the time taken in simulation, should always be a integer multiple of dt
+    double simTime;
 };

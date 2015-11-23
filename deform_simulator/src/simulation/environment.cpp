@@ -92,14 +92,16 @@ void Environment::removeConstraint(EnvironmentObject::Ptr cnt) {
     }
 }
 
-void Environment::step(btScalar dt, int maxSubSteps, btScalar fixedTimeStep) {
+double Environment::step(btScalar dt, int maxSubSteps, btScalar fixedTimeStep) {
     ObjectList::iterator i;
     for (i = objects.begin(); i != objects.end(); ++i)
         (*i)->prePhysics();
-    bullet->dynamicsWorld->stepSimulation(dt, maxSubSteps, fixedTimeStep);
+    int numFixedSteps = bullet->dynamicsWorld->stepSimulation(dt, maxSubSteps, fixedTimeStep);
     for (i = objects.begin(); i != objects.end(); ++i)
         (*i)->preDraw();
     bullet->softBodyWorldInfo.m_sparsesdf.GarbageCollect();
+
+    return numFixedSteps*fixedTimeStep;
 }
 
 void Fork::copyObjects() {
