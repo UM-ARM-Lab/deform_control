@@ -39,9 +39,14 @@ static BulletObject::Ptr getNearestBody(vector<BulletObject::Ptr> bodies, btVect
   return bodies[argmin];
 }
 
-Monitor::Monitor() : closedThreshold(PR2_CLOSED_VAL) {}
+Monitor::Monitor() :
+    PR2_CLOSED_VAL(0.1f),
+    PR2_OPEN_VAL(0.54f),
+    closedThreshold(PR2_CLOSED_VAL) {}
 
 Monitor::Monitor(RaveRobotObject::Manipulator::Ptr manip) :
+    PR2_CLOSED_VAL(0.1f),
+    PR2_OPEN_VAL(0.54f),
     m_manip(manip),
     closedThreshold(PR2_CLOSED_VAL),
     m_wasClosed(isClosed(manip, PR2_CLOSED_VAL))
