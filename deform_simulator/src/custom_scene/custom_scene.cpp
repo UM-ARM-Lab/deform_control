@@ -34,7 +34,7 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     , task_type_( task_type )
     , nh_( nh )
 {
-    ROS_INFO_NAMED( "custom_scene", "Buiding the world" );
+    ROS_INFO( "Building the world" );
     // Build the world
     // TODO: make this setable/resetable via a ROS service call
     switch ( deformable_type_ )
@@ -57,12 +57,12 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     // TODO: find a better way to do this that exposes less internals
     object_initial_configuration_ = toRosPointVector( getDeformableObjectNodes(), METERS );
 
-    ROS_INFO_NAMED( "custom_scene", "Creating subscribers and publishers" );
+    ROS_INFO( "Creating subscribers and publishers" );
     // Publish to the feedback channel
     simulator_fbk_pub_ = nh_.advertise< smmap_msgs::SimulatorFbkStamped >(
             smmap::SimulatorFeedbackTopic( nh_ ), 20 );
 
-    ROS_INFO_NAMED( "custom_scene", "Creating services" );
+    ROS_INFO( "Creating services" );
     // Create a service to let others know the internal gripper names
     gripper_names_srv_ = nh_.advertiseService(
             smmap::GetGripperNamesTopic( nh_ ), &CustomScene::getGripperNamesCallback, this );
@@ -97,7 +97,7 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     visualization_marker_array_sub_ = nh_.subscribe(
             smmap::VisualizationMarkerArrayTopic( nh_ ), 20, &CustomScene::visualizationMarkerArrayCallback, this );
 
-    ROS_INFO_NAMED( "custom_scene", "Simulation ready." );
+    ROS_INFO( "Simulation ready." );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,7 +118,7 @@ void CustomScene::run( bool syncTime )
     boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
 
     // if syncTime is set, the simulator blocks until the real time elapsed
-    // matches the simulator time elapsed
+    // matches the simulator time elapsed, or something, it's not clear
     setSyncTime( syncTime );
     startViewer();
 
@@ -198,7 +198,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
                 cover_points_.push_back( table_tf * btVector3( x, y, table_->halfExtents.z() ) );
             }
         }
-        std::cout << "Number of cover points: " << cover_points_.size() << std::endl;
+        ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() );
 
         std::vector<btVector4> cloth_coverage_color( cloth_coverage_lines.size(), btVector4( 1, 0, 1, 1 ) );
         plot_lines_->setPoints( cloth_coverage_lines, cloth_coverage_color );
@@ -208,19 +208,18 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
 
 void CustomScene::makeCylinder( const bool set_cover_points )
 {
-    // find the needed table parameters
-    const btVector3 table_surface_position = btVector3( TABLE_X, TABLE_Y, TABLE_Z ) * METERS;
-
     // cylinder parameters
+    // NOTE: this currently has part of the cylinder inside the table
     const btVector3 cylinder_com_origin =
-        table_surface_position +
+        table_->rigidBody->getCenterOfMassTransform().getOrigin() +
+        //btVector3( 0, 0, TABLE_THICKNESS*METERS/2 ) +
         btVector3( 0, ROPE_CYLINDER_RADIUS*METERS*5/3, ROPE_CYLINDER_HEIGHT*METERS/2 );
 
     // create a cylinder
     cylinder_ = CylinderStaticObject::Ptr( new CylinderStaticObject(
                 0, ROPE_CYLINDER_RADIUS*METERS, ROPE_CYLINDER_HEIGHT*METERS,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 0.1, 0.1, 0.1, 1 );
+    cylinder_->setColor( 179.0/255.0, 176.0/255.0, 160.0/255.0, 1 );
 
     // add the cylinder to the world
     env->add( cylinder_ );
@@ -228,20 +227,22 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     if ( set_cover_points )
     {
         // find the points that we want to cover with a rope
-        for( float theta = 0; theta < 2 * M_PI; theta += 0.3 )
+
+        // consider 21 points around the cylinder
+        for( float theta = 0; theta < 2.0 * M_PI; theta += 0.3 )
+        // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
         {
+            // 31 points per theta
             for( float h = 0; h < ROPE_CYLINDER_HEIGHT*METERS; h += ROPE_CYLINDER_HEIGHT*METERS/30.0 )
-//            float h = ROPE_RADIUS*METERS;
             {
                 cover_points_.push_back(
                         cylinder_com_origin
                         + btVector3( (ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2)*cos( theta ),
                                      (ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2)*sin( theta ),
                                      h - ROPE_CYLINDER_HEIGHT*METERS/2 ) );
-
             }
         }
-        std::cout << "Number of cover points: " << cover_points_.size() << std::endl;
+        ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() ) ;
 
         std::vector<btVector4> rope_coverage_color( cover_points_.size(), btVector4( 1, 0, 0, 1 ) );
         plot_points_->setPoints( cover_points_, rope_coverage_color );
@@ -258,8 +259,10 @@ void CustomScene::makeRope()
     std::vector<btVector3> control_points( ROPE_NUM_LINKS );
     for ( int n = 0; n < ROPE_NUM_LINKS; n++ )
     {
+        // TODO: get rid of this random "- 20"
         control_points[n] = table_surface_position +
-            btVector3( ((float)n - (float)(ROPE_NUM_LINKS - 1)/2)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
+//            btVector3( ((float)n - (float)(ROPE_NUM_LINKS - 1)/2)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
+            btVector3( (n - 20)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
     }
     rope_.reset( new CapsuleRope( control_points, ROPE_RADIUS*METERS ) );
 
@@ -556,7 +559,7 @@ void CustomScene::publishSimulatorFbk()
 
     // update the sim_time
     // TODO: is this actually correct?
-    msg.sim_time = viewer.getFrameStamp()->getSimulationTime();
+    msg.sim_time = simTime;
 
     // publish the message
     msg.header.stamp = ros::Time::now();
@@ -711,7 +714,7 @@ void CustomScene::visualizationMarkerCallback(
         }
         default:
         {
-            ROS_ERROR_STREAM_NAMED( "custom_scene_visualization",
+            ROS_ERROR_STREAM_NAMED( "visualization",
                     "Marker type " << marker.type << " not implemented" );
         }
     }
@@ -733,7 +736,7 @@ void CustomScene::visualizationMarkerArrayCallback(
 void CustomScene::spin( double loop_rate )
 {
     ros::NodeHandle ph("~");
-    ROS_INFO_NAMED( "custom_scene" , "Starting feedback spinner" );
+    ROS_INFO( "Starting feedback spinner" );
     while ( ros::ok() )
     {
         ros::getGlobalCallbackQueue()->callAvailable( ros::WallDuration( loop_rate ) );
