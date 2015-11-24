@@ -60,7 +60,7 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     ROS_INFO( "Creating subscribers and publishers" );
     // Publish to the feedback channel
     simulator_fbk_pub_ = nh_.advertise< smmap_msgs::SimulatorFbkStamped >(
-            smmap::SimulatorFeedbackTopic( nh_ ), 20 );
+            smmap::GetSimulatorFeedbackTopic( nh_ ), 20 );
 
     ROS_INFO( "Creating services" );
     // Create a service to let others know the internal gripper names
@@ -85,17 +85,17 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
 
     // Create a service to take gripper trajectories
     cmd_grippers_traj_srv_ = nh_.advertiseService(
-            smmap::CommandGripperTrajTopic( nh_ ), &CustomScene::cmdGripperTrajCallback, this );
+            smmap::GetCommandGripperTrajTopic( nh_ ), &CustomScene::cmdGripperTrajCallback, this );
     gripper_traj_index_ = 0;
     new_gripper_traj_ready_ = false;
 
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
-            smmap::VisualizationMarkerTopic( nh_ ), 20, &CustomScene::visualizationMarkerCallback, this );
+            smmap::GetVisualizationMarkerTopic( nh_ ), 20, &CustomScene::visualizationMarkerCallback, this );
 
     // Create a subscriber to take visualization instructions
     visualization_marker_array_sub_ = nh_.subscribe(
-            smmap::VisualizationMarkerArrayTopic( nh_ ), 20, &CustomScene::visualizationMarkerArrayCallback, this );
+            smmap::GetVisualizationMarkerArrayTopic( nh_ ), 20, &CustomScene::visualizationMarkerArrayCallback, this );
 
     ROS_INFO( "Simulation ready." );
 }

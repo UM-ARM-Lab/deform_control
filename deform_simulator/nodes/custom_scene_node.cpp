@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
     ros::NodeHandle nh;
 
     // TODO move these settings to a CustomSceneConfig class
-    CustomScene cs( nh,smmap::DeformableType::ROPE, smmap::TaskType::COVERAGE );
+    CustomScene cs( nh,smmap::GetDeformableType( nh ), smmap::GetTaskType( nh ) );
     cs.run();
 
     return 0;
