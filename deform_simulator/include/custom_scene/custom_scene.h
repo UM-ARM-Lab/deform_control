@@ -2,6 +2,7 @@
 #define CUSTOM_SCENE_H
 
 #include <boost/thread/mutex.hpp>
+#include <Eigen/Dense>
 
 #include "simulation/environment.h"
 #include "simulation/simplescene.h"
@@ -57,6 +58,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         std::vector< btVector3 > getDeformableObjectNodes();
+        Eigen::Vector3d collisionHelper( const std::string& gripper_name );
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks

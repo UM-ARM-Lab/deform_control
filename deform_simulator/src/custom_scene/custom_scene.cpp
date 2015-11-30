@@ -4,6 +4,13 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <ros/callback_queue.h>
+#include <smmap/ros_params.h>
+
+#include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
+#include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
+#include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
+#include <BulletCollision/NarrowPhaseCollision/btConvexPenetrationDepthSolver.h>
+#include <BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h>
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
 #include <bullet_helpers/bullet_internal_conversions.hpp>
@@ -537,7 +544,7 @@ void CustomScene::moveGrippers()
         btTransform tf = toBulletTransform(
                     curr_gripper_traj_.trajectories[ind].pose[gripper_traj_index_], METERS );
 
-        grippers_[curr_gripper_traj_.gripper_names[ind]]->setWorldTransform( tf );
+        grippers_.at( curr_gripper_traj_.gripper_names[ind] )->setWorldTransform( tf );
     }
     gripper_traj_index_++;
 }
@@ -558,7 +565,6 @@ void CustomScene::publishSimulatorFbk()
     msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
 
     // update the sim_time
-    // TODO: is this actually correct?
     msg.sim_time = simTime;
 
     // publish the message
@@ -586,6 +592,94 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes()
     }
 
     return nodes;
+}
+
+/**
+ * @brief Find the vector that pushes the gripper away from the object
+ * @param gripper_name
+ * @return
+ */
+Eigen::Vector3d CustomScene::collisionHelper( const std::string& gripper_name )
+{
+    Eigen::Vector3d V_coll_step = Eigen::Vector3d::Zero();
+    BulletObject::Ptr obj = NULL;
+    double k2;
+
+    // TODO: parameterize these values for k2
+    // TODO: find a better name for k2
+    if ( task_type_ == smmap::TaskType::COVERAGE )
+    {
+        if ( deformable_type_ == smmap::DeformableType::ROPE )
+        {
+            obj = cylinder_;
+            k2 = 10;
+        }
+        else if ( deformable_type_ == smmap::DeformableType::CLOTH )
+        {
+            obj = table_;
+            k2 = 100;
+        }
+        else
+        {
+            // This error should never happen, as elsewhere in the code we throw
+            // exceptions
+            ROS_ERROR_NAMED( "collision_detection", "Unknown deformable + coverage combination!" );
+        }
+    }
+
+    if ( obj )
+    {
+        GripperKinematicObject::Ptr gripper = grippers_.at( gripper_name );
+
+        // find the distance to the object
+        double closest_dist = BT_LARGE_FLOAT;
+
+        // TODO: how much (if any) of this should be static/class members?
+        btGjkEpaPenetrationDepthSolver epaSolver;
+        btVoronoiSimplexSolver sGjkSimplexSolver;
+        btPointCollector gjkOutput;
+
+        btGjkPairDetector convexConvex( dynamic_cast< btBoxShape* >( gripper->getChildren()[0]->collisionShape.get() ),
+                dynamic_cast< btConvexShape* >(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver );
+
+        btGjkPairDetector::ClosestPointInput input;
+
+        gripper->children[0]->motionState->getWorldTransform( input.m_transformA );
+        obj->motionState->getWorldTransform( input.m_transformB );
+        input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
+        gjkOutput.m_distance = btScalar(BT_LARGE_FLOAT);
+        convexConvex.getClosestPoints( input, gjkOutput, NULL );
+
+
+
+
+
+
+
+
+
+
+
+        // TODO: not sure why we're checking this, maybe the collision checker sometimes returns nothing?
+        if ( gjkOutput.m_hasResult )
+        {
+            btVector3 closest_point_on_object = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+            btVector3 closest_point_on_gripper = ( input.m_transformB * input.m_transformB.inverse() )( gjkOutput.m_pointInWorld );
+
+            V_coll_step[0] = closest_point_on_object[0] - closest_point_on_gripper[0];
+            V_coll_step[1] = closest_point_on_object[1] - closest_point_on_gripper[1];
+            V_coll_step[2] = closest_point_on_object[2] - closest_point_on_gripper[2];
+
+            if ( gjkOutput.m_distance != closest_dist )
+            {
+               closest_dist = gjkOutput.m_distance;
+               if ( closest_dist < 0 )
+                   V_coll_step = -V_coll_step;
+            }
+        }
+    }
+
+    return V_coll_step;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -623,8 +717,7 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
         smmap_msgs::GetGripperAttachedNodeIndices::Request& req,
         smmap_msgs::GetGripperAttachedNodeIndices::Response& res )
 {
-    // TODO: error check input
-    GripperKinematicObject::Ptr gripper = grippers_[req.name];
+    GripperKinematicObject::Ptr gripper = grippers_.at( req.name );
     res.indices = gripper->getAttachedNodeIndices();
     return true;
 }
@@ -633,8 +726,7 @@ bool CustomScene::getGripperPoseCallback(
         smmap_msgs::GetGripperPose::Request& req,
         smmap_msgs::GetGripperPose::Response& res )
 {
-    // TODO: error check input
-    GripperKinematicObject::Ptr gripper = grippers_[req.name];
+    GripperKinematicObject::Ptr gripper = grippers_.at( req.name );
     res.pose = toRosPose( gripper->getWorldTransform(), METERS );
     return true;
 }

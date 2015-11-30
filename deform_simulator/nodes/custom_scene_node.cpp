@@ -1,5 +1,7 @@
 #include "custom_scene/custom_scene.h"
 
+#include <smmap/ros_params.h>
+
 int main(int argc, char* argv[])
 {
     // Read in all ROS parameters
@@ -20,13 +22,12 @@ int main(int argc, char* argv[])
     parser.addGroup( SceneConfig() );
 
     // Read in any user supplied configuration parameters
-    // TODO read in any ROS params that we want
     parser.read(argc, argv);
 
     ros::NodeHandle nh;
 
     // TODO move these settings to a CustomSceneConfig class
-    CustomScene cs( nh,smmap::GetDeformableType( nh ), smmap::GetTaskType( nh ) );
+    CustomScene cs( nh, smmap::GetDeformableType( nh ), smmap::GetTaskType( nh ) );
     cs.run();
 
     return 0;
