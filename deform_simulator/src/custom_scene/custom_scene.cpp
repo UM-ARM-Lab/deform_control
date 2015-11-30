@@ -35,8 +35,8 @@ constexpr float CustomScene::CLOTH_Z;
 
 CustomScene::CustomScene( ros::NodeHandle& nh,
         smmap::DeformableType deformable_type, smmap::TaskType task_type)
-    : plot_points_( new PlotPoints( 0.1*METERS ) )
-    , plot_lines_( new PlotLines( 0.25*METERS ) )
+    : plot_points_( new PlotPoints( 0.1f*METERS ) )
+    , plot_lines_( new PlotLines( 0.25f*METERS ) )
     , deformable_type_( deformable_type )
     , task_type_( task_type )
     , nh_( nh )
@@ -177,7 +177,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
     table_ = BoxObject::Ptr( new BoxObject( 0, table_half_extents,
                 btTransform( btQuaternion( 0, 0, 0, 1 ),
                     table_surface_position - btVector3( 0, 0, TABLE_THICKNESS*METERS/2 ) ) ) );
-    table_->setColor( 0.4, 0.4, 0.4, 1 );
+    table_->setColor( 0.4f, 0.4f, 0.4f, 1.0f );
     // TODO why was this not set for the rope and only for the cloth?
     table_->rigidBody->setFriction(1);
 
@@ -186,7 +186,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
     // if we are doing a table coverage task, create the table coverage points
     if ( set_cover_points )
     {
-        const float stepsize = 0.0125*METERS;
+        const float stepsize = 0.0125f*METERS;
         btTransform table_tf = table_->rigidBody->getCenterOfMassTransform();
 
         std::vector< btVector3 > cloth_coverage_lines;
@@ -226,7 +226,7 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     cylinder_ = CylinderStaticObject::Ptr( new CylinderStaticObject(
                 0, ROPE_CYLINDER_RADIUS*METERS, ROPE_CYLINDER_HEIGHT*METERS,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 179.0/255.0, 176.0/255.0, 160.0/255.0, 1 );
+    cylinder_->setColor( 179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f );
 
     // add the cylinder to the world
     env->add( cylinder_ );
@@ -236,16 +236,16 @@ void CustomScene::makeCylinder( const bool set_cover_points )
         // find the points that we want to cover with a rope
 
         // consider 21 points around the cylinder
-        for( float theta = 0; theta < 2.0 * M_PI; theta += 0.3 )
+        for( float theta = 0; theta < 2.0f * M_PI; theta += 0.3f )
         // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
         {
             // 31 points per theta
-            for( float h = 0; h < ROPE_CYLINDER_HEIGHT*METERS; h += ROPE_CYLINDER_HEIGHT*METERS/30.0 )
+            for( float h = 0; h < ROPE_CYLINDER_HEIGHT*METERS; h += ROPE_CYLINDER_HEIGHT*METERS/30.0f )
             {
                 cover_points_.push_back(
                         cylinder_com_origin
-                        + btVector3( (ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2)*cos( theta ),
-                                     (ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2)*sin( theta ),
+                        + btVector3( (ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2)*std::cos( theta ),
+                                     (ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2)*std::sin( theta ),
                                      h - ROPE_CYLINDER_HEIGHT*METERS/2 ) );
             }
         }
@@ -264,12 +264,12 @@ void CustomScene::makeRope()
 
     // make the rope
     std::vector<btVector3> control_points( ROPE_NUM_LINKS );
-    for ( int n = 0; n < ROPE_NUM_LINKS; n++ )
+    for ( size_t n = 0; n < ROPE_NUM_LINKS; n++ )
     {
         // TODO: get rid of this random "- 20"
         control_points[n] = table_surface_position +
 //            btVector3( ((float)n - (float)(ROPE_NUM_LINKS - 1)/2)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
-            btVector3( (n - 20)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
+            btVector3( (float)(n - 20)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
     }
     rope_.reset( new CapsuleRope( control_points, ROPE_RADIUS*METERS ) );
 
@@ -277,7 +277,7 @@ void CustomScene::makeRope()
     std::vector< BulletObject::Ptr > children = rope_->getChildren();
     for ( size_t j = 0; j < children.size(); j++ )
     {
-        children[j]->setColor( 0.15, 0.65, 0.15, 1.0 );
+        children[j]->setColor( 0.15f, 0.65f, 0.15f, 1.0f );
     }
 
     // add the table and rope to the world
@@ -302,16 +302,16 @@ void CustomScene::makeCloth()
     psb->m_cfg.collisions = btSoftBody::fCollision::CL_SS
         | btSoftBody::fCollision::CL_RS; //  | btSoftBody::fCollision::CL_SELF;
     psb->m_cfg.kDF = 1.0;
-    psb->getCollisionShape()->setMargin( 0.05 );
+    psb->getCollisionShape()->setMargin( 0.05f );
     btSoftBody::Material *pm = psb->appendMaterial();
     // commented out as there are no self collisions
     //pm->m_kLST = 0.2;//0.1; //makes it rubbery (handles self collisions better)
-    psb->m_cfg.kDP = 0.05;
+    psb->m_cfg.kDP = 0.05f;
     psb->generateBendingConstraints(2, pm);
     psb->randomizeConstraints();
     // TODO why are these both being called?
     psb->setTotalMass(1, true);
-    psb->setTotalMass(0.1);
+    psb->setTotalMass(0.1f);
     psb->generateClusters(0);
 
     // commented out as there are no self collisions
@@ -326,7 +326,7 @@ void CustomScene::makeCloth()
     // note that we need to add the cloth to the environment before setting the
     // color, otherwise we get a segfault
     env->add( cloth_ );
-    cloth_->setColor( 0.15, 0.65, 0.15, 1.0 );
+    cloth_->setColor( 0.15f, 0.65f, 0.15f, 1.0f );
 
     findClothCornerNodes();
 }
@@ -554,15 +554,24 @@ void CustomScene::publishSimulatorFbk()
     // TODO: don't rebuild this every time
     smmap_msgs::SimulatorFbkStamped msg;
 
+    // fill out the object configuration data
+    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
+
     // fill out the gripper data
     for ( auto &gripper: grippers_ )
     {
         msg.gripper_names.push_back( gripper.first );
         msg.gripper_poses.push_back( toRosPose( gripper.second->getWorldTransform(), METERS ) );
-    }
 
-    // fill out the object configuration data
-    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
+        btPointCollector collision_result = collisionHelper( gripper.first );
+
+        msg.gripper_distance_to_obstacle.push_back( collision_result.m_distance/METERS );
+        msg.obstacle_nearest_point_to_gripper.push_back( toRosPoint( collision_result.m_pointInWorld, METERS ) );
+
+        msg.gripper_nearest_point_to_obstacle.push_back( toRosPoint(
+                    collision_result.m_pointInWorld
+                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS ) );
+    }
 
     // update the sim_time
     msg.sim_time = simTime;
@@ -595,15 +604,18 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes()
 }
 
 /**
- * @brief Find the vector that pushes the gripper away from the object
- * @param gripper_name
- * @return
+ * @brief Invoke bullet's collision detector to find the points on the gripper
+ * and cylinder/table that are nearest each other.
+ *
+ * @param gripper_name The name of the gripper to check for collision
+ *
+ * @return The result of the collision check
  */
-Eigen::Vector3d CustomScene::collisionHelper( const std::string& gripper_name )
+btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
 {
-    Eigen::Vector3d V_coll_step = Eigen::Vector3d::Zero();
     BulletObject::Ptr obj = NULL;
-    double k2;
+    // Note that gjkOutput initializes to hasResult = false;
+    btPointCollector gjkOutput;
 
     // TODO: parameterize these values for k2
     // TODO: find a better name for k2
@@ -612,12 +624,10 @@ Eigen::Vector3d CustomScene::collisionHelper( const std::string& gripper_name )
         if ( deformable_type_ == smmap::DeformableType::ROPE )
         {
             obj = cylinder_;
-            k2 = 10;
         }
         else if ( deformable_type_ == smmap::DeformableType::CLOTH )
         {
             obj = table_;
-            k2 = 100;
         }
         else
         {
@@ -627,17 +637,14 @@ Eigen::Vector3d CustomScene::collisionHelper( const std::string& gripper_name )
         }
     }
 
+    // find the distance to the object
     if ( obj )
     {
         GripperKinematicObject::Ptr gripper = grippers_.at( gripper_name );
 
-        // find the distance to the object
-        double closest_dist = BT_LARGE_FLOAT;
-
         // TODO: how much (if any) of this should be static/class members?
         btGjkEpaPenetrationDepthSolver epaSolver;
         btVoronoiSimplexSolver sGjkSimplexSolver;
-        btPointCollector gjkOutput;
 
         btGjkPairDetector convexConvex( dynamic_cast< btBoxShape* >( gripper->getChildren()[0]->collisionShape.get() ),
                 dynamic_cast< btConvexShape* >(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver );
@@ -649,37 +656,9 @@ Eigen::Vector3d CustomScene::collisionHelper( const std::string& gripper_name )
         input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
         gjkOutput.m_distance = btScalar(BT_LARGE_FLOAT);
         convexConvex.getClosestPoints( input, gjkOutput, NULL );
-
-
-
-
-
-
-
-
-
-
-
-        // TODO: not sure why we're checking this, maybe the collision checker sometimes returns nothing?
-        if ( gjkOutput.m_hasResult )
-        {
-            btVector3 closest_point_on_object = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
-            btVector3 closest_point_on_gripper = ( input.m_transformB * input.m_transformB.inverse() )( gjkOutput.m_pointInWorld );
-
-            V_coll_step[0] = closest_point_on_object[0] - closest_point_on_gripper[0];
-            V_coll_step[1] = closest_point_on_object[1] - closest_point_on_gripper[1];
-            V_coll_step[2] = closest_point_on_object[2] - closest_point_on_gripper[2];
-
-            if ( gjkOutput.m_distance != closest_dist )
-            {
-               closest_dist = gjkOutput.m_distance;
-               if ( closest_dist < 0 )
-                   V_coll_step = -V_coll_step;
-            }
-        }
     }
 
-    return V_coll_step;
+    return gjkOutput;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -765,7 +744,7 @@ void CustomScene::visualizationMarkerCallback(
                 PlotSpheres::Ptr spheres( new PlotSpheres() );
                 spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
                                toOsgRefVec4Array( marker.colors ),
-                               std::vector< float >( marker.points.size(), marker.scale.x * METERS ) );
+                               std::vector< float >( marker.points.size(), (float)marker.scale.x * METERS ) );
                 visualization_sphere_markers_[id] = spheres;
 
                 env->add( spheres );
@@ -775,7 +754,7 @@ void CustomScene::visualizationMarkerCallback(
                 PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
                 spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
                                toOsgRefVec4Array( marker.colors ),
-                               std::vector< float >( marker.points.size(), marker.scale.x * METERS ) );
+                               std::vector< float >( marker.points.size(), (float)marker.scale.x * METERS ) );
             }
             break;
         }
@@ -789,7 +768,7 @@ void CustomScene::visualizationMarkerCallback(
             if ( visualization_line_markers_.count( id ) == 0 )
             {
                 ROS_INFO_STREAM( "Creating new Marker::LINE_LIST" );
-                PlotLines::Ptr line_strip( new PlotLines( marker.scale.x * METERS ) );
+                PlotLines::Ptr line_strip( new PlotLines( (float)marker.scale.x * METERS ) );
                 line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
                                        toBulletColorArray( marker.colors ));
                 visualization_line_markers_[id] = line_strip;

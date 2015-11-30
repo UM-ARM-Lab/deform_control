@@ -7,10 +7,10 @@
 using namespace BulletHelpers;
 
 GripperKinematicObject::GripperKinematicObject( float apperture_input, btVector4 color )
-    : halfextents( btVector3( 0.015, 0.015, 0.005 )*METERS )
+    : halfextents( btVector3( 0.015f, 0.015f, 0.005f )*METERS )
     , bOpen ( true )
     , apperture( apperture_input )
-    , closed_gap( 0.005*METERS )
+    , closed_gap( 0.005f*METERS )
     , bAttached( false )
 {
     BoxObject::Ptr top_jaw( new BoxObject( 0, halfextents,
@@ -69,7 +69,7 @@ void GripperKinematicObject::getWorldTransform( btTransform& in )
 }
 
 
-void GripperKinematicObject::rigidGrab( btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr )
+void GripperKinematicObject::rigidGrab( btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr )
 {
     btTransform top_tm;
     children[0]->motionState->getWorldTransform( top_tm );
@@ -143,7 +143,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
             children[0]->motionState->getWorldTransform( top_tm );
             btTransform bottom_tm;
             children[1]->motionState->getWorldTransform( bottom_tm );
-            int closest_body = -1;
+            size_t closest_body;
             for( int j = 0; j < psb->m_nodes.size(); j++ )
             {
                 if( ( psb->m_nodes[j].m_x - cur_tm.getOrigin() ).length() < radius )
@@ -153,7 +153,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
                     else
                         closest_body = 1;
 
-                    vattached_node_inds.push_back( j );
+                    vattached_node_inds.push_back( (size_t)j );
                     appendAnchor( psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get() );
                     std::cout << "\tappending anchor, closest ind: " << j << "\n";
 
@@ -165,7 +165,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
             std::vector<btVector3> nodeposvec;
             nodeArrayToNodePosVector( psb->m_nodes, nodeposvec );
 
-            for( int k = 0; k < 2; k++ )
+            for( size_t k = 0; k < 2; k++ )
             {
                 BoxObject::Ptr part = children[k];
 
@@ -305,7 +305,7 @@ void GripperKinematicObject::step_openclose( btSoftBody * psb )
     children[0]->motionState->getWorldTransform( top_tm );
     children[1]->motionState->getWorldTransform( bottom_tm );
 
-    double step_size = 0.005;
+    float step_size = 0.005f;
     if( state == GripperState_CLOSING )
     {
         top_tm.setOrigin( top_tm.getOrigin() + step_size*top_tm.getBasis().getColumn( 2 ) );
@@ -323,7 +323,7 @@ void GripperKinematicObject::step_openclose( btSoftBody * psb )
 //        if( state == GripperState_CLOSING && !bAttached )
 //            toggleAttach( psb, 0.5 );
 
-    double cur_gap_length = ( top_tm.getOrigin() - bottom_tm.getOrigin() ).length();
+    float cur_gap_length = ( top_tm.getOrigin() - bottom_tm.getOrigin() ).length();
     if( state == GripperState_CLOSING && cur_gap_length <= ( closed_gap + 2*halfextents[2] ) )
     {
         state = GripperState_DONE;

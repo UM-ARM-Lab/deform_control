@@ -1,4 +1,4 @@
-SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -Wpedantic" )
+SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -Wpedantic -Wconversion" )
 
 add_library( custom_scene
     ../../include/custom_scene/custom_scene.h

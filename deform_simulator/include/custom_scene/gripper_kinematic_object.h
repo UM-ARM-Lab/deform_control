@@ -11,7 +11,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     public:
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
-        GripperKinematicObject( float apperture_input, btVector4 color = btVector4( 0.6, 0.6, 0.6, 0.9 ) );
+        GripperKinematicObject( float apperture_input, btVector4 color = btVector4( 0.6f, 0.6f, 0.6f, 0.9f ) );
 
         void translate( btVector3 transvec );
         void applyTransform( btTransform tm );
@@ -20,7 +20,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         void getWorldTransform( btTransform& in );
 
         // used only for the rope
-        void rigidGrab( btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr );
+        void rigidGrab( btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr );
 
         // Toggles open/close
         void toggleOpen();
@@ -48,7 +48,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         GripperState state; // used only for the manual grippers (I think)
         bool bOpen;         // used only for cloth (I think)
         float apperture;
-        double closed_gap;  // used only for cloth (I think)
+        float closed_gap;  // used only for cloth (I think)
 
         bool bAttached;
         std::vector<size_t> vattached_node_inds;
