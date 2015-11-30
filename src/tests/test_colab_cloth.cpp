@@ -658,8 +658,6 @@ void CustomScene::doJTracking()
 #else
     int dof_per_gripper = 3;
 #endif
-    Eigen::MatrixXd Jcollision = Eigen::MatrixXd::Zero(num_auto_grippers * 3, num_auto_grippers*dof_per_gripper);
-    Eigen::VectorXd V_step_collision =  Eigen::VectorXd::Zero(num_auto_grippers * 3);
 
     ///////////////
 #ifdef ROPE
@@ -939,6 +937,8 @@ void CustomScene::doJTracking()
 #ifdef AVOID_COLLISION
         if(obj)
         {
+            Eigen::MatrixXd Jcollision = Eigen::MatrixXd::Zero(num_auto_grippers * 3, num_auto_grippers*dof_per_gripper);
+            Eigen::VectorXd V_step_collision =  Eigen::VectorXd::Zero(num_auto_grippers * 3);
 #ifdef ROPE
             float k2 = 10;
 #else
@@ -1032,6 +1032,7 @@ void CustomScene::doJTracking()
 
                 //cout << " vK" << g << ": " << vK[g] <<" "<< dof_per_gripper << " " << term1.rows();
                 term1.segment(g*dof_per_gripper,dof_per_gripper) = vK[g]*term1.segment(g*dof_per_gripper,dof_per_gripper);
+
                 term2.segment(g*dof_per_gripper,dof_per_gripper) = (1 - vK[g])*term2.segment(g*dof_per_gripper,dof_per_gripper);
                 //cout << " " << term1.transpose();
             }
