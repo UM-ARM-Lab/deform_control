@@ -328,12 +328,17 @@ Eigen::MatrixXd CustomScene::computePointsOnGripperJacobian(std::vector<btVector
                     transvec = btVector3(0,1,0);
                 else if(i == 2)
                     transvec = btVector3(0,0,1);
+
+                ///////////// These 3 are not being used right now //////////////////////////////////
                 else if(i == 3)
-                    transvec =  (gripper->getWorldTransform()*btVector4(1,0,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                    transvec =  (gripper->getWorldTransform()*btVector4(1,0,0,0)).cross(
+                                points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
                 else if(i == 4)
-                    transvec =  (gripper->getWorldTransform()*btVector4(0,1,0,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                    transvec =  (gripper->getWorldTransform()*btVector4(0,1,0,0)).cross(
+                                points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
                 else if(i == 5)
-                    transvec =  (gripper->getWorldTransform()*btVector4(0,0,1,0)).cross(points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
+                    transvec =  (gripper->getWorldTransform()*btVector4(0,0,1,0)).cross(
+                                points_in_world_frame[k] - gripper->getWorldTransform().getOrigin());
 
                 for(int j = 0; j < 3; j++)
                     V_pos(3*k + j) = transvec[j];
@@ -373,9 +378,9 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
 #ifdef ROPE
     double dropoff_const = 0.5;//0.5;
 #else
-    double dropoff_const = 0.7;//0.7 for colab folding;//;
+    double dropoff_const = 0.7;//0.7 for colab folding;
 #endif
-    int numnodes = getNumDeformableObjectNodes();//clothptr->softBody->m_nodes.size();
+    int numnodes = getNumDeformableObjectNodes();
 
     std::vector<btTransform> perts;
     double step_length = 0.2;
@@ -492,6 +497,8 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
                         btTransform Tcenter_attached = T0_center.inverse()*T0_attached;
                         btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
                         btVector3 transvec = (T0_attached.inverse()*T0_newattached).getOrigin()/rot_angle * exp(-dist*dropoff_const);
+
+
 
 
 
@@ -674,7 +681,6 @@ void CustomScene::doJTracking()
 
         float step_limit = 0.05;
         Eigen::VectorXd V_step = Eigen::VectorXd::Zero(numnodes*3);
-        Eigen::VectorXd V_delta = Eigen::VectorXd::Zero(numnodes*3);
 
         Eigen::VectorXd V_trans;
         btTransform transtm1,transtm2;
@@ -716,24 +722,6 @@ void CustomScene::doJTracking()
 
             }
         }
-
-
-
-
-
-
-
-
-
-/*        std::cout << "Current config:\n";
-        for (size_t ind = 0; ind < filtered_new_nodes.size(); ind++)
-        {
-            std::cout << filtered_new_nodes[ind].x() << "\t"
-                << filtered_new_nodes[ind].y() << "\t"
-                << filtered_new_nodes[ind].z() << "\n";
-        }
-*/
-
 
 
 
@@ -909,28 +897,6 @@ void CustomScene::doJTracking()
 //        }
 
 
-
-
-
-/*
-        std::cout << "Rope delta:\n";
-        Eigen::MatrixXd tmp = V_step;
-        tmp.resize(3, 49);
-        std::cout << tmp.transpose() << std::endl;
-*/
-
-
-
-
-
-
-
-
-
-
-        //Eigen::MatrixXd Jt(J.transpose());
-        //V_trans = Jt*V_step;
-
         Eigen::MatrixXd Jpinv= pinv(J.transpose()*J)*J.transpose();
 
         Eigen::VectorXd q_desired = Jpinv*V_step;
@@ -974,50 +940,55 @@ void CustomScene::doJTracking()
 
                 if (gjkOutput.m_hasResult)
                 {
-                       //cout << "has result" << endl;
-                       //printf("distance: %10.4f\n", gjkOutput.m_distance);
+                    //cout << "has result" << endl;
+                    //printf("distance: %10.4f\n", gjkOutput.m_distance);
 
-                       btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
-                       btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
+                    // endPt is the point on the gripper that is closest to the object
+                    btVector3 endPt = gjkOutput.m_pointInWorld + gjkOutput.m_normalOnBInWorld*gjkOutput.m_distance;
+                    // startPt is the point on the object that is closest to the gripper
+                    btVector3 startPt = (input.m_transformB*input.m_transformB.inverse())(gjkOutput.m_pointInWorld);
 
-                       plotpoints.push_back(startPt);
-                       plotpoints.push_back(endPt);
+//                    plotpoints.push_back(startPt);
+//                    plotpoints.push_back(endPt);
+//                    plotcols.push_back(btVector4(0,0,1,1));
+//                    rot_lines->setPoints(plotpoints,plotcols);
 
-                       //if(gjkOutput.m_distance < 0.5)
-                       //{
-                           std::vector<btVector3> jacpoints;
-                           std::vector<int> jacpoint_grippers;
-                           jacpoints.push_back(endPt);
-                           jacpoint_grippers.push_back(g);
-                           Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints,jacpoint_grippers);
-                           Eigen::VectorXd V_coll_step(3);
-                           V_coll_step[0] = endPt[0] - startPt[0];
-                           V_coll_step[1] = endPt[1] - startPt[1];
-                           V_coll_step[2] = endPt[2] - startPt[2];
-                           V_coll_step = V_coll_step/V_coll_step.norm();
+                    std::vector<btVector3> jacpoints;
+                    std::vector<int> jacpoint_grippers;
+                    jacpoints.push_back(endPt);
+                    jacpoint_grippers.push_back(g);
+                    Jcollision.block(g*3,0,3,Jcollision.cols()) = computePointsOnGripperJacobian(jacpoints, jacpoint_grippers);
 
-                           plotcols.push_back(btVector4(1,0,0,1));
+                    Eigen::VectorXd V_coll_step(3);
+                    V_coll_step[0] = endPt[0] - startPt[0];
+                    V_coll_step[1] = endPt[1] - startPt[1];
+                    V_coll_step[2] = endPt[2] - startPt[2];
+                    V_coll_step = V_coll_step/V_coll_step.norm();
 
-                           if(gjkOutput.m_distance < vclosest_dist[g])
-                           {
-                               vclosest_dist[g] = gjkOutput.m_distance;
-                               if(vclosest_dist[g] < 0)
-                                   V_coll_step = -V_coll_step;
-                           }
-                           V_step_collision[g*3 + 0] = V_coll_step[0];
-                           V_step_collision[g*3 + 1] = V_coll_step[1];
-                           V_step_collision[g*3 + 2] = V_coll_step[2];
-                       //}
-                       //else
-                       //    plotcols.push_back(btVector4(0,0,1,1));
-                 }
-                 //rot_lines->setPoints(plotpoints,plotcols);
+                    plotcols.push_back(btVector4(1,0,0,1));
+
+                    if(gjkOutput.m_distance < vclosest_dist[g])
+                    {
+                       vclosest_dist[g] = gjkOutput.m_distance;
+                       if(vclosest_dist[g] < 0)
+                           V_coll_step = -V_coll_step;
+                    }
+                    V_step_collision[g*3 + 0] = V_coll_step[0];
+                    V_step_collision[g*3 + 1] = V_coll_step[1];
+                    V_step_collision[g*3 + 2] = V_coll_step[2];
+                }
             }
 
             Eigen::MatrixXd Jpinv_collision= pinv(Jcollision.transpose()*Jcollision)*Jcollision.transpose();
 
-            Eigen::VectorXd q_desired_nullspace = (Eigen::MatrixXd::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
+            // Move away from collision
             Eigen::VectorXd q_collision = Jpinv_collision*V_step_collision;
+            // in the nullspace of the collision Jacobian, do as much desired as we can
+            Eigen::VectorXd q_desired_nullspace =
+                    (Eigen::MatrixXd::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
+
+            std::cout << "nullspace projector:\n";
+            std::cout << Eigen::MatrixXd::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision << std::endl;
 
             Eigen::VectorXd term1 = q_collision + q_desired_nullspace;
             Eigen::VectorXd term2 = q_desired;
@@ -1083,9 +1054,9 @@ void CustomScene::doJTracking()
         if(num_auto_grippers > 1)
         {
             transtm2 = btTransform(btQuaternion(btVector3(0,0,1),V_trans(11))*
-                                      btQuaternion(btVector3(0,1,0),V_trans(10))*
-                                      btQuaternion(btVector3(1,0,0),V_trans(9)),
-                                      btVector3(V_trans(6),V_trans(7),V_trans(8)));
+                                   btQuaternion(btVector3(0,1,0),V_trans(10))*
+                                   btQuaternion(btVector3(1,0,0),V_trans(9)),
+                                   btVector3(V_trans(6),V_trans(7),V_trans(8)));
         }
         else
             transtm2 = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
