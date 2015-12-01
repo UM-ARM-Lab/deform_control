@@ -264,12 +264,13 @@ void CustomScene::makeRope()
 
     // make the rope
     std::vector<btVector3> control_points( ROPE_NUM_LINKS );
-    for ( size_t n = 0; n < ROPE_NUM_LINKS; n++ )
+    for ( int n = 0; n < ROPE_NUM_LINKS; n++ )
     {
         // TODO: get rid of this random "- 20"
-        control_points[n] = table_surface_position +
+        control_points[(size_t)n] = table_surface_position +
 //            btVector3( ((float)n - (float)(ROPE_NUM_LINKS - 1)/2)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
-            btVector3( (float)(n - 20)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
+            btVector3( (n - 20)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
+
     }
     rope_.reset( new CapsuleRope( control_points, ROPE_RADIUS*METERS ) );
 
@@ -364,8 +365,6 @@ void CustomScene::makeRopeWorld()
             throw new std::invalid_argument( "Unknown task type for a ROPE object" );
         }
     }
-
-    std::vector<btVector3> node_pos( rope_->getNodes() );
 }
 
 void CustomScene::makeClothWorld()

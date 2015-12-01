@@ -49,8 +49,8 @@ catkin_package(
 ## Build ##
 ###########
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fopenmp -std=c++0x" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -fopenmp -std=c1x" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -fopenmp -std=c++0x" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O3 -fopenmp -std=c1x" )
 
 include_directories( include SYSTEM 
     ${catkin_INCLUDE_DIRS}
