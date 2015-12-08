@@ -37,10 +37,10 @@
 
 //////////////////
 ////Rope with Cylinder Coverage
-#define USE_RADIUS_CONTACT
-#define DO_COVERAGE
-#define ROPE
-#define ROTATION_SCALING 50.0f
+//#define USE_RADIUS_CONTACT
+//#define DO_COVERAGE
+//#define ROPE
+//#define ROTATION_SCALING 50.0f
 //#define DO_ROTATION
 
 
@@ -54,8 +54,8 @@
 
 ////////////////////////
 ////Colab Cloth folding
-//#define DO_ROTATION
-//#define ROTATION_SCALING 1.0f
+#define DO_ROTATION
+#define ROTATION_SCALING 1.0f
 
 
 

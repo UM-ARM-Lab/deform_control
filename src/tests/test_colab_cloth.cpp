@@ -811,6 +811,7 @@ void CustomScene::doJTracking()
         }
         rot_lines->setPoints(rot_line_pnts, rot_line_cols);
 #else
+        Eigen::VectorXf V_delta = Eigen::VectorXf::Zero(numnodes*3);
         float node_change = 0;
         for( map<int,int>::iterator ii=node_mirror_map.begin(); ii!=node_mirror_map.end(); ++ii)
         {

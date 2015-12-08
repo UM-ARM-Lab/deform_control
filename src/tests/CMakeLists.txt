@@ -39,5 +39,5 @@ target_link_libraries(test_scene_record simulation)
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-deprecated-declarations -Wno-reorder -std=c++0x" )
 
-add_executable(test_colab_cloth test_colab_cloth.cpp)
+add_executable(test_colab_cloth test_colab_cloth.cpp colab_cloth.h)
 target_link_libraries(test_colab_cloth simulation robots)
