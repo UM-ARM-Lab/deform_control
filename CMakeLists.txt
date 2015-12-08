@@ -5,7 +5,7 @@ set(BULLETSIM_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 option(BUILD_PERCEPTION OFF)
 
 IF (NOT CMAKE_BUILD_TYPE)
- SET(CMAKE_BUILD_TYPE "RelWithDebInfo")
+ SET(CMAKE_BUILD_TYPE "Debug")
 ENDIF (NOT CMAKE_BUILD_TYPE) 
 
 # external libraries
@@ -32,8 +32,8 @@ if(BUILD_PERCEPTION)
 message("PCL DEFS: ${PCL_DEFINITIONS}")
 endif(BUILD_PERCEPTION)
 
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
-SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")# -fopenmp")
+#SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
 
 # directories for libraries packaged in this tree

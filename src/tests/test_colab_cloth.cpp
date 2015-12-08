@@ -415,7 +415,6 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
 //        for(int j = 0; j < 3; j++)
 //            V_before(3*k + j) = clothptr->softBody->m_nodes[k].m_x[j];
 //    }
-    omp_set_num_threads(4);
 
     std::vector<btVector3> node_pos;
     getDeformableObjectNodes(node_pos);
@@ -1023,6 +1022,8 @@ void CustomScene::doJTracking()
             V_trans = V_trans/V_trans.norm()*step_limit;
 
 
+
+        // Now that we've moved, set our new prev_pos
         getDeformableObjectNodes(prev_node_pos);
 
 

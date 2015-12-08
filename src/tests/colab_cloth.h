@@ -511,7 +511,7 @@ public:
 #else
         CustomScene(){
 #endif
-        bTracking = true;
+        bTracking = false;
         bFirstTrackingIteration = true;
         itrnumber = 0;
 
