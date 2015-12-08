@@ -9,7 +9,8 @@ int main(int argc, char* argv[])
 
     // Set some defaults for our internal configuration details
     GeneralConfig::scale = 20.;
-    ViewerConfig::cameraHomePosition = btVector3(100, 0, 100);
+    ViewerConfig::cameraHomePosition = btVector3(20, 5, 70);
+    ViewerConfig::pointCameraLooksAt = btVector3(0, 5, 0);
     BulletConfig::dt = 0.01;
     BulletConfig::internalTimeStep = 0.01;
     BulletConfig::maxSubSteps = 0;
