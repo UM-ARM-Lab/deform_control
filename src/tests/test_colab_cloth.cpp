@@ -26,6 +26,18 @@ inline std::string PrettyPrint(const btTransform& transform_to_print, const bool
     return "btTransform <x: " + std::to_string(vector_to_print.x()) + " y: " + std::to_string(vector_to_print.y()) + " z: " + std::to_string(vector_to_print.z()) + ">, <x: " + std::to_string(quaternion_to_print.x()) + " y: " + std::to_string(quaternion_to_print.y()) + " z: " + std::to_string(quaternion_to_print.z()) + " w: " + std::to_string(quaternion_to_print.w()) + ">";
 }
 
+inline Eigen::Affine3d toEigenAffine3d( const btTransform& bt )
+{
+    const btVector3& bt_origin = bt.getOrigin();
+    const btQuaternion& bt_rot = bt.getRotation();
+    const Eigen::Translation3d trans( bt_origin.getX(), bt_origin.getY(), bt_origin.getZ() );
+    const Eigen::Quaterniond rot( bt_rot.getW(), bt_rot.getX(), bt_rot.getY(), bt_rot.getZ() );
+
+    return trans*rot;
+}
+
+
+
 
 void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec)
 {
@@ -489,16 +501,29 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
                         //TODO: Use cross product instead
 
                         //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
-                        //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),clothptr->softBody->m_nodes[closest_ind].m_x);
-                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
-                        btTransform T0_center = gripper->getWorldTransform();
-                        //btTransform Tcenter_attached= btTransform(T0_center.getRotation(), V0_attached - T0_center.getOrigin());
+                        //btTransform T0_center = gripper->getWorldTransform();
+                        //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
+                        btTransform T0_center = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
+                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),btVector3(1,1,1));
                         btTransform Tcenter_attached = T0_center.inverse()*T0_attached;
-                        btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
-                        btVector3 transvec = (T0_attached.inverse()*T0_newattached).getOrigin()/rot_angle * exp(-dist*dropoff_const);
+                        //btTransform T0_newcenter = T0_center*perts[i];
+                        btTransform rot = btTransform(btQuaternion(btVector3(1,0,0),M_PI/4),btVector3(0,0,0));
+                        btTransform T0_newcenter = T0_center*rot;
+                        btTransform T0_newattached =  T0_newcenter*Tcenter_attached;
+                        btTransform T0_attached_change = T0_attached.inverse()*T0_newattached;
+                        btVector3 transvec = T0_attached_change.getOrigin()/(M_PI/4);// * exp(-dist*dropoff_const);
 
 
+                        std::cout << std::endl;
+                        std::cout << "T0_center         : " << PrettyPrint(T0_center) << std::endl;
+                        std::cout << "T0_attached       : " << PrettyPrint(T0_attached) << std::endl;
+                        std::cout << "Tcenter_attached  : " << PrettyPrint(Tcenter_attached) << std::endl;
+                        std::cout << "T0_newcenter      : " << PrettyPrint(T0_newcenter) << std::endl;
+                        std::cout << "T0_newattached    : " << PrettyPrint(T0_newattached) << std::endl;
+                        std::cout << "T0_attached_change: " << PrettyPrint(T0_attached_change) << std::endl;
+                        std::cout << "transvec:         : " << PrettyPrint(transvec) << std::endl;
 
+                        std::cout << std::endl;
 
 
                         for(int j = 0; j < 3; j++)
