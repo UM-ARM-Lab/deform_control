@@ -73,6 +73,8 @@ set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -std=c++0x -Wall -Wextra -Wpedantic
 add_library( ${PROJECT_NAME}
     include/${PROJECT_NAME}/bullet_internal_conversions.hpp
     src/bullet_internal_conversions.cpp
+    include/${PROJECT_NAME}/bullet_eigen_conversions.hpp
+    src/bullet_eigen_conversions.cpp
     include/${PROJECT_NAME}/bullet_ros_conversions.hpp
     src/bullet_ros_conversions.cpp
     include/${PROJECT_NAME}/bullet_pretty_print.hpp
