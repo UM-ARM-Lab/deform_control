@@ -21,6 +21,16 @@ namespace BulletHelpers
         return btVector3( pos.x, pos.y, pos.z )*bt_scale;
     }
 
+
+    inline geometry_msgs::Vector3 toRosVector3( const btVector3& bt, float bt_scale )
+    {
+        geometry_msgs::Vector3 ros;
+        ros.x = bt.x() * bt_scale;
+        ros.y = bt.y() * bt_scale;
+        ros.z = bt.z() * bt_scale;
+        return ros;
+    }
+
     inline btTransform toBulletTransform( const geometry_msgs::Pose& pose, float bt_scale )
     {
         btQuaternion rot = toBulletQuaternion( pose.orientation );

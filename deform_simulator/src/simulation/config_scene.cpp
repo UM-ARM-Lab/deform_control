@@ -1,2 +1,2 @@
 #include "simulation/config_scene.h"
-float SceneConfig::mouseDragScale = 1.;
+float SceneConfig::mouseDragScale = 10.;

@@ -17,6 +17,7 @@
 #include <bullet_helpers/bullet_ros_conversions.hpp>
 
 #include "bullet_helpers/bullet_pretty_print.hpp"
+#include "utils/util.h"
 
 using namespace BulletHelpers;
 
@@ -113,7 +114,8 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
 
 void CustomScene::run( bool syncTime )
 {
-    //viewer.addEventHandler( new CustomKeyHandler( *this ) );
+    // Note that viewer cleans up this memory
+    viewer.addEventHandler( new CustomKeyHandler( *this ) );
 
     // When the viewer closes, shutdown ROS
     addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
@@ -156,6 +158,7 @@ void CustomScene::run( bool syncTime )
         {
             // TODO: replace this with something that redraws/allows user input
             step( 0 );
+            //step( BulletConfig::dt );
         }
     }
 
@@ -352,7 +355,7 @@ void CustomScene::makeRopeWorld()
                     rope_->children[0]->rigidBody->getCenterOfMassTransform() );
             grippers_["gripper"]->rigidGrab( rope_->children[0]->rigidBody.get(), 0, env );
 
-            auto_grippers_.push_back( grippers_["gripper"] );
+            auto_grippers_.push_back( "gripper" );
             gripper_axes_["gripper"] = PlotAxes::Ptr( new PlotAxes() );
 
             env->add( grippers_["gripper"] );
@@ -390,7 +393,7 @@ void CustomScene::makeClothWorld()
             grippers_["auto_gripper0"]->toggleOpen();
             grippers_["auto_gripper0"]->toggleAttach( cloth_->softBody.get() );
 
-            auto_grippers_.push_back( grippers_["auto_gripper0"] );
+            auto_grippers_.push_back( "auto_gripper0" );
             gripper_axes_["auto_gripper0"] = PlotAxes::Ptr( new PlotAxes() );
 
             env->add( grippers_["auto_gripper0"] );
@@ -405,7 +408,7 @@ void CustomScene::makeClothWorld()
             grippers_["auto_gripper1"]->toggleOpen();
             grippers_["auto_gripper1"]->toggleAttach( cloth_->softBody.get() );
 
-            auto_grippers_.push_back( grippers_["auto_gripper1"] );
+            auto_grippers_.push_back( "auto_gripper1" );
             gripper_axes_["auto_gripper1"] = PlotAxes::Ptr( new PlotAxes() );
 
             env->add( grippers_["auto_gripper1"] );
@@ -427,14 +430,17 @@ void CustomScene::makeClothWorld()
             grippers_["auto_gripper0"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
                     cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x ) );
+
             grippers_["auto_gripper0"]->toggleOpen();
             grippers_["auto_gripper0"]->toggleAttach( cloth_->softBody.get() );
 
-            auto_grippers_.push_back( grippers_["auto_gripper0"] );
+            auto_grippers_.push_back( "auto_gripper0" );
             gripper_axes_["auto_gripper0"] = PlotAxes::Ptr( new PlotAxes() );
 
             env->add( grippers_["auto_gripper0"] );
             env->add( gripper_axes_["auto_gripper0"] );
+
+            std::cout << "auto_gripper0: " << PrettyPrint::PrettyPrint( grippers_["auto_gripper0"]->getWorldTransform() ) << std::endl;
 
             // auto gripper1
             grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
@@ -442,14 +448,59 @@ void CustomScene::makeClothWorld()
             grippers_["auto_gripper1"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
                     cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x ) );
+
             grippers_["auto_gripper1"]->toggleOpen();
             grippers_["auto_gripper1"]->toggleAttach( cloth_->softBody.get() );
 
-            auto_grippers_.push_back( grippers_["auto_gripper1"] );
+            auto_grippers_.push_back( "auto_gripper1" );
             gripper_axes_["auto_gripper1"] = PlotAxes::Ptr( new PlotAxes() );
 
             env->add( grippers_["auto_gripper1"] );
             env->add( gripper_axes_["auto_gripper1"] );
+
+            std::cout << "auto_gripper1: " << PrettyPrint::PrettyPrint( grippers_["auto_gripper1"]->getWorldTransform() ) << std::endl;
+
+            /*
+             * add 2 manual grippers to the world
+             */
+
+            // manual gripper0
+            grippers_["manual_gripper0"] = GripperKinematicObject::Ptr(
+                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS,
+                                                btVector4( 0.0f, 0.0f, 0.6f, 0.9f ) ) );
+            grippers_["manual_gripper0"]->setWorldTransform(
+                    btTransform( btQuaternion( 0, 0, 0, 1 ),
+                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x ) );
+
+            grippers_["manual_gripper0"]->toggleOpen();
+            grippers_["manual_gripper0"]->toggleAttach( cloth_->softBody.get() );
+
+            manual_grippers_.push_back( "manual_gripper0" );
+            gripper_axes_["manual_gripper0"] = PlotAxes::Ptr( new PlotAxes() );
+
+            env->add( grippers_["manual_gripper0"] );
+            env->add( gripper_axes_["manual_gripper0"] );
+
+            std::cout << "manual_gripper0: " << PrettyPrint::PrettyPrint( grippers_["manual_gripper0"]->getWorldTransform() ) << std::endl;
+
+            // manual gripper1
+            grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
+                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS,
+                                                btVector4( 0.0f, 0.0f, 0.6f, 0.9f )  ) );
+            grippers_["manual_gripper1"]->setWorldTransform(
+                    btTransform( btQuaternion( 0, 0, 0, 1 ),
+                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x ) );
+
+            grippers_["manual_gripper1"]->toggleOpen();
+            grippers_["manual_gripper1"]->toggleAttach( cloth_->softBody.get() );
+
+            manual_grippers_.push_back( "manual_gripper1" );
+            gripper_axes_["manual_gripper1"] = PlotAxes::Ptr( new PlotAxes() );
+
+            env->add( grippers_["manual_gripper1"] );
+            env->add( gripper_axes_["manual_gripper1"] );
+
+            std::cout << "manual_gripper1: " << PrettyPrint::PrettyPrint( grippers_["manual_gripper1"]->getWorldTransform() ) << std::endl;
 
             break;
         }
@@ -557,16 +608,23 @@ void CustomScene::publishSimulatorFbk()
     msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
 
     // fill out the gripper data
-    for ( auto &gripper: grippers_ )
+    for ( const std::string &gripper_name: auto_grippers_ )
     {
-        msg.gripper_names.push_back( gripper.first );
-        msg.gripper_poses.push_back( toRosPose( gripper.second->getWorldTransform(), METERS ) );
+        msg.gripper_names.push_back( gripper_name );
+        msg.gripper_poses.push_back( toRosPose( grippers_[gripper_name]->getWorldTransform(), METERS ) );
 
-        btPointCollector collision_result = collisionHelper( gripper.first );
+        btPointCollector collision_result = collisionHelper( gripper_name );
 
-        msg.gripper_distance_to_obstacle.push_back( collision_result.m_distance/METERS );
-        msg.obstacle_nearest_point_to_gripper.push_back( toRosPoint( collision_result.m_pointInWorld, METERS ) );
+        if ( collision_result.m_hasResult )
+        {
+            msg.gripper_distance_to_obstacle.push_back( collision_result.m_distance/METERS );
+        }
+        else
+        {
+            msg.gripper_distance_to_obstacle.push_back( std::numeric_limits< double >::infinity() );
+        }
 
+        msg.obstacle_surface_normal.push_back( toRosVector3( collision_result.m_normalOnBInWorld, 1 ) );
         msg.gripper_nearest_point_to_obstacle.push_back( toRosPoint(
                     collision_result.m_pointInWorld
                     + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS ) );
@@ -828,3 +886,375 @@ void CustomScene::drawAxes()
 ////////////////////////////////////////////////////////////////////////////////
 // Post-step Callbacks
 ////////////////////////////////////////////////////////////////////////////////
+
+
+
+////////////////////////////////////////////////////////////////////////
+// Key Handler for our Custom Scene
+////////////////////////////////////////////////////////////////////////
+
+CustomScene::CustomKeyHandler::CustomKeyHandler( CustomScene &scene )
+    : scene_( scene )
+    , current_gripper_( NULL )
+    , translate_gripper_( false )
+    , rotate_gripper_( false )
+{}
+
+bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea,osgGA::GUIActionAdapter & aa )
+{
+    (void)aa;
+
+    switch ( ea.getEventType() )
+    {
+        case osgGA::GUIEventAdapter::KEYDOWN:
+        {
+            switch ( ea.getKey() )
+            {
+                // Gripper translate/rotate selection keybinds
+                {
+                    case '3':
+                    {
+                        current_gripper_ = getGripper( 0 );
+                        translate_gripper_ = true;
+                        rotate_gripper_ = false;
+                        break;
+                    }
+                    case 'a':
+                    {
+                        current_gripper_ = getGripper( 0 );
+                        translate_gripper_ = false;
+                        rotate_gripper_ = true;
+                        break;
+                    }
+
+                    case '4':
+                    {
+                        current_gripper_ = getGripper( 1 );
+                        translate_gripper_ = true;
+                        rotate_gripper_ = false;
+                        break;
+                    }                case 's':
+                    {
+                        current_gripper_ = getGripper( 1 );
+                        translate_gripper_ = false;
+                        rotate_gripper_ = true;
+                        break;
+                    }
+
+                    case '5':
+                    {
+                        current_gripper_ = getGripper( 2 );
+                        translate_gripper_ = true;
+                        rotate_gripper_ = false;
+                        break;
+                    }                case 'e':
+                    {
+                        current_gripper_ = getGripper( 2 );
+                        translate_gripper_ = false;
+                        rotate_gripper_ = true;
+                        break;
+                    }
+
+                    case '6':
+                    {
+                        current_gripper_ = getGripper( 3 );
+                        translate_gripper_ = true;
+                        rotate_gripper_ = false;
+                        break;
+                    }                case 'r':
+                    {
+                        current_gripper_ = getGripper( 3 );
+                        translate_gripper_ = false;
+                        rotate_gripper_ = true;
+                        break;
+                    }
+                }
+
+/*
+                case '[':
+                {
+                    scene.left_gripper1->toggle();
+                    scene.left_gripper1->toggleattach( scene.clothPtr->softBody.get() );
+                    if( scene.num_auto_grippers > 1 )
+                    {
+                        scene.left_gripper2->toggle();
+                        scene.left_gripper2->toggleattach( scene.clothPtr->softBody.get() );
+                    }
+                    break;
+                }
+
+                case ']':
+                {
+                    if( scene.num_auto_grippers > 1 )
+                        scene.corner_number_ += 2;
+                    else
+                        scene.corner_number_ += 1;
+                    if( scene.corner_number_ > 3 )
+                        scene.corner_number_ = 0;
+                    scene.left_gripper1->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
+                        scene.clothPtr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number_]].m_x ) );
+                    if( scene.num_auto_grippers > 1 )
+                        scene.left_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
+                            scene.clothPtr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number_+1]].m_x ) );
+                    break;
+                }
+*/
+
+/*
+                case 's':
+                    scene.left_gripper2->toggle();
+                    break;
+
+                case 'z':
+                    scene.left_gripper1->toggleattach( scene.clothPtr->softBody.get() );
+                    break;
+
+                case 'x':
+                    scene.left_gripper2->toggleattach( scene.clothPtr->softBody.get() );
+                    break;
+
+
+                case 'c':
+                    scene.regraspWithOneGripper( scene.left_gripper1,scene.left_gripper2 );
+                    break;
+
+                case 'v':
+                    scene.regraspWithOneGripper( scene.right_gripper1,scene.right_gripper2 );
+                    break;
+*/
+/*                case 'f':
+                    // scene.regraspWithOneGripper( scene.right_gripper1,scene.left_gripper1 );
+                    // scene.left_gripper1->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ), btVector3( 0,0,100 ) ) );
+                    scene.testRelease( scene.left_gripper1 );
+                    break;
+
+                case 't':
+                    scene.testRelease2( scene.left_gripper2 );
+                    break;scene.inputState.startDragging = true;
+
+                case 'y':
+                    scene.testRegrasp2( scene.left_gripper2 );
+                    break;
+
+                case 'g':
+                    // scene.regraspWithOneGripper( scene.right_gripper2,scene.left_gripper2 );
+                    // scene.left_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ), btVector3( 0,0,110 ) ) );
+                    scene.testRegrasp( scene.left_gripper1 );
+                    break;
+
+                case 'k':
+                    std::cout << "try to adjust first gripper" << std::endl;
+                    scene.testAdjust( scene.left_gripper1 );
+                    break;
+
+                case 'l':
+                    // std::cout << "try to adjust second gripper" << std::endl;
+                    scene.switchTarget();
+                    break;
+*/
+                // case 'k':
+                //     scene.right_gripper1->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),-0.2 )*
+                //         scene.right_gripper1->getWorldTransform().getRotation(),
+                //         scene.right_gripper1->getWorldTransform().getOrigin() ) );
+                //     break;
+
+                // case ',':
+                //     scene.right_gripper1->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),0.2 )*
+                //         scene.right_gripper1->getWorldTransform().getRotation(),
+                //         scene.right_gripper1->getWorldTransform().getOrigin() ) );
+                //     break;
+
+
+                // case 'l':
+                //     scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),0.2 )*
+                //         scene.right_gripper2->getWorldTransform().getRotation(),
+                //         scene.right_gripper2->getWorldTransform().getOrigin() ) );
+                //     break;
+
+                //case '.':
+                //    scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),-0.2 )*
+                //        scene.right_gripper2->getWorldTransform().getRotation(),
+                //        scene.right_gripper2->getWorldTransform().getOrigin() ) );
+                //    break;
+
+
+                // case 'y':
+                //     scene.right_gripper1->setWorldTransform( btTransform( btQuaternion( btVector3( 0,1,0 ),-0.2 )*
+                //         scene.right_gripper1->getWorldTransform().getRotation(),
+                //         scene.right_gripper1->getWorldTransform().getOrigin() ) );
+                //     break;
+
+
+                //case 'u':
+                //    scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( btVector3( 0,1,0 ),-0.2 )*
+                //        scene.right_gripper2->getWorldTransform().getRotation(),
+                //        scene.right_gripper2->getWorldTransform().getOrigin() ) );
+                //    break;
+
+/*
+                case 'i':
+                    scene.left_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
+                        scene.clothPtr->softBody->m_nodes[scene.robot_mid_point_ind].m_x ) );
+                    break;
+
+                case 'o':
+                    scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
+                        scene.clothPtr->softBody->m_nodes[scene.user_mid_point_ind].m_x ) );
+                    break;
+
+
+                case 'b':
+                    if( scene.right_gripper2->bOpen )
+                        scene.right_gripper2->state = GripperState_CLOSING;
+                    else
+                        scene.right_gripper2->state = GripperState_OPENING;
+
+                    break;
+
+                case 'n':
+                    if( scene.left_gripper2->bOpen )
+                        scene.left_gripper2->state = GripperState_CLOSING;
+                    else
+                        scene.left_gripper2->state = GripperState_OPENING;
+
+                    break;
+
+                case 'j':
+                {
+                    /// TODO: move this call to be inside of a control loop flagged
+                    /// by bFirstTrackingIteration
+                    scene.getDeformableObjectNodes( scene.prev_node_pos );
+                    scene.bTracking = !scene.bTracking;
+                    if( scene.bTracking )
+                    {
+                        scene.bFirstTrackingIteration = true;
+                        scene.itrnumber = 0;
+                    }
+                    if( !scene.bTracking )
+                    {
+                        scene.plot_points->setPoints( std::vector<btVector3> (), std::vector<btVector4> () );
+                    }
+
+                    break;
+                }
+*/
+            }
+            break;
+        }
+
+        case osgGA::GUIEventAdapter::KEYUP:
+        {
+            switch ( ea.getKey() )
+            {
+                case '3':
+                case 'a':
+                case '4':
+                case 's':
+                case '5':
+                case 'e':
+                case '6':
+                case 'r':
+                {
+                    current_gripper_ = NULL;
+                    translate_gripper_ = false;
+                    rotate_gripper_ = false;
+                }
+            }
+            break;
+        }
+
+        case osgGA::GUIEventAdapter::PUSH:
+        {
+            start_dragging_ = true;
+            break;
+        }
+
+        case osgGA::GUIEventAdapter::DRAG:
+        {
+            // drag the active manipulator in the plane of view
+            if (  ( ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON ) && current_gripper_ != NULL )
+            {
+                // if we've just started moving, reset our internal position trackers
+                if ( start_dragging_ )
+                {
+                    mouse_last_x_ = ea.getXnormalized();
+                    mouse_last_y_ = ea.getYnormalized();
+                    start_dragging_ = false;
+                }
+                float dx = mouse_last_x_ - ea.getXnormalized();
+                float dy = ea.getYnormalized() - mouse_last_y_;
+
+                mouse_last_x_ = ea.getXnormalized();
+                mouse_last_y_ = ea.getYnormalized();
+
+                // get our current view
+                osg::Vec3d osgCenter, osgEye, osgUp;
+                scene_.manip->getTransformation( osgCenter, osgEye, osgUp );
+                btVector3 from( util::toBtVector( osgEye ) );
+                btVector3 to( util::toBtVector( osgCenter ) );
+                btVector3 up( util::toBtVector( osgUp ) ); up.normalize();
+
+                // compute basis vectors for the plane of view
+                // ( the plane normal to the ray from the camera to the center of the scene )
+                btVector3 normal = ( to - from ).normalized();
+                btVector3 yVec = ( up - ( up.dot( normal ) )*normal ).normalized(); //TODO: FIXME: is this necessary with osg?
+                btVector3 xVec = normal.cross( yVec );
+                btVector3 drag_vector = SceneConfig::mouseDragScale * ( dx*xVec + dy*yVec );
+
+                btTransform current_transform = current_gripper_->getWorldTransform();
+                btTransform next_transform( current_transform );
+
+                if ( translate_gripper_ )
+                {
+                    // if moving the manip, just set the origin appropriately
+                    next_transform.setOrigin( drag_vector + current_transform.getOrigin() );
+                }
+                else if ( rotate_gripper_ )
+                {
+                    // if we're rotating, the axis is perpendicular to the
+                    // direction the mouse is dragging
+                    btVector3 axis = normal.cross( drag_vector );
+                    btScalar angle = drag_vector.length();
+                    btQuaternion rot( axis, angle );
+                    // we must ensure that we never get a bad rotation quaternion
+                    // due to really small ( effectively zero ) mouse movements
+                    // this is the easiest way to do this:
+                    if ( rot.length() > 0.99f && rot.length() < 1.01f )
+                    {
+                        next_transform.setRotation( rot * current_transform.getRotation() );
+                    }
+                }
+
+                current_gripper_->setWorldTransform( next_transform );
+            }
+            break;
+        }
+
+        default:
+        {
+            break;
+        }
+    }
+    return false;
+}
+
+
+GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper( size_t gripper_num )
+{
+    if ( gripper_num < scene_.auto_grippers_.size() )
+    {
+        return scene_.grippers_[scene_.auto_grippers_[gripper_num]];
+    }
+    else if ( gripper_num - scene_.auto_grippers_.size() < scene_.manual_grippers_.size() )
+    {
+        gripper_num = gripper_num - scene_.auto_grippers_.size();
+        return scene_.grippers_[scene_.manual_grippers_[gripper_num]];
+    }
+    else
+    {
+        std::cerr << "Invalid gripper number: " << gripper_num << std::endl;
+        std::cerr << "Existing auto grippers:   " << PrettyPrint::PrettyPrint( scene_.auto_grippers_ ) << std::endl;
+        std::cerr << "Existing manual grippers: " << PrettyPrint::PrettyPrint( scene_.manual_grippers_ ) << std::endl;
+        return NULL;
+    }
+}

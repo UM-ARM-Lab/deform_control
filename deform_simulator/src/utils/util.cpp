@@ -8,7 +8,8 @@ using namespace std;
 using Eigen::Matrix3d;
 using Eigen::Vector3d;
 
-namespace util {
+namespace util
+{
     osg::ref_ptr<osg::Vec3Array> toVec3Array(const vector<btVector3>& in)
     {
         osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();

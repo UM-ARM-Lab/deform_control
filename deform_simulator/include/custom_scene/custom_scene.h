@@ -123,7 +123,8 @@ class CustomScene : public Scene
 
         std::map< std::string, PlotAxes::Ptr > gripper_axes_;
         std::map< std::string, GripperKinematicObject::Ptr > grippers_;
-        std::vector< GripperKinematicObject::Ptr > auto_grippers_;
+        std::vector< std::string > auto_grippers_;
+        std::vector< std::string > manual_grippers_;
 
         ////////////////////////////////////////////////////////////////////////
         // Shared world objects
@@ -195,6 +196,33 @@ class CustomScene : public Scene
 
         ros::Subscriber visualization_marker_sub_;
         ros::Subscriber visualization_marker_array_sub_;
+
+        ////////////////////////////////////////////////////////////////////////
+        // Key Handler for our Custom Scene
+        ////////////////////////////////////////////////////////////////////////
+
+        class CustomKeyHandler : public osgGA::GUIEventHandler
+        {
+            public:
+                CustomKeyHandler( CustomScene &scene );
+
+                bool handle( const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter& );
+
+            private:
+                CustomScene& scene_;
+
+                // stores the current gripper motion type
+                GripperKinematicObject::Ptr current_gripper_;
+                bool translate_gripper_;
+                bool rotate_gripper_;
+
+                // used to track how much to drag by
+                bool start_dragging_;
+                float mouse_last_x_;
+                float mouse_last_y_;
+
+                GripperKinematicObject::Ptr getGripper( size_t gripper_num );
+        };
 };
 
 #endif

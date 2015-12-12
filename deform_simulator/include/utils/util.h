@@ -23,7 +23,7 @@ namespace util {
     ///////////////// CONVERSIONS ////////////////////////////
 
     inline osg::Vec3d toOSGVector(const btVector3 &v) { return osg::Vec3d(v.x(), v.y(), v.z()); }
-    inline btVector3 toBtVector(const osg::Vec3d &v) { return btVector3(v.x(), v.y(), v.z()); }
+    inline btVector3 toBtVector(const osg::Vec3d &v) { return btVector3((btScalar)v.x(), (btScalar)v.y(), (btScalar)v.z()); }
 
     osg::ref_ptr<osg::Vec3Array> toVec3Array(const std::vector<btVector3>&);
     osg::ref_ptr<osg::Vec4Array> toVec4Array(const std::vector<btVector4>&);
