@@ -80,6 +80,9 @@ class CustomScene : public Scene
         bool getCoverPointsCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res );
+        bool getMirrorLineCallback(
+                smmap_msgs::GetMirrorLine::Request& req,
+                smmap_msgs::GetMirrorLine::Response& res );
         bool getObjectInitialConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res );
@@ -158,17 +161,19 @@ class CustomScene : public Scene
         static constexpr float CLOTH_X = TABLE_X + CLOTH_HALF_SIDE_LENGTH; // METERS
         static constexpr float CLOTH_Y = TABLE_Y; // METERS
         static constexpr float CLOTH_Z = TABLE_Z + 0.1f; // METERS
-        static constexpr int CLOTH_DIVS = 45;
+        //static constexpr int CLOTH_DIVS = 45;
+        static constexpr int CLOTH_DIVS = 21;
         static constexpr float CLOTH_GRIPPER_APPERTURE = 0.1f; // METERS
         static constexpr float CLOTH_TABLE_HALF_SIDE_LENGTH = 0.2f; // METERS
         BulletSoftObject::Ptr cloth_;
         std::vector< int > cloth_corner_node_indices_;
 
         ////////////////////////////////////////////////////////////////////////
-        // Coverage task objects
+        // Task specific objects
         ////////////////////////////////////////////////////////////////////////
 
         std::vector< btVector3 > cover_points_;
+        smmap_msgs::GetMirrorLine::Response mirror_line_data_;
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Objects and Helpers
@@ -191,6 +196,7 @@ class CustomScene : public Scene
         ros::ServiceServer gripper_attached_node_indices_srv_;
         ros::ServiceServer gripper_pose_srv_;
         ros::ServiceServer cover_points_srv_;
+        ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer object_initial_configuration_srv_;
         std::vector< geometry_msgs::Point > object_initial_configuration_;
 

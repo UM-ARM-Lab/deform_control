@@ -87,6 +87,10 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     cover_points_srv_ = nh_.advertiseService(
             smmap::GetCoverPointsTopic( nh_ ), &CustomScene::getCoverPointsCallback, this );
 
+    // Create a service to let others know the mirror line data
+    mirror_line_srv_ = nh_.advertiseService(
+            smmap::GetMirrorLineTopic( nh_ ), &CustomScene::getMirrorLineCallback, this );
+
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
             smmap::GetObjectInitialConfigurationTopic( nh_ ), &CustomScene::getObjectInitialConfigurationCallback, this );
@@ -524,18 +528,26 @@ void CustomScene::findClothCornerNodes()
     cloth_corner_node_indices_.resize(4, 0);
     // Setup defaults for doing the max and min operations inside of the loop
     std::vector< btVector3 > corner_node_positions( 4 );
+
+    // min_x, min_y
     corner_node_positions[0] = btVector3(
             std::numeric_limits< btScalar >::infinity(),
             std::numeric_limits< btScalar >::infinity(),
             0 );
+
+    // min_x, max_y
     corner_node_positions[1] = btVector3(
             std::numeric_limits< btScalar >::infinity(),
             -std::numeric_limits< btScalar >::infinity(),
             0 );
+
+    // max_x, min_y
     corner_node_positions[2] = btVector3(
             -std::numeric_limits< btScalar >::infinity(),
             std::numeric_limits< btScalar >::infinity(),
             0 );
+
+    // max_x, max_y
     corner_node_positions[3] = btVector3(
             -std::numeric_limits< btScalar >::infinity(),
             -std::numeric_limits< btScalar >::infinity(),
@@ -580,6 +592,12 @@ void CustomScene::findClothCornerNodes()
             << "\tz: " << cloth_nodes[ind].m_x.z()/METERS << " "
             << std::endl;
     }
+
+    mirror_line_data_.min_y = corner_node_positions[0].y() / METERS;
+    mirror_line_data_.max_y = corner_node_positions[3].y() / METERS;
+    mirror_line_data_.mid_x = ( corner_node_positions[0].x() +
+            (corner_node_positions[3].x() - corner_node_positions[0].x() ) / 2 )  / METERS;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -742,10 +760,7 @@ bool CustomScene::getGripperNamesCallback(
         smmap_msgs::GetGripperNames::Response& res )
 {
     (void)req;
-    for ( auto& gripper: grippers_ )
-    {
-        res.names.push_back( gripper.first );
-    }
+    res.names = auto_grippers_;
     return true;
 }
 
@@ -774,6 +789,26 @@ bool CustomScene::getCoverPointsCallback(
     (void)req;
     res.points = toRosPointVector( cover_points_, METERS );
     return true;
+}
+
+bool CustomScene::getMirrorLineCallback(
+        smmap_msgs::GetMirrorLine::Request& req,
+        smmap_msgs::GetMirrorLine::Response& res )
+{
+    (void)req;
+    if ( task_type_ == smmap::TaskType::COLAB_FOLDING &&
+         deformable_type_ == smmap::DeformableType::CLOTH )
+    {
+        res = mirror_line_data_;
+        return true;
+    }
+    else
+    {
+        res.mid_x = std::numeric_limits< double >::infinity();
+        res.min_y = std::numeric_limits< double >::infinity();
+        res.max_y = std::numeric_limits< double >::infinity();
+        return false;
+    }
 }
 
 bool CustomScene::getObjectInitialConfigurationCallback(
@@ -900,9 +935,10 @@ CustomScene::CustomKeyHandler::CustomKeyHandler( CustomScene &scene )
     , rotate_gripper_( false )
 {}
 
-bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea,osgGA::GUIActionAdapter & aa )
+bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdapter & aa )
 {
     (void)aa;
+    bool suppress_default_handler = false;
 
     switch ( ea.getEventType() )
     {
@@ -1196,10 +1232,10 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea,osg
 
                 // compute basis vectors for the plane of view
                 // ( the plane normal to the ray from the camera to the center of the scene )
-                btVector3 normal = ( to - from ).normalized();
-                btVector3 yVec = ( up - ( up.dot( normal ) )*normal ).normalized(); //TODO: FIXME: is this necessary with osg?
-                btVector3 xVec = normal.cross( yVec );
-                btVector3 drag_vector = SceneConfig::mouseDragScale * ( dx*xVec + dy*yVec );
+                btVector3 camera_normal_vector = ( to - from ).normalized();
+                btVector3 camera_y_axis = ( up - ( up.dot( camera_normal_vector ) )*camera_normal_vector ).normalized(); //TODO: FIXME: is this necessary with osg?
+                btVector3 camera_x_axis = camera_normal_vector.cross( camera_y_axis );
+                btVector3 drag_vector = SceneConfig::mouseDragScale * ( dx*camera_x_axis + dy*camera_y_axis );
 
                 btTransform current_transform = current_gripper_->getWorldTransform();
                 btTransform next_transform( current_transform );
@@ -1213,7 +1249,7 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea,osg
                 {
                     // if we're rotating, the axis is perpendicular to the
                     // direction the mouse is dragging
-                    btVector3 axis = normal.cross( drag_vector );
+                    btVector3 axis = camera_normal_vector.cross( drag_vector );
                     btScalar angle = drag_vector.length();
                     btQuaternion rot( axis, angle );
                     // we must ensure that we never get a bad rotation quaternion
@@ -1226,6 +1262,7 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea,osg
                 }
 
                 current_gripper_->setWorldTransform( next_transform );
+                suppress_default_handler = true;
             }
             break;
         }
@@ -1235,7 +1272,7 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea,osg
             break;
         }
     }
-    return false;
+    return suppress_default_handler;
 }
 
 
