@@ -48,6 +48,150 @@ void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_no
     }
 }
 
+Eigen::MatrixXd pinv(const Eigen::MatrixXd &a)
+{
+    // see : http://en.wikipedia.org/wiki/Moore-Penrose_pseudoinverse#The_general_case_and_the_SVD_method
+
+    if ( a.rows()<a.cols() )
+    {
+        cout << "pinv error!" << endl;
+        return Eigen::MatrixXd();
+    }
+
+    // SVD
+    Eigen::JacobiSVD< Eigen::MatrixXd> svdA(a,Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+    Eigen::MatrixXd vSingular = svdA.singularValues();
+
+    // Build a diagonal matrix with the Inverted Singular values
+    // The pseudo inverted singular matrix is easy to compute :
+    // is formed by replacing every nonzero entry by its reciprocal (inversing).
+    Eigen::MatrixXd vPseudoInvertedSingular(svdA.matrixV().cols(),1);
+
+    for (int iRow =0; iRow<vSingular.rows(); iRow++)
+    {
+        if ( fabs(vSingular(iRow))<=1e-10 ) // Todo : Put epsilon in parameter
+        {
+            vPseudoInvertedSingular(iRow,0)=0.;
+        }
+        else
+        {
+            vPseudoInvertedSingular(iRow,0)=1./vSingular(iRow);
+        }
+    }
+
+    // A little optimization here
+    Eigen::MatrixXd mAdjointU = svdA.matrixU().adjoint().block(0,0,vSingular.rows(),svdA.matrixU().adjoint().cols());
+
+    // Pseudo-Inversion : V * S * U'
+    return (svdA.matrixV() *  vPseudoInvertedSingular.asDiagonal()) * mAdjointU  ;
+
+}
+
+float box_muller(float m, float s)	/* normal random variate generator */
+{				        /* mean m, standard deviation s */
+        float x1, x2, w, y1;
+        static float y2;
+        static int use_last = 0;
+
+        if (use_last)		        /* use value from previous call */
+        {
+                y1 = y2;
+                use_last = 0;
+        }
+        else
+        {
+                do {
+                        x1 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
+                        x2 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
+                        w = x1 * x1 + x2 * x2;
+                } while ( w >= 1.0 );
+
+                w = sqrt( (-2.0 * log( w ) ) / w );
+                y1 = x1 * w;
+                y2 = x2 * w;
+                use_last = 1;
+        }
+
+        return( m + y1 * s );
+}
+
+int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_matrix, int first_dim_minmax, int second_dim_minmax, int third_dim_minmax)
+{
+    //first_dim_maxmin = 0 if min, first_dim_maxmin = 1 if max, first_dim_maxmin = -1 don't care
+    btVector3 extremal_pnt = btVector3(pow(-1,first_dim_minmax)*1000,pow(-1,second_dim_minmax)*1000,pow(-1,third_dim_minmax)*1000);
+    btVector3 projected_pnt;
+    int extremal_ind = -1;
+    bool bDimOK_1,bDimOK_2,bDimOK_3;
+    for(size_t i = 0; i < pnt_vec.size();i++)
+    {
+        projected_pnt = projection_matrix * pnt_vec[i];
+
+        bDimOK_1 = bDimOK_2 = bDimOK_3 = false;
+
+        if(first_dim_minmax == -1)
+            bDimOK_1 = true;
+        if(second_dim_minmax == -1)
+            bDimOK_2 = true;
+        if(third_dim_minmax == -1)
+            bDimOK_3 = true;
+
+        if(projected_pnt[0] >= extremal_pnt[0] && first_dim_minmax == 1)
+            bDimOK_1 = true;
+
+        if(projected_pnt[0] <= extremal_pnt[0] && !first_dim_minmax)
+            bDimOK_1 = true;
+
+        if(projected_pnt[1] >= extremal_pnt[1] && second_dim_minmax == 1)
+            bDimOK_2 = true;
+
+        if(projected_pnt[1] <= extremal_pnt[1] && !second_dim_minmax )
+            bDimOK_2 = true;
+
+        if(projected_pnt[2] >= extremal_pnt[2] && third_dim_minmax == 1)
+            bDimOK_3 = true;
+
+        if(projected_pnt[2] <= extremal_pnt[2] && !third_dim_minmax)
+            bDimOK_3 = true;
+
+
+        if(bDimOK_1 && bDimOK_2 && bDimOK_3)
+        {
+            extremal_pnt = projected_pnt;
+            extremal_ind = i;
+        }
+    }
+    return extremal_ind;
+
+}
+
+
+
+
+
+GripperKinematicObject::GripperKinematicObject(btVector4 color)
+{
+    bAttached = false;
+    closed_gap = 0.1;
+#ifdef ROPE
+    apperture = 0.5;
+#else
+    apperture = 2;
+#endif
+
+    halfextents = btVector3(.3,.3,0.1);
+    BoxObject::Ptr top_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)),true));
+    top_jaw->setColor(color[0],color[1],color[2],color[3]);
+
+    BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,0,-apperture/2)),true));
+    bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
+
+    top_jaw->motionState->getWorldTransform(cur_tm);
+    cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2));
+    bOpen = true;
+    children.push_back(top_jaw);
+    children.push_back(bottom_jaw);
+}
 
 void GripperKinematicObject::applyTransform(btTransform tm)
 {
@@ -59,99 +203,11 @@ void GripperKinematicObject::applyTransform(btTransform tm)
     setWorldTransform(getWorldTransform()*tm);
 }
 
-
 void GripperKinematicObject::translate(btVector3 transvec)
 {
     btTransform tm = getWorldTransform();
     tm.setOrigin(tm.getOrigin() + transvec);
     setWorldTransform(tm);
-}
-
-void GripperKinematicObject::toggleattach(btSoftBody * psb, double radius) {
-
-    if(bAttached)
-    {
-        btAlignedObjectArray<btSoftBody::Anchor> newanchors;
-        for(int i = 0; i < psb->m_anchors.size(); i++)
-        {
-            if(psb->m_anchors[i].m_body != children[0]->rigidBody.get() && psb->m_anchors[i].m_body != children[1]->rigidBody.get())
-                newanchors.push_back(psb->m_anchors[i]);
-        }
-        releaseAllAnchors(psb);
-        for(int i = 0; i < newanchors.size(); i++)
-        {
-            psb->m_anchors.push_back(newanchors[i]);
-        }
-        vattached_node_inds.clear();
-    }
-    else
-    {
-#ifdef USE_RADIUS_CONTACT
-        if(radius == 0)
-            radius = halfextents[0];
-        btTransform top_tm;
-        children[0]->motionState->getWorldTransform(top_tm);
-        btTransform bottom_tm;
-        children[1]->motionState->getWorldTransform(bottom_tm);
-        int closest_body = -1;
-        for(int j = 0; j < psb->m_nodes.size(); j++)
-        {
-            if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
-            {
-                if( (psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length() )
-                    closest_body = 0;
-                else
-                    closest_body = 1;
-
-                vattached_node_inds.push_back(j);
-                appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-                cout << "\tappending anchor, closest ind: "<< j << "\n";
-
-            }
-        }
-#else
-        std::vector<btVector3> nodeposvec;
-        nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
-
-        for(int k = 0; k < 2; k++)
-        {
-            BoxObject::Ptr part = children[k];
-
-            btRigidBody* rigidBody = part->rigidBody.get();
-            btSoftBody::tRContactArray rcontacts;
-            getContactPointsWith(psb, rigidBody, rcontacts);
-            cout << "got " << rcontacts.size() << " contacts\n";
-
-            //if no contacts, return without toggling bAttached
-            if(rcontacts.size() == 0)
-                continue;
-            for (size_t i = 0; i < rcontacts.size(); ++i) {
-                //const btSoftBody::RContact &c = rcontacts[i];
-                btSoftBody::Node *node = rcontacts[i].m_node;
-                //btRigidBody* colLink = c.m_cti.m_colObj;
-                //if (!colLink) continue;
-                const btVector3 &contactPt = node->m_x;
-                //if (onInnerSide(contactPt, left)) {
-                    int closest_ind = -1;
-                    for(int n = 0; n < nodeposvec.size(); n++)
-                    {
-                        if((contactPt - nodeposvec[n]).length() < 0.0001)
-                        {
-                            closest_ind = n;
-                            break;
-                        }
-                    }
-                    assert(closest_ind!=-1);
-
-                    vattached_node_inds.push_back(closest_ind);
-                    appendAnchor(psb, node, rigidBody);
-                    cout << "\tappending anchor, closest ind: "<< closest_ind << "\n";
-            }
-        }
-#endif
-    }
-
-    bAttached = !bAttached;
 }
 
 // Fills in the rcontacs array with contact information between psb and pco
@@ -225,31 +281,6 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
     psb->m_anchors.push_back(a);
 }
 
-
-
-
-GripperKinematicObject::GripperKinematicObject(btVector4 color)
-{
-    bAttached = false;
-    closed_gap = 0.1;
-#ifdef ROPE
-    apperture = 0.5;
-#else
-    apperture = 2;
-#endif
-
-    halfextents = btVector3(.3,.3,0.1);
-    BoxObject::Ptr top_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)),true));
-    top_jaw->setColor(color[0],color[1],color[2],color[3]);
-    BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,0,-apperture/2)),true));
-    bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
-    top_jaw->motionState->getWorldTransform(cur_tm);
-    cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2));
-    bOpen = true;
-    children.push_back(top_jaw);
-    children.push_back(bottom_jaw);
-}
-
 void GripperKinematicObject::setWorldTransform(btTransform tm)
 {
     btTransform top_tm = tm;
@@ -269,7 +300,26 @@ void GripperKinematicObject::setWorldTransform(btTransform tm)
     cur_tm = tm;
 }
 
-void GripperKinematicObject::toggle()
+void GripperKinematicObject::rigidGrab(btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr)
+{
+    btTransform top_tm;
+    children[0]->motionState->getWorldTransform(top_tm);
+
+    cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
+                                          *prb,top_tm.inverse()*cur_tm,
+                                          btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
+    cnt->setLinearLowerLimit(btVector3(0,0,0));
+    cnt->setLinearUpperLimit(btVector3(0,0,0));
+    cnt->setAngularLowerLimit(btVector3(0,0,0));
+    cnt->setAngularUpperLimit(btVector3(0,0,0));
+    env_ptr->bullet->dynamicsWorld->addConstraint(cnt.get());
+
+    vattached_node_inds.clear();
+    vattached_node_inds.push_back(objectnodeind);
+
+}
+
+void GripperKinematicObject::toggleOpen()
 {
     btTransform top_tm;    btTransform bottom_tm;
     children[0]->motionState->getWorldTransform(top_tm);
@@ -277,6 +327,7 @@ void GripperKinematicObject::toggle()
 
     if(bOpen)
     {
+        std::cout << "Closing gripper\n";
         //btTransform top_offset = cur_tm.inverse()*top_tm;
         //float close_length = (1+closed_gap)*top_offset.getOrigin()[2] - children[0]->halfExtents[2];
         //float close_length = (apperture/2 - children[0]->halfExtents[2] + closed_gap/2);
@@ -285,6 +336,7 @@ void GripperKinematicObject::toggle()
     }
     else
     {
+        std::cout << "Opening gripper\n";
         top_tm.setOrigin(cur_tm.getOrigin() - cur_tm.getBasis().getColumn(2)*(apperture/2));
         bottom_tm.setOrigin(cur_tm.getOrigin() + cur_tm.getBasis().getColumn(2)*(apperture/2));
     }
@@ -295,6 +347,540 @@ void GripperKinematicObject::toggle()
     bOpen = !bOpen;
 }
 
+void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius) {
+
+    if(bAttached)
+    {
+        btAlignedObjectArray<btSoftBody::Anchor> newanchors;
+        for(int i = 0; i < psb->m_anchors.size(); i++)
+        {
+            if(psb->m_anchors[i].m_body != children[0]->rigidBody.get() && psb->m_anchors[i].m_body != children[1]->rigidBody.get())
+                newanchors.push_back(psb->m_anchors[i]);
+        }
+        releaseAllAnchors(psb);
+        for(int i = 0; i < newanchors.size(); i++)
+        {
+            psb->m_anchors.push_back(newanchors[i]);
+        }
+        vattached_node_inds.clear();
+    }
+    else
+    {
+#ifdef USE_RADIUS_CONTACT
+        if(radius == 0)
+            radius = halfextents[0];
+
+        std::cout << "using radius contact: radius: " << radius << std::endl;
+
+        btTransform top_tm;
+        children[0]->motionState->getWorldTransform(top_tm);
+        btTransform bottom_tm;
+        children[1]->motionState->getWorldTransform(bottom_tm);
+        int closest_body = -1;
+        for(int j = 0; j < psb->m_nodes.size(); j++)
+        {
+            if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
+            {
+                if( (psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length() )
+                    closest_body = 0;
+                else
+                    closest_body = 1;
+
+                vattached_node_inds.push_back(j);
+                appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
+                std::cout << "\tappending anchor, closest ind: "<< j << std::endl;
+
+            }
+        }
+#else
+        std::vector<btVector3> nodeposvec;
+        nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
+
+        for(int k = 0; k < 2; k++)
+        {
+            BoxObject::Ptr part = children[k];
+
+            btRigidBody* rigidBody = part->rigidBody.get();
+            btSoftBody::tRContactArray rcontacts;
+            getContactPointsWith(psb, rigidBody, rcontacts);
+            cout << "got " << rcontacts.size() << " contacts\n";
+
+            //if no contacts, return without toggling bAttached
+            if(rcontacts.size() == 0)
+                continue;
+            for (size_t i = 0; i < rcontacts.size(); ++i) {
+                //const btSoftBody::RContact &c = rcontacts[i];
+                btSoftBody::Node *node = rcontacts[i].m_node;
+                //btRigidBody* colLink = c.m_cti.m_colObj;
+                //if (!colLink) continue;
+                const btVector3 &contactPt = node->m_x;
+                //if (onInnerSide(contactPt, left)) {
+                    int closest_ind = -1;
+                    for(int n = 0; n < nodeposvec.size(); n++)
+                    {
+                        if((contactPt - nodeposvec[n]).length() < 0.0001)
+                        {
+                            closest_ind = n;
+                            break;
+                        }
+                    }
+                    assert(closest_ind!=-1);
+
+                    vattached_node_inds.push_back(closest_ind);
+                    appendAnchor(psb, node, rigidBody);
+                    std::cout << "\tappending anchor, closest ind: "<< j << std::endl;
+            }
+        }
+#endif
+    }
+
+    bAttached = !bAttached;
+}
+
+void GripperKinematicObject::step_openclose(btSoftBody * psb) {
+    if (state == GripperState_DONE) return;
+
+    if(state == GripperState_OPENING && bAttached)
+        toggleAttach(psb);
+
+
+    btTransform top_tm;
+    btTransform bottom_tm;
+    children[0]->motionState->getWorldTransform(top_tm);
+    children[1]->motionState->getWorldTransform(bottom_tm);
+
+    double step_size = 0.005;
+    if(state == GripperState_CLOSING)
+    {
+        top_tm.setOrigin(top_tm.getOrigin() + step_size*top_tm.getBasis().getColumn(2));
+        bottom_tm.setOrigin(bottom_tm.getOrigin() - step_size*bottom_tm.getBasis().getColumn(2));
+    }
+    else if(state == GripperState_OPENING)
+    {
+        top_tm.setOrigin(top_tm.getOrigin() - step_size*top_tm.getBasis().getColumn(2));
+        bottom_tm.setOrigin(bottom_tm.getOrigin() + step_size*bottom_tm.getBasis().getColumn(2));
+    }
+
+    children[0]->motionState->setKinematicPos(top_tm);
+    children[1]->motionState->setKinematicPos(bottom_tm);
+
+//        if(state == GripperState_CLOSING && !bAttached)
+//            toggleattach(psb, 0.5);
+
+    double cur_gap_length = (top_tm.getOrigin() - bottom_tm.getOrigin()).length();
+    if(state == GripperState_CLOSING && cur_gap_length <= (closed_gap + 2*halfextents[2]))
+    {
+        state = GripperState_DONE;
+        bOpen = false;
+        if(!bAttached)
+            toggleAttach(psb);
+
+    }
+    if(state == GripperState_OPENING && cur_gap_length >= apperture)
+    {
+        state = GripperState_DONE;
+        bOpen = true;
+
+    }
+
+//        float frac = fracElapsed();
+//        vals[0] = (1.f - frac)*startVal + frac*endVal;
+//        manip->robot->setDOFValues(indices, vals);
+
+//        if (vals[0] == CLOSED_VAL) {
+//            attach(true);
+//            attach(false);
+//        }
+}
+
+
+
+class CustomKeyHandler : public osgGA::GUIEventHandler {
+    CustomScene &scene;
+public:
+    CustomKeyHandler(CustomScene &scene_) : scene(scene_) { }
+    bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&);
+};
+
+bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionAdapter & aa) {
+    switch (ea.getEventType()) {
+    case osgGA::GUIEventAdapter::KEYDOWN:
+        switch (ea.getKey()) {
+
+
+//        case 'f':
+//            scene.createFork();
+//            break;
+//        case 'g':
+//            {
+//            scene.swapFork();
+//            }
+//            break;
+
+//        case 'h':
+//            scene.destroyFork();
+//            break;
+
+
+        //'1', '2', 'q', 'w' reservered for PR2!
+
+        case '3':
+            scene.inputState.transGrabber0 = true; break;
+        case 'a':
+            scene.inputState.rotateGrabber0 = true; break;
+
+        case '4':
+            scene.inputState.transGrabber1 = true; break;
+        case 's':
+            scene.inputState.rotateGrabber1 = true; break;
+
+        case '5':
+            scene.inputState.transGrabber2 = true; break;
+        case 'e':
+            scene.inputState.rotateGrabber2 = true; break;
+
+        case '6':
+            scene.inputState.transGrabber3 = true; break;
+        case 'r':
+            scene.inputState.rotateGrabber3 = true; break;
+
+#ifdef USE_PR2
+        case '9':
+            scene.leftAction->reset();
+            scene.leftAction->toggleAction();
+            scene.runAction(scene.leftAction, BulletConfig::dt);
+
+            break;
+        case '0':
+
+            scene.rightAction->reset();
+            scene.rightAction->toggleAction();
+            scene.runAction(scene.rightAction, BulletConfig::dt);
+
+            break;
+#endif
+        case '[':
+            scene.left_gripper1->toggleOpen();
+            scene.left_gripper1->toggleAttach(scene.clothptr->softBody.get());
+            if(scene.num_auto_grippers > 1)
+            {
+                scene.left_gripper2->toggleOpen();
+                scene.left_gripper2->toggleAttach(scene.clothptr->softBody.get());
+            }
+            break;
+//        case ']':
+//            scene.corner_number++;
+//            if(scene.corner_number > 3)
+//                scene.corner_number = 0;
+
+//            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
+
+//            break;
+
+        case ']':
+            if(scene.num_auto_grippers > 1)
+                scene.corner_number += 2;
+            else
+                scene.corner_number += 1;
+            if(scene.corner_number > 3)
+                scene.corner_number = 0;
+            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
+            if(scene.num_auto_grippers > 1)
+                scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number+1]].m_x));
+            break;
+
+
+//        case 's':
+//            scene.left_gripper2->toggle();
+//            break;
+
+//        case 'z':
+//            scene.left_gripper1->toggleattach(scene.clothptr->softBody.get());
+//            break;
+
+//        case 'x':
+//            scene.left_gripper2->toggleattach(scene.clothptr->softBody.get());
+//            break;
+
+        case 'c':
+        {
+            scene.regraspWithOneGripper(scene.left_gripper1,scene.left_gripper2);
+            break;
+        }
+
+        case 'v':
+        {
+            scene.regraspWithOneGripper(scene.right_gripper1,scene.right_gripper2);
+            break;
+        }
+
+        case 'f':
+        {
+            scene.regraspWithOneGripper(scene.right_gripper1,scene.left_gripper1);
+            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
+            break;
+        }
+
+        case 'g':
+        {
+            scene.regraspWithOneGripper(scene.right_gripper2,scene.left_gripper2);
+            scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,110)));
+            break;
+        }
+
+
+        case 'k':
+            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
+            break;
+
+        case ',':
+            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
+            break;
+
+
+        case 'l':
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
+            break;
+
+        case '.':
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
+            break;
+
+
+        case 'y':
+            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
+            break;
+
+
+        case 'u':
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
+            break;
+
+
+        case 'i':
+            scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.robot_mid_point_ind].m_x));
+            break;
+
+        case 'o':
+            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.user_mid_point_ind].m_x));
+            break;
+
+
+        case 'b':
+            if(scene.right_gripper2->bOpen)
+                scene.right_gripper2->state = GripperState_CLOSING;
+            else
+                scene.right_gripper2->state = GripperState_OPENING;
+
+            break;
+
+        case 'n':
+            if(scene.left_gripper2->bOpen)
+                scene.left_gripper2->state = GripperState_CLOSING;
+            else
+                scene.left_gripper2->state = GripperState_OPENING;
+
+            break;
+
+        case 'j':
+            {
+#ifdef PROFILER
+                if(!scene.bTracking)
+                    ProfilerStart("profile.txt");
+                else
+                    ProfilerStop();
+#endif
+
+
+               scene.getDeformableObjectNodes(scene.prev_node_pos);
+               scene.bTracking = !scene.bTracking;
+               if(scene.bTracking)
+               {
+                   scene.bFirstTrackingIteration = true;
+                   scene.itrnumber = 0;
+               }
+               if(!scene.bTracking)
+                   scene.plot_points->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
+
+                break;
+            }
+
+//        case 'b':
+//            scene.stopLoop();
+//            break;
+        }
+        break;
+
+    case osgGA::GUIEventAdapter::KEYUP:
+        switch (ea.getKey()) {
+        case '3':
+            scene.inputState.transGrabber0 = false; break;
+            break;
+        case 'a':
+            scene.inputState.rotateGrabber0 = false; break;
+        case '4':
+            scene.inputState.transGrabber1 = false; break;
+        case 's':
+            scene.inputState.rotateGrabber1 = false; break;
+        case '5':
+            scene.inputState.transGrabber2 = false; break;
+        case 'e':
+            scene.inputState.rotateGrabber2 = false; break;
+        case '6':
+            scene.inputState.transGrabber3 = false; break;
+        case 'r':
+            scene.inputState.rotateGrabber3 = false; break;
+
+
+        }
+        break;
+
+    case osgGA::GUIEventAdapter::PUSH:
+        scene.inputState.startDragging = true;
+        break;
+
+    case osgGA::GUIEventAdapter::DRAG:
+        if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG){
+            // drag the active manipulator in the plane of view
+            if ( (ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON) &&
+                  (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0 ||
+                   scene.inputState.transGrabber1 || scene.inputState.rotateGrabber1 ||
+                   scene.inputState.transGrabber2 || scene.inputState.rotateGrabber2 ||
+                   scene.inputState.transGrabber3 || scene.inputState.rotateGrabber3)) {
+                if (scene.inputState.startDragging) {
+                    scene.inputState.dx = scene.inputState.dy = 0;
+                } else {
+                    scene.inputState.dx = scene.inputState.lastX - ea.getXnormalized();
+                    scene.inputState.dy = ea.getYnormalized() - scene.inputState.lastY;
+                }
+                scene.inputState.lastX = ea.getXnormalized(); scene.inputState.lastY = ea.getYnormalized();
+                scene.inputState.startDragging = false;
+
+                // get our current view
+                osg::Vec3d osgCenter, osgEye, osgUp;
+                scene.manip->getTransformation(osgCenter, osgEye, osgUp);
+                btVector3 from(util::toBtVector(osgEye));
+                btVector3 to(util::toBtVector(osgCenter));
+                btVector3 up(util::toBtVector(osgUp)); up.normalize();
+
+                // compute basis vectors for the plane of view
+                // (the plane normal to the ray from the camera to the center of the scene)
+                btVector3 normal = (to - from).normalized();
+                btVector3 yVec = (up - (up.dot(normal))*normal).normalized(); //FIXME: is this necessary with osg?
+                btVector3 xVec = normal.cross(yVec);
+                btVector3 dragVec = SceneConfig::mouseDragScale*10 * (scene.inputState.dx*xVec + scene.inputState.dy*yVec);
+                //printf("dx: %f dy: %f\n",scene.inputState.dx,scene.inputState.dy);
+
+                btTransform origTrans;
+                if (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0)
+                {
+                    scene.left_gripper1->getWorldTransform(origTrans);
+                }
+                else if(scene.inputState.transGrabber1 || scene.inputState.rotateGrabber1)
+                {
+                    scene.left_gripper2->getWorldTransform(origTrans);
+                }
+                else if(scene.inputState.transGrabber2 || scene.inputState.rotateGrabber2)
+                {
+                    scene.right_gripper1->getWorldTransform(origTrans);
+                }
+                else if(scene.inputState.transGrabber3 || scene.inputState.rotateGrabber3)
+                {
+                    scene.right_gripper2->getWorldTransform(origTrans);
+                }
+
+                //printf("origin: %f %f %f\n",origTrans.getOrigin()[0],origTrans.getOrigin()[1],origTrans.getOrigin()[2]);
+
+                btTransform newTrans(origTrans);
+
+                if (scene.inputState.transGrabber0 || scene.inputState.transGrabber1  ||
+                        scene.inputState.transGrabber2  || scene.inputState.transGrabber3)
+                    // if moving the manip, just set the origin appropriately
+                    newTrans.setOrigin(dragVec + origTrans.getOrigin());
+                else if (scene.inputState.rotateGrabber0 || scene.inputState.rotateGrabber1 ||
+                         scene.inputState.rotateGrabber2 || scene.inputState.rotateGrabber3) {
+                    // if we're rotating, the axis is perpendicular to the
+                    // direction the mouse is dragging
+                    btVector3 axis = normal.cross(dragVec);
+                    btScalar angle = dragVec.length();
+                    btQuaternion rot(axis, angle);
+                    // we must ensure that we never get a bad rotation quaternion
+                    // due to really small (effectively zero) mouse movements
+                    // this is the easiest way to do this:
+                    if (rot.length() > 0.99f && rot.length() < 1.01f)
+                        newTrans.setRotation(rot * origTrans.getRotation());
+                }
+                //printf("newtrans: %f %f %f\n",newTrans.getOrigin()[0],newTrans.getOrigin()[1],newTrans.getOrigin()[2]);
+                //softbody ->addForce(const btVector3& forceVector,int node)
+
+//                std::vector<btVector3> plot_line;
+//                std::vector<btVector4> plot_color;
+//                plot_line.push_back(origTrans.getOrigin());
+//                plot_line.push_back(origTrans.getOrigin() + 100*(newTrans.getOrigin()- origTrans.getOrigin()));
+//                plot_color.push_back(btVector4(1,0,0,1));
+//                scene.drag_line->setPoints(plot_line,plot_color);
+                //btTransform TBullet_PR2Gripper = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
+                //btTransform TOR_newtrans = TBullet_PR2Gripper*newTrans;
+                //TOR_newtrans.setOrigin(newTrans.getOrigin());
+                if (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0)
+                {
+                    scene.left_gripper1->setWorldTransform(newTrans);
+#ifdef USE_PR2
+                    btTransform TOR_newtrans = newTrans*TBullet_PR2GripperRight;
+                    TOR_newtrans.setOrigin(newTrans.getOrigin());
+                    scene.pr2m.pr2Right->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
+#endif
+                }
+                else if(scene.inputState.transGrabber1 || scene.inputState.rotateGrabber1)
+                {
+                    scene.left_gripper2->setWorldTransform(newTrans);
+#ifdef USE_PR2
+                    btTransform TOR_newtrans = newTrans*TBullet_PR2GripperLeft;
+                    TOR_newtrans.setOrigin(newTrans.getOrigin());
+                    scene.pr2m.pr2Left->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
+#endif
+                }
+                else if(scene.inputState.transGrabber2 || scene.inputState.rotateGrabber2)
+                {
+                    scene.right_gripper1->setWorldTransform(newTrans);
+                }
+                else if(scene.inputState.transGrabber3 || scene.inputState.rotateGrabber3)
+                {
+                    scene.right_gripper2->setWorldTransform(newTrans);
+                }
+                return true;
+            }
+        }
+        break;
+
+    default:
+        break;
+    }
+    return false;
+}
+
+
+
+
+
+double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
+{
+    double min_dist = 1000000;
+    closest_ind = -1;
+    for(size_t i = 0; i < gripper->vattached_node_inds.size(); i++)
+    {
+        double new_dist = deformableobject_distance_matrix(gripper->vattached_node_inds[i],input_ind);
+        if(new_dist < min_dist)
+        {
+            min_dist = new_dist;
+            closest_ind = gripper->vattached_node_inds[i];
+        }
+    }
+
+    return min_dist;
+
+
+}
 
 Eigen::MatrixXd CustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point)
 {
@@ -361,29 +947,6 @@ Eigen::MatrixXd CustomScene::computePointsOnGripperJacobian(std::vector<btVector
     }
     return J;
 }
-
-
-double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
-{
-    double min_dist = 1000000;
-    closest_ind = -1;
-    for(size_t i = 0; i < gripper->vattached_node_inds.size(); i++)
-    {
-        double new_dist = deformableobject_distance_matrix(gripper->vattached_node_inds[i],input_ind);
-        if(new_dist < min_dist)
-        {
-            min_dist = new_dist;
-            closest_ind = gripper->vattached_node_inds[i];
-        }
-    }
-
-    return min_dist;
-
-
-}
-
-
-
 
 Eigen::MatrixXd CustomScene::computeJacobian_approx()
 {
@@ -514,18 +1077,6 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
                         btVector3 transvec = T0_attached_change.getOrigin()/(M_PI/4);// * exp(-dist*dropoff_const);
 
 
-                        std::cout << std::endl;
-                        std::cout << "T0_center         : " << PrettyPrint(T0_center) << std::endl;
-                        std::cout << "T0_attached       : " << PrettyPrint(T0_attached) << std::endl;
-                        std::cout << "Tcenter_attached  : " << PrettyPrint(Tcenter_attached) << std::endl;
-                        std::cout << "T0_newcenter      : " << PrettyPrint(T0_newcenter) << std::endl;
-                        std::cout << "T0_newattached    : " << PrettyPrint(T0_newattached) << std::endl;
-                        std::cout << "T0_attached_change: " << PrettyPrint(T0_attached_change) << std::endl;
-                        std::cout << "transvec:         : " << PrettyPrint(transvec) << std::endl;
-
-                        std::cout << std::endl;
-
-
                         for(int j = 0; j < 3; j++)
                             V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
 
@@ -574,76 +1125,6 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
     return J;
 }
 
-
-
-Eigen::MatrixXd pinv(const Eigen::MatrixXd &a)
-{
-    // see : http://en.wikipedia.org/wiki/Moore-Penrose_pseudoinverse#The_general_case_and_the_SVD_method
-
-    if ( a.rows()<a.cols() )
-    {
-        cout << "pinv error!" << endl;
-        return Eigen::MatrixXd();
-    }
-
-    // SVD
-    Eigen::JacobiSVD< Eigen::MatrixXd> svdA(a,Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-    Eigen::MatrixXd vSingular = svdA.singularValues();
-
-    // Build a diagonal matrix with the Inverted Singular values
-    // The pseudo inverted singular matrix is easy to compute :
-    // is formed by replacing every nonzero entry by its reciprocal (inversing).
-    Eigen::MatrixXd vPseudoInvertedSingular(svdA.matrixV().cols(),1);
-
-    for (int iRow =0; iRow<vSingular.rows(); iRow++)
-    {
-        if ( fabs(vSingular(iRow))<=1e-10 ) // Todo : Put epsilon in parameter
-        {
-            vPseudoInvertedSingular(iRow,0)=0.;
-        }
-        else
-        {
-            vPseudoInvertedSingular(iRow,0)=1./vSingular(iRow);
-        }
-    }
-
-    // A little optimization here
-    Eigen::MatrixXd mAdjointU = svdA.matrixU().adjoint().block(0,0,vSingular.rows(),svdA.matrixU().adjoint().cols());
-
-    // Pseudo-Inversion : V * S * U'
-    return (svdA.matrixV() *  vPseudoInvertedSingular.asDiagonal()) * mAdjointU  ;
-
-}
-
-float box_muller(float m, float s)	/* normal random variate generator */
-{				        /* mean m, standard deviation s */
-        float x1, x2, w, y1;
-        static float y2;
-        static int use_last = 0;
-
-        if (use_last)		        /* use value from previous call */
-        {
-                y1 = y2;
-                use_last = 0;
-        }
-        else
-        {
-                do {
-                        x1 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
-                        x2 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
-                        w = x1 * x1 + x2 * x2;
-                } while ( w >= 1.0 );
-
-                w = sqrt( (-2.0 * log( w ) ) / w );
-                y1 = x1 * w;
-                y2 = x2 * w;
-                use_last = 1;
-        }
-
-        return( m + y1 * s );
-}
-
 void CustomScene::getDeformableObjectNodes(std::vector<btVector3>& vnodes)
 {
 #ifdef ROPE
@@ -661,6 +1142,9 @@ int CustomScene::getNumDeformableObjectNodes()
     return clothptr->softBody->m_nodes.size();
 #endif
 }
+
+
+
 
 //this is getting called before the step loop
 void CustomScene::doJTracking()
@@ -823,15 +1307,14 @@ void CustomScene::doJTracking()
             plotpoints.push_back(filtered_new_nodes[closest_ind]);
             plotcols.push_back(btVector4(targvec.length(),0,0,1));
 
-    #ifdef ROPE
+#ifdef ROPE
             plotpoints.push_back(cover_points[i]);
             plotcols.push_back(btVector4(targvec.length()/2,0,0,1));
-    #else
+#else
             rot_line_pnts.push_back(filtered_new_nodes[closest_ind]);
             rot_line_pnts.push_back(cover_points[i]);
             plot_cols.push_back(btVector4(0.8,0,0.8,1));
-    #endif
-
+#endif
         }
         rot_lines->setPoints(rot_line_pnts, rot_line_cols);
 #else
@@ -1126,385 +1609,22 @@ void CustomScene::doJTracking()
 
 
 
+
 void CustomScene::regraspWithOneGripper(GripperKinematicObject::Ptr gripper_to_attach, GripperKinematicObject::Ptr  gripper_to_detach)
 {
-    gripper_to_attach->toggleattach(clothptr->softBody.get());
-    gripper_to_detach->toggleattach(clothptr->softBody.get());
-    gripper_to_detach->toggle();
+    gripper_to_attach->toggleAttach(clothptr->softBody.get());
+    gripper_to_detach->toggleAttach(clothptr->softBody.get());
+    gripper_to_detach->toggleOpen();
 
     float apperture = gripper_to_attach->apperture;
     gripper_to_attach->apperture = 0.1;
-    gripper_to_attach->toggle();
+    gripper_to_attach->toggleOpen();
     gripper_to_attach->apperture = apperture;
 
-    gripper_to_attach->toggleattach(clothptr->softBody.get());
-    gripper_to_attach->toggle();
+    gripper_to_attach->toggleAttach(clothptr->softBody.get());
+    gripper_to_attach->toggleOpen();
 
     //gripper_to_detach->setWorldTransform(btTransform(btQuaternion(0,0,0,1),btVector3(100,5,0)));
-}
-
-class CustomKeyHandler : public osgGA::GUIEventHandler {
-    CustomScene &scene;
-public:
-    CustomKeyHandler(CustomScene &scene_) : scene(scene_) { }
-    bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&);
-};
-
-bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionAdapter & aa) {
-    switch (ea.getEventType()) {
-    case osgGA::GUIEventAdapter::KEYDOWN:
-        switch (ea.getKey()) {
-
-
-//        case 'f':
-//            scene.createFork();
-//            break;
-//        case 'g':
-//            {
-//            scene.swapFork();
-//            }
-//            break;
-
-//        case 'h':
-//            scene.destroyFork();
-//            break;
-
-
-        //'1', '2', 'q', 'w' reservered for PR2!
-
-        case '3':
-            scene.inputState.transGrabber0 = true; break;
-        case 'a':
-            scene.inputState.rotateGrabber0 = true; break;
-
-        case '4':
-            scene.inputState.transGrabber1 = true; break;
-        case 's':
-            scene.inputState.rotateGrabber1 = true; break;
-
-        case '5':
-            scene.inputState.transGrabber2 = true; break;
-        case 'e':
-            scene.inputState.rotateGrabber2 = true; break;
-
-        case '6':
-            scene.inputState.transGrabber3 = true; break;
-        case 'r':
-            scene.inputState.rotateGrabber3 = true; break;
-
-#ifdef USE_PR2
-        case '9':
-            scene.leftAction->reset();
-            scene.leftAction->toggleAction();
-            scene.runAction(scene.leftAction, BulletConfig::dt);
-
-            break;
-        case '0':
-
-            scene.rightAction->reset();
-            scene.rightAction->toggleAction();
-            scene.runAction(scene.rightAction, BulletConfig::dt);
-
-            break;
-#endif
-        case '[':
-            scene.left_gripper1->toggle();
-            scene.left_gripper1->toggleattach(scene.clothptr->softBody.get());
-            if(scene.num_auto_grippers > 1)
-            {
-                scene.left_gripper2->toggle();
-                scene.left_gripper2->toggleattach(scene.clothptr->softBody.get());
-            }
-            break;
-//        case ']':
-//            scene.corner_number++;
-//            if(scene.corner_number > 3)
-//                scene.corner_number = 0;
-
-//            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
-
-//            break;
-
-        case ']':
-            if(scene.num_auto_grippers > 1)
-                scene.corner_number += 2;
-            else
-                scene.corner_number += 1;
-            if(scene.corner_number > 3)
-                scene.corner_number = 0;
-            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number]].m_x));
-            if(scene.num_auto_grippers > 1)
-                scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number+1]].m_x));
-            break;
-
-
-//        case 's':
-//            scene.left_gripper2->toggle();
-//            break;
-
-//        case 'z':
-//            scene.left_gripper1->toggleattach(scene.clothptr->softBody.get());
-//            break;
-
-//        case 'x':
-//            scene.left_gripper2->toggleattach(scene.clothptr->softBody.get());
-//            break;
-
-        case 'c':
-        {
-            scene.regraspWithOneGripper(scene.left_gripper1,scene.left_gripper2);
-            break;
-        }
-
-        case 'v':
-        {
-            scene.regraspWithOneGripper(scene.right_gripper1,scene.right_gripper2);
-            break;
-        }
-
-        case 'f':
-        {
-            scene.regraspWithOneGripper(scene.right_gripper1,scene.left_gripper1);
-            scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
-            break;
-        }
-
-        case 'g':
-        {
-            scene.regraspWithOneGripper(scene.right_gripper2,scene.left_gripper2);
-            scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,110)));
-            break;
-        }
-
-
-        case 'k':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
-            break;
-
-        case ',':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
-            break;
-
-
-        case 'l':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
-            break;
-
-        case '.':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
-            break;
-
-
-        case 'y':
-            scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*scene.right_gripper1->getWorldTransform().getRotation(), scene.right_gripper1->getWorldTransform().getOrigin()));
-            break;
-
-
-        case 'u':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*scene.right_gripper2->getWorldTransform().getRotation(), scene.right_gripper2->getWorldTransform().getOrigin()));
-            break;
-
-
-        case 'i':
-            scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.robot_mid_point_ind].m_x));
-            break;
-
-        case 'o':
-            scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), scene.clothptr->softBody->m_nodes[scene.user_mid_point_ind].m_x));
-            break;
-
-
-        case 'b':
-            if(scene.right_gripper2->bOpen)
-                scene.right_gripper2->state = GripperState_CLOSING;
-            else
-                scene.right_gripper2->state = GripperState_OPENING;
-
-            break;
-
-        case 'n':
-            if(scene.left_gripper2->bOpen)
-                scene.left_gripper2->state = GripperState_CLOSING;
-            else
-                scene.left_gripper2->state = GripperState_OPENING;
-
-            break;
-
-        case 'j':
-            {
-#ifdef PROFILER
-                if(!scene.bTracking)
-                    ProfilerStart("profile.txt");
-                else
-                    ProfilerStop();
-#endif
-
-
-               scene.getDeformableObjectNodes(scene.prev_node_pos);
-               scene.bTracking = !scene.bTracking;
-               if(scene.bTracking)
-               {
-                   scene.bFirstTrackingIteration = true;
-                   scene.itrnumber = 0;
-               }
-               if(!scene.bTracking)
-                   scene.plot_points->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
-
-                break;
-            }
-
-//        case 'b':
-//            scene.stopLoop();
-//            break;
-        }
-        break;
-
-    case osgGA::GUIEventAdapter::KEYUP:
-        switch (ea.getKey()) {
-        case '3':
-            scene.inputState.transGrabber0 = false; break;
-            break;
-        case 'a':
-            scene.inputState.rotateGrabber0 = false; break;
-        case '4':
-            scene.inputState.transGrabber1 = false; break;
-        case 's':
-            scene.inputState.rotateGrabber1 = false; break;
-        case '5':
-            scene.inputState.transGrabber2 = false; break;
-        case 'e':
-            scene.inputState.rotateGrabber2 = false; break;
-        case '6':
-            scene.inputState.transGrabber3 = false; break;
-        case 'r':
-            scene.inputState.rotateGrabber3 = false; break;
-
-
-        }
-        break;
-
-    case osgGA::GUIEventAdapter::PUSH:
-        scene.inputState.startDragging = true;
-        break;
-
-    case osgGA::GUIEventAdapter::DRAG:
-        if (ea.getEventType() == osgGA::GUIEventAdapter::DRAG){
-            // drag the active manipulator in the plane of view
-            if ( (ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON) &&
-                  (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0 ||
-                   scene.inputState.transGrabber1 || scene.inputState.rotateGrabber1 ||
-                   scene.inputState.transGrabber2 || scene.inputState.rotateGrabber2 ||
-                   scene.inputState.transGrabber3 || scene.inputState.rotateGrabber3)) {
-                if (scene.inputState.startDragging) {
-                    scene.inputState.dx = scene.inputState.dy = 0;
-                } else {
-                    scene.inputState.dx = scene.inputState.lastX - ea.getXnormalized();
-                    scene.inputState.dy = ea.getYnormalized() - scene.inputState.lastY;
-                }
-                scene.inputState.lastX = ea.getXnormalized(); scene.inputState.lastY = ea.getYnormalized();
-                scene.inputState.startDragging = false;
-
-                // get our current view
-                osg::Vec3d osgCenter, osgEye, osgUp;
-                scene.manip->getTransformation(osgCenter, osgEye, osgUp);
-                btVector3 from(util::toBtVector(osgEye));
-                btVector3 to(util::toBtVector(osgCenter));
-                btVector3 up(util::toBtVector(osgUp)); up.normalize();
-
-                // compute basis vectors for the plane of view
-                // (the plane normal to the ray from the camera to the center of the scene)
-                btVector3 normal = (to - from).normalized();
-                btVector3 yVec = (up - (up.dot(normal))*normal).normalized(); //FIXME: is this necessary with osg?
-                btVector3 xVec = normal.cross(yVec);
-                btVector3 dragVec = SceneConfig::mouseDragScale*10 * (scene.inputState.dx*xVec + scene.inputState.dy*yVec);
-                //printf("dx: %f dy: %f\n",scene.inputState.dx,scene.inputState.dy);
-
-                btTransform origTrans;
-                if (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0)
-                {
-                    scene.left_gripper1->getWorldTransform(origTrans);
-                }
-                else if(scene.inputState.transGrabber1 || scene.inputState.rotateGrabber1)
-                {
-                    scene.left_gripper2->getWorldTransform(origTrans);
-                }
-                else if(scene.inputState.transGrabber2 || scene.inputState.rotateGrabber2)
-                {
-                    scene.right_gripper1->getWorldTransform(origTrans);
-                }
-                else if(scene.inputState.transGrabber3 || scene.inputState.rotateGrabber3)
-                {
-                    scene.right_gripper2->getWorldTransform(origTrans);
-                }
-
-                //printf("origin: %f %f %f\n",origTrans.getOrigin()[0],origTrans.getOrigin()[1],origTrans.getOrigin()[2]);
-
-                btTransform newTrans(origTrans);
-
-                if (scene.inputState.transGrabber0 || scene.inputState.transGrabber1  ||
-                        scene.inputState.transGrabber2  || scene.inputState.transGrabber3)
-                    // if moving the manip, just set the origin appropriately
-                    newTrans.setOrigin(dragVec + origTrans.getOrigin());
-                else if (scene.inputState.rotateGrabber0 || scene.inputState.rotateGrabber1 ||
-                         scene.inputState.rotateGrabber2 || scene.inputState.rotateGrabber3) {
-                    // if we're rotating, the axis is perpendicular to the
-                    // direction the mouse is dragging
-                    btVector3 axis = normal.cross(dragVec);
-                    btScalar angle = dragVec.length();
-                    btQuaternion rot(axis, angle);
-                    // we must ensure that we never get a bad rotation quaternion
-                    // due to really small (effectively zero) mouse movements
-                    // this is the easiest way to do this:
-                    if (rot.length() > 0.99f && rot.length() < 1.01f)
-                        newTrans.setRotation(rot * origTrans.getRotation());
-                }
-                //printf("newtrans: %f %f %f\n",newTrans.getOrigin()[0],newTrans.getOrigin()[1],newTrans.getOrigin()[2]);
-                //softbody ->addForce(const btVector3& forceVector,int node)
-
-//                std::vector<btVector3> plot_line;
-//                std::vector<btVector4> plot_color;
-//                plot_line.push_back(origTrans.getOrigin());
-//                plot_line.push_back(origTrans.getOrigin() + 100*(newTrans.getOrigin()- origTrans.getOrigin()));
-//                plot_color.push_back(btVector4(1,0,0,1));
-//                scene.drag_line->setPoints(plot_line,plot_color);
-                //btTransform TBullet_PR2Gripper = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
-                //btTransform TOR_newtrans = TBullet_PR2Gripper*newTrans;
-                //TOR_newtrans.setOrigin(newTrans.getOrigin());
-                if (scene.inputState.transGrabber0 || scene.inputState.rotateGrabber0)
-                {
-                    scene.left_gripper1->setWorldTransform(newTrans);
-#ifdef USE_PR2
-                    btTransform TOR_newtrans = newTrans*TBullet_PR2GripperRight;
-                    TOR_newtrans.setOrigin(newTrans.getOrigin());
-                    scene.pr2m.pr2Right->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
-#endif
-                }
-                else if(scene.inputState.transGrabber1 || scene.inputState.rotateGrabber1)
-                {
-                    scene.left_gripper2->setWorldTransform(newTrans);
-#ifdef USE_PR2
-                    btTransform TOR_newtrans = newTrans*TBullet_PR2GripperLeft;
-                    TOR_newtrans.setOrigin(newTrans.getOrigin());
-                    scene.pr2m.pr2Left->moveByIK(TOR_newtrans,SceneConfig::enableRobotCollision, true);
-#endif
-                }
-                else if(scene.inputState.transGrabber2 || scene.inputState.rotateGrabber2)
-                {
-                    scene.right_gripper1->setWorldTransform(newTrans);
-                }
-                else if(scene.inputState.transGrabber3 || scene.inputState.rotateGrabber3)
-                {
-                    scene.right_gripper2->setWorldTransform(newTrans);
-                }
-                return true;
-            }
-        }
-        break;
-
-    default:
-        break;
-    }
-    return false;
 }
 
 BulletSoftObject::Ptr CustomScene::createCloth(btScalar s, const btVector3 &center) {
@@ -1540,81 +1660,12 @@ BulletSoftObject::Ptr CustomScene::createCloth(btScalar s, const btVector3 &cent
     return BulletSoftObject::Ptr(new BulletSoftObject(psb));
 }
 
-
-int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_matrix, int first_dim_minmax, int second_dim_minmax, int third_dim_minmax)
-{
-    //first_dim_maxmin = 0 if min, first_dim_maxmin = 1 if max, first_dim_maxmin = -1 don't care
-    btVector3 extremal_pnt = btVector3(pow(-1,first_dim_minmax)*1000,pow(-1,second_dim_minmax)*1000,pow(-1,third_dim_minmax)*1000);
-    btVector3 projected_pnt;
-    int extremal_ind = -1;
-    bool bDimOK_1,bDimOK_2,bDimOK_3;
-    for(size_t i = 0; i < pnt_vec.size();i++)
-    {
-        projected_pnt = projection_matrix * pnt_vec[i];
-
-        bDimOK_1 = bDimOK_2 = bDimOK_3 = false;
-
-        if(first_dim_minmax == -1)
-            bDimOK_1 = true;
-        if(second_dim_minmax == -1)
-            bDimOK_2 = true;
-        if(third_dim_minmax == -1)
-            bDimOK_3 = true;
-
-        if(projected_pnt[0] >= extremal_pnt[0] && first_dim_minmax == 1)
-            bDimOK_1 = true;
-
-        if(projected_pnt[0] <= extremal_pnt[0] && !first_dim_minmax)
-            bDimOK_1 = true;
-
-        if(projected_pnt[1] >= extremal_pnt[1] && second_dim_minmax == 1)
-            bDimOK_2 = true;
-
-        if(projected_pnt[1] <= extremal_pnt[1] && !second_dim_minmax )
-            bDimOK_2 = true;
-
-        if(projected_pnt[2] >= extremal_pnt[2] && third_dim_minmax == 1)
-            bDimOK_3 = true;
-
-        if(projected_pnt[2] <= extremal_pnt[2] && !third_dim_minmax)
-            bDimOK_3 = true;
-
-
-        if(bDimOK_1 && bDimOK_2 && bDimOK_3)
-        {
-            extremal_pnt = projected_pnt;
-            extremal_ind = i;
-        }
-    }
-    return extremal_ind;
-
-}
-
 void CustomScene::drawAxes()
 {
     if(!!left_axes1)
         left_axes1->setup(left_gripper1->getWorldTransform(),1);
     if(!!left_axes2)
         left_axes2->setup(left_gripper2->getWorldTransform(),1);
-}
-
-
-
-void GripperKinematicObject::rigidGrab(btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr)
-{
-    btTransform top_tm;
-    children[0]->motionState->getWorldTransform(top_tm);
-
-    cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),*prb,top_tm.inverse()*cur_tm,btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
-    cnt->setLinearLowerLimit(btVector3(0,0,0));
-    cnt->setLinearUpperLimit(btVector3(0,0,0));
-    cnt->setAngularLowerLimit(btVector3(0,0,0));
-    cnt->setAngularUpperLimit(btVector3(0,0,0));
-    env_ptr->bullet->dynamicsWorld->addConstraint(cnt.get());
-
-    vattached_node_inds.clear();
-    vattached_node_inds.push_back(objectnodeind);
-
 }
 
 void CustomScene::makeRopeWorld()
@@ -2118,20 +2169,20 @@ void CustomScene::makeClothWorld()
 //    drag_line.reset(new PlotLines(2));
 //    env->add(drag_line);
 
-    left_gripper1->toggle();
-    left_gripper1->toggleattach(clothptr->softBody.get());
+    left_gripper1->toggleOpen();
+    left_gripper1->toggleAttach(clothptr->softBody.get());
 
     if(num_auto_grippers == 2)
     {
-        left_gripper2->toggle();
-        left_gripper2->toggleattach(clothptr->softBody.get());
+        left_gripper2->toggleOpen();
+        left_gripper2->toggleAttach(clothptr->softBody.get());
     }
 #ifndef DO_COVERAGE
-    right_gripper1->toggle();
-    right_gripper1->toggleattach(clothptr->softBody.get());
+    right_gripper1->toggleOpen();
+    right_gripper1->toggleAttach(clothptr->softBody.get());
 
-    right_gripper2->toggle();
-    right_gripper2->toggleattach(clothptr->softBody.get());
+    right_gripper2->toggleOpen();
+    right_gripper2->toggleAttach(clothptr->softBody.get());
 #else
     right_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
     right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));

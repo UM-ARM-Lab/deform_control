@@ -54,7 +54,7 @@
 
 ////////////////////////
 ////Colab Cloth folding
-#define DO_ROTATION
+//#define DO_ROTATION
 #define ROTATION_SCALING 1.0f
 
 
@@ -89,12 +89,13 @@ public:
     void setWorldTransform(btTransform tm);
     btTransform getWorldTransform(){return cur_tm;}
     void getWorldTransform(btTransform& in){in = cur_tm;}
-    void toggle();
-    void toggleattach(btSoftBody * psb, double radius = 0);
+    void toggleOpen();
+    void toggleAttach(btSoftBody * psb, double radius = 0);
     void rigidGrab(btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr);
     void getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts);
     void appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence=1);
     void releaseAllAnchors(btSoftBody * psb) {psb->m_anchors.clear();}
+    void step_openclose(btSoftBody * psb);
 
     EnvironmentObject::Ptr copy(Fork &f) const {
         Ptr o(new GripperKinematicObject());
@@ -121,67 +122,9 @@ public:
                 o->children.push_back(BoxObject::Ptr());
         }
     }
-
-
-    void step_openclose(btSoftBody * psb) {
-        if (state == GripperState_DONE) return;
-
-        if(state == GripperState_OPENING && bAttached)
-            toggleattach(psb);
-
-
-        btTransform top_tm;
-        btTransform bottom_tm;
-        children[0]->motionState->getWorldTransform(top_tm);
-        children[1]->motionState->getWorldTransform(bottom_tm);
-
-        double step_size = 0.005;
-        if(state == GripperState_CLOSING)
-        {
-            top_tm.setOrigin(top_tm.getOrigin() + step_size*top_tm.getBasis().getColumn(2));
-            bottom_tm.setOrigin(bottom_tm.getOrigin() - step_size*bottom_tm.getBasis().getColumn(2));
-        }
-        else if(state == GripperState_OPENING)
-        {
-            top_tm.setOrigin(top_tm.getOrigin() - step_size*top_tm.getBasis().getColumn(2));
-            bottom_tm.setOrigin(bottom_tm.getOrigin() + step_size*bottom_tm.getBasis().getColumn(2));
-        }
-
-        children[0]->motionState->setKinematicPos(top_tm);
-        children[1]->motionState->setKinematicPos(bottom_tm);
-
-//        if(state == GripperState_CLOSING && !bAttached)
-//            toggleattach(psb, 0.5);
-
-        double cur_gap_length = (top_tm.getOrigin() - bottom_tm.getOrigin()).length();
-        if(state == GripperState_CLOSING && cur_gap_length <= (closed_gap + 2*halfextents[2]))
-        {
-            state = GripperState_DONE;
-            bOpen = false;
-            if(!bAttached)
-                toggleattach(psb);
-
-        }
-        if(state == GripperState_OPENING && cur_gap_length >= apperture)
-        {
-            state = GripperState_DONE;
-            bOpen = true;
-
-        }
-
-//        float frac = fracElapsed();
-//        vals[0] = (1.f - frac)*startVal + frac*endVal;
-//        manip->robot->setDOFValues(indices, vals);
-
-//        if (vals[0] == CLOSED_VAL) {
-//            attach(true);
-//            attach(false);
-//        }
-    }
-
-
 };
 
+/*
 #ifdef USE_PR2
 // I've only tested this on the PR2 model
 class PR2SoftBodyGripperAction : public Action {
@@ -420,6 +363,7 @@ public:
     }
 };
 #endif
+*/
 
 class PointReflector{
 public:
