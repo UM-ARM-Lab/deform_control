@@ -6,8 +6,10 @@
 
 using namespace BulletHelpers;
 
-GripperKinematicObject::GripperKinematicObject( float apperture_input, btVector4 color )
-    : halfextents( btVector3( 0.015f, 0.015f, 0.005f )*METERS )
+GripperKinematicObject::GripperKinematicObject( const std::string& name_input, float apperture_input, btVector4 color )
+    : name( name_input )
+    , halfextents( btVector3( 0.015f, 0.015f, 0.005f )*METERS )
+    , state( GripperState_DONE )
     , bOpen ( true )
     , apperture( apperture_input )
     , closed_gap( 0.005f*METERS )
@@ -16,11 +18,13 @@ GripperKinematicObject::GripperKinematicObject( float apperture_input, btVector4
     BoxObject::Ptr top_jaw( new BoxObject( 0, halfextents,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( 0, 0, apperture/2 ) ), true ) );
     top_jaw->setColor( color[0],color[1],color[2],color[3] );
-    top_jaw->motionState->getWorldTransform( cur_tm );
 
     BoxObject::Ptr bottom_jaw( new BoxObject( 0, halfextents,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( 0, 0, -apperture/2 ) ), true ) );
     bottom_jaw->setColor( color[0],color[1],color[2],color[3] );
+
+    // Find the center of the gripper composite object
+    top_jaw->motionState->getWorldTransform( cur_tm );
     cur_tm.setOrigin( cur_tm.getOrigin() - btVector3( 0,0,-apperture/2 ) );
 
     children.push_back( top_jaw );
@@ -75,7 +79,8 @@ void GripperKinematicObject::rigidGrab( btRigidBody* prb, size_t objectnodeind, 
     children[0]->motionState->getWorldTransform( top_tm );
 
     cnt.reset( new btGeneric6DofConstraint( *( children[0]->rigidBody.get() ),
-        *prb,top_tm.inverse()*cur_tm,btTransform( btQuaternion( 0,0,0,1 ),btVector3( 0,0,0 ) ),true ) );
+                                            *prb, top_tm.inverse()*cur_tm,
+                                            btTransform( btQuaternion( 0,0,0,1 ),btVector3( 0,0,0 ) ),true ) );
     cnt->setLinearLowerLimit( btVector3( 0,0,0 ) );
     cnt->setLinearUpperLimit( btVector3( 0,0,0 ) );
     cnt->setAngularLowerLimit( btVector3( 0,0,0 ) );
@@ -84,7 +89,6 @@ void GripperKinematicObject::rigidGrab( btRigidBody* prb, size_t objectnodeind, 
 
     vattached_node_inds.clear();
     vattached_node_inds.push_back( objectnodeind );
-
 }
 
 void GripperKinematicObject::toggleOpen()
@@ -117,6 +121,7 @@ void GripperKinematicObject::toggleOpen()
 
 void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
 {
+    std::cout << name << " toggleAttach ";
     if( bAttached )
     {
         btAlignedObjectArray<btSoftBody::Anchor> newanchors;
@@ -134,11 +139,14 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
     }
     else
     {
-        if ( radius > 0 )
+        if ( radius >= 0 )
         {
-            std::cout << "use radius contact?????" << std::endl;
             if( radius == 0 )
+            {
                 radius = halfextents[0];
+            }
+            std::cout << "using radius contact: radius: " << radius << std::endl;
+
             btTransform top_tm;
             children[0]->motionState->getWorldTransform( top_tm );
             btTransform bottom_tm;
@@ -155,7 +163,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
 
                     vattached_node_inds.push_back( (size_t)j );
                     appendAnchor( psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get() );
-                    std::cout << "\tappending anchor, closest ind: " << j << "\n";
+                    std::cout << "\tappending anchor, closest ind: " << j << std::endl;
 
                 }
             }
@@ -177,6 +185,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
                 //if no contacts, return without toggling bAttached
                 if( rcontacts.size() == 0 )
                     continue;
+
                 for ( int i = 0; i < rcontacts.size(); ++i ) {
                     //const btSoftBody::RContact &c = rcontacts[i];
                     btSoftBody::Node *node = rcontacts[i].m_node;
@@ -198,7 +207,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
 
                         vattached_node_inds.push_back( closest_ind );
                         appendAnchor( psb, node, rigidBody );
-                        std::cout << "\tappending anchor, closest ind: "<< closest_ind << "\n";
+                        std::cout << "\tappending anchor, closest ind: "<< closest_ind << std::endl;
                 }
             }
         }
@@ -291,14 +300,16 @@ std::vector<size_t> GripperKinematicObject::getAttachedNodeIndices()
     return vattached_node_inds;
 }
 
-
+// state is only changed by the 'b' and 'n' commands in the original software
+// I think this opens and closes one gripper; was used on one auto and one manual gripper
 void GripperKinematicObject::step_openclose( btSoftBody * psb )
 {
     if ( state == GripperState_DONE ) return;
 
-    if( state == GripperState_OPENING && bAttached )
+    if ( state == GripperState_OPENING && bAttached )
+    {
         toggleAttach( psb );
-
+    }
 
     btTransform top_tm;
     btTransform bottom_tm;
@@ -329,7 +340,7 @@ void GripperKinematicObject::step_openclose( btSoftBody * psb )
         state = GripperState_DONE;
         bOpen = false;
         if( !bAttached )
-            toggleAttach( psb );
+            toggleAttach( psb  );
 
     }
     if( state == GripperState_OPENING && cur_gap_length >= apperture )
@@ -352,7 +363,7 @@ void GripperKinematicObject::step_openclose( btSoftBody * psb )
 
 EnvironmentObject::Ptr GripperKinematicObject::copy( Fork &f ) const
 {
-    Ptr o( new GripperKinematicObject( apperture ) );
+    Ptr o( new GripperKinematicObject( name, apperture ) );
     internalCopy( o, f );
     return o;
 }
@@ -366,6 +377,7 @@ void GripperKinematicObject::internalCopy( GripperKinematicObject::Ptr o, Fork &
     o->closed_gap = closed_gap;
     o->vattached_node_inds = vattached_node_inds;
     o->halfextents = halfextents;
+    o->name = name;
     o->bAttached = bAttached;
 
     o->children.clear();
@@ -377,4 +389,9 @@ void GripperKinematicObject::internalCopy( GripperKinematicObject::Ptr o, Fork &
         else
             o->children.push_back( BoxObject::Ptr() );
     }
+}
+
+btVector3 GripperKinematicObject::getHalfExtents()
+{
+    return halfextents;
 }

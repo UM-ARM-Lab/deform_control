@@ -354,16 +354,12 @@ void CustomScene::makeRopeWorld()
 
             // add a single auto gripper to the world
             grippers_["gripper"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( ROPE_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "gripper", ROPE_GRIPPER_APPERTURE*METERS ) );
             grippers_["gripper"]->setWorldTransform(
                     rope_->children[0]->rigidBody->getCenterOfMassTransform() );
             grippers_["gripper"]->rigidGrab( rope_->children[0]->rigidBody.get(), 0, env );
 
             auto_grippers_.push_back( "gripper" );
-            gripper_axes_["gripper"] = PlotAxes::Ptr( new PlotAxes() );
-
-            env->add( grippers_["gripper"] );
-            env->add( gripper_axes_["gripper"] );
 
             break;
         }
@@ -371,6 +367,19 @@ void CustomScene::makeRopeWorld()
         {
             throw new std::invalid_argument( "Unknown task type for a ROPE object" );
         }
+    }
+
+    for ( auto& gripper: grippers_ )
+    {
+        gripper_axes_[gripper.first] = PlotAxes::Ptr( new PlotAxes() );
+
+        // Add the gripper and it's axis to the world
+        env->add( gripper.second );
+        env->add( gripper_axes_[gripper.first] );
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback( boost::bind( &GripperKinematicObject::step_openclose, gripper.second, cloth_->softBody.get() ) );
     }
 }
 
@@ -388,35 +397,29 @@ void CustomScene::makeClothWorld()
              * add 2 auto grippers to the world
              */
 
+            btVector3 gripper_half_extents;
+
             // auto gripper0
             grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper0", CLOTH_GRIPPER_APPERTURE*METERS ) );
+            gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
             grippers_["auto_gripper0"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
-                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x ) );
-            grippers_["auto_gripper0"]->toggleOpen();
-            grippers_["auto_gripper0"]->toggleAttach( cloth_->softBody.get() );
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
+                                 + btVector3( gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
 
             auto_grippers_.push_back( "auto_gripper0" );
-            gripper_axes_["auto_gripper0"] = PlotAxes::Ptr( new PlotAxes() );
-
-            env->add( grippers_["auto_gripper0"] );
-            env->add( gripper_axes_["auto_gripper0"] );
 
             // auto gripper1
             grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper1", CLOTH_GRIPPER_APPERTURE*METERS ) );
+            gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
             grippers_["auto_gripper1"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
-                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x ) );
-            grippers_["auto_gripper1"]->toggleOpen();
-            grippers_["auto_gripper1"]->toggleAttach( cloth_->softBody.get() );
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
+                                 + btVector3( gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
 
             auto_grippers_.push_back( "auto_gripper1" );
-            gripper_axes_["auto_gripper1"] = PlotAxes::Ptr( new PlotAxes() );
-
-            env->add( grippers_["auto_gripper1"] );
-            env->add( gripper_axes_["auto_gripper1"] );
 
             break;
         }
@@ -428,41 +431,29 @@ void CustomScene::makeClothWorld()
              * add 2 auto grippers to the world
              */
 
+            btVector3 gripper_half_extents;
+
             // auto gripper0
             grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper0", CLOTH_GRIPPER_APPERTURE*METERS ) );
+            gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
             grippers_["auto_gripper0"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
-                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x ) );
-
-            grippers_["auto_gripper0"]->toggleOpen();
-            grippers_["auto_gripper0"]->toggleAttach( cloth_->softBody.get() );
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
+                                 + btVector3( gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
 
             auto_grippers_.push_back( "auto_gripper0" );
-            gripper_axes_["auto_gripper0"] = PlotAxes::Ptr( new PlotAxes() );
-
-            env->add( grippers_["auto_gripper0"] );
-            env->add( gripper_axes_["auto_gripper0"] );
-
-            std::cout << "auto_gripper0: " << PrettyPrint::PrettyPrint( grippers_["auto_gripper0"]->getWorldTransform() ) << std::endl;
 
             // auto gripper1
             grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper1", CLOTH_GRIPPER_APPERTURE*METERS ) );
+            gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
             grippers_["auto_gripper1"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
-                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x ) );
-
-            grippers_["auto_gripper1"]->toggleOpen();
-            grippers_["auto_gripper1"]->toggleAttach( cloth_->softBody.get() );
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
+                                 + btVector3( gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
 
             auto_grippers_.push_back( "auto_gripper1" );
-            gripper_axes_["auto_gripper1"] = PlotAxes::Ptr( new PlotAxes() );
-
-            env->add( grippers_["auto_gripper1"] );
-            env->add( gripper_axes_["auto_gripper1"] );
-
-            std::cout << "auto_gripper1: " << PrettyPrint::PrettyPrint( grippers_["auto_gripper1"]->getWorldTransform() ) << std::endl;
 
             /*
              * add 2 manual grippers to the world
@@ -470,41 +461,27 @@ void CustomScene::makeClothWorld()
 
             // manual gripper0
             grippers_["manual_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "manual_gripper0", CLOTH_GRIPPER_APPERTURE*METERS,
                                                 btVector4( 0.0f, 0.0f, 0.6f, 0.9f ) ) );
+            gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
             grippers_["manual_gripper0"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
-                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x ) );
-
-            grippers_["manual_gripper0"]->toggleOpen();
-            grippers_["manual_gripper0"]->toggleAttach( cloth_->softBody.get() );
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x
+                                 + btVector3( -gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
 
             manual_grippers_.push_back( "manual_gripper0" );
-            gripper_axes_["manual_gripper0"] = PlotAxes::Ptr( new PlotAxes() );
-
-            env->add( grippers_["manual_gripper0"] );
-            env->add( gripper_axes_["manual_gripper0"] );
-
-            std::cout << "manual_gripper0: " << PrettyPrint::PrettyPrint( grippers_["manual_gripper0"]->getWorldTransform() ) << std::endl;
 
             // manual gripper1
             grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "manual_gripper1", CLOTH_GRIPPER_APPERTURE*METERS,
                                                 btVector4( 0.0f, 0.0f, 0.6f, 0.9f )  ) );
+            gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
             grippers_["manual_gripper1"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
-                    cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x ) );
-
-            grippers_["manual_gripper1"]->toggleOpen();
-            grippers_["manual_gripper1"]->toggleAttach( cloth_->softBody.get() );
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x
+                                 + btVector3( -gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
 
             manual_grippers_.push_back( "manual_gripper1" );
-            gripper_axes_["manual_gripper1"] = PlotAxes::Ptr( new PlotAxes() );
-
-            env->add( grippers_["manual_gripper1"] );
-            env->add( gripper_axes_["manual_gripper1"] );
-
-            std::cout << "manual_gripper1: " << PrettyPrint::PrettyPrint( grippers_["manual_gripper1"]->getWorldTransform() ) << std::endl;
 
             break;
         }
@@ -512,6 +489,23 @@ void CustomScene::makeClothWorld()
         {
             throw new std::invalid_argument( "Unknown task type for a CLOTH object" );
         }
+    }
+
+    for ( auto& gripper: grippers_ )
+    {
+        // Grip the cloth
+        gripper.second->toggleOpen();
+        gripper.second->toggleAttach( cloth_->softBody.get() );
+
+        gripper_axes_[gripper.first] = PlotAxes::Ptr( new PlotAxes() );
+
+        // Add the gripper and it's axis to the world
+        env->add( gripper.second );
+        env->add( gripper_axes_[gripper.first] );
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback( boost::bind( &GripperKinematicObject::step_openclose, gripper.second, cloth_->softBody.get() ) );
     }
 }
 

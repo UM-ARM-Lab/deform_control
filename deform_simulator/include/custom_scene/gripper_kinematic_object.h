@@ -4,14 +4,12 @@
 #include "simulation/simplescene.h"
 #include "simulation/softbodies.h"
 
-enum GripperState { GripperState_DONE, GripperState_CLOSING, GripperState_OPENING };
-
 class GripperKinematicObject : public CompoundObject<BoxObject>
 {
     public:
-        typedef boost::shared_ptr<GripperKinematicObject> Ptr;
+        typedef boost::shared_ptr< GripperKinematicObject > Ptr;
 
-        GripperKinematicObject( float apperture_input, btVector4 color = btVector4( 0.6f, 0.6f, 0.6f, 0.9f ) );
+        GripperKinematicObject( const std::string& name_input, float apperture_input, btVector4 color = btVector4( 0.6f, 0.6f, 0.6f, 0.9f ) );
 
         void translate( btVector3 transvec );
         void applyTransform( btTransform tm );
@@ -35,17 +33,24 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         std::vector<size_t> getAttachedNodeIndices();
 
+        btVector3 getHalfExtents();
+
         // Used by the manual grippers for cloth
         void step_openclose( btSoftBody * psb );
 
+        // TODO: get rid of these
         EnvironmentObject::Ptr copy( Fork &f ) const;
         void internalCopy( GripperKinematicObject::Ptr o, Fork &f ) const;
 
     private:
+        std::string name;
         btVector3 halfextents;
+
         btTransform cur_tm;
 
-        GripperState state; // used only for the manual grippers (I think)
+        enum GripperState { GripperState_DONE, GripperState_CLOSING, GripperState_OPENING };
+
+        GripperState state;
         bool bOpen;         // used only for cloth (I think)
         float apperture;
         float closed_gap;  // used only for cloth (I think)
