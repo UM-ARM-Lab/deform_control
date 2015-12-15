@@ -54,7 +54,7 @@
 
 ////////////////////////
 ////Colab Cloth folding
-//#define DO_ROTATION
+#define DO_ROTATION
 #define ROTATION_SCALING 1.0f
 
 
