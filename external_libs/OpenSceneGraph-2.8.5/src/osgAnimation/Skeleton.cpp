@@ -22,7 +22,7 @@ Skeleton::Skeleton() {}
 Skeleton::Skeleton(const Skeleton& b, const osg::CopyOp& copyop) : osg::MatrixTransform(b,copyop) {}
 
 Skeleton::UpdateSkeleton::UpdateSkeleton() : _needValidate(true) {}
-Skeleton::UpdateSkeleton::UpdateSkeleton(const UpdateSkeleton& us, const osg::CopyOp& copyop= osg::CopyOp::SHALLOW_COPY) : osg::Object(us, copyop), osg::NodeCallback(us, copyop)
+Skeleton::UpdateSkeleton::UpdateSkeleton(const UpdateSkeleton& us, const osg::CopyOp& copyop) : osg::Object(us, copyop), osg::NodeCallback(us, copyop)
 {
     _needValidate = true;
 }

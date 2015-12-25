@@ -8,8 +8,6 @@ set( CMAKE_BUILD_TYPE="Debug" )
 
 
 
-
-
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 
 IF(WIN32)
@@ -653,6 +651,19 @@ IF   (DYNAMIC_OPENSCENEGRAPH)
 ELSE (DYNAMIC_OPENSCENEGRAPH)
     SET(OPENSCENEGRAPH_USER_DEFINED_DYNAMIC_OR_STATIC "STATIC")
 ENDIF(DYNAMIC_OPENSCENEGRAPH)
+
+
+
+
+
+# Disable flags to make CLANG happy
+SET(CMAKE_CXX_FLAGS "-Wno-overloaded-virtual -Wno-int-to-void-pointer-cast -Wno-bool-conversion -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
+# Disable flags to make GCC happy
+
+
+
+
+
 
 
 # OSG Core
