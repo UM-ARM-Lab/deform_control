@@ -276,7 +276,7 @@ void CustomScene::makeRope()
         // TODO: get rid of this random "- 20"
         control_points[(size_t)n] = table_surface_position +
 //            btVector3( ((float)n - (float)(ROPE_NUM_LINKS - 1)/2)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
-            btVector3( (n - 20)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
+            btVector3( (float)(n - 20)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
 
     }
     rope_.reset( new CapsuleRope( control_points, ROPE_RADIUS*METERS ) );
