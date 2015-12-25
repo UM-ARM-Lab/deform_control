@@ -107,6 +107,7 @@ class CustomScene : public Scene
         PlotLines::Ptr plot_lines_;
 
         std::map< std::string,  PlotLines::Ptr > visualization_line_markers_;
+        std::map< std::string,  PlotPoints::Ptr > visualization_point_markers_;
         std::map< std::string,  PlotSpheres::Ptr > visualization_sphere_markers_;
 
         ////////////////////////////////////////////////////////////////////////

@@ -3,7 +3,7 @@
        value="$(find osg_old)/data"/>
 
     <env name="OSG_LIBRARY_PATH"
-        value="$(find osg_old)/lib64/osgPlugins-2.8.5"/--!>
+        value="$(find osg_old)/lib64/osgPlugins-2.8.5"/-->
 
     <node name="deform_simulator_node"
         pkg="deform_simulator"

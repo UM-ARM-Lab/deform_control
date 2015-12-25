@@ -838,11 +838,31 @@ void CustomScene::visualizationMarkerCallback(
 
     switch ( marker.type )
     {
+        case visualization_msgs::Marker::POINTS:
+        {
+            if ( visualization_point_markers_.count(id) == 0 )
+            {
+                ROS_INFO_STREAM( "Creating new Marker::POINTS " << id );
+                PlotPoints::Ptr points( new PlotPoints() );
+                points->setPoints( toOsgRefVec3Array( marker.points, METERS ),
+                                   toOsgRefVec4Array( marker.colors ) );
+                visualization_point_markers_[id] = points;
+
+                env->add( points );
+            }
+            else
+            {
+                PlotPoints::Ptr points = visualization_point_markers_[id];
+                points->setPoints( toOsgRefVec3Array( marker.points, METERS ),
+                                   toOsgRefVec4Array( marker.colors ) );
+            }
+            break;
+        }
         case visualization_msgs::Marker::SPHERE:
         {
             if ( visualization_sphere_markers_.count(id) == 0 )
             {
-                ROS_INFO_STREAM( "Creating new Marker::SPHERE" );
+                ROS_INFO_STREAM( "Creating new Marker::SPHERE " << id );
                 PlotSpheres::Ptr spheres( new PlotSpheres() );
                 spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
                                toOsgRefVec4Array( marker.colors ),
@@ -869,7 +889,7 @@ void CustomScene::visualizationMarkerCallback(
             // if the object is new, add it
             if ( visualization_line_markers_.count( id ) == 0 )
             {
-                ROS_INFO_STREAM( "Creating new Marker::LINE_LIST" );
+                ROS_INFO_STREAM( "Creating new Marker::LINE_LIST " << id );
                 PlotLines::Ptr line_strip( new PlotLines( (float)marker.scale.x * METERS ) );
                 line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
                                        toBulletColorArray( marker.colors ));
@@ -888,7 +908,7 @@ void CustomScene::visualizationMarkerCallback(
         default:
         {
             ROS_ERROR_STREAM_NAMED( "visualization",
-                    "Marker type " << marker.type << " not implemented" );
+                    "Marker type " << marker.type << " not implemented " << id );
         }
     }
 }
