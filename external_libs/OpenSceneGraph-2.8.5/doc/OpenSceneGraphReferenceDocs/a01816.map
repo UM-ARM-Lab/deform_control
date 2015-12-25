@@ -1,5 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" id="node1" href="$a00593.html" title="Base struct for custom array property inserters." alt="" coords="5,31,224,62"/>
-<area shape="rect" id="node3" href="$a00393.html" title="osgIntrospection::StdListReflector\&lt; T, VT \&gt;::Inserter" alt="" coords="280,5,608,35"/>
-<area shape="rect" id="node5" href="$a00392.html" title="osgIntrospection::StdVectorReflector\&lt; T, VT \&gt;::Inserter" alt="" coords="272,58,616,89"/>
-</map>

@@ -1,8 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" id="node2" href="$a01100.html" title="ViewerBase is the view base class that is inherited by both Viewer and CompositeViewer." alt="" coords="239,246,396,277"/>
-<area shape="rect" id="node4" href="$a00501.html" title="Base class/standard interface for objects which require IO support, cloning and reference counting..." alt="" coords="235,86,323,117"/>
-<area shape="rect" id="node10" href="$a01090.html" title="View &#45; maintains a master camera view and a list of slave cameras that are relative to this master ca..." alt="" coords="203,166,280,197"/>
-<area shape="rect" id="node6" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="220,6,337,37"/>
-<area shape="rect" id="node8" href="$a01089.html" title="View holds a single view on a scene, this view may be composed of one or more slave cameras..." alt="" coords="97,246,215,277"/>
-<area shape="rect" id="node13" href="$a00339.html" title="Abstract base class defining the interface by which GUIEventHandlers may request actions of the GUI s..." alt="" coords="5,166,179,197"/>
-</map>

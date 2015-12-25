@@ -1,7 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" id="node2" href="$a00541.html" title="osgParticle::ParticleEffect" alt="" coords="31,326,201,357"/>
-<area shape="rect" id="node4" href="$a00338.html" title="General group node which maintains a list of children." alt="" coords="73,246,159,277"/>
-<area shape="rect" id="node6" href="$a00491.html" title="Base class for all internal nodes in the scene graph." alt="" coords="76,166,156,197"/>
-<area shape="rect" id="node8" href="$a00501.html" title="Base class/standard interface for objects which require IO support, cloning and reference counting..." alt="" coords="72,86,160,117"/>
-<area shape="rect" id="node10" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="57,6,175,37"/>
-</map>

@@ -1,8 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" id="node11" href="$a00534.html" title="PagedLOD." alt="" coords="5,406,117,437"/>
-<area shape="rect" id="node13" href="$a00363.html" title="Impostor &#45; is a form of Level Of Detail group node which allows both switching between children depen..." alt="" coords="141,406,267,437"/>
-<area shape="rect" id="node2" href="$a00338.html" title="General group node which maintains a list of children." alt="" coords="89,246,175,277"/>
-<area shape="rect" id="node4" href="$a00491.html" title="Base class for all internal nodes in the scene graph." alt="" coords="92,166,172,197"/>
-<area shape="rect" id="node6" href="$a00501.html" title="Base class/standard interface for objects which require IO support, cloning and reference counting..." alt="" coords="88,86,176,117"/>
-<area shape="rect" id="node8" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="73,6,191,37"/>
-</map>

@@ -2,7 +2,7 @@ cmake_minimum_required( VERSION 2.8.3 )
 project( osg_works )
 
 set( CATKIN_PACKAGES
-    osg_old
+    OpenSceneGraph
 )
 
 find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )

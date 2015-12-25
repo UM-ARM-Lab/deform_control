@@ -50,7 +50,7 @@ class OSG_EXPORT Geometry : public Drawable
             BIND_OVERALL,
             BIND_PER_PRIMITIVE_SET,
             BIND_PER_PRIMITIVE,
-            BIND_PER_VERTEX,
+            BIND_PER_VERTEX
         };
                
         struct OSG_EXPORT ArrayData

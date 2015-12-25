@@ -1,8 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" id="node3" href="$a00332.html" title="Base class for providing Windowing API agnostic access to creating and managing graphics window and e..." alt="" coords="229,71,416,102"/>
-<area shape="rect" id="node11" href="$a01089.html" title="View holds a single view on a scene, this view may be composed of one or more slave cameras..." alt="" coords="264,138,381,169"/>
-<area shape="rect" id="node5" href="$a00333.html" title="osgViewer::GraphicsWindowEmbedded" alt="" coords="464,5,712,35"/>
-<area shape="rect" id="node7" href="$a00335.html" title="osgViewer::GraphicsWindowWin32" alt="" coords="477,58,699,89"/>
-<area shape="rect" id="node9" href="$a00336.html" title="osgViewer::GraphicsWindowX11" alt="" coords="483,111,693,142"/>
-<area shape="rect" id="node13" href="$a01099.html" title="Viewer holds a single view on to a single scene." alt="" coords="524,165,652,195"/>
-</map>

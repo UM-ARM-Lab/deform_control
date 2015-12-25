@@ -1,7 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" id="node5" href="$a00403.html" title="Concrete class for passing multiple intersectors through the scene graph." alt="" coords="373,5,539,35"/>
-<area shape="rect" id="node7" href="$a00445.html" title="Concrete class for implementing line intersections with the scene graph." alt="" coords="352,58,560,89"/>
-<area shape="rect" id="node9" href="$a00558.html" title="Concrete class for implementing polytope intersections with the scene graph." alt="" coords="373,111,539,142"/>
-<area shape="rect" id="node11" href="$a00571.html" title="Concrete class for implementing polytope intersections with the scene graph." alt="" coords="365,165,547,195"/>
-<area shape="rect" id="node2" href="$a00629.html" title="Base class from providing referencing counted objects." alt="" coords="5,85,123,115"/>
-</map>

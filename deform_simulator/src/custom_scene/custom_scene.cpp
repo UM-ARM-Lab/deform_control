@@ -592,6 +592,22 @@ void CustomScene::findClothCornerNodes()
     mirror_line_data_.mid_x = ( corner_node_positions[0].x() +
             (corner_node_positions[3].x() - corner_node_positions[0].x() ) / 2 )  / METERS;
 
+
+
+
+
+    std::vector< btVector3 > mirror_line_points;
+    mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.min_y, 0.8f) * METERS );
+    mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.max_y, 0.8f) * METERS );
+    std::vector< btVector4 > mirror_line_colors;
+    mirror_line_colors.push_back( btVector4(1,0,0,1) );
+
+    PlotLines::Ptr line_strip( new PlotLines( 0.1f * METERS ) );
+    line_strip->setPoints( mirror_line_points,
+                           mirror_line_colors );
+    visualization_line_markers_["mirror_line"] = line_strip;
+
+    env->add( line_strip );
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -1,8 +1,0 @@
-<map id="G" name="G">
-<area shape="rect" id="node3" href="$a00584.html" title="osgShadow::ProjectionShadowMap\&lt; MinimalDrawBoundsShadowMap, LightSpacePerspectiveShadowMapAlgorithm \&gt;" alt="" coords="1139,5,1845,35"/>
-<area shape="rect" id="node7" href="$a00584.html" title="osgShadow::ProjectionShadowMap\&lt; MinimalCullBoundsShadowMap, LightSpacePerspectiveShadowMapAlgorithm \&gt;" alt="" coords="1143,58,1841,89"/>
-<area shape="rect" id="node11" href="$a00584.html" title="osgShadow::ProjectionShadowMap\&lt; MinimalShadowMap, LightSpacePerspectiveShadowMapAlgorithm \&gt;" alt="" coords="1176,111,1808,142"/>
-<area shape="rect" id="node5" href="$a00437.html" title="osgShadow::LightSpacePerspectiveShadowMapDB" alt="" coords="1897,5,2215,35"/>
-<area shape="rect" id="node9" href="$a00436.html" title="osgShadow::LightSpacePerspectiveShadowMapCB" alt="" coords="1897,58,2215,89"/>
-<area shape="rect" id="node13" href="$a00438.html" title="osgShadow::LightSpacePerspectiveShadowMapVB" alt="" coords="1897,111,2215,142"/>
-</map>
