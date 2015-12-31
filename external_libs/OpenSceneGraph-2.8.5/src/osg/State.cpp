@@ -43,7 +43,8 @@ State::State():
     _projection = _identity;
     _modelView = _identity;
 
-    _abortRenderingPtr = false;    
+    _abortRenderingPtr = NULL;
+    //_abortRenderingPtr = false;
 
     _checkGLErrors = ONCE_PER_FRAME;
 
@@ -574,7 +575,8 @@ bool State::getLastAppliedTextureMode(unsigned int unit,StateAttribute::GLMode m
 
 const StateAttribute* State::getLastAppliedTextureAttribute(unsigned int unit,StateAttribute::Type type, unsigned int member) const
 {
-    if (unit>=_textureAttributeMapList.size()) return false;
+//    if (unit>=_textureAttributeMapList.size()) return false;
+    if (unit>=_textureAttributeMapList.size()) return NULL;
     return getLastAppliedAttribute(_textureAttributeMapList[unit],type,member);
 }
 

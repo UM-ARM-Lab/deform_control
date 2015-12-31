@@ -313,7 +313,8 @@ osg::BoundingBox
 {
     osg::BoundingBox bb;
 
-    if( &m )
+    if ( true )
+//    if( &m )
         for( unsigned i = 0; i < _sceneReceivingShadowPolytopePoints.size(); ++i )
             bb.expandBy( _sceneReceivingShadowPolytopePoints[i] * m );
     else 
