@@ -1064,17 +1064,11 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
                         //TODO: Use cross product instead
 
                         //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
-                        //btTransform T0_center = gripper->getWorldTransform();
-                        //btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
-                        btTransform T0_center = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
-                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),btVector3(1,1,1));
+                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
+                        btTransform T0_center = gripper->getWorldTransform();
                         btTransform Tcenter_attached = T0_center.inverse()*T0_attached;
-                        //btTransform T0_newcenter = T0_center*perts[i];
-                        btTransform rot = btTransform(btQuaternion(btVector3(1,0,0),M_PI/4),btVector3(0,0,0));
-                        btTransform T0_newcenter = T0_center*rot;
-                        btTransform T0_newattached =  T0_newcenter*Tcenter_attached;
-                        btTransform T0_attached_change = T0_attached.inverse()*T0_newattached;
-                        btVector3 transvec = T0_attached_change.getOrigin()/(M_PI/4);// * exp(-dist*dropoff_const);
+                        btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
+                        btVector3 transvec = (T0_attached.inverse()*T0_newattached).getOrigin()/rot_angle * exp(-dist*dropoff_const);
 
 
                         for(int j = 0; j < 3; j++)
