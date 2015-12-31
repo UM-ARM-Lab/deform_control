@@ -1,6 +1,8 @@
 #include "util.h"
-#include "thread_socket_interface.h"
+#include <haptics/thread_socket_interface.h>
 #include <boost/foreach.hpp>
+
+using namespace Eigen;
 
 namespace util {
 
@@ -49,7 +51,7 @@ bool getHapticInput(btTransform &trans0, bool buttons0[2], btTransform &trans1, 
     double out0[3] = {pos0[1], pos0[2], pos0[0]};
     double out1[3] = {pos1[1], pos1[2], pos1[0]};
     sendDeviceState(out0, true, out1, true);
-    cout << "send pos: " << out0[0] << " " << out0[1] << " " << out0[2] << ", " << 
+    cout << "send pos: " << out0[0] << " " << out0[1] << " " << out0[2] << ", " <<
       out1[0] << " " << out1[1] << " " << out1[2] << endl;
   }
 

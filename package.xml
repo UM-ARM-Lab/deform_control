@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<package>
+  <name>deform_simulator_old</name>
+  <version>0.0.1</version>
+  <description>Deformable Object Simulator (old) using Bullet</description>
+
+  <maintainer email="dale.mcconachie@ssengineering.ca">Dale McConachie</maintainer>
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>osg_bullet</build_depend>
+  <build_depend>haptics</build_depend>
+  <build_depend>bullet_helpers</build_depend>
+
+  <run_depend>osg_bullet</run_depend>
+  <run_depend>haptics</run_depend>
+  <run_depend>bullet_helpers</run_depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <!-- Other tools can request additional information be placed here -->
+
+  </export>
+</package>

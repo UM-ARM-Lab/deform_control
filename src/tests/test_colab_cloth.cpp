@@ -1,5 +1,7 @@
 #include "colab_cloth.h"
+#include "simulation/util.h"
 #include <string>
+#include <boost/bind.hpp>
 
 #define UNUSED(x) (void)(x)
 

@@ -4,6 +4,7 @@
 #include "util.h"
 
 #include <iostream>
+#include <boost/bind.hpp>
 using namespace std;
 
 Scene::Scene() : simTime(0) {
@@ -11,8 +12,8 @@ Scene::Scene() : simTime(0) {
     bullet.reset(new BulletInstance());
     bullet->setGravity(BulletConfig::gravity);
 
-    if (SceneConfig::enableRobot)
-        rave.reset(new RaveInstance());
+//    if (SceneConfig::enableRobot)
+//        rave.reset(new RaveInstance());
 
     env.reset(new Environment(bullet, osg));
 

@@ -41,7 +41,7 @@ struct BulletInstance {
 };
 
 struct Environment;
-struct Fork;
+class Fork;
 class EnvironmentObject {
 private:
     Environment *env;

@@ -4,11 +4,11 @@
 #include <osgGA/TrackballManipulator>
 #include "environment.h"
 #include "basicobjects.h"
-#include "openravesupport.h"
+//#include "openravesupport.h"
 #include "plotting.h"
 #include "utils/config.h"
 
-class Scene;
+struct Scene;
 
 class EventHandler : public osgGA::TrackballManipulator {
 private:
@@ -26,7 +26,7 @@ struct Scene {
 
   OSGInstance::Ptr osg;
   BulletInstance::Ptr bullet;
-  RaveInstance::Ptr rave;
+//  RaveInstance::Ptr rave;
 
   Environment::Ptr env;
   std::set<Fork::Ptr> forks;

@@ -6,7 +6,7 @@
 #include "simulation/config_bullet.h"
 #include "simulation/config_viewer.h"
 #include "simulation/rope.h"
-#include "robots/grabbing.h"
+//#include "robots/grabbing.h"
 #include <BulletSoftBody/btSoftBodyHelpers.h>
 #include <Eigen/Dense>
 #include <Eigen/SVD>
@@ -420,7 +420,7 @@ public:
     BulletInstance::Ptr bullet2;
     OSGInstance::Ptr osg2;
     Fork::Ptr fork;
-    RaveRobotObject::Ptr origRobot, tmpRobot;
+//    RaveRobotObject::Ptr origRobot, tmpRobot;
     std::map<int, int> node_mirror_map;
     std::vector<std::vector<double> > gripper_node_distance_map;
     float jacobian_sim_time;

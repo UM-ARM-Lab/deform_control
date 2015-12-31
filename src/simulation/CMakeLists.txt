@@ -1,12 +1,25 @@
-include_directories(
-    ${BULLET_DIR}/Extras
-    ${BULLET_DIR}/Extras/HACD
-    ${BULLETSIM_SOURCE_DIR}/lib/haptics
-    ${BULLETSIM_SOURCE_DIR}/src
-)
-
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-declarations" )
 
-add_library(simulation environment.cpp basicobjects.cpp openravesupport.cpp util.cpp simplescene.cpp softbodies.cpp rope.cpp plotting.cpp convexdecomp.cpp recording.cpp config_bullet.cpp config_viewer.cpp bullet_io.cpp)
+add_library(simulation_old
+    environment.cpp 
+    basicobjects.cpp 
+    #openravesupport.cpp 
+    util.cpp 
+    simplescene.cpp 
+    softbodies.cpp 
+    rope.cpp 
+    plotting.cpp 
+    convexdecomp.cpp 
+    recording.cpp 
+    config_bullet.cpp 
+    config_viewer.cpp 
+    bullet_io.cpp
+)
+add_dependencies( simulation_old
+    ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries( simulation_old
+    ${${PROJECT_NAME}_LINK_TARGETS}
+    utils_old
+)
 
-target_link_libraries(simulation utils haptics osgBullet osgWorks ${Boost_LIBRARIES} ${OSG_LIBS} ${BULLET_LIBS} ${OpenRAVE_LIBRARIES} ${OpenRAVE_CORE_LIBRARIES})
