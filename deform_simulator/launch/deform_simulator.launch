@@ -7,7 +7,7 @@
 
     <node name="deform_simulator_node"
         pkg="deform_simulator"
-        type="custom_scene_node" 
+        type="custom_scene_node"
         output="screen"
         required="true"/>
 </launch>

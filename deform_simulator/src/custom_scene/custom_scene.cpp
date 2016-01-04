@@ -127,13 +127,16 @@ void CustomScene::run( bool syncTime )
 
     addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
 
-    // TODO: remove this hardcoded spin rate
-    boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
-
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed, or something, it's not clear
     setSyncTime( syncTime );
     startViewer();
+
+    // Let the object settle before anything else happens
+    stepFor( BulletConfig::dt, 2 );
+
+    // TODO: remove this hardcoded spin rate
+    boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
 
     // Run the simulation
     while ( ros::ok() )
@@ -152,6 +155,8 @@ void CustomScene::run( bool syncTime )
         if ( curr_gripper_traj_.trajectories.size() > 0 &&
              gripper_traj_index_ < curr_gripper_traj_.trajectories[0].pose.size() )
         {
+            std::cout << simTime << std::endl;
+
             moveGrippers();
 
             step( BulletConfig::dt );
@@ -160,9 +165,12 @@ void CustomScene::run( bool syncTime )
         }
         else
         {
-            // TODO: replace this with something that redraws/allows user input
             step( 0 );
-            //step( BulletConfig::dt );
+            if ( drawingOn && !viewer.done() )
+            {
+                draw();
+            }
+            usleep( (__useconds_t)(BulletConfig::dt * 1e6) );
         }
     }
 
