@@ -657,9 +657,9 @@ ENDIF(DYNAMIC_OPENSCENEGRAPH)
 
 
 # Disable flags to make CLANG happy
-#SET(CMAKE_CXX_FLAGS "-Wno-overloaded-virtual -Wno-int-to-void-pointer-cast -Wno-bool-conversion -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
+#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-int-to-void-pointer-cast -Wno-bool-conversion -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
 # Disable flags to make GCC happy
-SET(CMAKE_CXX_FLAGS "-Wno-overloaded-virtual -Wno-int-to-pointer-cast -Wno-conversion-null -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-int-to-pointer-cast -Wno-conversion-null -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
 
 
 

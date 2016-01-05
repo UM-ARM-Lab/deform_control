@@ -130,29 +130,10 @@ void CustomScene::run( bool syncTime )
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed, or something, it's not clear
     setSyncTime( syncTime );
-//    startViewer();
+    startViewer();
 
     // Let the object settle before anything else happens
     stepFor( BulletConfig::dt, 2 );
-
-
-
-    for ( auto& gripper: grippers_ )
-    {
-        std::cout << *(gripper.second);
-    }
-
-
-
-    std::cout << std::endl << std::endl;
-    auto nodes = getDeformableObjectNodes();
-    for ( size_t i = 0; i < nodes.size(); i++ )
-    {
-        std::cout << nodes[i].x() << " " << nodes[i].y() << " " << nodes[i].z() << std::endl;
-        //std::cout << PrettyPrint( nodes[i] ) << std::endl;
-    }
-
-
 
     // Create a service to let others know the object current configuration
     object_current_configuration_srv_ = nh_.advertiseService(
@@ -186,11 +167,7 @@ void CustomScene::run( bool syncTime )
         }
         else
         {
-            step( 0 );
-            if ( drawingOn && !viewer.done() )
-            {
-                draw();
-            }
+            draw();
             usleep( (__useconds_t)(BulletConfig::dt * 1e6) );
         }
     }
@@ -405,10 +382,6 @@ void CustomScene::makeRopeWorld()
         // Add the gripper and it's axis to the world
         env->add( gripper.second );
         env->add( gripper_axes_[gripper.first] );
-
-        // Add a callback in case this gripper gets step_openclose activated on it
-        // This is a state machine whose input comes from CustomKeyHandler
-        addPreStepCallback( boost::bind( &GripperKinematicObject::step_openclose, gripper.second, cloth_->softBody.get() ) );
     }
 }
 
@@ -580,6 +553,7 @@ void CustomScene::findClothCornerNodes()
 
     btSoftBody::tNodeArray cloth_nodes = cloth_->softBody->m_nodes;
 
+    // Itterate through the nodes in the cloth, finding the extremal points
     for ( int ind = 0; ind < cloth_nodes.size(); ind++ )
     {
         if ( cloth_nodes[ind].m_x.x() <= corner_node_positions[0].x() &&
@@ -608,37 +582,27 @@ void CustomScene::findClothCornerNodes()
         }
     }
 
-    std::cout << "Cloth corner node positions\n";
-    for ( int ind: cloth_corner_node_indices_ )
+    // Create a mirror line if we are doing colaborative folding
+    if ( task_type_ == smmap::TaskType::COLAB_FOLDING )
     {
-        std::cout
-            << "\tx: " << cloth_nodes[ind].m_x.x()/METERS << " "
-            << "\ty: " << cloth_nodes[ind].m_x.y()/METERS << " "
-            << "\tz: " << cloth_nodes[ind].m_x.z()/METERS << " "
-            << std::endl;
+        mirror_line_data_.min_y = corner_node_positions[0].y() / METERS;
+        mirror_line_data_.max_y = corner_node_positions[3].y() / METERS;
+        mirror_line_data_.mid_x = ( corner_node_positions[0].x() +
+                (corner_node_positions[3].x() - corner_node_positions[0].x() ) / 2 )  / METERS;
+
+        std::vector< btVector3 > mirror_line_points;
+        mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.min_y, 0.8f) * METERS );
+        mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.max_y, 0.8f) * METERS );
+        std::vector< btVector4 > mirror_line_colors;
+        mirror_line_colors.push_back( btVector4(1,0,0,1) );
+
+        PlotLines::Ptr line_strip( new PlotLines( 0.1f * METERS ) );
+        line_strip->setPoints( mirror_line_points,
+                               mirror_line_colors );
+        visualization_line_markers_["mirror_line"] = line_strip;
+
+        env->add( line_strip );
     }
-
-    mirror_line_data_.min_y = corner_node_positions[0].y() / METERS;
-    mirror_line_data_.max_y = corner_node_positions[3].y() / METERS;
-    mirror_line_data_.mid_x = ( corner_node_positions[0].x() +
-            (corner_node_positions[3].x() - corner_node_positions[0].x() ) / 2 )  / METERS;
-
-
-
-
-
-    std::vector< btVector3 > mirror_line_points;
-    mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.min_y, 0.8f) * METERS );
-    mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.max_y, 0.8f) * METERS );
-    std::vector< btVector4 > mirror_line_colors;
-    mirror_line_colors.push_back( btVector4(1,0,0,1) );
-
-    PlotLines::Ptr line_strip( new PlotLines( 0.1f * METERS ) );
-    line_strip->setPoints( mirror_line_points,
-                           mirror_line_colors );
-    visualization_line_markers_["mirror_line"] = line_strip;
-
-    env->add( line_strip );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -871,12 +835,6 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
         smmap_msgs::GetPointSet::Request& req,
         smmap_msgs::GetPointSet::Response& res )
 {
-    std::cout << "simTime: " << simTime << std::endl;
-//    for ( auto& gripper: grippers_ )
-//    {
-//        std::cout << gripper.first << "\t " << PrettyPrint::PrettyPrint( gripper.second->getWorldTransform() ) << std::endl;
-//    }
-
     (void)req;
     res.points = toRosPointVector( getDeformableObjectNodes(), METERS );
     return true;
