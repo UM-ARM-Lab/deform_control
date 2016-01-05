@@ -42,6 +42,8 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         EnvironmentObject::Ptr copy( Fork &f ) const;
         void internalCopy( GripperKinematicObject::Ptr o, Fork &f ) const;
 
+        friend std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper);
+
     private:
         std::string name;
         btVector3 halfextents;

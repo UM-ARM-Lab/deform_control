@@ -130,10 +130,33 @@ void CustomScene::run( bool syncTime )
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed, or something, it's not clear
     setSyncTime( syncTime );
-    startViewer();
+//    startViewer();
 
     // Let the object settle before anything else happens
     stepFor( BulletConfig::dt, 2 );
+
+
+
+    for ( auto& gripper: grippers_ )
+    {
+        std::cout << *(gripper.second);
+    }
+
+
+
+    std::cout << std::endl << std::endl;
+    auto nodes = getDeformableObjectNodes();
+    for ( size_t i = 0; i < nodes.size(); i++ )
+    {
+        std::cout << nodes[i].x() << " " << nodes[i].y() << " " << nodes[i].z() << std::endl;
+        //std::cout << PrettyPrint( nodes[i] ) << std::endl;
+    }
+
+
+
+    // Create a service to let others know the object current configuration
+    object_current_configuration_srv_ = nh_.advertiseService(
+            smmap::GetObjectCurrentConfigurationTopic( nh_ ), &CustomScene::getObjectCurrentConfigurationCallback, this );
 
     // TODO: remove this hardcoded spin rate
     boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
@@ -155,8 +178,6 @@ void CustomScene::run( bool syncTime )
         if ( curr_gripper_traj_.trajectories.size() > 0 &&
              gripper_traj_index_ < curr_gripper_traj_.trajectories[0].pose.size() )
         {
-            std::cout << simTime << std::endl;
-
             moveGrippers();
 
             step( BulletConfig::dt );
@@ -325,10 +346,10 @@ void CustomScene::makeCloth()
     psb->m_cfg.kDP = 0.05f;
     psb->generateBendingConstraints(2, pm);
     psb->randomizeConstraints();
-    // TODO why are these both being called?
+    // TODO: why is setTotalMass being called twice?
     psb->setTotalMass(1, true);
-    psb->setTotalMass(0.1f);
     psb->generateClusters(0);
+    psb->setTotalMass(0.1f);
 
     // commented out as there are no self collisions
 /*    psb->generateClusters(500);
@@ -478,6 +499,7 @@ void CustomScene::makeClothWorld()
                                  + btVector3( -gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
 
             manual_grippers_.push_back( "manual_gripper0" );
+            manual_grippers_paths_.push_back( smmap::ManualGripperPath( grippers_["manual_gripper0"], &smmap::gripperPath0 ) );
 
             // manual gripper1
             grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
@@ -490,6 +512,7 @@ void CustomScene::makeClothWorld()
                                  + btVector3( -gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
 
             manual_grippers_.push_back( "manual_gripper1" );
+            manual_grippers_paths_.push_back( smmap::ManualGripperPath( grippers_["manual_gripper1"], &smmap::gripperPath1 ) );
 
             break;
         }
@@ -633,6 +656,12 @@ void CustomScene::moveGrippers()
         grippers_.at( curr_gripper_traj_.gripper_names[ind] )->setWorldTransform( tf );
     }
     gripper_traj_index_++;
+
+    // Advance the manual grippers on their paths
+    for ( auto& path: manual_grippers_paths_ )
+    {
+        path.advanceGripper();
+    }
 }
 
 void CustomScene::publishSimulatorFbk()
@@ -678,7 +707,7 @@ void CustomScene::publishSimulatorFbk()
 // Internal helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
-std::vector< btVector3 > CustomScene::getDeformableObjectNodes()
+std::vector< btVector3 > CustomScene::getDeformableObjectNodes() const
 {
     std::vector< btVector3 > nodes;
 
@@ -838,6 +867,21 @@ bool CustomScene::getObjectInitialConfigurationCallback(
     return true;
 }
 
+bool CustomScene::getObjectCurrentConfigurationCallback(
+        smmap_msgs::GetPointSet::Request& req,
+        smmap_msgs::GetPointSet::Response& res )
+{
+    std::cout << "simTime: " << simTime << std::endl;
+//    for ( auto& gripper: grippers_ )
+//    {
+//        std::cout << gripper.first << "\t " << PrettyPrint::PrettyPrint( gripper.second->getWorldTransform() ) << std::endl;
+//    }
+
+    (void)req;
+    res.points = toRosPointVector( getDeformableObjectNodes(), METERS );
+    return true;
+}
+
 // TODO: be able to delete markers and have a timeout
 void CustomScene::visualizationMarkerCallback(
         visualization_msgs::Marker marker )
@@ -850,7 +894,7 @@ void CustomScene::visualizationMarkerCallback(
         {
             if ( visualization_point_markers_.count(id) == 0 )
             {
-                ROS_INFO_STREAM( "Creating new Marker::POINTS " << id );
+//                ROS_INFO_STREAM( "Creating new Marker::POINTS " << id );
                 PlotPoints::Ptr points( new PlotPoints() );
                 points->setPoints( toOsgRefVec3Array( marker.points, METERS ),
                                    toOsgRefVec4Array( marker.colors ) );
@@ -870,7 +914,7 @@ void CustomScene::visualizationMarkerCallback(
         {
             if ( visualization_sphere_markers_.count(id) == 0 )
             {
-                ROS_INFO_STREAM( "Creating new Marker::SPHERE " << id );
+//                ROS_INFO_STREAM( "Creating new Marker::SPHERE " << id );
                 PlotSpheres::Ptr spheres( new PlotSpheres() );
                 spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
                                toOsgRefVec4Array( marker.colors ),
@@ -897,7 +941,7 @@ void CustomScene::visualizationMarkerCallback(
             // if the object is new, add it
             if ( visualization_line_markers_.count( id ) == 0 )
             {
-                ROS_INFO_STREAM( "Creating new Marker::LINE_LIST " << id );
+//                ROS_INFO_STREAM( "Creating new Marker::LINE_LIST " << id );
                 PlotLines::Ptr line_strip( new PlotLines( (float)marker.scale.x * METERS ) );
                 line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
                                        toBulletColorArray( marker.colors ));

@@ -1,11 +1,10 @@
-#include <functional>
-
 #include "simulation/simplescene.h"
 #include "simulation/config_bullet.h"
 #include "simulation/config_viewer.h"
 #include "utils/util.h"
 
 #include <iostream>
+#include <boost/bind.hpp>
 using namespace std;
 
 Scene::Scene() : simTime(0) {
@@ -26,8 +25,8 @@ Scene::Scene() : simTime(0) {
     env->add(ground);
 
     // default callbacks
-    addVoidKeyCallback('p', std::bind(&Scene::toggleIdle, this));
-    addVoidKeyCallback('d', std::bind(&Scene::toggleDebugDraw, this));
+    addVoidKeyCallback('p', boost::bind(&Scene::toggleIdle, this));
+    addVoidKeyCallback('d', boost::bind(&Scene::toggleDebugDraw, this));
 }
 
 void Scene::startViewer() {
@@ -176,11 +175,11 @@ void Scene::addKeyCallback(char c, Callback cb) {
 }
 
 void Scene::addVoidCallback(osgGA::GUIEventAdapter::EventType t, VoidCallback cb) {
-    addCallback(t, std::bind<bool>(VoidCallbackWrapper(cb)));
+    addCallback(t, boost::bind<bool>(VoidCallbackWrapper(cb)));
 }
 
 void Scene::addVoidKeyCallback(char c, VoidCallback cb) {
-    addKeyCallback(c, std::bind<bool>(VoidCallbackWrapper(cb)));
+    addKeyCallback(c, boost::bind<bool>(VoidCallbackWrapper(cb)));
 }
 
 void Scene::addPreStepCallback(VoidCallback cb) {

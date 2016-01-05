@@ -79,11 +79,11 @@ public:
    * @param y Y value
    * @param z Z value
    */
-	SIMD_FORCE_INLINE btVector3(const btScalar& x, const btScalar& y, const btScalar& z)
+    SIMD_FORCE_INLINE btVector3(const btScalar& x_, const btScalar& y_, const btScalar& z_)
 	{
-		m_floats[0] = x;
-		m_floats[1] = y;
-		m_floats[2] = z;
+        m_floats[0] = x_;
+        m_floats[1] = y_;
+        m_floats[2] = z_;
 		m_floats[3] = btScalar(0.);
 	}
 
@@ -92,11 +92,11 @@ public:
    * @param y Y value
    * @param z Z value
    */
-	SIMD_FORCE_INLINE btVector3(const btScalar&& x, const btScalar&& y, const btScalar&& z)
+    SIMD_FORCE_INLINE btVector3(btScalar&& x_, btScalar&& y_, btScalar&& z_)
 	{
-		m_floats[0] = x;
-		m_floats[1] = y;
-		m_floats[2] = z;
+        m_floats[0] = x_;
+        m_floats[1] = y_;
+        m_floats[2] = z_;
 		m_floats[3] = btScalar(0.);
 	}
 

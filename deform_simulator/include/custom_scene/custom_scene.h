@@ -15,6 +15,7 @@
 #include "simulation/config_viewer.h"
 
 #include "gripper_kinematic_object.h"
+#include "manual_gripper_path.h"
 
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -58,7 +59,7 @@ class CustomScene : public Scene
         // Internal helper functions
         ////////////////////////////////////////////////////////////////////////
 
-        std::vector< btVector3 > getDeformableObjectNodes();
+        std::vector< btVector3 > getDeformableObjectNodes() const;
         btPointCollector collisionHelper( const std::string& gripper_name );
 
         ////////////////////////////////////////////////////////////////////////
@@ -84,6 +85,9 @@ class CustomScene : public Scene
                 smmap_msgs::GetMirrorLine::Request& req,
                 smmap_msgs::GetMirrorLine::Response& res );
         bool getObjectInitialConfigurationCallback(
+                smmap_msgs::GetPointSet::Request& req,
+                smmap_msgs::GetPointSet::Response& res );
+        bool getObjectCurrentConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res );
 
@@ -130,6 +134,8 @@ class CustomScene : public Scene
         std::vector< std::string > auto_grippers_;
         std::vector< std::string > manual_grippers_;
 
+        std::vector< smmap::ManualGripperPath > manual_grippers_paths_;
+
         ////////////////////////////////////////////////////////////////////////
         // Shared world objects
         ////////////////////////////////////////////////////////////////////////
@@ -162,7 +168,8 @@ class CustomScene : public Scene
         static constexpr float CLOTH_HALF_SIDE_LENGTH = 0.25f; // METERS
         static constexpr float CLOTH_X = TABLE_X + CLOTH_HALF_SIDE_LENGTH; // METERS
         static constexpr float CLOTH_Y = TABLE_Y; // METERS
-        static constexpr float CLOTH_Z = TABLE_Z + 0.1f; // METERS
+        static constexpr float CLOTH_Z = TABLE_Z + 0.01f; // METERS
+
         static constexpr int CLOTH_DIVS = 45;
         static constexpr float CLOTH_GRIPPER_APPERTURE = 0.1f; // METERS
         static constexpr float CLOTH_TABLE_HALF_SIDE_LENGTH = 0.2f; // METERS
@@ -200,6 +207,7 @@ class CustomScene : public Scene
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer object_initial_configuration_srv_;
         std::vector< geometry_msgs::Point > object_initial_configuration_;
+        ros::ServiceServer object_current_configuration_srv_;
 
         ros::Subscriber visualization_marker_sub_;
         ros::Subscriber visualization_marker_array_sub_;
