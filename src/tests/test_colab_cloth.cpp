@@ -371,9 +371,11 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
 
 
 #ifdef USE_PR2
-CustomScene::CustomScene() : pr2m(*this){
+CustomScene::CustomScene() : pr2m(*this)
+{
 #else
-CustomScene::CustomScene(){
+CustomScene::CustomScene()
+{
 #endif
     bTracking = false;
     bFirstTrackingIteration = true;
@@ -417,6 +419,24 @@ CustomScene::CustomScene(){
 }
 
 
+void CustomScene::getDeformableObjectNodes(std::vector<btVector3>& vnodes)
+{
+#ifdef ROPE
+    vnodes = ropePtr->getNodes();
+#else
+    nodeArrayToNodePosVector(clothptr->softBody->m_nodes, vnodes);
+#endif
+}
+
+int CustomScene::getNumDeformableObjectNodes()
+{
+#ifdef ROPE
+    return ropePtr->getNodes().size();
+#else
+    return clothptr->softBody->m_nodes.size();
+#endif
+}
+
 double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
 {
     double min_dist = 1000000;
@@ -435,6 +455,8 @@ double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinemat
 
 
 }
+
+
 
 Eigen::MatrixXd CustomScene::computePointsOnGripperJacobian(std::vector<btVector3>& points_in_world_frame,std::vector<int>& autogripper_indices_per_point)
 {
@@ -663,7 +685,7 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
                 }
                 J.col(perts.size()*g + i) = V_pos;
             }
-            }//end omp
+        }//end omp
 
     }
 
@@ -673,32 +695,16 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
     return J;
 }
 
-void CustomScene::getDeformableObjectNodes(std::vector<btVector3>& vnodes)
-{
-#ifdef ROPE
-    vnodes = ropePtr->getNodes();
-#else
-    nodeArrayToNodePosVector(clothptr->softBody->m_nodes, vnodes);
-#endif
-}
-
-int CustomScene::getNumDeformableObjectNodes()
-{
-#ifdef ROPE
-    return ropePtr->getNodes().size();
-#else
-    return clothptr->softBody->m_nodes.size();
-#endif
-}
-
-
 
 
 //this is getting called before the step loop
 void CustomScene::doJTracking()
 {
-//    std::cout << "Sim time: " << simTime << std::endl;
-
+    std::cout << "simTime: " << simTime << std::endl;
+//    std::cout << "left_gripper1:\t" << PrettyPrint( left_gripper1->getWorldTransform() ) << std::endl;
+//    std::cout << "left_gripper2:\t" << PrettyPrint( left_gripper2->getWorldTransform() ) << std::endl;
+//    std::cout << "right_gripper1:\t" << PrettyPrint( right_gripper1->getWorldTransform() ) << std::endl;
+//    std::cout << "right_gripper2:\t" << PrettyPrint( right_gripper2->getWorldTransform() ) << std::endl;
 
     // hack to start tracking on start of program
     static bool first_loop = true;
@@ -709,7 +715,7 @@ void CustomScene::doJTracking()
         if(bTracking)
         {
             bFirstTrackingIteration = true;
-            itrnumber = 0;
+            itrnumber = 1;
         }
         if(!bTracking)
             plot_points->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
@@ -732,9 +738,6 @@ void CustomScene::doJTracking()
         loopState.skip_step = true;
         itrnumber = 0;
     }
-
-    std::cout << "simTime: " << simTime << std::endl;
-
 
 #ifdef DO_ROTATION
     int dof_per_gripper = 6;
@@ -1124,6 +1127,9 @@ void CustomScene::doJTracking()
 
     #else
 
+
+
+
         transtm1 = btTransform(btQuaternion(btVector3(0,0,1),V_trans(5))*
                               btQuaternion(btVector3(0,1,0),V_trans(4))*
                               btQuaternion(btVector3(1,0,0),V_trans(3)),
@@ -1139,6 +1145,7 @@ void CustomScene::doJTracking()
         else
             transtm2 = btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0));
 
+
     #endif
 #else
         transtm1 = btTransform(btQuaternion(0,0,0,1), btVector3(V_trans(0),V_trans(1),V_trans(2)));
@@ -1149,6 +1156,15 @@ void CustomScene::doJTracking()
 #endif
         //check is it more semetric than it would have been had you done nothing
         //simulateInNewFork(innerstate, BulletConfig::dt, transvec);
+
+
+        std::cout << std::endl << std::endl << std::endl;
+        std::cout << J.block< 3, 12 >( 0, 0 ) << std::endl;
+        std::cout << "gripper 0: " << V_trans.segment<6>(0).transpose() << std::endl;
+        std::cout << "gripper 1: " << V_trans.segment<6>(6).transpose() << std::endl;
+        std::cout << std::endl << std::endl << std::endl;
+        exit(-1);
+
 
         left_gripper1->applyTransform(transtm1);
         left_gripper2->applyTransform(transtm2);
@@ -1310,6 +1326,7 @@ void CustomScene::makeRopeWorld()
 
     std::vector<btVector3> node_pos(ropePtr->getNodes());
 
+    // NOTE: This variable is never read from
     gripper_node_distance_map.resize(num_auto_grippers);
     GripperKinematicObject::Ptr cur_gripper;
     int childindex;
@@ -1430,13 +1447,15 @@ void CustomScene::makeClothWorld()
 //    env->add(cylinder);
 
     BulletSoftObject::Ptr cloth(
-            createCloth(GeneralConfig::scale * 0.25, GeneralConfig::scale * btVector3(0.7, 0, table_height+0.01)));
+            createCloth(GeneralConfig::scale * 0.25, GeneralConfig::scale * btVector3(0.25f, 0, table_height+0.01)));
     //printf("scale: \%f\n meters: %f\n",GeneralConfig::scale, METERS);
 
     btSoftBody* psb = cloth->softBody.get();
     clothptr = clothptr_orig = cloth;
     psb->setTotalMass(0.1);
 
+    addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->right_gripper1,psb));
+    addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->left_gripper1,psb));
     addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->right_gripper2,psb));
     addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, this->left_gripper2,psb));
 
@@ -1548,6 +1567,10 @@ void CustomScene::makeClothWorld()
     btTransform tm_right2 = btTransform(btQuaternion( 0,    0,    0 ,   1), corner_pnts[3] + btVector3(-right_gripper2->children[0]->halfExtents[0],-right_gripper2->children[0]->halfExtents[1],0));
     right_gripper2->setWorldTransform(tm_right2);
 
+
+
+
+    // NOTE: This variable is never read from
     gripper_node_distance_map.resize(num_auto_grippers);
 
     for(int i = 0; i < num_auto_grippers; i++)
@@ -1770,8 +1793,6 @@ void CustomScene::run() {
 
     addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
 
-    const float dt = BulletConfig::dt;
-
 #ifdef ROPE
     makeRopeWorld();
 #else
@@ -1787,11 +1808,46 @@ void CustomScene::run() {
     cout << "Num Deformable Object Points: " <<  vnodes.size() << endl << "Num Points to Cover: " << cover_points.size() << endl;
 #endif
 
-    //setSyncTime(true);
-    startViewer();
-    stepFor(dt, 2);
+    setSyncTime(false);
+//    startViewer();
+    stepFor(BulletConfig::dt, 2);
+
+
+
+    std::cout << *left_gripper1
+              << *left_gripper2
+              << *right_gripper1
+              << *right_gripper2;
+
+
+
+    std::cout << std::endl << std::endl;
+    std::cout << "simTime: " << simTime << std::endl;
+    std::vector<btVector3> nodes;
+    getDeformableObjectNodes( nodes );
+    for ( size_t i = 0; i < nodes.size(); i++ )
+    {
+        std::cout << nodes[i].x() << " " << nodes[i].y() << " " << nodes[i].z() << std::endl;
+        //std::cout << PrettyPrint( nodes[i] ) << std::endl;
+    }
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << std::endl << std::endl << std::endl;
+    std::cout << std::endl;
+
+
+
 
     addPreStepCallback(boost::bind(&CustomScene::doJTracking, this));
+
+    for( auto& path: manual_grippers_paths_ )
+    {
+        addPreStepCallback(boost::bind(&smmap::ManualGripperPath::advanceGripper, path));
+    }
 
     /*
     leftAction->setOpenAction();
@@ -1801,7 +1857,7 @@ void CustomScene::run() {
     runAction(rightAction, dt);
     */
     //ProfilerStart("profile.txt");
-    startFixedTimestepLoop(dt);
+    startFixedTimestepLoop(BulletConfig::dt);
     //ProfilerStop();
 }
 

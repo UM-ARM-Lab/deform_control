@@ -333,7 +333,10 @@ public:
     OSGInstance::Ptr osg2;
     Fork::Ptr fork;
     std::map<int, int> node_mirror_map;
+
+    // NOTE: This variable is never read from
     std::vector<std::vector<double> > gripper_node_distance_map;
+
     float jacobian_sim_time;
     std::vector<btVector3> prev_node_pos;
     std::vector<btVector3> filtered_new_nodes;

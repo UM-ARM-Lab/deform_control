@@ -324,3 +324,26 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb) {
 //            attach(false);
 //        }
 }
+
+std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)
+{
+    stream << "Gripper" << std::endl
+            << PrettyPrint( gripper.cur_tm ) << std::endl
+            << "apperture: " << gripper.apperture
+            << " open: " << gripper.bOpen
+            << " attached: " << gripper.bAttached
+            << " closed_gap: " << gripper.closed_gap
+            << " half extents: " << " x: " << gripper.halfextents.x()
+                                 << " y: " << gripper.halfextents.y()
+                                 << " z: " << gripper.halfextents.z()
+            << " attached nodes:";
+
+    for ( size_t ind: gripper.vattached_node_inds )
+    {
+        stream << " " << ind;
+    }
+
+    stream << std::endl;
+
+    return stream;
+}

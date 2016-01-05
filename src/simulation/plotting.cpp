@@ -129,7 +129,7 @@ void PlotLines::setPoints(const osg::ref_ptr<osg::Vec3Array>& osgPts) {
 }
 
 PlotSpheres::PlotSpheres() {
-  m_geode = new osg::Geode();    
+  m_geode = new osg::Geode();
   m_nDrawables = 0;
 
   osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet();

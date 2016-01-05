@@ -1,8 +1,7 @@
 #pragma once
-#include "utils/config.h"
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
-
+#include "utils/config.h"
 
 enum RecordingMode {
   DONT_RECORD=0,

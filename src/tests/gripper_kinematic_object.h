@@ -61,4 +61,6 @@ public:
                 o->children.push_back(BoxObject::Ptr());
         }
     }
+
+    friend std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper);
 };

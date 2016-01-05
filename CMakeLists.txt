@@ -11,7 +11,6 @@ set( CATKIN_PACKAGES
 ## Find catkin macros and libraries
 find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
 
-
 ## System dependencies are found with CMake's conventions
 find_package( cmake_modules REQUIRED )
 find_package( Boost REQUIRED COMPONENTS 
@@ -38,8 +37,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3" )# -fopenmp" )
-#set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -std=c++0x" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -std=c++0x" )# -fopenmp" )
 
 include_directories( src SYSTEM 
     ${catkin_INCLUDE_DIRS}

@@ -24,17 +24,17 @@ boost::shared_ptr<btCompoundShape> ConvexDecomp::run(std::vector<boost::shared_p
     bool invert = false;
     bool addExtraDistPoints = false;
     bool addNeighboursDistPoints = false;
-    bool addFacesPoints = false;       
+    bool addFacesPoints = false;
 
     hacd.SetNClusters(nClusters);                     // minimum number of clusters
     hacd.SetNVerticesPerCH(100);                      // max of 100 vertices per convex-hull
     hacd.SetConcavity(concavity);                     // maximum concavity
-    hacd.SetAddExtraDistPoints(addExtraDistPoints);   
-    hacd.SetAddNeighboursDistPoints(addNeighboursDistPoints);   
-    hacd.SetAddFacesPoints(addFacesPoints); 
+    hacd.SetAddExtraDistPoints(addExtraDistPoints);
+    hacd.SetAddNeighboursDistPoints(addNeighboursDistPoints);
+    hacd.SetAddFacesPoints(addFacesPoints);
 
     hacd.Compute();
-    nClusters = hacd.GetNClusters();	
+    nClusters = hacd.GetNClusters();
 
     boost::shared_ptr<btCompoundShape> compound(new btCompoundShape());
     for (int c = 0; c < nClusters; ++c) {
