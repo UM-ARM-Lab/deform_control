@@ -1,12 +1,13 @@
 #ifndef COLAB_CLOTH_H
 #define COLAB_CLOTH_H
 
+#include "colab_cloth_defines.h"
+
 #include "simulation/simplescene.h"
 #include "simulation/softbodies.h"
 #include "simulation/config_bullet.h"
 #include "simulation/config_viewer.h"
 #include "simulation/rope.h"
-//#include "robots/grabbing.h"
 #include <BulletSoftBody/btSoftBodyHelpers.h>
 #include <Eigen/Dense>
 #include <Eigen/SVD>
@@ -20,109 +21,16 @@
 #include "BulletCollision/NarrowPhaseCollision/btConvexPenetrationDepthSolver.h"
 #include "BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h"
 
-//#define PROFILER
-//#define USE_PR2
-//#define USE_QUATERNION //NOT IMPLEMENTED!!!
-//#define USE_TABLE
+#include "gripper_kinematic_object.h"
+#include "manual_gripper_path.h"
 
-//#define USE_ADAPTIVE_JACOBIAN //not working
-#define USE_RADIUS_CONTACT
-#define PRESERVE_LENGTH
-#define AVOID_COLLISION
-
-#ifdef USE_PR2
-#include <openrave/kinbody.h>
-#include "robots/pr2.h"
-#endif
-
-//////////////////
-////Rope with Cylinder Coverage
-//#define USE_RADIUS_CONTACT
-//#define DO_COVERAGE
-//#define ROPE
-//#define ROTATION_SCALING 50.0f
-//#define DO_ROTATION
-
-
-
-////////////////////////
-////Cloth covering table
-//#define DO_COVERAGE
-//#define DO_ROTATION
-//#define ROTATION_SCALING 50.0f
-
-
-////////////////////////
-////Colab Cloth folding
-#define DO_ROTATION
-#define ROTATION_SCALING 1.0f
-
-
-
-//#define USE_NOISE
 
 //WARNING: THIS IS THE WRONG TRANSFORM, WILL NOT WORK FOR ROTATION!
-const btTransform TBullet_PR2GripperRight = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,0,1),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
+//const btTransform TBullet_PR2GripperRight = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,0,1),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
 //const btTransform TBullet_PR2GripperRight = btTransform(btQuaternion(btVector3(0,0,1),3.14159265/2),btVector3(0,0,0));
-const btTransform TBullet_PR2GripperLeft = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,0,1),-3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
+//const btTransform TBullet_PR2GripperLeft = btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,0,1),-3.14159265/2),btVector3(0,0,0))*btTransform(btQuaternion(btVector3(0,1,0),3.14159265/2),btVector3(0,0,0));
 
-enum GripperState { GripperState_DONE, GripperState_CLOSING, GripperState_OPENING };
 
-class GripperKinematicObject : public CompoundObject<BoxObject>{
-public:
-
-    float apperture;
-    btTransform cur_tm;
-    bool bOpen;
-    bool bAttached;
-    btVector3 halfextents;
-    std::vector<int> vattached_node_inds;
-    double closed_gap;
-    GripperState state;
-    boost::shared_ptr<btGeneric6DofConstraint> cnt;
-
-    typedef boost::shared_ptr<GripperKinematicObject> Ptr;
-
-    GripperKinematicObject(btVector4 color = btVector4(0,0,1,0.3));
-    void translate(btVector3 transvec);
-    void applyTransform(btTransform tm);
-    void setWorldTransform(btTransform tm);
-    btTransform getWorldTransform(){return cur_tm;}
-    void getWorldTransform(btTransform& in){in = cur_tm;}
-    void toggleOpen();
-    void toggleAttach(btSoftBody * psb, double radius = 0);
-    void rigidGrab(btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr);
-    void getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts);
-    void appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence=1);
-    void releaseAllAnchors(btSoftBody * psb) {psb->m_anchors.clear();}
-    void step_openclose(btSoftBody * psb);
-
-    EnvironmentObject::Ptr copy(Fork &f) const {
-        Ptr o(new GripperKinematicObject());
-        internalCopy(o, f);
-        return o;
-    }
-    void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const {
-        o->apperture = apperture;
-        o->cur_tm = cur_tm;
-        o->bOpen = bOpen;
-        o->state = state;
-        o->closed_gap = closed_gap;
-        o->vattached_node_inds = vattached_node_inds;
-        o->halfextents = halfextents;
-        o->bAttached = bAttached;
-
-        o->children.clear();
-        o->children.reserve(children.size());
-        ChildVector::const_iterator i;
-        for (i = children.begin(); i != children.end(); ++i) {
-            if (*i)
-                o->children.push_back(boost::static_pointer_cast<BoxObject> ((*i)->copy(f)));
-            else
-                o->children.push_back(BoxObject::Ptr());
-        }
-    }
-};
 
 /*
 #ifdef USE_PR2
@@ -339,7 +247,7 @@ public:
     // Must be called before the action is run!
     void setTarget(btSoftBody *psb_) { psb = psb_; }
 
-    void releaseAllAnchors() {
+    void releaseAllAnchor#include "custom_scene/manual_gripper_path.h"s() {
         psb->m_anchors.clear();
     }
 
@@ -402,12 +310,16 @@ public:
 class CustomScene : public Scene {
 public:
 #ifdef USE_PR2
+    RaveRobotObject::Ptr origRobot, tmpRobot;
     PR2SoftBodyGripperAction::Ptr leftAction, rightAction;
     PR2Manager pr2m;
 #endif
 
     GripperKinematicObject::Ptr left_gripper1, right_gripper1, left_gripper1_orig, right_gripper1_orig, left_gripper1_fork, right_gripper1_fork;
     GripperKinematicObject::Ptr left_gripper2, right_gripper2;
+
+    std::vector< smmap::ManualGripperPath > manual_grippers_paths_;
+
     struct {
         bool transGrabber0,rotateGrabber0,transGrabber1,rotateGrabber1, transGrabber2,rotateGrabber2, transGrabber3,rotateGrabber3, startDragging;
         float dx, dy, lastX, lastY;
@@ -420,7 +332,6 @@ public:
     BulletInstance::Ptr bullet2;
     OSGInstance::Ptr osg2;
     Fork::Ptr fork;
-//    RaveRobotObject::Ptr origRobot, tmpRobot;
     std::map<int, int> node_mirror_map;
     std::vector<std::vector<double> > gripper_node_distance_map;
     float jacobian_sim_time;
@@ -450,52 +361,7 @@ public:
     CylinderStaticObject::Ptr cylinder;
     BoxObject::Ptr table;
 
-#ifdef USE_PR2
-        CustomScene() : pr2m(*this){
-#else
-        CustomScene(){
-#endif
-        bTracking = false;
-        bFirstTrackingIteration = true;
-        itrnumber = 0;
-
-        bInTrackingLoop = false;
-        inputState.transGrabber0 =  inputState.rotateGrabber0 =
-                inputState.transGrabber1 =  inputState.rotateGrabber1 =
-                inputState.transGrabber2 =  inputState.rotateGrabber2 =
-                inputState.transGrabber3 =  inputState.rotateGrabber3 =
-                inputState.startDragging = false;
-
-        jacobian_sim_time = 0.05;
-        btVector4 color2(0,0,1,1);
-
-        left_gripper1_orig.reset(new GripperKinematicObject(color2));
-        left_gripper1_orig->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,-10,0)));
-        env->add(left_gripper1_orig);
-
-        btVector4 color(0.6,0.6,0.6,1);//(1,0,0,0.0);
-
-        right_gripper1_orig.reset(new GripperKinematicObject(color));
-        right_gripper1_orig->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,10,0)));
-        env->add(right_gripper1_orig);
-
-        left_gripper1 = left_gripper1_orig;
-        right_gripper1 = right_gripper1_orig;
-
-
-        left_gripper2.reset(new GripperKinematicObject(color2));
-        left_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,20,0)));
-        env->add(left_gripper2);
-
-        right_gripper2.reset(new GripperKinematicObject(color));
-        right_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,-20,0)));
-        env->add(right_gripper2);
-
-        num_auto_grippers = 2;
-
-        fork.reset();
-    }
-
+    CustomScene();
 
     BulletSoftObject::Ptr createCloth(btScalar s, const btVector3 &center);
     void createFork();

@@ -3,499 +3,7 @@
 #include <string>
 #include <boost/bind.hpp>
 
-#define UNUSED(x) (void)(x)
-
-inline std::string PrettyPrint(const btVector3& vector_to_print, const bool add_delimiters = false, const std::string& separator = "")
-{
-    UNUSED(add_delimiters);
-    UNUSED(separator);
-    return "btVector3: <x: " + std::to_string(vector_to_print.x()) + " y: " + std::to_string(vector_to_print.y()) + " z: " + std::to_string(vector_to_print.z()) + ">";
-}
-
-inline std::string PrettyPrint(const btQuaternion& quaternion_to_print, const bool add_delimiters = false, const std::string& separator = "")
-{
-    UNUSED(add_delimiters);
-    UNUSED(separator);
-    return "btQuaternion <x: " + std::to_string(quaternion_to_print.x()) + " y: " + std::to_string(quaternion_to_print.y()) + " z: " + std::to_string(quaternion_to_print.z()) + " w: " + std::to_string(quaternion_to_print.w()) + ">";
-}
-
-inline std::string PrettyPrint(const btTransform& transform_to_print, const bool add_delimiters = false, const std::string& separator = "")
-{
-    UNUSED(add_delimiters);
-    UNUSED(separator);
-    btVector3 vector_to_print = transform_to_print.getOrigin();
-    btQuaternion quaternion_to_print(transform_to_print.getRotation());
-    return "btTransform <x: " + std::to_string(vector_to_print.x()) + " y: " + std::to_string(vector_to_print.y()) + " z: " + std::to_string(vector_to_print.z()) + ">, <x: " + std::to_string(quaternion_to_print.x()) + " y: " + std::to_string(quaternion_to_print.y()) + " z: " + std::to_string(quaternion_to_print.z()) + " w: " + std::to_string(quaternion_to_print.w()) + ">";
-}
-
-inline Eigen::Affine3d toEigenAffine3d( const btTransform& bt )
-{
-    const btVector3& bt_origin = bt.getOrigin();
-    const btQuaternion& bt_rot = bt.getRotation();
-    const Eigen::Translation3d trans( bt_origin.getX(), bt_origin.getY(), bt_origin.getZ() );
-    const Eigen::Quaterniond rot( bt_rot.getW(), bt_rot.getX(), bt_rot.getY(), bt_rot.getZ() );
-
-    return trans*rot;
-}
-
-
-
-
-void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec)
-{
-    nodeposvec.resize(m_nodes.size());
-    for(int i = 0; i < m_nodes.size(); i++)
-    {
-        nodeposvec[i] = m_nodes[i].m_x;
-    }
-}
-
-Eigen::MatrixXd pinv(const Eigen::MatrixXd &a)
-{
-    // see : http://en.wikipedia.org/wiki/Moore-Penrose_pseudoinverse#The_general_case_and_the_SVD_method
-
-    if ( a.rows()<a.cols() )
-    {
-        cout << "pinv error!" << endl;
-        return Eigen::MatrixXd();
-    }
-
-    // SVD
-    Eigen::JacobiSVD< Eigen::MatrixXd> svdA(a,Eigen::ComputeFullU | Eigen::ComputeFullV);
-
-    Eigen::MatrixXd vSingular = svdA.singularValues();
-
-    // Build a diagonal matrix with the Inverted Singular values
-    // The pseudo inverted singular matrix is easy to compute :
-    // is formed by replacing every nonzero entry by its reciprocal (inversing).
-    Eigen::MatrixXd vPseudoInvertedSingular(svdA.matrixV().cols(),1);
-
-    for (int iRow =0; iRow<vSingular.rows(); iRow++)
-    {
-        if ( fabs(vSingular(iRow))<=1e-10 ) // Todo : Put epsilon in parameter
-        {
-            vPseudoInvertedSingular(iRow,0)=0.;
-        }
-        else
-        {
-            vPseudoInvertedSingular(iRow,0)=1./vSingular(iRow);
-        }
-    }
-
-    // A little optimization here
-    Eigen::MatrixXd mAdjointU = svdA.matrixU().adjoint().block(0,0,vSingular.rows(),svdA.matrixU().adjoint().cols());
-
-    // Pseudo-Inversion : V * S * U'
-    return (svdA.matrixV() *  vPseudoInvertedSingular.asDiagonal()) * mAdjointU  ;
-
-}
-
-float box_muller(float m, float s)	/* normal random variate generator */
-{				        /* mean m, standard deviation s */
-        float x1, x2, w, y1;
-        static float y2;
-        static int use_last = 0;
-
-        if (use_last)		        /* use value from previous call */
-        {
-                y1 = y2;
-                use_last = 0;
-        }
-        else
-        {
-                do {
-                        x1 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
-                        x2 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
-                        w = x1 * x1 + x2 * x2;
-                } while ( w >= 1.0 );
-
-                w = sqrt( (-2.0 * log( w ) ) / w );
-                y1 = x1 * w;
-                y2 = x2 * w;
-                use_last = 1;
-        }
-
-        return( m + y1 * s );
-}
-
-int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_matrix, int first_dim_minmax, int second_dim_minmax, int third_dim_minmax)
-{
-    //first_dim_maxmin = 0 if min, first_dim_maxmin = 1 if max, first_dim_maxmin = -1 don't care
-    btVector3 extremal_pnt = btVector3(pow(-1,first_dim_minmax)*1000,pow(-1,second_dim_minmax)*1000,pow(-1,third_dim_minmax)*1000);
-    btVector3 projected_pnt;
-    int extremal_ind = -1;
-    bool bDimOK_1,bDimOK_2,bDimOK_3;
-    for(size_t i = 0; i < pnt_vec.size();i++)
-    {
-        projected_pnt = projection_matrix * pnt_vec[i];
-
-        bDimOK_1 = bDimOK_2 = bDimOK_3 = false;
-
-        if(first_dim_minmax == -1)
-            bDimOK_1 = true;
-        if(second_dim_minmax == -1)
-            bDimOK_2 = true;
-        if(third_dim_minmax == -1)
-            bDimOK_3 = true;
-
-        if(projected_pnt[0] >= extremal_pnt[0] && first_dim_minmax == 1)
-            bDimOK_1 = true;
-
-        if(projected_pnt[0] <= extremal_pnt[0] && !first_dim_minmax)
-            bDimOK_1 = true;
-
-        if(projected_pnt[1] >= extremal_pnt[1] && second_dim_minmax == 1)
-            bDimOK_2 = true;
-
-        if(projected_pnt[1] <= extremal_pnt[1] && !second_dim_minmax )
-            bDimOK_2 = true;
-
-        if(projected_pnt[2] >= extremal_pnt[2] && third_dim_minmax == 1)
-            bDimOK_3 = true;
-
-        if(projected_pnt[2] <= extremal_pnt[2] && !third_dim_minmax)
-            bDimOK_3 = true;
-
-
-        if(bDimOK_1 && bDimOK_2 && bDimOK_3)
-        {
-            extremal_pnt = projected_pnt;
-            extremal_ind = i;
-        }
-    }
-    return extremal_ind;
-
-}
-
-
-
-
-
-GripperKinematicObject::GripperKinematicObject(btVector4 color)
-{
-    bAttached = false;
-    closed_gap = 0.1;
-#ifdef ROPE
-    apperture = 0.5;
-#else
-    apperture = 2;
-#endif
-
-    halfextents = btVector3(.3,.3,0.1);
-    BoxObject::Ptr top_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)),true));
-    top_jaw->setColor(color[0],color[1],color[2],color[3]);
-
-    BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents, btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,0,-apperture/2)),true));
-    bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
-
-    top_jaw->motionState->getWorldTransform(cur_tm);
-    cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2));
-    bOpen = true;
-    children.push_back(top_jaw);
-    children.push_back(bottom_jaw);
-}
-
-void GripperKinematicObject::applyTransform(btTransform tm)
-{
-
-    //btTransform _tm = getWorldTransform();
-    //cout << "tm: " << _tm.getOrigin()[0] << " " << _tm.getOrigin()[1] << " " << _tm.getOrigin()[2] << endl;
-    //btTransform a = _tm*tm;
-    //cout << "tm: " << a.getOrigin()[0] << " " << a.getOrigin()[1] << " " <<  a.getOrigin()[2] << endl;
-    setWorldTransform(getWorldTransform()*tm);
-}
-
-void GripperKinematicObject::translate(btVector3 transvec)
-{
-    btTransform tm = getWorldTransform();
-    tm.setOrigin(tm.getOrigin() + transvec);
-    setWorldTransform(tm);
-}
-
-// Fills in the rcontacs array with contact information between psb and pco
-void GripperKinematicObject::getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts) {
-    // custom contact checking adapted from btSoftBody.cpp and btSoftBodyInternals.h
-    struct Custom_CollideSDF_RS : btDbvt::ICollide {
-        Custom_CollideSDF_RS(btSoftBody::tRContactArray &rcontacts_) : rcontacts(rcontacts_) { }
-
-        void Process(const btDbvtNode* leaf) {
-            btSoftBody::Node* node=(btSoftBody::Node*)leaf->data;
-            DoNode(*node);
-        }
-
-        void DoNode(btSoftBody::Node& n) {
-            const btScalar m=n.m_im>0?dynmargin:stamargin;
-            btSoftBody::RContact c;
-            if (!n.m_battach && psb->checkContact(m_colObj1,n.m_x,m,c.m_cti)) {
-                const btScalar  ima=n.m_im;
-                const btScalar  imb= m_rigidBody? m_rigidBody->getInvMass() : 0.f;
-                const btScalar  ms=ima+imb;
-                if(ms>0) {
-                    // there's a lot of extra information we don't need to compute
-                    // since we just want to find the contact points
-                    c.m_node        =       &n;
-
-                    rcontacts.push_back(c);
-
-                }
-            }
-        }
-        btSoftBody*             psb;
-        btCollisionObject*      m_colObj1;
-        btRigidBody*    m_rigidBody;
-        btScalar                dynmargin;
-        btScalar                stamargin;
-        btSoftBody::tRContactArray &rcontacts;
-    };
-
-    Custom_CollideSDF_RS  docollide(rcontacts);
-    btRigidBody*            prb1=btRigidBody::upcast(pco);
-    btTransform     wtr=pco->getWorldTransform();
-
-    const btTransform       ctr=pco->getWorldTransform();
-    const btScalar          timemargin=(wtr.getOrigin()-ctr.getOrigin()).length();
-    const btScalar          basemargin=psb->getCollisionShape()->getMargin();
-    btVector3                       mins;
-    btVector3                       maxs;
-    ATTRIBUTE_ALIGNED16(btDbvtVolume)               volume;
-    pco->getCollisionShape()->getAabb(      pco->getWorldTransform(),
-            mins,
-            maxs);
-    volume=btDbvtVolume::FromMM(mins,maxs);
-    volume.Expand(btVector3(basemargin,basemargin,basemargin));
-    docollide.psb           =       psb;
-    docollide.m_colObj1 = pco;
-    docollide.m_rigidBody = prb1;
-
-    docollide.dynmargin     =       basemargin+timemargin;
-    docollide.stamargin     =       basemargin;
-    psb->m_ndbvt.collideTV(psb->m_ndbvt.m_root,volume,docollide);
-}
-
-// adapted from btSoftBody.cpp (btSoftBody::appendAnchor)
-void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence) {
-    btSoftBody::Anchor a;
-    a.m_node = node;
-    a.m_body = body;
-    a.m_local = body->getWorldTransform().inverse()*a.m_node->m_x;
-    a.m_node->m_battach = 1;
-    a.m_influence = influence;
-    psb->m_anchors.push_back(a);
-}
-
-void GripperKinematicObject::setWorldTransform(btTransform tm)
-{
-    btTransform top_tm = tm;
-    btTransform bottom_tm = tm;
-
-    btTransform top_offset;
-
-    children[0]->motionState->getWorldTransform(top_offset);
-    top_offset = cur_tm.inverse()*top_offset;
-
-    top_tm.setOrigin(top_tm.getOrigin() + top_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
-    bottom_tm.setOrigin(bottom_tm.getOrigin() - bottom_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
-
-    children[0]->motionState->setKinematicPos(top_tm);
-    children[1]->motionState->setKinematicPos(bottom_tm);
-
-    cur_tm = tm;
-}
-
-void GripperKinematicObject::rigidGrab(btRigidBody* prb, int objectnodeind, Environment::Ptr env_ptr)
-{
-    btTransform top_tm;
-    children[0]->motionState->getWorldTransform(top_tm);
-
-    cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
-                                          *prb,top_tm.inverse()*cur_tm,
-                                          btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
-    cnt->setLinearLowerLimit(btVector3(0,0,0));
-    cnt->setLinearUpperLimit(btVector3(0,0,0));
-    cnt->setAngularLowerLimit(btVector3(0,0,0));
-    cnt->setAngularUpperLimit(btVector3(0,0,0));
-    env_ptr->bullet->dynamicsWorld->addConstraint(cnt.get());
-
-    vattached_node_inds.clear();
-    vattached_node_inds.push_back(objectnodeind);
-
-}
-
-void GripperKinematicObject::toggleOpen()
-{
-    btTransform top_tm;    btTransform bottom_tm;
-    children[0]->motionState->getWorldTransform(top_tm);
-    children[1]->motionState->getWorldTransform(bottom_tm);
-
-    if(bOpen)
-    {
-        std::cout << "Closing gripper\n";
-        //btTransform top_offset = cur_tm.inverse()*top_tm;
-        //float close_length = (1+closed_gap)*top_offset.getOrigin()[2] - children[0]->halfExtents[2];
-        //float close_length = (apperture/2 - children[0]->halfExtents[2] + closed_gap/2);
-        top_tm.setOrigin(cur_tm.getOrigin() + cur_tm.getBasis().getColumn(2)*(children[0]->halfExtents[2] + closed_gap/2));
-        bottom_tm.setOrigin(cur_tm.getOrigin() - cur_tm.getBasis().getColumn(2)*(children[1]->halfExtents[2] + closed_gap/2));
-    }
-    else
-    {
-        std::cout << "Opening gripper\n";
-        top_tm.setOrigin(cur_tm.getOrigin() - cur_tm.getBasis().getColumn(2)*(apperture/2));
-        bottom_tm.setOrigin(cur_tm.getOrigin() + cur_tm.getBasis().getColumn(2)*(apperture/2));
-    }
-
-    children[0]->motionState->setKinematicPos(top_tm);
-    children[1]->motionState->setKinematicPos(bottom_tm);
-
-    bOpen = !bOpen;
-}
-
-void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius) {
-
-    if(bAttached)
-    {
-        btAlignedObjectArray<btSoftBody::Anchor> newanchors;
-        for(int i = 0; i < psb->m_anchors.size(); i++)
-        {
-            if(psb->m_anchors[i].m_body != children[0]->rigidBody.get() && psb->m_anchors[i].m_body != children[1]->rigidBody.get())
-                newanchors.push_back(psb->m_anchors[i]);
-        }
-        releaseAllAnchors(psb);
-        for(int i = 0; i < newanchors.size(); i++)
-        {
-            psb->m_anchors.push_back(newanchors[i]);
-        }
-        vattached_node_inds.clear();
-    }
-    else
-    {
-#ifdef USE_RADIUS_CONTACT
-        if(radius == 0)
-            radius = halfextents[0];
-
-        std::cout << "using radius contact: radius: " << radius << std::endl;
-
-        btTransform top_tm;
-        children[0]->motionState->getWorldTransform(top_tm);
-        btTransform bottom_tm;
-        children[1]->motionState->getWorldTransform(bottom_tm);
-        int closest_body = -1;
-        for(int j = 0; j < psb->m_nodes.size(); j++)
-        {
-            if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
-            {
-                if( (psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length() )
-                    closest_body = 0;
-                else
-                    closest_body = 1;
-
-                vattached_node_inds.push_back(j);
-                appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-                std::cout << "\tappending anchor, closest ind: "<< j << std::endl;
-
-            }
-        }
-#else
-        std::vector<btVector3> nodeposvec;
-        nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
-
-        for(int k = 0; k < 2; k++)
-        {
-            BoxObject::Ptr part = children[k];
-
-            btRigidBody* rigidBody = part->rigidBody.get();
-            btSoftBody::tRContactArray rcontacts;
-            getContactPointsWith(psb, rigidBody, rcontacts);
-            cout << "got " << rcontacts.size() << " contacts\n";
-
-            //if no contacts, return without toggling bAttached
-            if(rcontacts.size() == 0)
-                continue;
-            for (size_t i = 0; i < rcontacts.size(); ++i) {
-                //const btSoftBody::RContact &c = rcontacts[i];
-                btSoftBody::Node *node = rcontacts[i].m_node;
-                //btRigidBody* colLink = c.m_cti.m_colObj;
-                //if (!colLink) continue;
-                const btVector3 &contactPt = node->m_x;
-                //if (onInnerSide(contactPt, left)) {
-                    int closest_ind = -1;
-                    for(int n = 0; n < nodeposvec.size(); n++)
-                    {
-                        if((contactPt - nodeposvec[n]).length() < 0.0001)
-                        {
-                            closest_ind = n;
-                            break;
-                        }
-                    }
-                    assert(closest_ind!=-1);
-
-                    vattached_node_inds.push_back(closest_ind);
-                    appendAnchor(psb, node, rigidBody);
-                    std::cout << "\tappending anchor, closest ind: "<< j << std::endl;
-            }
-        }
-#endif
-    }
-
-    bAttached = !bAttached;
-}
-
-void GripperKinematicObject::step_openclose(btSoftBody * psb) {
-    if (state == GripperState_DONE) return;
-
-    if(state == GripperState_OPENING && bAttached)
-        toggleAttach(psb);
-
-
-    btTransform top_tm;
-    btTransform bottom_tm;
-    children[0]->motionState->getWorldTransform(top_tm);
-    children[1]->motionState->getWorldTransform(bottom_tm);
-
-    double step_size = 0.005;
-    if(state == GripperState_CLOSING)
-    {
-        top_tm.setOrigin(top_tm.getOrigin() + step_size*top_tm.getBasis().getColumn(2));
-        bottom_tm.setOrigin(bottom_tm.getOrigin() - step_size*bottom_tm.getBasis().getColumn(2));
-    }
-    else if(state == GripperState_OPENING)
-    {
-        top_tm.setOrigin(top_tm.getOrigin() - step_size*top_tm.getBasis().getColumn(2));
-        bottom_tm.setOrigin(bottom_tm.getOrigin() + step_size*bottom_tm.getBasis().getColumn(2));
-    }
-
-    children[0]->motionState->setKinematicPos(top_tm);
-    children[1]->motionState->setKinematicPos(bottom_tm);
-
-//        if(state == GripperState_CLOSING && !bAttached)
-//            toggleattach(psb, 0.5);
-
-    double cur_gap_length = (top_tm.getOrigin() - bottom_tm.getOrigin()).length();
-    if(state == GripperState_CLOSING && cur_gap_length <= (closed_gap + 2*halfextents[2]))
-    {
-        state = GripperState_DONE;
-        bOpen = false;
-        if(!bAttached)
-            toggleAttach(psb);
-
-    }
-    if(state == GripperState_OPENING && cur_gap_length >= apperture)
-    {
-        state = GripperState_DONE;
-        bOpen = true;
-
-    }
-
-//        float frac = fracElapsed();
-//        vals[0] = (1.f - frac)*startVal + frac*endVal;
-//        manip->robot->setDOFValues(indices, vals);
-
-//        if (vals[0] == CLOSED_VAL) {
-//            attach(true);
-//            attach(false);
-//        }
-}
-
-
+#include "internal_utils.hpp"
 
 class CustomKeyHandler : public osgGA::GUIEventHandler {
     CustomScene &scene;
@@ -862,7 +370,51 @@ bool CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea,osgGA::GUIActionA
 }
 
 
+#ifdef USE_PR2
+CustomScene::CustomScene() : pr2m(*this){
+#else
+CustomScene::CustomScene(){
+#endif
+    bTracking = false;
+    bFirstTrackingIteration = true;
+    itrnumber = 0;
 
+    bInTrackingLoop = false;
+    inputState.transGrabber0 =  inputState.rotateGrabber0 =
+            inputState.transGrabber1 =  inputState.rotateGrabber1 =
+            inputState.transGrabber2 =  inputState.rotateGrabber2 =
+            inputState.transGrabber3 =  inputState.rotateGrabber3 =
+            inputState.startDragging = false;
+
+    jacobian_sim_time = 0.05;
+    btVector4 color2(0,0,1,1);
+
+    left_gripper1_orig.reset(new GripperKinematicObject(color2));
+    left_gripper1_orig->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,-10,0)));
+    env->add(left_gripper1_orig);
+
+    btVector4 color(0.6,0.6,0.6,1);//(1,0,0,0.0);
+
+    right_gripper1_orig.reset(new GripperKinematicObject(color));
+    right_gripper1_orig->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,10,0)));
+    env->add(right_gripper1_orig);
+
+    left_gripper1 = left_gripper1_orig;
+    right_gripper1 = right_gripper1_orig;
+
+
+    left_gripper2.reset(new GripperKinematicObject(color2));
+    left_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,20,0)));
+    env->add(left_gripper2);
+
+    right_gripper2.reset(new GripperKinematicObject(color));
+    right_gripper2->setWorldTransform(btTransform(btQuaternion(0, 0, 0, 1), btVector3(0,-20,0)));
+    env->add(right_gripper2);
+
+    num_auto_grippers = 2;
+
+    fork.reset();
+}
 
 
 double CustomScene::getDistfromNodeToClosestAttachedNodeInGripper(GripperKinematicObject::Ptr gripper, int input_ind, int &closest_ind)
@@ -1067,11 +619,11 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
 
                         //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
                         btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
+//                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]);
                         btTransform T0_center = gripper->getWorldTransform();
                         btTransform Tcenter_attached = T0_center.inverse()*T0_attached;
                         btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
                         btVector3 transvec = (T0_attached.inverse()*T0_newattached).getOrigin()/rot_angle * exp(-dist*dropoff_const);
-
 
                         for(int j = 0; j < 3; j++)
                             V_pos(3*k + j) = transvec[j]*ROTATION_SCALING;
@@ -1148,7 +700,25 @@ void CustomScene::doJTracking()
 //    std::cout << "Sim time: " << simTime << std::endl;
 
 
+    // hack to start tracking on start of program
+    static bool first_loop = true;
+    if (first_loop)
+    {
+        getDeformableObjectNodes(prev_node_pos);
+        bTracking = !bTracking;
+        if(bTracking)
+        {
+            bFirstTrackingIteration = true;
+            itrnumber = 0;
+        }
+        if(!bTracking)
+            plot_points->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
 
+        first_loop = false;
+    }
+
+
+    // Is this actually doing that? 'cause it seems that the sim might not be advancing during this time either
     // let the rope settle between iterations
     // skip every 2nd itteration
     itrnumber++;
@@ -1162,6 +732,8 @@ void CustomScene::doJTracking()
         loopState.skip_step = true;
         itrnumber = 0;
     }
+
+    std::cout << "simTime: " << simTime << std::endl;
 
 
 #ifdef DO_ROTATION
@@ -1334,8 +906,11 @@ void CustomScene::doJTracking()
 
 
             //plotpoints.push_back(clothptr->softBody->m_nodes[(*ii).first].m_x);
+            plotpoints.push_back( targpoint );
+            plotcols.push_back(btVector4(1,0,0,1));
+
             plotpoints.push_back(filtered_new_nodes[(*ii).first]);
-            plotcols.push_back(btVector4(targvec.length(),0,0,1));
+            plotcols.push_back(btVector4(0,targvec.length(),0,1));
 
             node_change = node_change + node_delta.length();
         }
@@ -1388,9 +963,6 @@ void CustomScene::doJTracking()
 
         J = computeJacobian_approx();
 #endif
-
-
-
 
 
 //        //low-pass filter
@@ -1580,12 +1152,6 @@ void CustomScene::doJTracking()
 
         left_gripper1->applyTransform(transtm1);
         left_gripper2->applyTransform(transtm2);
-
-
-
-//        cout << PrettyPrint( left_gripper1->getWorldTransform() ) << std::endl;
-
-
 
 #ifdef USE_PR2
         btTransform left1(left_gripper1->getWorldTransform());
@@ -2176,9 +1742,11 @@ void CustomScene::makeClothWorld()
 #ifndef DO_COVERAGE
     right_gripper1->toggleOpen();
     right_gripper1->toggleAttach(clothptr->softBody.get());
+    manual_grippers_paths_.push_back( smmap::ManualGripperPath( right_gripper1, &smmap::gripperPath0 ) );
 
     right_gripper2->toggleOpen();
     right_gripper2->toggleAttach(clothptr->softBody.get());
+    manual_grippers_paths_.push_back( smmap::ManualGripperPath( right_gripper2, &smmap::gripperPath1 ) );
 #else
     right_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
     right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
@@ -2200,7 +1768,6 @@ void CustomScene::makeClothWorld()
 void CustomScene::run() {
     viewer.addEventHandler(new CustomKeyHandler(*this));
 
-    addPreStepCallback(boost::bind(&CustomScene::doJTracking, this));
     addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
 
     const float dt = BulletConfig::dt;
@@ -2223,6 +1790,8 @@ void CustomScene::run() {
     //setSyncTime(true);
     startViewer();
     stepFor(dt, 2);
+
+    addPreStepCallback(boost::bind(&CustomScene::doJTracking, this));
 
     /*
     leftAction->setOpenAction();

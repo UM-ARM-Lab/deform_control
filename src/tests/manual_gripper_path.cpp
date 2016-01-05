@@ -1,0 +1,1 @@
+../../../deform_control/deform_simulator/src/custom_scene/manual_gripper_path.cpp
