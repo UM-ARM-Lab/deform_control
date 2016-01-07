@@ -39,6 +39,13 @@
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DDEFORM_SIMULATOR_OLD -Wall -Wno-deprecated-declarations -Wno-reorder -std=c++0x" )
 
+
+# Disable the gcc warning about no unknown pragmas when we have -fopenmp disabled
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
+endif()
+
+
 add_executable(test_colab_cloth
     test_colab_cloth.cpp
     colab_cloth.h
