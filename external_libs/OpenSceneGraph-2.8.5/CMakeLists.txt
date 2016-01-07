@@ -43,7 +43,7 @@ SET(OPENSCENEGRAPH_MINOR_VERSION 8)
 SET(OPENSCENEGRAPH_PATCH_VERSION 5)
 SET(OPENSCENEGRAPH_SOVERSION 74)
 
-# set to 0 when not a release candidate, non zero means that any generated 
+# set to 0 when not a release candidate, non zero means that any generated
 # svn tags will be treated as release candidates of given number
 SET(OPENSCENEGRAPH_RELEASE_CANDIDATE 0)
 
@@ -145,7 +145,7 @@ IF (OSG_MAINTAINER)
         COMMAND ${SVNCOMMAND} update
         COMMAND ${GENERATELOGS} ${SVNSOURCEDIR}
     )
-    
+
 ENDIF(OSG_MAINTAINER)
 
 
@@ -654,14 +654,15 @@ ENDIF(DYNAMIC_OPENSCENEGRAPH)
 
 
 
-
-
-# Disable flags to make CLANG happy
-#SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-int-to-void-pointer-cast -Wno-bool-conversion -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
-# Disable flags to make GCC happy
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-int-to-pointer-cast -Wno-conversion-null -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
-
-
+# Disable some warnings as I have no intention of mucking with the internals
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-to-void-pointer-cast -Wno-bool-conversion")
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-to-pointer-cast -Wno-conversion-null -Wno-unused-but-set-variable -Wno-unused-local-typedefs")
+else()
+    message( WARNING "Warnings for an unknown compiler not supressed" )
+endif()
 
 
 
@@ -694,8 +695,8 @@ IF(APPLE)
         # independently of OS X versions.)
         # It does look like CMake handles the CMAKE_OSX_SYSROOT automatically.
         IF(EXISTS /Developer/SDKs/MacOSX10.5.sdk)
-            # 64-bit compiles are not supported with Carbon. We should enable 
-            # 64-bit compilation by default once osgviewer has been 
+            # 64-bit compiles are not supported with Carbon. We should enable
+            # 64-bit compilation by default once osgviewer has been
             # rewritten with Cocoa.
             #SET(CMAKE_OSX_ARCHITECTURES "ppc;i386;ppc64;x86_64" CACHE STRING "Build architectures for OSX" FORCE)
             SET(CMAKE_OSX_ARCHITECTURES "ppc;i386" CACHE STRING "Build architectures for OSX" FORCE)
@@ -754,7 +755,7 @@ IF(BUILD_DOCUMENTATION)
     ELSE(DOT)
         SET(HAVE_DOT NO)
     ENDIF(DOT)
-    
+
     # If html help generation was requested. DOCUMENTATION_HTML_HELP is defined by Documentation.cmake
     SET(GENERATE_HTMLHELP "NO")
     IF(DOCUMENTATION_HTML_HELP)
@@ -766,7 +767,7 @@ IF(BUILD_DOCUMENTATION)
         # this var sets a proper value in .doxygen files when coniguring them below
         SET(GENERATE_HTMLHELP "YES")
     endif(DOCUMENTATION_HTML_HELP)
-  
+
     # This processes our doxyfile.cmake and substitutes paths to generate
     # a final Doxyfile
     CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/doc/Doxyfiles/doxyfile.cmake
@@ -802,7 +803,7 @@ IF(BUILD_DOCUMENTATION)
         ${PROJECT_BINARY_DIR}/doc/auto_Doxyfile)
     CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/doc/Doxyfiles/core_Doxyfile
         ${PROJECT_BINARY_DIR}/doc/core_Doxyfile)
-    
+
     # This creates a new target to build documentation.
     # It runs ${DOXYGEN} which is the full path and executable to
     # Doxygen on your system, set by the FindDoxygen.cmake module
@@ -844,12 +845,12 @@ INSTALL(FILES ${PROJECT_BINARY_DIR}/packaging/pkgconfig/openscenegraph.pc DESTIN
 # Run this as late as possible so users can easier spot the message
 IF (${CMAKE_INSTALL_PREFIX} STREQUAL "/usr/local")
 SET(REQUIRES_LIBPATH_MESSAGE ON)
-ENDIF(${CMAKE_INSTALL_PREFIX} STREQUAL "/usr/local") 
+ENDIF(${CMAKE_INSTALL_PREFIX} STREQUAL "/usr/local")
 
 IF(REQUIRES_LIBPATH_MESSAGE)
 
     IF (NOT OSG_LIBPATH_MESSAGE_HAS_BEEN_RUN_BEFORE)
- 
+
         SET(OSG_LIBPATH_MESSAGE_HAS_BEEN_RUN_BEFORE 1 CACHE INTERNAL "Flag to track whether the libpath message has been reported before")
 
         MESSAGE("\nThe build system is configured to instal libraries to ${CMAKE_INSTALL_PREFIX}/lib${LIB_POSTFIX}\n"
@@ -864,7 +865,7 @@ IF(REQUIRES_LIBPATH_MESSAGE)
             CONFIGURE_FILE(${PROJECT_SOURCE_DIR}/packaging/ld.so.conf.d/openscenegraph.conf.in
                 ${PROJECT_BINARY_DIR}/packaging/ld.so.conf.d/openscenegraph.conf
             )
-            ADD_CUSTOM_TARGET(install_ld_conf ${CMAKE_COMMAND} -E copy_if_different 
+            ADD_CUSTOM_TARGET(install_ld_conf ${CMAKE_COMMAND} -E copy_if_different
                 ${PROJECT_BINARY_DIR}/packaging/ld.so.conf.d/openscenegraph.conf
                 /etc/ld.so.conf.d/openscenegraph.conf
                 COMMAND ldconfig
@@ -913,7 +914,7 @@ ADD_CUSTOM_TARGET(uninstall
 
 
 catkin_package(
-    INCLUDE_DIRS    include   
+    INCLUDE_DIRS    include
     LIBRARIES       osg
                     osgDB
                     osgUtil
