@@ -1158,13 +1158,6 @@ void CustomScene::doJTracking()
         //simulateInNewFork(innerstate, BulletConfig::dt, transvec);
 
 
-        std::cout << std::endl << std::endl << std::endl;
-        std::cout << J.block< 3, 12 >( 0, 0 ) << std::endl;
-        std::cout << "gripper 0: " << V_trans.segment<6>(0).transpose() << std::endl;
-        std::cout << "gripper 1: " << V_trans.segment<6>(6).transpose() << std::endl;
-        std::cout << std::endl << std::endl << std::endl;
-        exit(-1);
-
 
         left_gripper1->applyTransform(transtm1);
         left_gripper2->applyTransform(transtm2);
@@ -1809,37 +1802,8 @@ void CustomScene::run() {
 #endif
 
     setSyncTime(false);
-//    startViewer();
+    startViewer();
     stepFor(BulletConfig::dt, 2);
-
-
-
-    std::cout << *left_gripper1
-              << *left_gripper2
-              << *right_gripper1
-              << *right_gripper2;
-
-
-
-    std::cout << std::endl << std::endl;
-    std::cout << "simTime: " << simTime << std::endl;
-    std::vector<btVector3> nodes;
-    getDeformableObjectNodes( nodes );
-    for ( size_t i = 0; i < nodes.size(); i++ )
-    {
-        std::cout << nodes[i].x() << " " << nodes[i].y() << " " << nodes[i].z() << std::endl;
-        //std::cout << PrettyPrint( nodes[i] ) << std::endl;
-    }
-    std::cout << std::endl << std::endl << std::endl;
-    std::cout << std::endl << std::endl << std::endl;
-    std::cout << std::endl << std::endl << std::endl;
-    std::cout << std::endl << std::endl << std::endl;
-    std::cout << std::endl << std::endl << std::endl;
-    std::cout << std::endl << std::endl << std::endl;
-    std::cout << std::endl << std::endl << std::endl;
-    std::cout << std::endl;
-
-
 
 
     addPreStepCallback(boost::bind(&CustomScene::doJTracking, this));
