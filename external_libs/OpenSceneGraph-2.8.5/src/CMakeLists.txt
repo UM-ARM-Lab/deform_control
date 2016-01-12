@@ -16,7 +16,7 @@ FOREACH( mylibfolder
         osgTerrain
         osgWidget
         osgVolume
-        #        osgPlugins
+        osgPlugins
     )
 
     ADD_SUBDIRECTORY(${mylibfolder})

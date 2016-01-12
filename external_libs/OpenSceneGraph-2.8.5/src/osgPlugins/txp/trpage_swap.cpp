@@ -204,7 +204,7 @@ TX_CPPDECL trpgEndian trpg_cpu_byte_order(void)
 
     if ( (*((short*) big_endian_100)) == 100 )
         return BigEndian;
-    else 
+    else
         return LittleEndian;
 }
 

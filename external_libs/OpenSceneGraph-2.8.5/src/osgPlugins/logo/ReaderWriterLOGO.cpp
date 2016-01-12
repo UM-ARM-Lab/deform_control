@@ -48,7 +48,7 @@ class Logos: public osg::Drawable
                             vp->height() != logos->getViewport()->height() )
                         {
                             logos->getViewport()->setViewport( vp->x(), vp->y(), vp->width(), vp->height() );
-                            logos->dirtyDisplayList(); 
+                            logos->dirtyDisplayList();
                         }
                     }
                 }
@@ -56,7 +56,7 @@ class Logos: public osg::Drawable
             }
         };
 
-        Logos() 
+        Logos()
         {
             osg::StateSet *sset = new osg::StateSet;
             osg::BlendFunc *transp = new osg::BlendFunc;
@@ -65,7 +65,7 @@ class Logos: public osg::Drawable
             sset->setMode( GL_BLEND, osg::StateAttribute::ON );
             sset->setMode( GL_DEPTH_TEST, osg::StateAttribute::OFF );
             sset->setTextureMode( 0, GL_TEXTURE_2D, osg::StateAttribute::OFF );
-#if 1            
+#if 1
             // for now we'll crudely set the bin number to 100 to force it to draw later and ontop of the scene
             sset->setRenderBinDetails( 100 , "RenderBin" );
 #else
@@ -86,7 +86,7 @@ class Logos: public osg::Drawable
 
         virtual void drawImplementation(osg::RenderInfo& renderInfo) const
         {
-            if( renderInfo.getContextID() != _contextID ) 
+            if( renderInfo.getContextID() != _contextID )
                 return;
 
 
@@ -121,13 +121,13 @@ class Logos: public osg::Drawable
             }
 
             float place[][4] = {
-                { vw*0.5, ((vh*0.5) + th*0.5), -0.5, -1.0 },
-                { vx, vh, 0.0, -1.0 },
-                { vw, vh, -1.0, -1.0 },
-                { vx, vy, 0.0, 1.0 },
-                { vw, vy, -1.0, 1.0 },
-                { vw*0.5, vh , -0.5, -1.0 },
-                { vw*0.5, 0.0 , -0.5, 1.0 },
+                { vw*0.5f, ((vh*0.5f) + th*0.5f), -0.5f, -1.0f },
+                { vx, vh, 0.0f, -1.0f },
+                { vw, vh, -1.0f, -1.0f },
+                { vx, vy, 0.0f, 1.0f },
+                { vw, vy, -1.0f, 1.0f },
+                { vw*0.5f, vh , -0.5f, -1.0f },
+                { vw*0.5f, 0.0f , -0.5f, 1.0f },
             };
 
             for( int i = Center; i < last_position; i++ )
@@ -162,7 +162,7 @@ class Logos: public osg::Drawable
         {
             osg::ref_ptr<osg::Image> image = osgDB::readRefImageFile( name.c_str() );
             if( image.valid())
-                _logos[pos].push_back( image ); 
+                _logos[pos].push_back( image );
             else
                 osg::notify(osg::WARN)<< "Logos::addLogo image file not found : " << name << ".\n";
         }
@@ -178,7 +178,7 @@ class Logos: public osg::Drawable
             return (n != 0);
         }
 
-        virtual osg::BoundingBox computeBound() const 
+        virtual osg::BoundingBox computeBound() const
         {
             return osg::BoundingBox( -1, -1, -1, 1, 1, 1);
         }
@@ -203,7 +203,7 @@ class LOGOReaderWriter : public osgDB::ReaderWriter
         {
             supportsExtension("logo","Ascii logo placement format");
         }
-        
+
         virtual const char* className() const { return "Logo Database Reader/Writer"; }
 
         virtual ReadResult readNode(const std::string& file, const osgDB::ReaderWriter::Options* options) const
@@ -212,7 +212,7 @@ class LOGOReaderWriter : public osgDB::ReaderWriter
             if (!acceptsExtension(ext)) return ReadResult::FILE_NOT_HANDLED;
 
             std::string fileName = osgDB::findDataFile( file, options );
-            if (fileName.empty()) 
+            if (fileName.empty())
                 return ReadResult::FILE_NOT_FOUND;
 
             osg::notify(osg::INFO)<< "ReaderWriterLOGO::readNode( "<<fileName.c_str()<<" )\n";
@@ -267,13 +267,13 @@ class LOGOReaderWriter : public osgDB::ReaderWriter
                         osg::notify(osg::WARN) << "Error... Camera requires an integer argument\n";
                         break;
                     }
-                    
+
                     if (tn < 0)
                     {
                         osg::notify(osg::WARN) << "Error... Camera requires an positive or null value argument\n";
                         break;
                     }
-                    
+
                     unsigned int n = static_cast<unsigned int>(tn);
                     if( screen != n )
                     {
@@ -295,10 +295,10 @@ class LOGOReaderWriter : public osgDB::ReaderWriter
                 }
             }
             fclose( fp );
-       
+
             if( ld->hasLogos() )
                 geode->addDrawable( ld );
-        
+
             geode->setCullingActive(false);
             return geode;
         }
