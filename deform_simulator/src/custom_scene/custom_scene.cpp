@@ -4,7 +4,7 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <ros/callback_queue.h>
-#include <smmap/ros_params.h>
+#include <smmap/ros_params.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -108,8 +108,6 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     // Create a subscriber to take visualization instructions
     visualization_marker_array_sub_ = nh_.subscribe(
             smmap::GetVisualizationMarkerArrayTopic( nh_ ), 20, &CustomScene::visualizationMarkerArrayCallback, this );
-
-    ROS_INFO( "Simulation ready." );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -141,6 +139,8 @@ void CustomScene::run( bool syncTime )
 
     // TODO: remove this hardcoded spin rate
     boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
+
+    ROS_INFO( "Simulation ready." );
 
     // Run the simulation
     while ( ros::ok() )

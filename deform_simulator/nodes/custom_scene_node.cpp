@@ -1,6 +1,6 @@
 #include "custom_scene/custom_scene.h"
 
-#include <smmap/ros_params.h>
+#include <smmap/ros_params.hpp>
 
 int main(int argc, char* argv[])
 {
