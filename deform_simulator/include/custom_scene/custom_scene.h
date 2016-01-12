@@ -20,7 +20,7 @@
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include <smmap/task.h>
+#include <smmap/task_enums.h>
 #include <smmap_msgs/messages.h>
 
 class CustomScene : public Scene
@@ -153,7 +153,7 @@ class CustomScene : public Scene
         static constexpr float ROPE_SEGMENT_LENGTH = 0.025f; // METERS
         static constexpr float ROPE_RADIUS = 0.01f; // METERS
         static constexpr int ROPE_NUM_LINKS = 50;
-		// TODO: why did Dmitry's code use 0.5f here?
+        // TODO: why did Dmitry's code use 0.5f here?
         static constexpr float ROPE_GRIPPER_APPERTURE = 0.03f; // METERS
         static constexpr float ROPE_TABLE_HALF_SIDE_LENGTH = 1.5f; // METERS
         static constexpr float ROPE_CYLINDER_RADIUS = 0.15f; // METERS
