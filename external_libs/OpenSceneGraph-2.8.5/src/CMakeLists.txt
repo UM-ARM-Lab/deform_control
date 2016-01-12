@@ -1,13 +1,13 @@
 #the old construct SUBDIRS( was substituded by ADD_SUBDIRECTORY that is to be preferred according on CMake docs.
-FOREACH( mylibfolder 
+FOREACH( mylibfolder
         OpenThreads
         osg
-        osgDB 
-        osgUtil 
-        osgGA 
-        osgText 
+        osgDB
+        osgUtil
+        osgGA
+        osgText
         osgViewer
-        osgAnimation 
+        osgAnimation
         osgFX
         osgManipulator
         osgParticle
@@ -16,7 +16,7 @@ FOREACH( mylibfolder
         osgTerrain
         osgWidget
         osgVolume
-        osgPlugins
+#        osgPlugins
     )
 
     ADD_SUBDIRECTORY(${mylibfolder})
