@@ -203,7 +203,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
         btTransform table_tf = table_->rigidBody->getCenterOfMassTransform();
 
         std::vector< btVector3 > cloth_coverage_lines;
-        for(float y = -table_->halfExtents.y(); y < table_->halfExtents.y(); y += stepsize)
+        for(float y = -table_->halfExtents.y(); y <= table_->halfExtents.y(); y += stepsize)
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
@@ -213,7 +213,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
                     table_tf * btVector3 ( +table_->halfExtents.x(), y, table_->halfExtents.z() ) );
 
             // Add many coverage points along the coverage line
-            for(float x = -table_->halfExtents.x(); x < table_->halfExtents.x(); x += stepsize)
+            for(float x = -table_->halfExtents.x(); x <= table_->halfExtents.x(); x += stepsize)
             {
                 cover_points_.push_back( table_tf * btVector3( x, y, table_->halfExtents.z() ) );
             }
@@ -701,7 +701,8 @@ btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
 {
     BulletObject::Ptr obj = NULL;
     // Note that gjkOutput initializes to hasResult = false;
-    btPointCollector gjkOutput;
+    btPointCollector gjkOutput_min;
+    gjkOutput_min.m_distance = btScalar(BT_LARGE_FLOAT);
 
     // TODO: parameterize these values for k2
     // TODO: find a better name for k2
@@ -728,23 +729,32 @@ btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
     {
         GripperKinematicObject::Ptr gripper = grippers_.at( gripper_name );
 
-        // TODO: how much (if any) of this should be static/class members?
-        btGjkEpaPenetrationDepthSolver epaSolver;
-        btVoronoiSimplexSolver sGjkSimplexSolver;
+        for ( size_t gripper_child_ind = 0; gripper_child_ind < gripper->getChildren().size(); gripper_child_ind++ )
+        {
+            // TODO: how much (if any) of this should be static/class members?
+            btGjkEpaPenetrationDepthSolver epaSolver;
+            btVoronoiSimplexSolver sGjkSimplexSolver;
+            btPointCollector gjkOutput;
 
-        btGjkPairDetector convexConvex( dynamic_cast< btBoxShape* >( gripper->getChildren()[0]->collisionShape.get() ),
-                dynamic_cast< btConvexShape* >(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver );
+            btGjkPairDetector convexConvex( dynamic_cast< btBoxShape* >( gripper->getChildren()[gripper_child_ind]->collisionShape.get() ),
+                    dynamic_cast< btConvexShape* >(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver );
 
-        btGjkPairDetector::ClosestPointInput input;
+            btGjkPairDetector::ClosestPointInput input;
 
-        gripper->children[0]->motionState->getWorldTransform( input.m_transformA );
-        obj->motionState->getWorldTransform( input.m_transformB );
-        input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
-        gjkOutput.m_distance = btScalar(BT_LARGE_FLOAT);
-        convexConvex.getClosestPoints( input, gjkOutput, NULL );
+            gripper->children[gripper_child_ind]->motionState->getWorldTransform( input.m_transformA );
+            obj->motionState->getWorldTransform( input.m_transformB );
+            input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
+            gjkOutput.m_distance = btScalar(BT_LARGE_FLOAT);
+            convexConvex.getClosestPoints( input, gjkOutput, NULL );
+
+            if ( gjkOutput.m_distance < gjkOutput_min.m_distance )
+            {
+                gjkOutput_min = gjkOutput;
+            }
+        }
     }
 
-    return gjkOutput;
+    return gjkOutput_min;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
