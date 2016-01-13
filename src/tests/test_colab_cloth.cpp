@@ -869,8 +869,10 @@ void CustomScene::doJTracking()
                 cout << "Difference found!!!!!!!!!!\n";
             ////
 
-//            if(closest_dist < 0.2)
-//                continue;
+#ifdef ROPE
+            if(closest_dist < 0.2)
+                continue;
+#endif
 
             for(int j = 0; j < 3; j++)
                 V_step(3*closest_ind + j) += targvec[j]; //accumulate targvecs
@@ -1065,9 +1067,6 @@ void CustomScene::doJTracking()
             // in the nullspace of the collision Jacobian, do as much desired as we can
             Eigen::VectorXd q_desired_nullspace =
                     (Eigen::MatrixXd::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision)*q_desired;
-
-            std::cout << "nullspace projector:\n";
-            std::cout << Eigen::MatrixXd::Identity(Jcollision.cols(), Jcollision.cols())  - Jpinv_collision*Jcollision << std::endl;
 
             Eigen::VectorXd term1 = q_collision + q_desired_nullspace;
             Eigen::VectorXd term2 = q_desired;
@@ -1402,7 +1401,7 @@ void CustomScene::makeClothWorld()
     num_auto_grippers = 2;
     const float table_thickness = .05;
     //btTransform Tm_table(btQuaternion(0, 0, 0.3827,  0.9239), GeneralConfig::scale * btVector3(0.5-0.3, 0, table_height-table_thickness/2-0.1));
-    btTransform Tm_table(btQuaternion(0, 0, 0, 1), GeneralConfig::scale * btVector3(0.5, 0, table_height-table_thickness/2));
+    btTransform Tm_table(btQuaternion(0, 0, 0, 1), GeneralConfig::scale * btVector3(0, 0, table_height-table_thickness/2));
     table = BoxObject::Ptr(new BoxObject(0, GeneralConfig::scale * btVector3(.2,.2,table_thickness/2),Tm_table));
     table->rigidBody->setFriction(1);
     //table->setColor(0.8,0.2,0.2,1.0);
