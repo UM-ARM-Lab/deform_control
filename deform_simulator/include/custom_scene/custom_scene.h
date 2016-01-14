@@ -18,6 +18,7 @@
 #include "manual_gripper_path.h"
 
 #include <ros/ros.h>
+#include <actionlib/server/simple_action_server.h>
 #include <visualization_msgs/MarkerArray.h>
 
 #include <smmap/task_enums.h>
@@ -35,6 +36,10 @@ class CustomScene : public Scene
         void run( bool syncTime = false );
 
     private:
+        /// Protects against multiple threads accessing data that modifies the
+        /// environment/simulation at the same time
+        boost::mutex sim_mutex_;
+
         ////////////////////////////////////////////////////////////////////////
         // Construction helper functions
         ////////////////////////////////////////////////////////////////////////
@@ -53,7 +58,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         void moveGrippers();
-        void publishSimulatorFbk();
+        smmap_msgs::SimulatorFeedback createSimulatorFbk();
 
         ////////////////////////////////////////////////////////////////////////
         // Internal helper functions
@@ -66,9 +71,6 @@ class CustomScene : public Scene
         // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
 
-        bool cmdGripperTrajCallback(
-                smmap_msgs::CmdGrippersTrajectory::Request& req,
-                smmap_msgs::CmdGrippersTrajectory::Response& res );
         bool getGripperNamesCallback(
                 smmap_msgs::GetGripperNames::Request& req,
                 smmap_msgs::GetGripperNames::Response& res );
@@ -119,7 +121,8 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         ////////////////////////////////////////////////////////////////////////
-        // Task Variables TODO to be moved into a CustomSceneConfig file
+        // Task Variables
+        // TODO to be moved into a CustomSceneConfig file?
         ////////////////////////////////////////////////////////////////////////
 
         smmap::DeformableType deformable_type_;
@@ -189,28 +192,24 @@ class CustomScene : public Scene
 
         ros::NodeHandle nh_;
 
-        // global input mutex
-        boost::mutex input_mtx_;
-
-        ros::ServiceServer cmd_grippers_traj_srv_;
-        smmap_msgs::CmdGrippersTrajectory::Request next_gripper_traj_;
-        smmap_msgs::CmdGrippersTrajectory::Request curr_gripper_traj_;
-        size_t gripper_traj_index_;
-        bool new_gripper_traj_ready_;
-
         ros::Publisher simulator_fbk_pub_;
+
+        ros::Subscriber visualization_marker_sub_;
+        ros::Subscriber visualization_marker_array_sub_;
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
         ros::ServiceServer gripper_pose_srv_;
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer mirror_line_srv_;
-        ros::ServiceServer object_initial_configuration_srv_;
         std::vector< geometry_msgs::Point > object_initial_configuration_;
+        ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;
 
-        ros::Subscriber visualization_marker_sub_;
-        ros::Subscriber visualization_marker_array_sub_;
+        actionlib::SimpleActionServer< smmap_msgs::CmdGrippersTrajectoryAction > cmd_grippers_traj_as_;
+        smmap_msgs::CmdGrippersTrajectoryGoalConstPtr cmd_grippers_traj_goal_;
+        smmap_msgs::CmdGrippersTrajectoryResult cmd_grippers_traj_result_;
+        size_t cmd_grippers_traj_next_index_;
 
         ////////////////////////////////////////////////////////////////////////
         // Key Handler for our Custom Scene

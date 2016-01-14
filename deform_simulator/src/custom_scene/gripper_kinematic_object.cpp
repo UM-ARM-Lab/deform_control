@@ -400,7 +400,7 @@ btVector3 GripperKinematicObject::getHalfExtents()
 
 std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)
 {
-    stream << "Gripper" << std::endl
+    stream << "Gripper:" << gripper.name << std::endl
             << PrettyPrint::PrettyPrint( gripper.cur_tm ) << std::endl
             << "apperture: " << gripper.apperture
             << " open: " << gripper.bOpen

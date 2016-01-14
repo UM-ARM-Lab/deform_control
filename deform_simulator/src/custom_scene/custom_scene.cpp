@@ -41,6 +41,8 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     , deformable_type_( deformable_type )
     , task_type_( task_type )
     , nh_( nh )
+    , cmd_grippers_traj_as_( nh, smmap::GetCommandGripperTrajTopic( nh ), false )
+    , cmd_grippers_traj_goal_( nullptr )
 {
     ROS_INFO( "Building the world" );
     // Build the world
@@ -67,7 +69,7 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
 
     ROS_INFO( "Creating subscribers and publishers" );
     // Publish to the feedback channel
-    simulator_fbk_pub_ = nh_.advertise< smmap_msgs::SimulatorFbkStamped >(
+    simulator_fbk_pub_ = nh_.advertise< smmap_msgs::SimulatorFeedback >(
             smmap::GetSimulatorFeedbackTopic( nh_ ), 20 );
 
     ROS_INFO( "Creating services" );
@@ -94,12 +96,6 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
             smmap::GetObjectInitialConfigurationTopic( nh_ ), &CustomScene::getObjectInitialConfigurationCallback, this );
-
-    // Create a service to take gripper trajectories
-    cmd_grippers_traj_srv_ = nh_.advertiseService(
-            smmap::GetCommandGripperTrajTopic( nh_ ), &CustomScene::cmdGripperTrajCallback, this );
-    gripper_traj_index_ = 0;
-    new_gripper_traj_ready_ = false;
 
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
@@ -137,6 +133,9 @@ void CustomScene::run( bool syncTime )
     object_current_configuration_srv_ = nh_.advertiseService(
             smmap::GetObjectCurrentConfigurationTopic( nh_ ), &CustomScene::getObjectCurrentConfigurationCallback, this );
 
+    // Startup the action server
+    cmd_grippers_traj_as_.start();
+
     // TODO: remove this hardcoded spin rate
     boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
 
@@ -145,31 +144,64 @@ void CustomScene::run( bool syncTime )
     // Run the simulation
     while ( ros::ok() )
     {
-        // if we have some desired trajectories, execute them
-        boost::mutex::scoped_lock lock( input_mtx_ );
-        if ( new_gripper_traj_ready_ )
+        // Check if we've been asked to follow a trajectory
+        if ( cmd_grippers_traj_as_.isNewGoalAvailable() )
         {
-            curr_gripper_traj_ = next_gripper_traj_;
-            gripper_traj_index_ = 0;
-            new_gripper_traj_ready_ = false;
+            // If we already have a trajectory, premept the current one with the results so far
+            if ( cmd_grippers_traj_as_.isActive() )
+            {
+                cmd_grippers_traj_as_.setPreempted( cmd_grippers_traj_result_ );
+            }
+
+            cmd_grippers_traj_goal_ = cmd_grippers_traj_as_.acceptNewGoal();
+            cmd_grippers_traj_result_.sim_state_trajectory.clear();
+            cmd_grippers_traj_result_.sim_state_trajectory.reserve( cmd_grippers_traj_goal_->trajectories[0].pose.size() );
+            cmd_grippers_traj_next_index_ = 0;
         }
-        lock.unlock();
+
+        // If the current goal (new or not) has been preempted, send our current results and clear the goal
+        if ( cmd_grippers_traj_as_.isPreemptRequested() )
+        {
+            cmd_grippers_traj_as_.setPreempted( cmd_grippers_traj_result_ );
+            cmd_grippers_traj_goal_ = nullptr; // stictly speaking, this shouldn't be needed
+        }
 
         // If we have not reached the end of the current gripper trajectory, execute the next step
-        if ( curr_gripper_traj_.trajectories.size() > 0 &&
-             gripper_traj_index_ < curr_gripper_traj_.trajectories[0].pose.size() )
+        if ( cmd_grippers_traj_as_.isActive() )
         {
+            // Advance the sim time and record the sim state
+            boost::mutex::scoped_lock lock ( sim_mutex_ );
             moveGrippers();
 
             step( BulletConfig::dt );
 
-            publishSimulatorFbk();
+            smmap_msgs::SimulatorFeedback msg = createSimulatorFbk();
+            lock.unlock();
+
+            // publish the message
+            simulator_fbk_pub_.publish( msg );
+
+            // Deal with the action server parts of feedback
+            smmap_msgs::CmdGrippersTrajectoryFeedback as_feedback;
+            as_feedback.sim_state = msg;
+            cmd_grippers_traj_as_.publishFeedback( as_feedback );
+
+            cmd_grippers_traj_result_.sim_state_trajectory.push_back( msg );
+
+            if ( cmd_grippers_traj_next_index_ == cmd_grippers_traj_goal_->trajectories[0].pose.size() )
+            {
+                cmd_grippers_traj_as_.setSucceeded( cmd_grippers_traj_result_ );
+            }
         }
         else
         {
-            draw();
+            boost::mutex::scoped_lock lock ( sim_mutex_ );
+            step( 0 );
+            lock.unlock();
             usleep( (__useconds_t)(BulletConfig::dt * 1e6) );
         }
+
+        // TODO: should we send feedback on the generic FB channel regardless of time advancing?
     }
 
     // clean up the extra thread we started
@@ -611,15 +643,23 @@ void CustomScene::findClothCornerNodes()
 
 void CustomScene::moveGrippers()
 {
+    // Given that we are moving the grippers, we know that cmd_grippers_traj_goal_
+    // is valid, and cmd_grippers_traj_index_ is less than the length of the
+    // trajectories we are following
+    // TODO: remove this assert once I've confirmed that I haven't made any coding errors
+    assert( cmd_grippers_traj_goal_ != nullptr );
+    assert( cmd_grippers_traj_goal_->trajectories.size() > 0 );
+    assert( cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectories[0].pose.size() );
+
     // TODO check for valid gripper names (and length of names vector)
-    for ( size_t ind = 0; ind < curr_gripper_traj_.gripper_names.size(); ind++ )
+    for ( size_t ind = 0; ind < cmd_grippers_traj_goal_->gripper_names.size(); ind++ )
     {
         btTransform tf = toBulletTransform(
-                    curr_gripper_traj_.trajectories[ind].pose[gripper_traj_index_], METERS );
+                    cmd_grippers_traj_goal_->trajectories[ind].pose[cmd_grippers_traj_next_index_], METERS );
 
-        grippers_.at( curr_gripper_traj_.gripper_names[ind] )->setWorldTransform( tf );
+        grippers_.at( cmd_grippers_traj_goal_->gripper_names[ind] )->setWorldTransform( tf );
     }
-    gripper_traj_index_++;
+    cmd_grippers_traj_next_index_++;
 
     // Advance the manual grippers on their paths
     for ( auto& path: manual_grippers_paths_ )
@@ -628,10 +668,9 @@ void CustomScene::moveGrippers()
     }
 }
 
-void CustomScene::publishSimulatorFbk()
+smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 {
-    // TODO: don't rebuild this every time
-    smmap_msgs::SimulatorFbkStamped msg;
+    smmap_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
@@ -662,9 +701,7 @@ void CustomScene::publishSimulatorFbk()
     // update the sim_time
     msg.sim_time = simTime;
 
-    // publish the message
-    msg.header.stamp = ros::Time::now();
-    simulator_fbk_pub_.publish( msg );
+    return msg;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -699,13 +736,10 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes() const
  */
 btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
 {
-    BulletObject::Ptr obj = NULL;
-    // Note that gjkOutput initializes to hasResult = false;
+    BulletObject::Ptr obj = nullptr;
+    // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
-    gjkOutput_min.m_distance = btScalar(BT_LARGE_FLOAT);
 
-    // TODO: parameterize these values for k2
-    // TODO: find a better name for k2
     if ( task_type_ == smmap::TaskType::COVERAGE )
     {
         if ( deformable_type_ == smmap::DeformableType::ROPE )
@@ -744,8 +778,7 @@ btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
             gripper->children[gripper_child_ind]->motionState->getWorldTransform( input.m_transformA );
             obj->motionState->getWorldTransform( input.m_transformB );
             input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
-            gjkOutput.m_distance = btScalar(BT_LARGE_FLOAT);
-            convexConvex.getClosestPoints( input, gjkOutput, NULL );
+            convexConvex.getClosestPoints( input, gjkOutput, nullptr );
 
             if ( gjkOutput.m_distance < gjkOutput_min.m_distance )
             {
@@ -760,21 +793,6 @@ btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
 ////////////////////////////////////////////////////////////////////////////////
 // ROS Callbacks
 ////////////////////////////////////////////////////////////////////////////////
-
-bool CustomScene::cmdGripperTrajCallback(
-        smmap_msgs::CmdGrippersTrajectory::Request& req,
-        smmap_msgs::CmdGrippersTrajectory::Response& res)
-{
-    (void)res;
-    boost::mutex::scoped_lock lock( input_mtx_ );
-
-    assert( req.trajectories.size() == req.gripper_names.size() );
-
-    next_gripper_traj_ = req;
-    new_gripper_traj_ready_ = true;
-
-    return true;
-}
 
 bool CustomScene::getGripperNamesCallback(
         smmap_msgs::GetGripperNames::Request& req,
@@ -856,13 +874,15 @@ void CustomScene::visualizationMarkerCallback(
 {
     std::string id = marker.ns + std::to_string( marker.id );
 
+    // TODO: make this mutex not quite so "global" around this switch
+    boost::mutex::scoped_lock lock( sim_mutex_ );
+
     switch ( marker.type )
     {
         case visualization_msgs::Marker::POINTS:
         {
             if ( visualization_point_markers_.count(id) == 0 )
             {
-//                ROS_INFO_STREAM( "Creating new Marker::POINTS " << id );
                 PlotPoints::Ptr points( new PlotPoints() );
                 points->setPoints( toOsgRefVec3Array( marker.points, METERS ),
                                    toOsgRefVec4Array( marker.colors ) );
@@ -882,7 +902,6 @@ void CustomScene::visualizationMarkerCallback(
         {
             if ( visualization_sphere_markers_.count(id) == 0 )
             {
-//                ROS_INFO_STREAM( "Creating new Marker::SPHERE " << id );
                 PlotSpheres::Ptr spheres( new PlotSpheres() );
                 spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
                                toOsgRefVec4Array( marker.colors ),
@@ -909,7 +928,6 @@ void CustomScene::visualizationMarkerCallback(
             // if the object is new, add it
             if ( visualization_line_markers_.count( id ) == 0 )
             {
-//                ROS_INFO_STREAM( "Creating new Marker::LINE_LIST " << id );
                 PlotLines::Ptr line_strip( new PlotLines( (float)marker.scale.x * METERS ) );
                 line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
                                        toBulletColorArray( marker.colors ));
@@ -980,7 +998,7 @@ void CustomScene::drawAxes()
 
 CustomScene::CustomKeyHandler::CustomKeyHandler( CustomScene &scene )
     : scene_( scene )
-    , current_gripper_( NULL )
+    , current_gripper_( nullptr )
     , translate_gripper_( false )
     , rotate_gripper_( false )
 {}
@@ -998,16 +1016,46 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
             {
                 // Gripper translate/rotate selection keybinds
                 {
-                    case '3':
+                    case '1':
                     {
                         current_gripper_ = getGripper( 0 );
                         translate_gripper_ = true;
                         rotate_gripper_ = false;
                         break;
                     }
-                    case 'a':
+                    case 'q':
                     {
                         current_gripper_ = getGripper( 0 );
+                        translate_gripper_ = false;
+                        rotate_gripper_ = true;
+                        break;
+                    }
+
+                    case '2':
+                    {
+                        current_gripper_ = getGripper( 1 );
+                        translate_gripper_ = true;
+                        rotate_gripper_ = false;
+                        break;
+                    }
+                    case 'w':
+                    {
+                        current_gripper_ = getGripper( 1 );
+                        translate_gripper_ = false;
+                        rotate_gripper_ = true;
+                        break;
+                    }
+
+                    case '3':
+                    {
+                        current_gripper_ = getGripper( 2 );
+                        translate_gripper_ = true;
+                        rotate_gripper_ = false;
+                        break;
+                    }
+                    case 'e':
+                    {
+                        current_gripper_ = getGripper( 2 );
                         translate_gripper_ = false;
                         rotate_gripper_ = true;
                         break;
@@ -1015,39 +1063,12 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 
                     case '4':
                     {
-                        current_gripper_ = getGripper( 1 );
-                        translate_gripper_ = true;
-                        rotate_gripper_ = false;
-                        break;
-                    }                case 's':
-                    {
-                        current_gripper_ = getGripper( 1 );
-                        translate_gripper_ = false;
-                        rotate_gripper_ = true;
-                        break;
-                    }
-
-                    case '5':
-                    {
-                        current_gripper_ = getGripper( 2 );
-                        translate_gripper_ = true;
-                        rotate_gripper_ = false;
-                        break;
-                    }                case 'e':
-                    {
-                        current_gripper_ = getGripper( 2 );
-                        translate_gripper_ = false;
-                        rotate_gripper_ = true;
-                        break;
-                    }
-
-                    case '6':
-                    {
                         current_gripper_ = getGripper( 3 );
                         translate_gripper_ = true;
                         rotate_gripper_ = false;
                         break;
-                    }                case 'r':
+                    }
+                    case 'r':
                     {
                         current_gripper_ = getGripper( 3 );
                         translate_gripper_ = false;
@@ -1232,16 +1253,16 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
         {
             switch ( ea.getKey() )
             {
+                case '1':
+                case 'q':
+                case '2':
+                case 'w':
                 case '3':
-                case 'a':
-                case '4':
-                case 's':
-                case '5':
                 case 'e':
-                case '6':
+                case '4':
                 case 'r':
                 {
-                    current_gripper_ = NULL;
+                    current_gripper_ = nullptr;
                     translate_gripper_ = false;
                     rotate_gripper_ = false;
                 }
@@ -1258,7 +1279,7 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
         case osgGA::GUIEventAdapter::DRAG:
         {
             // drag the active manipulator in the plane of view
-            if (  ( ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON ) && current_gripper_ != NULL )
+            if (  ( ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON ) && current_gripper_ != nullptr )
             {
                 // if we've just started moving, reset our internal position trackers
                 if ( start_dragging_ )
@@ -1311,6 +1332,8 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
                     }
                 }
 
+                // We don't need to lock here, as this is called inside of draw()
+                // at which point we've already locked
                 current_gripper_->setWorldTransform( next_transform );
                 suppress_default_handler = true;
             }
@@ -1342,6 +1365,6 @@ GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper( size_t gr
         std::cerr << "Invalid gripper number: " << gripper_num << std::endl;
         std::cerr << "Existing auto grippers:   " << PrettyPrint::PrettyPrint( scene_.auto_grippers_ ) << std::endl;
         std::cerr << "Existing manual grippers: " << PrettyPrint::PrettyPrint( scene_.manual_grippers_ ) << std::endl;
-        return NULL;
+        return nullptr;
     }
 }

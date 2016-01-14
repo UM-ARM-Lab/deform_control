@@ -2,6 +2,7 @@ cmake_minimum_required( VERSION 2.8.3 )
 project( deform_simulator )
 
 set( CATKIN_PACKAGES
+    actionlib
     arc_utilities
     geometry_msgs
     visualization_msgs
@@ -17,9 +18,9 @@ find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
 
 ## System dependencies are found with CMake's conventions
 find_package( cmake_modules REQUIRED )
-find_package( Boost REQUIRED COMPONENTS 
-    system 
-    filesystem 
+find_package( Boost REQUIRED COMPONENTS
+    system
+    filesystem
     program_options
     thread
 )
@@ -51,7 +52,7 @@ catkin_package(
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -std=c++0x" )
 
-include_directories( include SYSTEM 
+include_directories( include SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
