@@ -155,7 +155,7 @@ void CustomScene::run( bool syncTime )
 
             cmd_grippers_traj_goal_ = cmd_grippers_traj_as_.acceptNewGoal();
             cmd_grippers_traj_result_.sim_state_trajectory.clear();
-            cmd_grippers_traj_result_.sim_state_trajectory.reserve( cmd_grippers_traj_goal_->trajectories[0].pose.size() );
+            cmd_grippers_traj_result_.sim_state_trajectory.reserve( cmd_grippers_traj_goal_->trajectory.size() );
             cmd_grippers_traj_next_index_ = 0;
         }
 
@@ -188,7 +188,7 @@ void CustomScene::run( bool syncTime )
 
             cmd_grippers_traj_result_.sim_state_trajectory.push_back( msg );
 
-            if ( cmd_grippers_traj_next_index_ == cmd_grippers_traj_goal_->trajectories[0].pose.size() )
+            if ( cmd_grippers_traj_next_index_ == cmd_grippers_traj_goal_->trajectory.size() )
             {
                 cmd_grippers_traj_as_.setSucceeded( cmd_grippers_traj_result_ );
             }
@@ -646,18 +646,18 @@ void CustomScene::moveGrippers()
     // Given that we are moving the grippers, we know that cmd_grippers_traj_goal_
     // is valid, and cmd_grippers_traj_index_ is less than the length of the
     // trajectories we are following
-    // TODO: remove this assert once I've confirmed that I haven't made any coding errors
+    // TODO: remove these asserts once I've confirmed that I haven't made any coding errors
     assert( cmd_grippers_traj_goal_ != nullptr );
-    assert( cmd_grippers_traj_goal_->trajectories.size() > 0 );
-    assert( cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectories[0].pose.size() );
+    assert( cmd_grippers_traj_goal_->trajectory.size() > 0 );
+    assert( cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectory.size() );
 
     // TODO check for valid gripper names (and length of names vector)
-    for ( size_t ind = 0; ind < cmd_grippers_traj_goal_->gripper_names.size(); ind++ )
+    for ( size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++ )
     {
         btTransform tf = toBulletTransform(
-                    cmd_grippers_traj_goal_->trajectories[ind].pose[cmd_grippers_traj_next_index_], METERS );
+                    cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind], METERS );
 
-        grippers_.at( cmd_grippers_traj_goal_->gripper_names[ind] )->setWorldTransform( tf );
+        grippers_.at( cmd_grippers_traj_goal_->gripper_names[gripper_ind] )->setWorldTransform( tf );
     }
     cmd_grippers_traj_next_index_++;
 
