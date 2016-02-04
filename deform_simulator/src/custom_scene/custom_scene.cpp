@@ -13,10 +13,12 @@
 #include <BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h>
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
+
 #include <bullet_helpers/bullet_internal_conversions.hpp>
 #include <bullet_helpers/bullet_ros_conversions.hpp>
+#include <bullet_helpers/bullet_math_helpers.hpp>
+#include <bullet_helpers/bullet_pretty_print.hpp>
 
-#include "bullet_helpers/bullet_pretty_print.hpp"
 #include "utils/util.h"
 
 using namespace BulletHelpers;
@@ -43,6 +45,8 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     , nh_( nh )
     , cmd_grippers_traj_as_( nh, smmap::GetCommandGripperTrajTopic( nh ), false )
     , cmd_grippers_traj_goal_( nullptr )
+    , num_timesteps_to_average_( 5 )
+    , deformable_object_history_( num_timesteps_to_average_ )
 {
     ROS_INFO( "Building the world" );
     // Build the world
@@ -129,6 +133,8 @@ void CustomScene::run( bool syncTime )
     // Let the object settle before anything else happens
     stepFor( BulletConfig::dt, 2 );
 
+    base_sim_time_ = simTime;
+
     // Create a service to let others know the object current configuration
     object_current_configuration_srv_ = nh_.advertiseService(
             smmap::GetObjectCurrentConfigurationTopic( nh_ ), &CustomScene::getObjectCurrentConfigurationCallback, this );
@@ -173,7 +179,11 @@ void CustomScene::run( bool syncTime )
             boost::mutex::scoped_lock lock ( sim_mutex_ );
             moveGrippers();
 
-            step( BulletConfig::dt );
+            for ( size_t filter_ind = 0; filter_ind < num_timesteps_to_average_; filter_ind++ )
+            {
+                step( BulletConfig::dt );
+                deformable_object_history_[filter_ind] = getDeformableObjectNodes();
+            }
 
             smmap_msgs::SimulatorFeedback msg = createSimulatorFbk();
             lock.unlock();
@@ -670,10 +680,15 @@ void CustomScene::moveGrippers()
 
 smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 {
+    assert( num_timesteps_to_average_ > 0 );
+    assert( deformable_object_history_.size() == num_timesteps_to_average_ );
+
     smmap_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
+    std::vector< btVector3 > filtered_object_configuration = AverageObjectNodes( deformable_object_history_ );
+
+    msg.object_configuration = toRosPointVector( filtered_object_configuration, METERS );
 
     // fill out the gripper data
     for ( const std::string &gripper_name: auto_grippers_ )
@@ -699,7 +714,7 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
     }
 
     // update the sim_time
-    msg.sim_time = simTime;
+    msg.sim_time = ( simTime - base_sim_time_ ) / (double)num_timesteps_to_average_;
 
     return msg;
 }

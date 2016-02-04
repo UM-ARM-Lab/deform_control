@@ -77,6 +77,8 @@ add_library( ${PROJECT_NAME}
     src/bullet_eigen_conversions.cpp
     include/${PROJECT_NAME}/bullet_ros_conversions.hpp
     src/bullet_ros_conversions.cpp
+    include/${PROJECT_NAME}/bullet_math_helpers.hpp
+    src/bullet_math_helpers.cpp
     include/${PROJECT_NAME}/bullet_pretty_print.hpp
     src/bullet_pretty_print.cpp
 )
