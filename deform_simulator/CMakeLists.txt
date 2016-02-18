@@ -50,7 +50,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -std=c++0x" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -march=native -std=c++0x" )
 
 include_directories( include SYSTEM
     ${catkin_INCLUDE_DIRS}

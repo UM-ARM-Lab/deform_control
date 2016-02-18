@@ -31,9 +31,10 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         void appendAnchor( btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence = 1 );
         void releaseAllAnchors( btSoftBody * psb );
 
-        std::vector<size_t> getAttachedNodeIndices();
+        const std::vector< size_t >& getAttachedNodeIndices() const;
 
-        btVector3 getHalfExtents();
+        const btVector3& getHalfExtents() const;
+        float getGripperRadius() const;
 
         // Used by the manual grippers for cloth
         void step_openclose( btSoftBody * psb );

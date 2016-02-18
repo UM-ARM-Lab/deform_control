@@ -296,7 +296,7 @@ void GripperKinematicObject::releaseAllAnchors( btSoftBody * psb )
     psb->m_anchors.clear();
 }
 
-std::vector<size_t> GripperKinematicObject::getAttachedNodeIndices()
+const std::vector<size_t>& GripperKinematicObject::getAttachedNodeIndices() const
 {
     return vattached_node_inds;
 }
@@ -392,9 +392,19 @@ void GripperKinematicObject::internalCopy( GripperKinematicObject::Ptr o, Fork &
     }
 }
 
-btVector3 GripperKinematicObject::getHalfExtents()
+const btVector3& GripperKinematicObject::getHalfExtents() const
 {
     return halfextents;
+}
+
+float GripperKinematicObject::getGripperRadius() const
+{
+    btTransform top_tf, bottom_tf;
+    children[0]->motionState->getWorldTransform( top_tf );
+    children[1]->motionState->getWorldTransform( bottom_tf );
+
+    return std::abs(top_tf.getOrigin().z() - bottom_tf.getOrigin().z())/2.0f +
+            std::max( halfextents.x(), std::max( halfextents.y(), halfextents.z() ) );
 }
 
 

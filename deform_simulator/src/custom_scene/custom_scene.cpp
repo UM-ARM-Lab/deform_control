@@ -664,10 +664,24 @@ void CustomScene::moveGrippers()
     // TODO check for valid gripper names (and length of names vector)
     for ( size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++ )
     {
+        GripperKinematicObject::Ptr gripper = grippers_.at( cmd_grippers_traj_goal_->gripper_names[gripper_ind] );
+
         btTransform tf = toBulletTransform(
                     cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind], METERS );
 
-        grippers_.at( cmd_grippers_traj_goal_->gripper_names[gripper_ind] )->setWorldTransform( tf );
+        // prevent the gripper from going into table for the rope coverage task
+        if ( deformable_type_ == smmap::DeformableType::ROPE &&
+             task_type_ == smmap::TaskType::COVERAGE )
+        {
+            if ( tf.getOrigin().z() - gripper->getGripperRadius() < TABLE_Z * METERS )
+            {
+                std::cerr << "Moving gripper to ";
+                tf.setOrigin( btVector3( tf.getOrigin().x(), tf.getOrigin().y(), TABLE_Z * METERS + gripper->getGripperRadius() ) );
+                std::cerr << tf.getOrigin().z() << std::endl;
+            }
+        }
+
+        gripper->setWorldTransform( tf );
     }
     cmd_grippers_traj_next_index_++;
 

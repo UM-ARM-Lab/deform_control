@@ -32,26 +32,25 @@ btTransform smmap::gripperPath0( u_int32_t current_step )
     btTransform transform( btQuaternion( 0, 0, 0, 1 ), btVector3( 0, 0, 0 ) );
 
     // Move in (world) -x
-    if ( current_step < 100 && current_step % 10 == 0 )
+    if ( current_step < 100 ) //&& current_step % 10 == 0 )
     {
-        transform = btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.2f, 0, 0 ) );
+        transform = btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.02f, 0, 0 ) );
     }
     // rotate around (gripper) -y
-    else if ( current_step < 200 && current_step % 10 == 0 )
+    else if ( current_step < 200 ) //&& current_step % 10 == 0 )
     {
-        transform = btTransform( btQuaternion( btVector3( 0, 1, 0 ), -0.1f ), btVector3( 0, 0, 0 ) );
+        transform = btTransform( btQuaternion( btVector3( 0, 1, 0 ), -0.01f ), btVector3( 0, 0, 0 ) );
     }
     // move in (world) -x
-    else if ( current_step < 300 && current_step % 10 == 0 )
+    else if ( current_step < 300 ) //&& current_step % 10 == 0 )
     {
-        transform = btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.2f, 0, 0 ) );
+        transform = btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.02f, 0, 0 ) );
     }
     // rotate around (gripper) -y
-    else if ( current_step < 350 && current_step % 10 == 0 )
+    else if ( current_step < 350 ) //&& current_step % 10 == 0 )
     {
-        transform = btTransform( btQuaternion( btVector3( 0, 1, 0 ), -0.1f ), btVector3( 0, 0, 0 ) );
+        transform = btTransform( btQuaternion( btVector3( 0, 1, 0 ), -0.01f ), btVector3( 0, 0, 0 ) );
     }
-
 
     return transform;
 }
@@ -61,18 +60,7 @@ btTransform smmap::gripperPath1( u_int32_t current_step )
     // start with a no-op transform
     btTransform transform( btQuaternion( 0, 0, 0, 1 ), btVector3( 0, 0, 0 ) );
 
-    if ( current_step <= 1000 )
-    {
-        transform = gripperPath0( current_step );
-    }
-    else if ( current_step <= 2000 )
-    {
-        transform = gripperPath0( current_step ).inverse();
-    }
-    else
-    {
-        transform = gripperPath0( current_step );
-    }
+    transform = gripperPath0( current_step );
 
     return transform;
 }
