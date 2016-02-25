@@ -89,6 +89,10 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     gripper_pose_srv_ = nh_.advertiseService(
             smmap::GetGripperPoseTopic( nh_ ), &CustomScene::getGripperPoseCallback, this);
 
+    // Create a service to let others know the current gripper pose
+    gripper_collision_check_srv_ = nh_.advertiseService(
+            smmap::GetGripperCollisionCheckTopic( nh_ ), &CustomScene::gripperCollisionCheckCallback, this);
+
     // Create a service to let others know the cover points
     cover_points_srv_ = nh_.advertiseService(
             smmap::GetCoverPointsTopic( nh_ ), &CustomScene::getCoverPointsCallback, this );
@@ -425,6 +429,14 @@ void CustomScene::makeRopeWorld()
         env->add( gripper.second );
         env->add( gripper_axes_[gripper.first] );
     }
+
+    // Add a gripper that is in the same state as used for the rope experiments
+    collision_check_gripper_ = GripperKinematicObject::Ptr(
+                new GripperKinematicObject( "collision_check_gripper",
+                                            ROPE_GRIPPER_APPERTURE*METERS,
+                                            btVector4( 0, 0, 0, 0 ) ) );
+    collision_check_gripper_->setWorldTransform( btTransform() );
+    env->add( collision_check_gripper_ );
 }
 
 void CustomScene::makeClothWorld()
@@ -553,6 +565,15 @@ void CustomScene::makeClothWorld()
         // This is a state machine whose input comes from CustomKeyHandler
         addPreStepCallback( boost::bind( &GripperKinematicObject::step_openclose, gripper.second, cloth_->softBody.get() ) );
     }
+
+    // Add a gripper that is in the same state as used for the cloth experiments
+    collision_check_gripper_ = GripperKinematicObject::Ptr(
+                new GripperKinematicObject( "collision_check_gripper",
+                                            CLOTH_GRIPPER_APPERTURE*METERS,
+                                            btVector4( 0, 0, 0, 0 ) ) );
+    collision_check_gripper_->setWorldTransform( btTransform() );
+    collision_check_gripper_->toggleOpen();
+    env->add( collision_check_gripper_ );
 }
 
 /**
@@ -710,7 +731,7 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
         msg.gripper_names.push_back( gripper_name );
         msg.gripper_poses.push_back( toRosPose( grippers_[gripper_name]->getWorldTransform(), METERS ) );
 
-        btPointCollector collision_result = collisionHelper( gripper_name );
+        btPointCollector collision_result = collisionHelper( grippers_[gripper_name] );
 
         if ( collision_result.m_hasResult )
         {
@@ -763,8 +784,11 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes() const
  *
  * @return The result of the collision check
  */
-btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
+btPointCollector CustomScene::collisionHelper(
+        const GripperKinematicObject::Ptr& gripper )
 {
+    assert( gripper );
+
     BulletObject::Ptr obj = nullptr;
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
@@ -790,8 +814,6 @@ btPointCollector CustomScene::collisionHelper( const std::string& gripper_name )
     // find the distance to the object
     if ( obj )
     {
-        GripperKinematicObject::Ptr gripper = grippers_.at( gripper_name );
-
         for ( size_t gripper_child_ind = 0; gripper_child_ind < gripper->getChildren().size(); gripper_child_ind++ )
         {
             // TODO: how much (if any) of this should be static/class members?
@@ -847,6 +869,39 @@ bool CustomScene::getGripperPoseCallback(
 {
     GripperKinematicObject::Ptr gripper = grippers_.at( req.name );
     res.pose = toRosPose( gripper->getWorldTransform(), METERS );
+    return true;
+}
+
+bool CustomScene::gripperCollisionCheckCallback(
+        smmap_msgs::GetGripperCollisionReport::Request& req,
+        smmap_msgs::GetGripperCollisionReport::Response& res )
+{
+    size_t num_checks = req.pose.size();
+
+    res.gripper_distance_to_obstacle.resize( num_checks );
+    res.gripper_nearest_point_to_obstacle.resize( num_checks );
+    res.obstacle_surface_normal.resize( num_checks );
+
+    for ( size_t pose_ind = 0; pose_ind < num_checks; pose_ind++ )
+    {
+        collision_check_gripper_->setWorldTransform( toBulletTransform( req.pose[pose_ind], METERS ) );
+        btPointCollector collision_result = collisionHelper( collision_check_gripper_ );
+
+        if ( collision_result.m_hasResult )
+        {
+            res.gripper_distance_to_obstacle[pose_ind] = collision_result.m_distance/METERS;
+        }
+        else
+        {
+            res.gripper_distance_to_obstacle[pose_ind] = std::numeric_limits< double >::infinity();
+        }
+
+        res.obstacle_surface_normal[pose_ind] = toRosVector3( collision_result.m_normalOnBInWorld, 1 );
+        res.gripper_nearest_point_to_obstacle[pose_ind] = toRosPoint(
+                    collision_result.m_pointInWorld
+                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS );
+    }
+
     return true;
 }
 

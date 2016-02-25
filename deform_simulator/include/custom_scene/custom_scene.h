@@ -65,7 +65,8 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         std::vector< btVector3 > getDeformableObjectNodes() const;
-        btPointCollector collisionHelper( const std::string& gripper_name );
+        btPointCollector collisionHelper(
+                const GripperKinematicObject::Ptr& gripper );
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks
@@ -80,6 +81,9 @@ class CustomScene : public Scene
         bool getGripperPoseCallback(
                 smmap_msgs::GetGripperPose::Request& req,
                 smmap_msgs::GetGripperPose::Response& res );
+        bool gripperCollisionCheckCallback(
+                smmap_msgs::GetGripperCollisionReport::Request& req,
+                smmap_msgs::GetGripperCollisionReport::Response& res );
         bool getCoverPointsCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res );
@@ -131,6 +135,8 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
         // Grippers
         ////////////////////////////////////////////////////////////////////////
+
+        GripperKinematicObject::Ptr collision_check_gripper_;
 
         std::map< std::string, PlotAxes::Ptr > gripper_axes_;
         std::map< std::string, GripperKinematicObject::Ptr > grippers_;
@@ -200,6 +206,7 @@ class CustomScene : public Scene
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
         ros::ServiceServer gripper_pose_srv_;
+        ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer mirror_line_srv_;
         std::vector< geometry_msgs::Point > object_initial_configuration_;
