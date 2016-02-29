@@ -1312,7 +1312,6 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 
                 case 'j':
                 {
-                    /// TODO: move this call to be inside of a control loop flagged
                     /// by bFirstTrackingIteration
                     scene.getDeformableObjectNodes( scene.prev_node_pos );
                     scene.bTracking = !scene.bTracking;

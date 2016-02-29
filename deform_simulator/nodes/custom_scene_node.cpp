@@ -1,6 +1,7 @@
 #include "custom_scene/custom_scene.h"
 
 #include <smmap/ros_params.hpp>
+#include <smmap/robot_interface.hpp>
 
 int main(int argc, char* argv[])
 {
@@ -8,10 +9,10 @@ int main(int argc, char* argv[])
     ros::init( argc, argv, "custom_scene", ros::init_options::NoSigintHandler );
 
     // Set some defaults for our internal configuration details
-    GeneralConfig::scale = 20.;
+    GeneralConfig::scale = 20.0;
     ViewerConfig::cameraHomePosition = btVector3(20, 5, 70);
     ViewerConfig::pointCameraLooksAt = btVector3(0, 5, 0);
-    BulletConfig::dt = 0.01;
+    BulletConfig::dt = smmap::RobotInterface::DT;
     BulletConfig::internalTimeStep = 0.01;
     BulletConfig::maxSubSteps = 0;
 
@@ -23,7 +24,7 @@ int main(int argc, char* argv[])
     parser.addGroup( SceneConfig() );
 
     // Read in any user supplied configuration parameters
-    parser.read(argc, argv);
+    parser.read( argc, argv );
 
     ros::NodeHandle nh;
 
