@@ -223,8 +223,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         double base_sim_time_;
-        const size_t num_timesteps_to_average_;
-        std::vector< std::vector< btVector3 > > deformable_object_history_;
+        const size_t num_timesteps_to_execute_per_gripper_cmd_;
 
         ////////////////////////////////////////////////////////////////////////
         // Key Handler for our Custom Scene

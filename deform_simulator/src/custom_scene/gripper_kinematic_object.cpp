@@ -144,7 +144,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
         {
             if( radius == 0 )
             {
-                radius = halfextents[0];
+                radius = 2 * halfextents[0];
             }
             //std::cout << "using radius contact: radius: " << radius << std::endl;
 

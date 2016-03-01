@@ -45,8 +45,7 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     , nh_( nh )
     , cmd_grippers_traj_as_( nh, smmap::GetCommandGripperTrajTopic( nh ), false )
     , cmd_grippers_traj_goal_( nullptr )
-    , num_timesteps_to_average_( 5 )
-    , deformable_object_history_( num_timesteps_to_average_ )
+    , num_timesteps_to_execute_per_gripper_cmd_( 4 )
 {
     ROS_INFO( "Building the world" );
     // Build the world
@@ -183,10 +182,9 @@ void CustomScene::run( bool syncTime )
             boost::mutex::scoped_lock lock ( sim_mutex_ );
             moveGrippers();
 
-            for ( size_t filter_ind = 0; filter_ind < num_timesteps_to_average_; filter_ind++ )
+            for ( size_t filter_ind = 0; filter_ind < num_timesteps_to_execute_per_gripper_cmd_; filter_ind++ )
             {
                 step( BulletConfig::dt );
-                deformable_object_history_[filter_ind] = getDeformableObjectNodes();
             }
 
             smmap_msgs::SimulatorFeedback msg = createSimulatorFbk();
@@ -266,7 +264,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
         }
         ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() );
 
-        std::vector<btVector4> cloth_coverage_color( cloth_coverage_lines.size(), btVector4( 1, 0, 1, 1 ) );
+        std::vector<btVector4> cloth_coverage_color( cloth_coverage_lines.size(), btVector4( 1, 0, 0, 1 ) );
         plot_lines_->setPoints( cloth_coverage_lines, cloth_coverage_color );
         env->add( plot_lines_ );
     }
@@ -715,15 +713,12 @@ void CustomScene::moveGrippers()
 
 smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 {
-    assert( num_timesteps_to_average_ > 0 );
-    assert( deformable_object_history_.size() == num_timesteps_to_average_ );
+    assert( num_timesteps_to_execute_per_gripper_cmd_ > 0 );
 
     smmap_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
-    std::vector< btVector3 > filtered_object_configuration = AverageObjectNodes( deformable_object_history_ );
-
-    msg.object_configuration = toRosPointVector( filtered_object_configuration, METERS );
+    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
 
     // fill out the gripper data
     for ( const std::string &gripper_name: auto_grippers_ )
@@ -749,7 +744,7 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
     }
 
     // update the sim_time
-    msg.sim_time = ( simTime - base_sim_time_ ) / (double)num_timesteps_to_average_;
+    msg.sim_time = ( simTime - base_sim_time_ ) / (double)num_timesteps_to_execute_per_gripper_cmd_;
 
     return msg;
 }
