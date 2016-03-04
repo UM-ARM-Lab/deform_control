@@ -640,8 +640,8 @@ Eigen::MatrixXd CustomScene::computeJacobian_approx()
                         //TODO: Use cross product instead
 
                         //get the vector of translation induced at closest attached point by the rotation about the center of the gripper
-                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
-//                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]);
+//                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[closest_ind]);
+                        btTransform T0_attached = btTransform(btQuaternion(0,0,0,1),node_pos[k]);
                         btTransform T0_center = gripper->getWorldTransform();
                         btTransform Tcenter_attached = T0_center.inverse()*T0_attached;
                         btTransform T0_newattached =  T0_center*perts[i]*Tcenter_attached;
@@ -724,11 +724,9 @@ void CustomScene::doJTracking()
     }
 
 
-    // Is this actually doing that? 'cause it seems that the sim might not be advancing during this time either
     // let the rope settle between iterations
-    // skip every 2nd itteration
     itrnumber++;
-    if(itrnumber != 2)
+    if(itrnumber != 4)
     {
         loopState.skip_step = false;
         return;
@@ -978,9 +976,11 @@ void CustomScene::doJTracking()
 //        }
 
 
-        Eigen::MatrixXd Jpinv= pinv(J.transpose()*J)*J.transpose();
+//        Eigen::MatrixXd Jpinv= pinv(J.transpose()*J)*J.transpose();
 
-        Eigen::VectorXd q_desired = Jpinv*V_step;
+        Eigen::VectorXd q_desired =
+                WeightedLeastSquaresSolver(J, V_step, Eigen::VectorXd::Ones(numnodes*3), 0.001, 0.1);
+//                Jpinv*V_step;
 #ifdef AVOID_COLLISION
         if(obj)
         {
@@ -1826,7 +1826,7 @@ void CustomScene::run() {
 
 int main(int argc, char *argv[]) {
     GeneralConfig::scale = 20.;
-    ViewerConfig::cameraHomePosition = btVector3(100, 0, 100);
+    ViewerConfig::cameraHomePosition = btVector3(9, 0, 42);
     BulletConfig::dt = 0.01;
     BulletConfig::internalTimeStep = 0.01;
     BulletConfig::maxSubSteps = 0;

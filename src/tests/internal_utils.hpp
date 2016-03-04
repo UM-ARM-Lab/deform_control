@@ -91,6 +91,24 @@ inline Eigen::MatrixXd pinv(const Eigen::MatrixXd &a)
 
 }
 
+inline Eigen::VectorXd WeightedLeastSquaresSolver(const Eigen::MatrixXd& A, const Eigen::VectorXd& b, const Eigen::VectorXd& w, const double damping_threshold, const double damping_value)
+{
+    // Yes, this is ugly. This is to suppress a warning on type conversion related to Eigen operations
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wconversion"
+    Eigen::MatrixXd left_side = A.transpose() * w.asDiagonal() * A;
+    #pragma GCC diagnostic pop
+    const double minimum_singular_value = left_side.jacobiSvd().singularValues().minCoeff();
+
+    if (minimum_singular_value < damping_threshold)
+    {
+        left_side += damping_value * Eigen::MatrixXd::Identity(left_side.rows(), left_side.cols());
+    }
+
+    // With the damping we can assume that the left side is positive definite, so use LLT to solve this
+    return left_side.llt().solve(A.transpose() * w.cwiseProduct(b));
+}
+
 inline float box_muller(float m, float s)	/* normal random variate generator */
 {				        /* mean m, standard deviation s */
         float x1, x2, w, y1;

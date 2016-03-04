@@ -31,7 +31,7 @@
 ////Cloth covering table
 #define DO_COVERAGE
 #define DO_ROTATION
-#define ROTATION_SCALING 50.0f
+#define ROTATION_SCALING 1.0f
 
 
 ////////////////////////
