@@ -234,7 +234,7 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
     table_ = BoxObject::Ptr( new BoxObject( 0, table_half_extents,
                 btTransform( btQuaternion( 0, 0, 0, 1 ),
                     table_surface_position - btVector3( 0, 0, TABLE_THICKNESS*METERS/2 ) ) ) );
-    table_->setColor( 0.4f, 0.4f, 0.4f, 1.0f );
+    table_->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
     // TODO why was this not set for the rope and only for the cloth?
     table_->rigidBody->setFriction(1);
 
@@ -264,9 +264,9 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
         }
         ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() );
 
-        std::vector<btVector4> cloth_coverage_color( cloth_coverage_lines.size(), btVector4( 1, 0, 0, 1 ) );
-        plot_lines_->setPoints( cloth_coverage_lines, cloth_coverage_color );
-        env->add( plot_lines_ );
+//        std::vector<btVector4> cloth_coverage_color( cloth_coverage_lines.size(), btVector4( 1, 0, 0, 1 ) );
+//        plot_lines_->setPoints( cloth_coverage_lines, cloth_coverage_color );
+//        env->add( plot_lines_ );
     }
 }
 
@@ -283,7 +283,7 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     cylinder_ = CylinderStaticObject::Ptr( new CylinderStaticObject(
                 0, ROPE_CYLINDER_RADIUS*METERS, ROPE_CYLINDER_HEIGHT*METERS,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f );
+    cylinder_->setColor( 179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f );
 
     // add the cylinder to the world
     env->add( cylinder_ );
@@ -404,7 +404,8 @@ void CustomScene::makeRopeWorld()
 
             // add a single auto gripper to the world
             grippers_["gripper"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "gripper", ROPE_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "gripper", ROPE_GRIPPER_APPERTURE*METERS,
+                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             grippers_["gripper"]->setWorldTransform(
                     rope_->children[0]->rigidBody->getCenterOfMassTransform() );
             grippers_["gripper"]->rigidGrab( rope_->children[0]->rigidBody.get(), 0, env );
@@ -455,7 +456,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper0
             grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper0", CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper0", CLOTH_GRIPPER_APPERTURE*METERS,
+                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
             grippers_["auto_gripper0"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -466,7 +468,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper1
             grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper1", CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper1", CLOTH_GRIPPER_APPERTURE*METERS,
+                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
             grippers_["auto_gripper1"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -489,7 +492,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper0
             grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper0", CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper0", CLOTH_GRIPPER_APPERTURE*METERS,
+                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
             grippers_["auto_gripper0"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -500,7 +504,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper1
             grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper1", CLOTH_GRIPPER_APPERTURE*METERS ) );
+                    new GripperKinematicObject( "auto_gripper1", CLOTH_GRIPPER_APPERTURE*METERS,
+                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
             grippers_["auto_gripper1"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -516,7 +521,7 @@ void CustomScene::makeClothWorld()
             // manual gripper0
             grippers_["manual_gripper0"] = GripperKinematicObject::Ptr(
                     new GripperKinematicObject( "manual_gripper0", CLOTH_GRIPPER_APPERTURE*METERS,
-                                                btVector4( 0.0f, 0.0f, 0.6f, 0.9f ) ) );
+                                                btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
             grippers_["manual_gripper0"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -529,7 +534,7 @@ void CustomScene::makeClothWorld()
             // manual gripper1
             grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
                     new GripperKinematicObject( "manual_gripper1", CLOTH_GRIPPER_APPERTURE*METERS,
-                                                btVector4( 0.0f, 0.0f, 0.6f, 0.9f )  ) );
+                                                btVector4( 0.0f, 0.0f, 0.6f, 0.4f )  ) );
             gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
             grippers_["manual_gripper1"]->setWorldTransform(
                     btTransform( btQuaternion( 0, 0, 0, 1 ),

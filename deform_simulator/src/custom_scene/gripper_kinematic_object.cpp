@@ -146,7 +146,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
             {
                 radius = 2 * halfextents[0];
             }
-            //std::cout << "using radius contact: radius: " << radius << std::endl;
+            std::cout << "using radius contact: radius: " << radius << std::endl;
 
             btTransform top_tm;
             children[0]->motionState->getWorldTransform( top_tm );
@@ -164,7 +164,7 @@ void GripperKinematicObject::toggleAttach( btSoftBody * psb, double radius )
 
                     vattached_node_inds.push_back( (size_t)j );
                     appendAnchor( psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get() );
-                    //std::cout << "\tappending anchor, closest ind: " << j << std::endl;
+                    std::cout << "\tappending anchor, closest ind: " << j << std::endl;
 
                 }
             }
