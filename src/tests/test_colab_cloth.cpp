@@ -979,7 +979,7 @@ void CustomScene::doJTracking()
 //        Eigen::MatrixXd Jpinv= pinv(J.transpose()*J)*J.transpose();
 
         Eigen::VectorXd q_desired =
-                WeightedLeastSquaresSolver(J, V_step, Eigen::VectorXd::Ones(numnodes*3), 0.001, 0.1);
+                WeightedLeastSquaresSolver(J, V_step, Eigen::VectorXd::Ones(numnodes*3), 1e-3, 1e-2);
 //                Jpinv*V_step;
 #ifdef AVOID_COLLISION
         if(obj)
