@@ -199,6 +199,7 @@ class CustomScene : public Scene
         ros::NodeHandle nh_;
 
         ros::Publisher simulator_fbk_pub_;
+        const double feedback_covariance_;
 
         ros::Subscriber visualization_marker_sub_;
         ros::Subscriber visualization_marker_array_sub_;
@@ -219,7 +220,7 @@ class CustomScene : public Scene
         size_t cmd_grippers_traj_next_index_;
 
         ////////////////////////////////////////////////////////////////////////
-        // Low-pass filter data structures
+        // Low-pass filter / quasi static world data structures
         ////////////////////////////////////////////////////////////////////////
 
         double base_sim_time_;

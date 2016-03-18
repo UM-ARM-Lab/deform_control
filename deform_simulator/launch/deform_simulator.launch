@@ -1,9 +1,13 @@
 <launch>
+    <arg name="feedback_covariance" default="0.0"/>
+
     <env name="OSG_FILE_PATH" 
        value="$(find OpenSceneGraph)/data"/>
 
     <node name="deform_simulator_node"
         pkg="deform_simulator"
         type="custom_scene_node"
-        required="true"/>
+        required="true">
+        <param name="feedback_covariance" value="${arg feedback_covariance}"/>
+    </node>
 </launch>

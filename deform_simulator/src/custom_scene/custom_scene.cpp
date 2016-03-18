@@ -20,6 +20,7 @@
 #include <bullet_helpers/bullet_pretty_print.hpp>
 
 #include "utils/util.h"
+#include "custom_scene/internal_utils.hpp"
 
 using namespace BulletHelpers;
 
@@ -43,6 +44,7 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
     , deformable_type_( deformable_type )
     , task_type_( task_type )
     , nh_( nh )
+    , feedback_covariance_( smmap::GetFeedbackCovariance( nh ) )
     , cmd_grippers_traj_as_( nh, smmap::GetCommandGripperTrajTopic( nh ), false )
     , cmd_grippers_traj_goal_( nullptr )
     , num_timesteps_to_execute_per_gripper_cmd_( 4 )
@@ -724,6 +726,15 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
+    if ( feedback_covariance_ > 0 )
+    {
+        for ( auto& point: msg.object_configuration )
+        {
+            point.x += BoxMuller( 0, feedback_covariance_ );
+            point.y += BoxMuller( 0, feedback_covariance_ );
+            point.z += BoxMuller( 0, feedback_covariance_ );
+        }
+    }
 
     // fill out the gripper data
     for ( const std::string &gripper_name: auto_grippers_ )
