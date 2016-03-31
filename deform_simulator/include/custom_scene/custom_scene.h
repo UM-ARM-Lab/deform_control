@@ -149,24 +149,12 @@ class CustomScene : public Scene
         // Shared world objects
         ////////////////////////////////////////////////////////////////////////
 
-        static constexpr float TABLE_X = 0.0f; // METERS
-        static constexpr float TABLE_Y = 0.0f; // METERS
-        static constexpr float TABLE_Z = 0.7f; // METERS
-        static constexpr float TABLE_THICKNESS = 0.05f; // METERS
         BoxObject::Ptr table_;
 
         ////////////////////////////////////////////////////////////////////////
         // Rope world objects
         ////////////////////////////////////////////////////////////////////////
 
-        static constexpr float ROPE_SEGMENT_LENGTH = 0.025f; // METERS
-        static constexpr float ROPE_RADIUS = 0.01f; // METERS
-        static constexpr int ROPE_NUM_LINKS = 50;
-        // TODO: why did Dmitry's code use 0.5f here?
-        static constexpr float ROPE_GRIPPER_APPERTURE = 0.03f; // METERS
-        static constexpr float ROPE_TABLE_HALF_SIDE_LENGTH = 1.5f; // METERS
-        static constexpr float ROPE_CYLINDER_RADIUS = 0.15f; // METERS
-        static constexpr float ROPE_CYLINDER_HEIGHT = 0.3f; // METERS
         CylinderStaticObject::Ptr cylinder_;
         boost::shared_ptr< CapsuleRope > rope_;
 
@@ -174,14 +162,6 @@ class CustomScene : public Scene
         // Cloth world objects
         ////////////////////////////////////////////////////////////////////////
 
-        static constexpr float CLOTH_HALF_SIDE_LENGTH = 0.25f; // METERS
-        static constexpr float CLOTH_X = TABLE_X + CLOTH_HALF_SIDE_LENGTH; // METERS
-        static constexpr float CLOTH_Y = TABLE_Y; // METERS
-        static constexpr float CLOTH_Z = TABLE_Z + 0.01f; // METERS
-
-        static constexpr int CLOTH_DIVS = 45;
-        static constexpr float CLOTH_GRIPPER_APPERTURE = 0.1f; // METERS
-        static constexpr float CLOTH_TABLE_HALF_SIDE_LENGTH = 0.2f; // METERS
         BulletSoftObject::Ptr cloth_;
         std::vector< int > cloth_corner_node_indices_;
 
