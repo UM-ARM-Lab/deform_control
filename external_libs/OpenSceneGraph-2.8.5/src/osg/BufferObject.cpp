@@ -465,7 +465,7 @@ void VertexBufferObject::compileBuffer(State& state) const
                 bep.first.dataSize != arraySize)
             {
                 // copy data across
-                unsigned int newOffset = bep.first.offset;              
+                unsigned int newOffset = bep.first.offset;
                 if (copyAll)
                 {
                     newOffset = offset;
@@ -494,7 +494,10 @@ void VertexBufferObject::compileBuffer(State& state) const
                 bep.first.dataSize = arraySize;
                 bep.first.modifiedCount[contextID] = de->getModifiedCount();
                 bep.first.offset = newOffset;
+                #pragma GCC diagnostic push
+                #pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
                 de->setVertexBufferObjectOffset((GLvoid*)newOffset);
+                #pragma GCC diagnostic pop
 
                 // osg::notify(osg::NOTICE)<<"   copying vertex buffer data "<<bep.first.dataSize<<" bytes"<<std::endl;
 
@@ -817,7 +820,7 @@ PixelDataBufferObject::~PixelDataBufferObject()
 //--------------------------------------------------------------------------------
 void PixelDataBufferObject::compileBuffer(State& state) const
 {
-    unsigned int contextID = state.getContextID();    
+    unsigned int contextID = state.getContextID();
     if (!isDirty(contextID) || _bufferData.dataSize == 0) return;
 
     Extensions* extensions = getExtensions(contextID,true);
@@ -838,7 +841,7 @@ void PixelDataBufferObject::compileBuffer(State& state) const
 //--------------------------------------------------------------------------------
 void PixelDataBufferObject::bindBufferInReadMode(State& state)
 {
-    unsigned int contextID = state.getContextID();    
+    unsigned int contextID = state.getContextID();
     if (isDirty(contextID)) compileBuffer(state);
 
     Extensions* extensions = getExtensions(contextID,true);
@@ -850,7 +853,7 @@ void PixelDataBufferObject::bindBufferInReadMode(State& state)
 //--------------------------------------------------------------------------------
 void PixelDataBufferObject::bindBufferInWriteMode(State& state)
 {
-    unsigned int contextID = state.getContextID();    
+    unsigned int contextID = state.getContextID();
     if (isDirty(contextID)) compileBuffer(state);
 
     Extensions* extensions = getExtensions(contextID,true);
@@ -861,7 +864,7 @@ void PixelDataBufferObject::bindBufferInWriteMode(State& state)
 
 //--------------------------------------------------------------------------------
 void PixelDataBufferObject::unbindBuffer(unsigned int contextID) const
-{ 
+{
     Extensions* extensions = getExtensions(contextID,true);
 
     switch(_mode[contextID])
