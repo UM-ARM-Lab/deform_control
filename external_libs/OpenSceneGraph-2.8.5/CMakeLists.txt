@@ -583,6 +583,7 @@ SET(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} CACHE STRING "(EXPERIMENTAL) You may 
 # This is for an advanced option to give aggressive warnings
 # under different compilers. If yours is not implemented, this option
 # will not be made available.
+UNSET(CMAKE_COMPILER_IS_GNUCXX CACHE)
 IF(CMAKE_COMPILER_IS_GNUCXX)
     # To be complete, we might also do GNUCC flags,
     # but everything here is C++ code.
@@ -654,9 +655,10 @@ ENDIF(DYNAMIC_OPENSCENEGRAPH)
 
 
 # Disable some warnings as I have no intention of mucking with the internals
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-tautological-compare -Wno-tautological-undefined-compare -Wno-unused-value -Wno-strict-aliasing")
+unset( ${CMAKE_CXX_COMPILER_ID} CACHE )
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-unused-value -Wno-strict-aliasing")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-to-void-pointer-cast -Wno-bool-conversion")
+    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-to-void-pointer-cast -Wno-bool-conversion -Wno-tautological-compare -Wno-tautological-undefined-compare")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-to-pointer-cast -Wno-conversion-null -Wno-unused-but-set-variable -Wno-unused-local-typedefs")
 else()

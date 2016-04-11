@@ -332,9 +332,10 @@ void CustomScene::makeRope()
     for ( int n = 0; n < TaskSpecification::ROPE_NUM_LINKS; n++ )
     {
         // TODO: get rid of this random "- 20"
+        #warning "Magic/configuration number - rope starting position"
         control_points[(size_t)n] = table_surface_position +
 //            btVector3( ((float)n - (float)(ROPE_NUM_LINKS - 1)/2)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
-            btVector3( (float)(n - 20)*TaskSpecification::ROPE_SEGMENT_LENGTH, 0, 5.0f*TaskSpecification::ROPE_RADIUS ) * METERS;
+            btVector3( (float)(n - 10)*TaskSpecification::ROPE_SEGMENT_LENGTH, 0, 5.0f*TaskSpecification::ROPE_RADIUS ) * METERS;
 
     }
     rope_.reset( new CapsuleRope( control_points, TaskSpecification::ROPE_RADIUS*METERS ) );
@@ -367,7 +368,7 @@ void CustomScene::makeCloth()
         TaskSpecification::CLOTH_DIVS, TaskSpecification::CLOTH_DIVS,
         0, true);
 
-    psb->m_cfg.piterations = 10;//2;
+    psb->m_cfg.piterations = 10;
     psb->m_cfg.collisions = btSoftBody::fCollision::CL_SS
         | btSoftBody::fCollision::CL_RS; //  | btSoftBody::fCollision::CL_SELF;
     psb->m_cfg.kDF = 1.0;
