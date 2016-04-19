@@ -1,7 +1,6 @@
-#include "custom_scene/custom_scene.h"
+#include <smmap_experiment_params/ros_params.hpp>
 
-#include <smmap/ros_params.hpp>
-#include <smmap/robot_interface.hpp>
+#include "custom_scene/custom_scene.h"
 
 int main(int argc, char* argv[])
 {
@@ -25,7 +24,7 @@ int main(int argc, char* argv[])
         ViewerConfig::pointCameraLooksAt = btVector3(0, -5, 0);
     }
 
-    BulletConfig::dt = smmap::RobotInterface::DT;
+    BulletConfig::dt = (float)smmap::GetRobotControlRate( nh );
     BulletConfig::internalTimeStep = 0.01;
     BulletConfig::maxSubSteps = 0;
 

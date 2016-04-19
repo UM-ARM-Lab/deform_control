@@ -4,8 +4,7 @@
 #include <string>
 #include <boost/thread.hpp>
 #include <ros/callback_queue.h>
-#include <smmap/ros_params.hpp>
-#include <smmap/task_specification.h>
+#include <smmap_experiment_params/ros_params.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -32,8 +31,8 @@ using namespace smmap;
 
 CustomScene::CustomScene( ros::NodeHandle& nh,
         DeformableType deformable_type, TaskType task_type)
-    : plot_points_( new PlotPoints( 0.1f*METERS ) )
-    , plot_lines_( new PlotLines( 0.25f*METERS ) )
+    : plot_points_( new PlotPoints( 0.1f * METERS ) )
+    , plot_lines_( new PlotLines( 0.25f * METERS ) )
     , deformable_type_( deformable_type )
     , task_type_( task_type )
     , nh_( nh )
@@ -219,22 +218,23 @@ void CustomScene::run( bool syncTime )
 // Construction helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::makeTable( const float half_side_length, const bool set_cover_points )
+void CustomScene::makeTable( const bool set_cover_points )
 {
     // table parameters
     const btVector3 table_surface_position =
-            btVector3( TaskSpecification::TABLE_X,
-                       TaskSpecification::TABLE_Y,
-                       TaskSpecification::TABLE_Z ) * METERS;
+            btVector3( GetTableSurfaceX( nh_ ),
+                       GetTableSurfaceY( nh_ ),
+                       GetTableSurfaceZ( nh_ ) ) * METERS;
     const btVector3 table_half_extents =
-            btVector3( half_side_length, half_side_length,
-                       TaskSpecification::TABLE_THICKNESS*METERS/2.0f );
+            btVector3( GetTableSizeX( nh_ ),
+                       GetTableSizeY( nh_ ),
+                       GetTableThickness( nh_ ) ) / 2.0f * METERS;
 
     // create the table
     table_ = BoxObject::Ptr( new BoxObject( 0, table_half_extents,
                 btTransform( btQuaternion( 0, 0, 0, 1 ),
-                    table_surface_position - btVector3(
-                                 0, 0, TaskSpecification::TABLE_THICKNESS*METERS/2.0f ) ) ) );
+                             table_surface_position
+                             - btVector3( 0, 0, table_half_extents.z() ) ) ) );
     table_->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
     // TODO why was this not set for the rope and only for the cloth?
     table_->rigidBody->setFriction(1);
@@ -244,7 +244,8 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
     // if we are doing a table coverage task, create the table coverage points
     if ( set_cover_points )
     {
-        const float stepsize = 0.0125f*METERS;
+        #warning "Cloth table cover points step size magic number"
+        const float stepsize = 0.0125f * METERS;
         btTransform table_tf = table_->rigidBody->getCenterOfMassTransform();
 
         std::vector< btVector3 > cloth_coverage_lines;
@@ -274,19 +275,17 @@ void CustomScene::makeTable( const float half_side_length, const bool set_cover_
 void CustomScene::makeCylinder( const bool set_cover_points )
 {
     // cylinder parameters
-    // NOTE: this currently has part of the cylinder inside the table
     const btVector3 cylinder_com_origin =
-        table_->rigidBody->getCenterOfMassTransform().getOrigin() +
-        //btVector3( 0, 0, TABLE_THICKNESS*METERS/2 ) +
-        btVector3( 0,
-                   TaskSpecification::ROPE_CYLINDER_RADIUS*METERS*5.0f/3.0f,
-                   TaskSpecification::ROPE_CYLINDER_HEIGHT*METERS/2.0f );
+        btVector3( GetRopeCylinderCenterOfMassX( nh_ ),
+                   GetRopeCylinderCenterOfMassY( nh_ ),
+                   GetRopeCylinderCenterOfMassZ( nh_ ) ) * METERS;
+
+    const btScalar cylinder_radius = GetRopeCylinderRadius( nh_ ) * METERS;
+    const btScalar cylinder_height = GetRopeCylinderHeight( nh_ ) * METERS;
 
     // create a cylinder
     cylinder_ = CylinderStaticObject::Ptr(
-                new CylinderStaticObject(
-                    0, TaskSpecification::ROPE_CYLINDER_RADIUS*METERS,
-                    TaskSpecification::ROPE_CYLINDER_HEIGHT*METERS,
+                new CylinderStaticObject( 0, cylinder_radius, cylinder_height,
                     btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
     cylinder_->setColor( 179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f );
 
@@ -302,13 +301,13 @@ void CustomScene::makeCylinder( const bool set_cover_points )
         // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
         {
             // 31 points per theta
-            for( float h = 0; h < TaskSpecification::ROPE_CYLINDER_HEIGHT*METERS; h += TaskSpecification::ROPE_CYLINDER_HEIGHT*METERS/30.0f )
+            for( float h = 0; h < cylinder_height; h += cylinder_height / 30.0f )
             {
                 cover_points_.push_back(
                         cylinder_com_origin
-                        + btVector3( ( TaskSpecification::ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2.0f )*std::cos( theta ),
-                                     ( TaskSpecification::ROPE_CYLINDER_RADIUS*METERS + rope_->radius/2.0f )*std::sin( theta ),
-                                     h - TaskSpecification::ROPE_CYLINDER_HEIGHT*METERS/2.0f ) );
+                        + btVector3( ( cylinder_radius + rope_->radius / 2.0f ) * std::cos( theta ),
+                                     ( cylinder_radius + rope_->radius / 2.0f ) * std::sin( theta ),
+                                     h - cylinder_height / 2.0f ) );
             }
         }
         ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() ) ;
@@ -322,23 +321,23 @@ void CustomScene::makeCylinder( const bool set_cover_points )
 void CustomScene::makeRope()
 {
     // find the needed table parameters
-    const btVector3 table_surface_position =
-            btVector3( TaskSpecification::TABLE_X,
-                       TaskSpecification::TABLE_Y,
-                       TaskSpecification::TABLE_Z ) * METERS;
+    const btVector3 rope_com =
+            btVector3( GetRopeCenterOfMassX( nh_ ),
+                       GetRopeCenterOfMassY( nh_ ),
+                       GetRopeCenterOfMassZ( nh_ ) ) * METERS;
+
+    const float rope_segment_length = GetRopeSegmentLength( nh_ ) * METERS;
+    const int num_links = GetRopeNumLinks( nh_ );
 
     // make the rope
-    std::vector<btVector3> control_points( TaskSpecification::ROPE_NUM_LINKS );
-    for ( int n = 0; n < TaskSpecification::ROPE_NUM_LINKS; n++ )
+    std::vector<btVector3> control_points( num_links );
+    for ( int n = 0; n < num_links; n++ )
     {
-        // TODO: get rid of this random "- 20"
-        #warning "Magic/configuration number - rope starting position"
-        control_points[(size_t)n] = table_surface_position +
-//            btVector3( ((float)n - (float)(ROPE_NUM_LINKS - 1)/2)*ROPE_SEGMENT_LENGTH, 0, 5*ROPE_RADIUS ) * METERS;
-            btVector3( (float)(n - 10)*TaskSpecification::ROPE_SEGMENT_LENGTH, 0, 5.0f*TaskSpecification::ROPE_RADIUS ) * METERS;
+        control_points[(size_t)n] = rope_com
+                + btVector3( ( (float)n - (float)(num_links) / 2.0f ) * rope_segment_length, 0, 0 );
 
     }
-    rope_.reset( new CapsuleRope( control_points, TaskSpecification::ROPE_RADIUS*METERS ) );
+    rope_.reset( new CapsuleRope( control_points, GetRopeRadius( nh_ ) * METERS ) );
 
     // color the rope
     std::vector< BulletObject::Ptr > children = rope_->getChildren();
@@ -355,17 +354,21 @@ void CustomScene::makeCloth()
 {
     // cloth parameters
     const btVector3 cloth_center = btVector3(
-                TaskSpecification::CLOTH_X,
-                TaskSpecification::CLOTH_Y,
-                TaskSpecification::CLOTH_Z )*METERS;
+                GetClothCenterOfMassX( nh_ ),
+                GetClothCenterOfMassY( nh_ ),
+                GetClothCenterOfMassZ( nh_ ) ) * METERS;
+
+    const btScalar cloth_x_half_side_length = GetClothXSize( nh_ ) * METERS / 2.0f;
+    const btScalar cloth_y_half_side_length = GetClothYSize( nh_ ) * METERS / 2.0f;
+    const int num_divs = GetClothNumDivs( nh_ );
 
     btSoftBody *psb = btSoftBodyHelpers::CreatePatch(
         env->bullet->softBodyWorldInfo,
-        cloth_center + btVector3( -TaskSpecification::CLOTH_HALF_SIDE_LENGTH, -TaskSpecification::CLOTH_HALF_SIDE_LENGTH, 0) * METERS,
-        cloth_center + btVector3( +TaskSpecification::CLOTH_HALF_SIDE_LENGTH, -TaskSpecification::CLOTH_HALF_SIDE_LENGTH, 0) * METERS,
-        cloth_center + btVector3( -TaskSpecification::CLOTH_HALF_SIDE_LENGTH, +TaskSpecification::CLOTH_HALF_SIDE_LENGTH, 0) * METERS,
-        cloth_center + btVector3( +TaskSpecification::CLOTH_HALF_SIDE_LENGTH, +TaskSpecification::CLOTH_HALF_SIDE_LENGTH, 0) * METERS,
-        TaskSpecification::CLOTH_DIVS, TaskSpecification::CLOTH_DIVS,
+        cloth_center + btVector3( -cloth_x_half_side_length, -cloth_y_half_side_length, 0),
+        cloth_center + btVector3( +cloth_x_half_side_length, -cloth_y_half_side_length, 0),
+        cloth_center + btVector3( -cloth_x_half_side_length, +cloth_y_half_side_length, 0),
+        cloth_center + btVector3( +cloth_x_half_side_length, +cloth_y_half_side_length, 0),
+        num_divs, num_divs,
         0, true);
 
     psb->m_cfg.piterations = 10;
@@ -410,13 +413,14 @@ void CustomScene::makeRopeWorld()
         {
             const bool table_set_cover_points = false;
             const bool cylinder_set_cover_points = true;
-            makeTable( TaskSpecification::ROPE_TABLE_HALF_SIDE_LENGTH*METERS, table_set_cover_points );
+            makeTable( table_set_cover_points );
             makeRope();
             makeCylinder( cylinder_set_cover_points );
 
             // add a single auto gripper to the world
             grippers_["gripper"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "gripper", TaskSpecification::ROPE_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "gripper",
+                                                GetRopeGripperApperture( nh_ ) * METERS,
                                                 btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             grippers_["gripper"]->setWorldTransform(
                     rope_->children[0]->rigidBody->getCenterOfMassTransform() );
@@ -444,7 +448,7 @@ void CustomScene::makeRopeWorld()
     // Add a gripper that is in the same state as used for the rope experiments
     collision_check_gripper_ = GripperKinematicObject::Ptr(
                 new GripperKinematicObject( "collision_check_gripper",
-                                            TaskSpecification::ROPE_GRIPPER_APPERTURE*METERS,
+                                            GetRopeGripperApperture( nh_ ) * METERS,
                                             btVector4( 0, 0, 0, 0 ) ) );
     collision_check_gripper_->setWorldTransform( btTransform() );
     env->add( collision_check_gripper_ );
@@ -457,7 +461,7 @@ void CustomScene::makeClothWorld()
         case TaskType::COVERAGE:
         {
             const bool set_cover_points = true;
-            makeTable( TaskSpecification::CLOTH_TABLE_HALF_SIDE_LENGTH*METERS, set_cover_points );
+            makeTable( set_cover_points );
             makeCloth();
 
             /*
@@ -468,7 +472,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper0
             grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper0", TaskSpecification::CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "auto_gripper0",
+                                                GetClothGripperApperture( nh_ ) * METERS,
                                                 btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
             grippers_["auto_gripper0"]->setWorldTransform(
@@ -480,7 +485,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper1
             grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper1", TaskSpecification::CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "auto_gripper1",
+                                                GetClothGripperApperture( nh_ ) * METERS,
                                                 btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
             grippers_["auto_gripper1"]->setWorldTransform(
@@ -504,7 +510,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper0
             grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper0", TaskSpecification::CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "auto_gripper0",
+                                                GetClothGripperApperture( nh_ ) * METERS,
                                                 btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
             grippers_["auto_gripper0"]->setWorldTransform(
@@ -516,7 +523,8 @@ void CustomScene::makeClothWorld()
 
             // auto gripper1
             grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper1", TaskSpecification::CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "auto_gripper1",
+                                                GetClothGripperApperture( nh_ ) * METERS,
                                                 btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
             grippers_["auto_gripper1"]->setWorldTransform(
@@ -532,7 +540,8 @@ void CustomScene::makeClothWorld()
 
             // manual gripper0
             grippers_["manual_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "manual_gripper0", TaskSpecification::CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "manual_gripper0",
+                                                GetClothGripperApperture( nh_ ) * METERS,
                                                 btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) ) );
             gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
             grippers_["manual_gripper0"]->setWorldTransform(
@@ -545,7 +554,8 @@ void CustomScene::makeClothWorld()
 
             // manual gripper1
             grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "manual_gripper1", TaskSpecification::CLOTH_GRIPPER_APPERTURE*METERS,
+                    new GripperKinematicObject( "manual_gripper1",
+                                                GetClothGripperApperture( nh_ ) * METERS,
                                                 btVector4( 0.0f, 0.0f, 0.6f, 0.4f )  ) );
             gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
             grippers_["manual_gripper1"]->setWorldTransform(
@@ -584,7 +594,7 @@ void CustomScene::makeClothWorld()
     // Add a gripper that is in the same state as used for the cloth experiments
     collision_check_gripper_ = GripperKinematicObject::Ptr(
                 new GripperKinematicObject( "collision_check_gripper",
-                                            TaskSpecification::CLOTH_GRIPPER_APPERTURE*METERS,
+                                            GetClothGripperApperture( nh_ ) * METERS,
                                             btVector4( 0, 0, 0, 0 ) ) );
     collision_check_gripper_->setWorldTransform( btTransform() );
     collision_check_gripper_->toggleOpen();
@@ -709,10 +719,11 @@ void CustomScene::moveGrippers()
         if ( deformable_type_ == DeformableType::ROPE &&
              task_type_ == TaskType::COVERAGE )
         {
-            if ( tf.getOrigin().z() - gripper->getGripperRadius() < TaskSpecification::TABLE_Z * METERS )
+            const btScalar table_surface_z = table_->rigidBody->getCenterOfMassTransform().getOrigin().z() + table_->halfExtents.z();
+            if ( tf.getOrigin().z() - gripper->getGripperRadius() < table_surface_z )
             {
                 std::cerr << "Moving gripper to ";
-                tf.setOrigin( btVector3( tf.getOrigin().x(), tf.getOrigin().y(), TaskSpecification::TABLE_Z * METERS + gripper->getGripperRadius() ) );
+                tf.setOrigin( btVector3( tf.getOrigin().x(), tf.getOrigin().y(), table_surface_z ) );
                 std::cerr << tf.getOrigin().z() << std::endl;
             }
         }
@@ -756,7 +767,7 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 
         if ( collision_result.m_hasResult )
         {
-            msg.gripper_distance_to_obstacle.push_back( collision_result.m_distance/METERS );
+            msg.gripper_distance_to_obstacle.push_back( collision_result.m_distance / METERS );
         }
         else
         {
@@ -910,7 +921,7 @@ bool CustomScene::gripperCollisionCheckCallback(
 
         if ( collision_result.m_hasResult )
         {
-            res.gripper_distance_to_obstacle[pose_ind] = collision_result.m_distance/METERS;
+            res.gripper_distance_to_obstacle[pose_ind] = collision_result.m_distance / METERS;
         }
         else
         {

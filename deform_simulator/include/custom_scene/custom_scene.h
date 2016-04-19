@@ -21,7 +21,7 @@
 #include <actionlib/server/simple_action_server.h>
 #include <visualization_msgs/MarkerArray.h>
 
-#include <smmap/task_enums.h>
+#include <smmap_experiment_params/task_enums.h>
 #include <smmap_msgs/messages.h>
 
 class CustomScene : public Scene
@@ -44,7 +44,7 @@ class CustomScene : public Scene
         // Construction helper functions
         ////////////////////////////////////////////////////////////////////////
 
-        void makeTable( const float half_side_length, const bool set_cover_points = false );
+        void makeTable( const bool set_cover_points = false );
         void makeCylinder( const bool set_cover_points = false );
         void makeRope();
         void makeCloth();

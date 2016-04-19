@@ -10,7 +10,8 @@ set( CATKIN_PACKAGES
     osg_bullet
     haptics
     bullet_helpers
-    smmap
+    smmap_msgs
+    smmap_experiment_params
 )
 
 ## Find catkin macros and libraries
