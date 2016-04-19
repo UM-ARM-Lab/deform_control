@@ -24,7 +24,7 @@ int main(int argc, char* argv[])
         ViewerConfig::pointCameraLooksAt = btVector3(0, -5, 0);
     }
 
-    BulletConfig::dt = (float)smmap::GetRobotControlRate( nh );
+    BulletConfig::dt = (float)smmap::GetRobotControlPeriod( nh );
     BulletConfig::internalTimeStep = 0.01;
     BulletConfig::maxSubSteps = 0;
 
