@@ -30,7 +30,8 @@ using namespace smmap;
 ////////////////////////////////////////////////////////////////////////////////
 
 CustomScene::CustomScene( ros::NodeHandle& nh,
-        DeformableType deformable_type, TaskType task_type)
+                          DeformableType deformable_type,
+                          TaskType task_type )
     : plot_points_( new PlotPoints( 0.1f * METERS ) )
     , plot_lines_( new PlotLines( 0.25f * METERS ) )
     , deformable_type_( deformable_type )
@@ -203,7 +204,10 @@ void CustomScene::run( bool syncTime )
         {
             boost::mutex::scoped_lock lock ( sim_mutex_ );
             step( 0 );
+            smmap_msgs::SimulatorFeedback msg = createSimulatorFbk();
             lock.unlock();
+            simulator_fbk_pub_.publish( msg );
+
             usleep( (__useconds_t)(BulletConfig::dt * 1e6) );
         }
 
@@ -218,7 +222,7 @@ void CustomScene::run( bool syncTime )
 // Construction helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::makeTable( const bool set_cover_points )
+void CustomScene::makeTable()
 {
     // table parameters
     const btVector3 table_surface_position =
@@ -242,7 +246,7 @@ void CustomScene::makeTable( const bool set_cover_points )
     env->add( table_ );
 
     // if we are doing a table coverage task, create the table coverage points
-    if ( set_cover_points )
+    if ( task_type_ == TaskType::TABLE_COVERAGE )
     {
         #warning "Cloth table cover points step size magic number"
         const float stepsize = 0.0125f * METERS;
@@ -272,16 +276,16 @@ void CustomScene::makeTable( const bool set_cover_points )
     }
 }
 
-void CustomScene::makeCylinder( const bool set_cover_points )
+void CustomScene::makeCylinder()
 {
     // cylinder parameters
     const btVector3 cylinder_com_origin =
-        btVector3( GetRopeCylinderCenterOfMassX( nh_ ),
-                   GetRopeCylinderCenterOfMassY( nh_ ),
-                   GetRopeCylinderCenterOfMassZ( nh_ ) ) * METERS;
+        btVector3( GetCylinderCenterOfMassX( nh_ ),
+                   GetCylinderCenterOfMassY( nh_ ),
+                   GetCylinderCenterOfMassZ( nh_ ) ) * METERS;
 
-    const btScalar cylinder_radius = GetRopeCylinderRadius( nh_ ) * METERS;
-    const btScalar cylinder_height = GetRopeCylinderHeight( nh_ ) * METERS;
+    const btScalar cylinder_radius = GetCylinderRadius( nh_ ) * METERS;
+    const btScalar cylinder_height = GetCylinderHeight( nh_ ) * METERS;
 
     // create a cylinder
     cylinder_ = CylinderStaticObject::Ptr(
@@ -292,30 +296,61 @@ void CustomScene::makeCylinder( const bool set_cover_points )
     // add the cylinder to the world
     env->add( cylinder_ );
 
-    if ( set_cover_points )
+    if ( deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::CYLINDER_COVERAGE )
     {
-        // find the points that we want to cover with a rope
-
+        #warning "Magic numbers - discretization level of cover points"
         // consider 21 points around the cylinder
-        for( float theta = 0; theta < 2.0f * M_PI; theta += 0.3f )
+        for ( float theta = 0; theta < 2.0f * M_PI; theta += 0.3f )
         // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
         {
             // 31 points per theta
-            for( float h = 0; h < cylinder_height; h += cylinder_height / 30.0f )
+            for ( float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f )
             {
                 cover_points_.push_back(
                         cylinder_com_origin
                         + btVector3( ( cylinder_radius + rope_->radius / 2.0f ) * std::cos( theta ),
                                      ( cylinder_radius + rope_->radius / 2.0f ) * std::sin( theta ),
-                                     h - cylinder_height / 2.0f ) );
+                                     h ) );
             }
         }
-        ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() ) ;
-
-        std::vector<btVector4> rope_coverage_color( cover_points_.size(), btVector4( 1, 0, 0, 1 ) );
-        plot_points_->setPoints( cover_points_, rope_coverage_color );
-        env->add( plot_points_ );
     }
+    else if ( deformable_type_ == DeformableType::CLOTH && task_type_ == TaskType::CYLINDER_COVERAGE )
+    {
+        #warning "Magic numbers - discretization level of cover points"
+        for ( float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10 )
+        {
+            for ( float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10 )
+            {
+                // Only accept those points that are within the bounding circle
+                if ( x * x + y * y < cylinder_radius * cylinder_radius )
+                {
+                    cover_points_.push_back(
+                                cylinder_com_origin
+                                + btVector3( x, y, cylinder_height / 2.0f ) );
+                }
+            }
+        }
+
+         #warning "Magic numbers - discretization level of cover points"
+        // consider 21 points around the cylinder
+        for ( float theta = 0; theta < 2.0f * M_PI; theta += 0.3f )
+            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+        {
+            // 31 points per theta
+            for ( float h = cylinder_height / 4.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f )
+            {
+                cover_points_.push_back(
+                            cylinder_com_origin
+                            + btVector3( cylinder_radius * std::cos( theta ),
+                                         cylinder_radius * std::sin( theta ),
+                                         h ) );
+            }
+        }
+    }
+
+    std::vector<btVector4> coverage_color( cover_points_.size(), btVector4( 1, 0, 0, 1 ) );
+    plot_points_->setPoints( cover_points_, coverage_color );
+    env->add( plot_points_ );
 }
 
 void CustomScene::makeRope()
@@ -406,16 +441,15 @@ void CustomScene::makeCloth()
 
 void CustomScene::makeRopeWorld()
 {
+    makeRope();
+
     // Here we assume that we are already working with a rope object
     switch ( task_type_ )
     {
-        case TaskType::COVERAGE:
+        case TaskType::CYLINDER_COVERAGE:
         {
-            const bool table_set_cover_points = false;
-            const bool cylinder_set_cover_points = true;
-            makeTable( table_set_cover_points );
-            makeRope();
-            makeCylinder( cylinder_set_cover_points );
+            makeTable();
+            makeCylinder();
 
             // add a single auto gripper to the world
             grippers_["gripper"] = GripperKinematicObject::Ptr(
@@ -456,116 +490,85 @@ void CustomScene::makeRopeWorld()
 
 void CustomScene::makeClothWorld()
 {
+    makeCloth();
+
+    // add 2 auto grippers to the world
+    {
+        btVector3 gripper_half_extents;
+
+        // auto gripper0
+        grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
+                new GripperKinematicObject( "auto_gripper0",
+                                            GetClothGripperApperture( nh_ ) * METERS,
+                                            btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
+        gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
+        grippers_["auto_gripper0"]->setWorldTransform(
+                btTransform( btQuaternion( 0, 0, 0, 1 ),
+                             cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
+                             + btVector3( gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
+
+        auto_grippers_.push_back( "auto_gripper0" );
+
+        // auto gripper1
+        grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
+                new GripperKinematicObject( "auto_gripper1",
+                                            GetClothGripperApperture( nh_ ) * METERS,
+                                            btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
+        gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
+        grippers_["auto_gripper1"]->setWorldTransform(
+                btTransform( btQuaternion( 0, 0, 0, 1 ),
+                             cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
+                             + btVector3( gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
+
+        auto_grippers_.push_back( "auto_gripper1" );
+    }
+
     switch ( task_type_ )
     {
-        case TaskType::COVERAGE:
+        case TaskType::TABLE_COVERAGE:
         {
-            const bool set_cover_points = true;
-            makeTable( set_cover_points );
-            makeCloth();
-
-            /*
-             * add 2 auto grippers to the world
-             */
-
-            btVector3 gripper_half_extents;
-
-            // auto gripper0
-            grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper0",
-                                                GetClothGripperApperture( nh_ ) * METERS,
-                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
-            gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
-            grippers_["auto_gripper0"]->setWorldTransform(
-                    btTransform( btQuaternion( 0, 0, 0, 1 ),
-                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
-                                 + btVector3( gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
-
-            auto_grippers_.push_back( "auto_gripper0" );
-
-            // auto gripper1
-            grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper1",
-                                                GetClothGripperApperture( nh_ ) * METERS,
-                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
-            gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
-            grippers_["auto_gripper1"]->setWorldTransform(
-                    btTransform( btQuaternion( 0, 0, 0, 1 ),
-                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
-                                 + btVector3( gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
-
-            auto_grippers_.push_back( "auto_gripper1" );
-
+            makeTable();
+            break;
+        }
+        case TaskType::CYLINDER_COVERAGE:
+        {
+            makeCylinder();
             break;
         }
         case TaskType::COLAB_FOLDING:
         {
-            makeCloth();
+            // add 2 manual grippers to the world
+            {
+                btVector3 gripper_half_extents;
 
-            /*
-             * add 2 auto grippers to the world
-             */
+                // manual gripper0
+                grippers_["manual_gripper0"] = GripperKinematicObject::Ptr(
+                            new GripperKinematicObject( "manual_gripper0",
+                                                        GetClothGripperApperture( nh_ ) * METERS,
+                                                        btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) ) );
+                gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
+                grippers_["manual_gripper0"]->setWorldTransform(
+                            btTransform( btQuaternion( 0, 0, 0, 1 ),
+                                         cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x
+                        + btVector3( -gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
 
-            btVector3 gripper_half_extents;
+                manual_grippers_.push_back( "manual_gripper0" );
+                manual_grippers_paths_.push_back( ManualGripperPath( grippers_["manual_gripper0"], &gripperPath0 ) );
 
-            // auto gripper0
-            grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper0",
-                                                GetClothGripperApperture( nh_ ) * METERS,
-                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
-            gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
-            grippers_["auto_gripper0"]->setWorldTransform(
-                    btTransform( btQuaternion( 0, 0, 0, 1 ),
-                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
-                                 + btVector3( gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
+                // manual gripper1
+                grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
+                            new GripperKinematicObject( "manual_gripper1",
+                                                        GetClothGripperApperture( nh_ ) * METERS,
+                                                        btVector4( 0.0f, 0.0f, 0.6f, 0.4f )  ) );
+                gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
+                grippers_["manual_gripper1"]->setWorldTransform(
+                            btTransform( btQuaternion( 0, 0, 0, 1 ),
+                                         cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x
+                        + btVector3( -gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
 
-            auto_grippers_.push_back( "auto_gripper0" );
-
-            // auto gripper1
-            grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "auto_gripper1",
-                                                GetClothGripperApperture( nh_ ) * METERS,
-                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
-            gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
-            grippers_["auto_gripper1"]->setWorldTransform(
-                    btTransform( btQuaternion( 0, 0, 0, 1 ),
-                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
-                                 + btVector3( gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
-
-            auto_grippers_.push_back( "auto_gripper1" );
-
-            /*
-             * add 2 manual grippers to the world
-             */
-
-            // manual gripper0
-            grippers_["manual_gripper0"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "manual_gripper0",
-                                                GetClothGripperApperture( nh_ ) * METERS,
-                                                btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) ) );
-            gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
-            grippers_["manual_gripper0"]->setWorldTransform(
-                    btTransform( btQuaternion( 0, 0, 0, 1 ),
-                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x
-                                 + btVector3( -gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
-
-            manual_grippers_.push_back( "manual_gripper0" );
-            manual_grippers_paths_.push_back( ManualGripperPath( grippers_["manual_gripper0"], &gripperPath0 ) );
-
-            // manual gripper1
-            grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "manual_gripper1",
-                                                GetClothGripperApperture( nh_ ) * METERS,
-                                                btVector4( 0.0f, 0.0f, 0.6f, 0.4f )  ) );
-            gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
-            grippers_["manual_gripper1"]->setWorldTransform(
-                    btTransform( btQuaternion( 0, 0, 0, 1 ),
-                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x
-                                 + btVector3( -gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
-
-            manual_grippers_.push_back( "manual_gripper1" );
-            manual_grippers_paths_.push_back( ManualGripperPath( grippers_["manual_gripper1"], &gripperPath1 ) );
-
+                manual_grippers_.push_back( "manual_gripper1" );
+                manual_grippers_paths_.push_back( ManualGripperPath( grippers_["manual_gripper1"], &gripperPath1 ) );
+            }
             break;
         }
         default:
@@ -717,7 +720,7 @@ void CustomScene::moveGrippers()
 
         // prevent the gripper from going into table for the rope coverage task
         if ( deformable_type_ == DeformableType::ROPE &&
-             task_type_ == TaskType::COVERAGE )
+             task_type_ == TaskType::TABLE_COVERAGE )
         {
             const btScalar table_surface_z = table_->rigidBody->getCenterOfMassTransform().getOrigin().z() + table_->halfExtents.z();
             if ( tf.getOrigin().z() - gripper->getGripperRadius() < table_surface_z )
@@ -825,22 +828,19 @@ btPointCollector CustomScene::collisionHelper(
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
 
-    if ( task_type_ == TaskType::COVERAGE )
+    if ( task_type_ == TaskType::TABLE_COVERAGE )
     {
-        if ( deformable_type_ == DeformableType::ROPE )
-        {
-            obj = cylinder_;
-        }
-        else if ( deformable_type_ == DeformableType::CLOTH )
-        {
-            obj = table_;
-        }
-        else
-        {
-            // This error should never happen, as elsewhere in the code we throw
-            // exceptions
-            ROS_ERROR_NAMED( "collision_detection", "Unknown deformable + coverage combination!" );
-        }
+        obj = table_;
+    }
+    else if ( task_type_ == TaskType::CYLINDER_COVERAGE )
+    {
+        obj = cylinder_;
+    }
+    else
+    {
+        // This error should never happen, as elsewhere in the code we throw
+        // exceptions
+        ROS_ERROR_NAMED( "collision_detection", "Unknown deformable + coverage combination!" );
     }
 
     // find the distance to the object

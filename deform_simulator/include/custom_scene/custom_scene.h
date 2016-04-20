@@ -44,8 +44,8 @@ class CustomScene : public Scene
         // Construction helper functions
         ////////////////////////////////////////////////////////////////////////
 
-        void makeTable( const bool set_cover_points = false );
-        void makeCylinder( const bool set_cover_points = false );
+        void makeTable();
+        void makeCylinder();
         void makeRope();
         void makeCloth();
 
