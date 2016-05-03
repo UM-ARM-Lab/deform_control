@@ -15,7 +15,7 @@ catkin_package(
     DEPENDS         system_lib
 )
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -g -std=c++0x" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -std=c++0x -march=native" )
 
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}
     SYSTEM

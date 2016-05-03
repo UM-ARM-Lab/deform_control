@@ -4,9 +4,6 @@ cmake_minimum_required( VERSION 2.8.3 )
 
 find_package( catkin REQUIRED )
 
-set( CMAKE_BUILD_TYPE="Debug" )
-
-
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS TRUE)
 
 IF(WIN32)
@@ -309,24 +306,24 @@ IF(WIN32)
 ENDIF(WIN32)
 
 # Common to all platforms:
-FIND_PACKAGE(FreeType)
-FIND_PACKAGE(Inventor)
-FIND_PACKAGE(Jasper)
-FIND_PACKAGE(OpenEXR)
-FIND_PACKAGE(COLLADA)
-FIND_PACKAGE(FBX)
-FIND_PACKAGE(ZLIB)
-FIND_PACKAGE(Xine)
-FIND_PACKAGE(OpenVRML)
-FIND_PACKAGE(Performer)
-FIND_PACKAGE(GDAL)
-#FIND_PACKAGE(CURL)
-#FIND_PACKAGE(ITK)
-FIND_PACKAGE(LibVNCServer)
-FIND_PACKAGE(OurDCMTK)
-FIND_PACKAGE(OpenAL)
-FIND_PACKAGE(XUL)
-FIND_PACKAGE(FFmpeg)
+#FIND_PACKAGE(FreeType)
+#FIND_PACKAGE(Inventor)
+#FIND_PACKAGE(Jasper)
+#FIND_PACKAGE(OpenEXR)
+#FIND_PACKAGE(COLLADA)
+#FIND_PACKAGE(FBX)
+#FIND_PACKAGE(ZLIB)
+#FIND_PACKAGE(Xine)
+#FIND_PACKAGE(OpenVRML)
+#FIND_PACKAGE(Performer)
+#FIND_PACKAGE(GDAL)
+##FIND_PACKAGE(CURL)
+##FIND_PACKAGE(ITK)
+#FIND_PACKAGE(LibVNCServer)
+#FIND_PACKAGE(OurDCMTK)
+#FIND_PACKAGE(OpenAL)
+#FIND_PACKAGE(XUL)
+#FIND_PACKAGE(FFmpeg)
 
 # Include macro utilities here
 INCLUDE(OsgMacroUtils)
@@ -654,9 +651,12 @@ ENDIF(DYNAMIC_OPENSCENEGRAPH)
 
 
 
+
+
+
 # Disable some warnings as I have no intention of mucking with the internals
 unset( ${CMAKE_CXX_COMPILER_ID} CACHE )
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O3 -Wno-overloaded-virtual -Wno-unused-value -Wno-strict-aliasing")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -march=native -Wno-overloaded-virtual -Wno-unused-value -Wno-strict-aliasing")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-to-void-pointer-cast -Wno-bool-conversion -Wno-tautological-compare -Wno-tautological-undefined-compare")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
@@ -664,6 +664,8 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 else()
     message( WARNING "Warnings for an unknown compiler not supressed" )
 endif()
+
+
 
 
 
