@@ -125,8 +125,8 @@ void CustomScene::run( bool syncTime )
 
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed, or something, it's not clear
+//    startViewer();
     setSyncTime( syncTime );
-    startViewer();
 
     // Let the object settle before anything else happens
     stepFor( BulletConfig::dt, 2 );

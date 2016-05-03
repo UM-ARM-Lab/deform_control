@@ -7,7 +7,7 @@
 #include <boost/bind.hpp>
 using namespace std;
 
-Scene::Scene() : simTime(0) {
+Scene::Scene() : drawingOn(false), syncTime(false), simTime(0) {
     osg.reset(new OSGInstance());
     bullet.reset(new BulletInstance());
     bullet->setGravity(BulletConfig::gravity);
