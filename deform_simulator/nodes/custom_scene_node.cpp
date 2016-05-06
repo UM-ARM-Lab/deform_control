@@ -7,6 +7,7 @@ int main(int argc, char* argv[])
     // Read in all ROS parameters
     ros::init( argc, argv, "custom_scene", ros::init_options::NoSigintHandler );
     ros::NodeHandle nh;
+    ros::NodeHandle ph("~");
 
     // Set some defaults for our internal configuration details
     GeneralConfig::scale = 20.0;
@@ -25,7 +26,7 @@ int main(int argc, char* argv[])
     }
 
     BulletConfig::dt = (float)smmap::GetRobotControlPeriod( nh );
-    BulletConfig::internalTimeStep = 0.01;
+    BulletConfig::internalTimeStep = 0.01f;
     BulletConfig::maxSubSteps = 0;
 
     Parser parser;
@@ -40,7 +41,8 @@ int main(int argc, char* argv[])
 
     // TODO move these settings to a CustomSceneConfig class?
     CustomScene cs( nh, smmap::GetDeformableType( nh ), smmap::GetTaskType( nh ) );
-    cs.run();
+    const bool syncTime = false;
+    cs.run( ROSHelpers::GetParam( ph, "start_bullet_viewer", true ), syncTime );
 
     return 0;
 }

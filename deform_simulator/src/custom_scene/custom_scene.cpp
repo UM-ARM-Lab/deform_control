@@ -112,7 +112,7 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
 // Main function that makes things happen
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::run( bool syncTime )
+void CustomScene::run( bool drawScene, bool syncTime )
 {
     // Note that viewer cleans up this memory
     viewer.addEventHandler( new CustomKeyHandler( *this ) );
@@ -125,7 +125,11 @@ void CustomScene::run( bool syncTime )
 
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed, or something, it's not clear
-//    startViewer();
+    setDrawing( drawScene );
+    if ( drawScene )
+    {
+        startViewer();
+    }
     setSyncTime( syncTime );
 
     // Let the object settle before anything else happens
@@ -135,7 +139,8 @@ void CustomScene::run( bool syncTime )
 
     // Create a service to let others know the object current configuration
     object_current_configuration_srv_ = nh_.advertiseService(
-            GetObjectCurrentConfigurationTopic( nh_ ), &CustomScene::getObjectCurrentConfigurationCallback, this );
+                GetObjectCurrentConfigurationTopic( nh_ ),
+                &CustomScene::getObjectCurrentConfigurationCallback, this );
 
     // Startup the action server
     cmd_grippers_traj_as_.start();

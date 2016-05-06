@@ -33,7 +33,7 @@ class CustomScene : public Scene
         // Main function that makes things happen
         ////////////////////////////////////////////////////////////////////////
 
-        void run( bool syncTime = false );
+        void run( bool drawScene = false, bool syncTime = false );
 
     private:
         /// Protects against multiple threads accessing data that modifies the
