@@ -1,7 +1,7 @@
 #ifndef CUSTOM_SCENE_H
 #define CUSTOM_SCENE_H
 
-#include <boost/thread/mutex.hpp>
+#include <mutex>
 
 #include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
 
@@ -38,7 +38,7 @@ class CustomScene : public Scene
     private:
         /// Protects against multiple threads accessing data that modifies the
         /// environment/simulation at the same time
-        boost::mutex sim_mutex_;
+        std::mutex sim_mutex_;
 
         ////////////////////////////////////////////////////////////////////////
         // Construction helper functions

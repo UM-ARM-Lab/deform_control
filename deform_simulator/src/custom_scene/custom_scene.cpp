@@ -2,7 +2,7 @@
 
 #include <limits>
 #include <string>
-#include <boost/thread.hpp>
+#include <thread>
 #include <ros/callback_queue.h>
 #include <smmap_experiment_params/ros_params.hpp>
 
@@ -146,7 +146,7 @@ void CustomScene::run( bool drawScene, bool syncTime )
     cmd_grippers_traj_as_.start();
 
     // TODO: remove this hardcoded spin rate
-    boost::thread spin_thread( boost::bind( &CustomScene::spin, 1000 ) );
+    std::thread spin_thread( CustomScene::spin, 100.0 / BulletConfig::dt );
 
     ROS_INFO( "Simulation ready." );
 
@@ -175,23 +175,22 @@ void CustomScene::run( bool drawScene, bool syncTime )
             cmd_grippers_traj_goal_ = nullptr; // stictly speaking, this shouldn't be needed
         }
 
+        smmap_msgs::SimulatorFeedback msg;
         // If we have not reached the end of the current gripper trajectory, execute the next step
         if ( cmd_grippers_traj_as_.isActive() )
         {
             // Advance the sim time and record the sim state
-            boost::mutex::scoped_lock lock ( sim_mutex_ );
-            moveGrippers();
-
-            for ( size_t filter_ind = 0; filter_ind < num_timesteps_to_execute_per_gripper_cmd_; filter_ind++ )
             {
-                step( BulletConfig::dt );
+                std::lock_guard< std::mutex > lock ( sim_mutex_ );
+                moveGrippers();
+
+                for ( size_t filter_ind = 0; filter_ind < num_timesteps_to_execute_per_gripper_cmd_; filter_ind++ )
+                {
+                    step( BulletConfig::dt );
+                }
+
+                msg = createSimulatorFbk();
             }
-
-            smmap_msgs::SimulatorFeedback msg = createSimulatorFbk();
-            lock.unlock();
-
-            // publish the message
-            simulator_fbk_pub_.publish( msg );
 
             // Deal with the action server parts of feedback
             smmap_msgs::CmdGrippersTrajectoryFeedback as_feedback;
@@ -207,16 +206,17 @@ void CustomScene::run( bool drawScene, bool syncTime )
         }
         else
         {
-            boost::mutex::scoped_lock lock ( sim_mutex_ );
-            step( 0 );
-            smmap_msgs::SimulatorFeedback msg = createSimulatorFbk();
-            lock.unlock();
-            simulator_fbk_pub_.publish( msg );
+            {
+                std::lock_guard< std::mutex > lock ( sim_mutex_ );
+                step( 0 );
+                msg = createSimulatorFbk();
+            }
 
             usleep( (__useconds_t)(BulletConfig::dt * 1e6) );
         }
 
-        // TODO: should we send feedback on the generic FB channel regardless of time advancing?
+        // publish the simulator state
+        simulator_fbk_pub_.publish( msg );
     }
 
     // clean up the extra thread we started
@@ -996,7 +996,7 @@ void CustomScene::visualizationMarkerCallback(
     std::string id = marker.ns + std::to_string( marker.id );
 
     // TODO: make this mutex not quite so "global" around this switch
-    boost::mutex::scoped_lock lock( sim_mutex_ );
+    std::lock_guard< std::mutex > lock( sim_mutex_ );
 
     switch ( marker.type )
     {
