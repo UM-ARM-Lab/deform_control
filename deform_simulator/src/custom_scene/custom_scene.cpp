@@ -239,38 +239,39 @@ void CustomScene::makeTable()
                        GetTableSizeY( nh_ ),
                        GetTableThickness( nh_ ) ) / 2.0f * METERS;
 
-    // create the table
-    table_ = BoxObject::Ptr( new BoxObject( 0, table_half_extents,
-                btTransform( btQuaternion( 0, 0, 0, 1 ),
-                             table_surface_position
-                             - btVector3( 0, 0, table_half_extents.z() ) ) ) );
-    table_->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
-    // TODO why was this not set for the rope and only for the cloth?
-    table_->rigidBody->setFriction(1);
+    const btVector3 table_com = table_surface_position - btVector3( 0, 0, table_half_extents.z() );
 
-    env->add( table_ );
+    // create the table
+    BoxObject::Ptr table = boost::make_shared< BoxObject > (
+                0, table_half_extents,
+                btTransform( btQuaternion( 0, 0, 0, 1 ), table_com ) );
+    table->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
+    table->rigidBody->setFriction(1);
+
+    env->add( table );
+    world_objects_["table"] = table;
 
     // if we are doing a table coverage task, create the table coverage points
     if ( task_type_ == TaskType::TABLE_COVERAGE )
     {
         #warning "Cloth table cover points step size magic number"
         const float stepsize = 0.0125f * METERS;
-        btTransform table_tf = table_->rigidBody->getCenterOfMassTransform();
+        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
 
         std::vector< btVector3 > cloth_coverage_lines;
-        for(float y = -table_->halfExtents.y(); y <= table_->halfExtents.y(); y += stepsize)
+        for(float y = -table->halfExtents.y(); y <= table->halfExtents.y(); y += stepsize)
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 ( -table_->halfExtents.x(), y, table_->halfExtents.z() ) );
+                    table_tf * btVector3 ( -table->halfExtents.x(), y, table->halfExtents.z() ) );
 
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 ( +table_->halfExtents.x(), y, table_->halfExtents.z() ) );
+                    table_tf * btVector3 ( +table->halfExtents.x(), y, table->halfExtents.z() ) );
 
             // Add many coverage points along the coverage line
-            for(float x = -table_->halfExtents.x(); x <= table_->halfExtents.x(); x += stepsize)
+            for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
             {
-                cover_points_.push_back( table_tf * btVector3( x, y, table_->halfExtents.z() ) );
+                cover_points_.push_back( table_tf * btVector3( x, y, table->halfExtents.z() ) );
             }
         }
         ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() );
@@ -293,13 +294,14 @@ void CustomScene::makeCylinder()
     const btScalar cylinder_height = GetCylinderHeight( nh_ ) * METERS;
 
     // create a cylinder
-    cylinder_ = CylinderStaticObject::Ptr(
-                new CylinderStaticObject( 0, cylinder_radius, cylinder_height,
-                    btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) ) );
-    cylinder_->setColor( 179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f );
+    CylinderStaticObject::Ptr cylinder = boost::make_shared< CylinderStaticObject >(
+                0, cylinder_radius, cylinder_height,
+                btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) );
+    cylinder->setColor( 179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f );
 
     // add the cylinder to the world
-    env->add( cylinder_ );
+    env->add( cylinder );
+    world_objects_["cylinder"] = cylinder;
 
     if ( deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::CYLINDER_COVERAGE )
     {
@@ -576,6 +578,14 @@ void CustomScene::makeClothWorld()
             }
             break;
         }
+        case TaskType::CLOTH_WAFR:
+        {
+            makeCylinder();
+
+
+
+            break;
+        }
         default:
         {
             throw new std::invalid_argument( "Unknown task type for a CLOTH object" );
@@ -720,21 +730,8 @@ void CustomScene::moveGrippers()
     {
         GripperKinematicObject::Ptr gripper = grippers_.at( cmd_grippers_traj_goal_->gripper_names[gripper_ind] );
 
-        btTransform tf = toBulletTransform(
+        const btTransform tf = toBulletTransform(
                     cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind], METERS );
-
-        // prevent the gripper from going into table for the rope coverage task
-        if ( deformable_type_ == DeformableType::ROPE &&
-             task_type_ == TaskType::TABLE_COVERAGE )
-        {
-            const btScalar table_surface_z = table_->rigidBody->getCenterOfMassTransform().getOrigin().z() + table_->halfExtents.z();
-            if ( tf.getOrigin().z() - gripper->getGripperRadius() < table_surface_z )
-            {
-                std::cerr << "Moving gripper to ";
-                tf.setOrigin( btVector3( tf.getOrigin().x(), tf.getOrigin().y(), table_surface_z ) );
-                std::cerr << tf.getOrigin().z() << std::endl;
-            }
-        }
 
         gripper->setWorldTransform( tf );
     }
@@ -829,28 +826,13 @@ btPointCollector CustomScene::collisionHelper(
 {
     assert( gripper );
 
-    BulletObject::Ptr obj = nullptr;
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
 
-    if ( task_type_ == TaskType::TABLE_COVERAGE )
+    // find the distance to any objects in the world
+    for ( auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr )
     {
-        obj = table_;
-    }
-    else if ( task_type_ == TaskType::CYLINDER_COVERAGE )
-    {
-        obj = cylinder_;
-    }
-    else
-    {
-        // This error should never happen, as elsewhere in the code we throw
-        // exceptions
-        ROS_ERROR_NAMED( "collision_detection", "Unknown deformable + coverage combination!" );
-    }
-
-    // find the distance to the object
-    if ( obj )
-    {
+        BulletObject::Ptr obj = ittr->second;
         for ( size_t gripper_child_ind = 0; gripper_child_ind < gripper->getChildren().size(); gripper_child_ind++ )
         {
             // TODO: how much (if any) of this should be static/class members?
