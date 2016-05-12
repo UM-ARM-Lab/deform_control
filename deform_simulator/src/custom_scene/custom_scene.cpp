@@ -32,8 +32,8 @@ using namespace smmap;
 CustomScene::CustomScene( ros::NodeHandle& nh,
                           DeformableType deformable_type,
                           TaskType task_type )
-    : plot_points_( new PlotPoints( 0.1f * METERS ) )
-    , plot_lines_( new PlotLines( 0.25f * METERS ) )
+    : plot_points_( boost::make_shared< PlotPoints >( 0.1f * METERS ) )
+    , plot_lines_( boost::make_shared< PlotLines >( 0.25f * METERS ) )
     , deformable_type_( deformable_type )
     , task_type_( task_type )
     , nh_( nh )
@@ -57,7 +57,8 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
 
         default:
         {
-            throw new std::invalid_argument( "Unknown deformable object type" );
+            ROS_FATAL_STREAM( "Unknown deformable type " << deformable_type_ );
+            throw new std::invalid_argument( "Unknown deformable object type " + deformable_type_ );
         }
     };
 
@@ -246,7 +247,8 @@ void CustomScene::makeTable()
                 0, table_half_extents,
                 btTransform( btQuaternion( 0, 0, 0, 1 ), table_com ) );
     table->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
-    table->rigidBody->setFriction(1);
+    table->rigidBody->setFriction( 1.0f );
+//    table->rigidBody->getCollisionShape()->setMargin( 0.0001f * METERS ); // default 0.04
 
     env->add( table );
     world_objects_["table"] = table;
@@ -321,7 +323,7 @@ void CustomScene::makeCylinder()
             }
         }
     }
-    else if ( deformable_type_ == DeformableType::CLOTH && task_type_ == TaskType::CYLINDER_COVERAGE )
+    else if ( deformable_type_ == DeformableType::CLOTH && ( task_type_ == TaskType::CYLINDER_COVERAGE || task_type_ == TaskType::WAFR ) )
     {
         #warning "Magic numbers - discretization level of cover points"
         for ( float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10 )
@@ -379,7 +381,7 @@ void CustomScene::makeRope()
                 + btVector3( ( (float)n - (float)(num_links) / 2.0f ) * rope_segment_length, 0, 0 );
 
     }
-    rope_.reset( new CapsuleRope( control_points, GetRopeRadius( nh_ ) * METERS ) );
+    rope_ = boost::make_shared< CapsuleRope >( control_points, GetRopeRadius( nh_ ) * METERS );
 
     // color the rope
     std::vector< BulletObject::Ptr > children = rope_->getChildren();
@@ -413,31 +415,46 @@ void CustomScene::makeCloth()
         num_divs, num_divs,
         0, true);
 
-    psb->m_cfg.piterations = 10;
-    psb->m_cfg.collisions = btSoftBody::fCollision::CL_SS
-        | btSoftBody::fCollision::CL_RS; //  | btSoftBody::fCollision::CL_SELF;
-    psb->m_cfg.kDF = 1.0;
-    psb->getCollisionShape()->setMargin( 0.05f );
-    btSoftBody::Material *pm = psb->appendMaterial();
-    // commented out as there are no self collisions
-    //pm->m_kLST = 0.2;//0.1; //makes it rubbery (handles self collisions better)
-    psb->m_cfg.kDP = 0.05f;
-    psb->generateBendingConstraints(2, pm);
+//    psb->m_cfg.viterations	=	0;      // Velocity solver iterations   - default 0
+    psb->m_cfg.piterations	=	10;     // Positions solver iterations  - default 1 - DmitrySim 10
+//    psb->m_cfg.diterations	=	10;     // Drift solver iterations      - default 0
+//    psb->m_cfg.citerations	=   4;      // Cluster solver iterations    - default 4
+
+    psb->m_cfg.collisions   = btSoftBody::fCollision::CL_SS
+            | btSoftBody::fCollision::CL_RS
+            | btSoftBody::fCollision::CL_SELF;
+
+    psb->getCollisionShape()->setMargin( 0.05f ); // default 0.25 - DmitrySim 0.05
+
+
+    psb->m_cfg.kDP          = 0.05f;    // Damping coeffient [0, +inf]          - default 0
+    psb->m_cfg.kDF          = 1.0f;     // Dynamic friction coefficient [0,1]   - default 0.2
+//    psb->m_cfg.kMT          = 0.0f;     // Pose matching coefficient [0,1]      - default 0
+//    psb->m_cfg.kKHR         = 1.0f;     // Kinetic contacts hardness [0,1]      - default 0.1
+
+
+    btSoftBody::Material *pm = psb->m_materials[0];
+//    pm->m_kLST              = 0.2f;     // Linear stiffness coefficient [0,1]       - default is 1 - makes it rubbery (handles self collisions better)
+//    pm->m_kAST              = 1;        // Area/Angular stiffness coefficient [0,1] - default is 1
+//    pm->m_kVST              = 1;        // Volume stiffness coefficient [0,1]       - default is 1
+    const int distance = 2; // node radius for creating constraints
+    psb->generateBendingConstraints(distance, pm);
     psb->randomizeConstraints();
-    // TODO: why is setTotalMass being called twice?
-    psb->setTotalMass(1, true);
-    psb->generateClusters(0);
-    psb->setTotalMass(0.1f);
 
-    // commented out as there are no self collisions
-/*    psb->generateClusters(500);
 
-    for (int i = 0; i < psb->m_clusters.size(); ++i) {
-        psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.1;
-    }
-*/
+    psb->setTotalMass(0.1f, true);
 
-    cloth_.reset( new BulletSoftObject( psb ) );
+
+    // splits the soft body volume up into the given number of small, convex clusters,
+    // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
+    // Sending '0' causes the function to us the number of tetrahedral/face elemtents as the number of clusters
+//    psb->generateClusters(500);
+//    for (int i = 0; i < psb->m_clusters.size(); ++i)
+//    {
+//        psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.1f;
+//    }
+
+    cloth_ = boost::make_shared< BulletSoftObject >( psb );
     // note that we need to add the cloth to the environment before setting the
     // color, otherwise we get a segfault
     env->add( cloth_ );
@@ -459,10 +476,10 @@ void CustomScene::makeRopeWorld()
             makeCylinder();
 
             // add a single auto gripper to the world
-            grippers_["gripper"] = GripperKinematicObject::Ptr(
-                    new GripperKinematicObject( "gripper",
-                                                GetRopeGripperApperture( nh_ ) * METERS,
-                                                btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
+            grippers_["gripper"] = boost::make_shared< GripperKinematicObject>(
+                        "gripper",
+                        GetRopeGripperApperture( nh_ ) * METERS,
+                        btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) );
             grippers_["gripper"]->setWorldTransform(
                     rope_->children[0]->rigidBody->getCenterOfMassTransform() );
             grippers_["gripper"]->rigidGrab( rope_->children[0]->rigidBody.get(), 0, env );
@@ -473,13 +490,14 @@ void CustomScene::makeRopeWorld()
         }
         default:
         {
+            ROS_FATAL_STREAM( "Unknown task type for a ROPE object " << task_type_ );
             throw new std::invalid_argument( "Unknown task type for a ROPE object" );
         }
     }
 
     for ( auto& gripper: grippers_ )
     {
-        gripper_axes_[gripper.first] = PlotAxes::Ptr( new PlotAxes() );
+        gripper_axes_[gripper.first] = boost::make_shared< PlotAxes >();
 
         // Add the gripper and it's axis to the world
         env->add( gripper.second );
@@ -487,10 +505,10 @@ void CustomScene::makeRopeWorld()
     }
 
     // Add a gripper that is in the same state as used for the rope experiments
-    collision_check_gripper_ = GripperKinematicObject::Ptr(
-                new GripperKinematicObject( "collision_check_gripper",
-                                            GetRopeGripperApperture( nh_ ) * METERS,
-                                            btVector4( 0, 0, 0, 0 ) ) );
+    collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
+                "collision_check_gripper",
+                GetRopeGripperApperture( nh_ ) * METERS,
+                btVector4( 0, 0, 0, 0 ) );
     collision_check_gripper_->setWorldTransform( btTransform() );
     env->add( collision_check_gripper_ );
 }
@@ -504,10 +522,10 @@ void CustomScene::makeClothWorld()
         btVector3 gripper_half_extents;
 
         // auto gripper0
-        grippers_["auto_gripper0"] = GripperKinematicObject::Ptr(
-                new GripperKinematicObject( "auto_gripper0",
-                                            GetClothGripperApperture( nh_ ) * METERS,
-                                            btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
+        grippers_["auto_gripper0"] = boost::make_shared< GripperKinematicObject>(
+                    "auto_gripper0",
+                    GetClothGripperApperture( nh_ ) * METERS,
+                    btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) );
         gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
         grippers_["auto_gripper0"]->setWorldTransform(
                 btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -517,10 +535,10 @@ void CustomScene::makeClothWorld()
         auto_grippers_.push_back( "auto_gripper0" );
 
         // auto gripper1
-        grippers_["auto_gripper1"] = GripperKinematicObject::Ptr(
-                new GripperKinematicObject( "auto_gripper1",
-                                            GetClothGripperApperture( nh_ ) * METERS,
-                                            btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) ) );
+        grippers_["auto_gripper1"] = boost::make_shared< GripperKinematicObject>(
+                    "auto_gripper1",
+                    GetClothGripperApperture( nh_ ) * METERS,
+                    btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) );
         gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
         grippers_["auto_gripper1"]->setWorldTransform(
                 btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -549,10 +567,10 @@ void CustomScene::makeClothWorld()
                 btVector3 gripper_half_extents;
 
                 // manual gripper0
-                grippers_["manual_gripper0"] = GripperKinematicObject::Ptr(
-                            new GripperKinematicObject( "manual_gripper0",
-                                                        GetClothGripperApperture( nh_ ) * METERS,
-                                                        btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) ) );
+                grippers_["manual_gripper0"] = boost::make_shared< GripperKinematicObject>(
+                            "manual_gripper0",
+                            GetClothGripperApperture( nh_ ) * METERS,
+                            btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) );
                 gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
                 grippers_["manual_gripper0"]->setWorldTransform(
                             btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -563,10 +581,10 @@ void CustomScene::makeClothWorld()
                 manual_grippers_paths_.push_back( ManualGripperPath( grippers_["manual_gripper0"], &gripperPath0 ) );
 
                 // manual gripper1
-                grippers_["manual_gripper1"] = GripperKinematicObject::Ptr(
-                            new GripperKinematicObject( "manual_gripper1",
-                                                        GetClothGripperApperture( nh_ ) * METERS,
-                                                        btVector4( 0.0f, 0.0f, 0.6f, 0.4f )  ) );
+                grippers_["manual_gripper1"] = boost::make_shared< GripperKinematicObject>(
+                            "manual_gripper1",
+                            GetClothGripperApperture( nh_ ) * METERS,
+                            btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) );
                 gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
                 grippers_["manual_gripper1"]->setWorldTransform(
                             btTransform( btQuaternion( 0, 0, 0, 1 ),
@@ -578,17 +596,25 @@ void CustomScene::makeClothWorld()
             }
             break;
         }
-        case TaskType::CLOTH_WAFR:
+        case TaskType::WAFR:
         {
             makeCylinder();
 
+            BoxObject::Ptr left_block = boost::make_shared< BoxObject > (
+                        0, btVector3( 0.01f, 0.25f, 0.25f ) * METERS,
+                        btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.1f, -0.1f, 0.7f ) * METERS ) );
+            left_block->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
+            left_block->rigidBody->setFriction(1);
 
+            env->add( left_block );
+            world_objects_["left_block"] = left_block;
 
             break;
         }
         default:
         {
-            throw new std::invalid_argument( "Unknown task type for a CLOTH object" );
+            ROS_FATAL_STREAM( "Unknown task type for a CLOTH object " << task_type_ );
+            throw new std::invalid_argument( "Unknown task type for a CLOTH object " + task_type_);
         }
     }
 
@@ -598,7 +624,7 @@ void CustomScene::makeClothWorld()
         gripper.second->toggleOpen();
         gripper.second->toggleAttach( cloth_->softBody.get() );
 
-        gripper_axes_[gripper.first] = PlotAxes::Ptr( new PlotAxes() );
+        gripper_axes_[gripper.first] = boost::make_shared< PlotAxes >();
 
         // Add the gripper and it's axis to the world
         env->add( gripper.second );
@@ -610,10 +636,10 @@ void CustomScene::makeClothWorld()
     }
 
     // Add a gripper that is in the same state as used for the cloth experiments
-    collision_check_gripper_ = GripperKinematicObject::Ptr(
-                new GripperKinematicObject( "collision_check_gripper",
-                                            GetClothGripperApperture( nh_ ) * METERS,
-                                            btVector4( 0, 0, 0, 0 ) ) );
+    collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
+                "collision_check_gripper",
+                GetClothGripperApperture( nh_ ) * METERS,
+                btVector4( 0, 0, 0, 0 ) );
     collision_check_gripper_->setWorldTransform( btTransform() );
     collision_check_gripper_->toggleOpen();
     env->add( collision_check_gripper_ );
@@ -702,7 +728,7 @@ void CustomScene::findClothCornerNodes()
         std::vector< btVector4 > mirror_line_colors;
         mirror_line_colors.push_back( btVector4(1,0,0,1) );
 
-        PlotLines::Ptr line_strip( new PlotLines( 0.1f * METERS ) );
+        PlotLines::Ptr line_strip = boost::make_shared< PlotLines >( 0.1f * METERS );
         line_strip->setPoints( mirror_line_points,
                                mirror_line_colors );
         visualization_line_markers_["mirror_line"] = line_strip;
@@ -986,7 +1012,7 @@ void CustomScene::visualizationMarkerCallback(
         {
             if ( visualization_point_markers_.count(id) == 0 )
             {
-                PlotPoints::Ptr points( new PlotPoints() );
+                PlotPoints::Ptr points = boost::make_shared< PlotPoints >();
                 points->setPoints( toOsgRefVec3Array( marker.points, METERS ),
                                    toOsgRefVec4Array( marker.colors ) );
                 visualization_point_markers_[id] = points;
@@ -1005,7 +1031,7 @@ void CustomScene::visualizationMarkerCallback(
         {
             if ( visualization_sphere_markers_.count(id) == 0 )
             {
-                PlotSpheres::Ptr spheres( new PlotSpheres() );
+                PlotSpheres::Ptr spheres = boost::make_shared< PlotSpheres >();
                 spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
                                toOsgRefVec4Array( marker.colors ),
                                std::vector< float >( marker.points.size(), (float)marker.scale.x * METERS ) );
@@ -1031,7 +1057,7 @@ void CustomScene::visualizationMarkerCallback(
             // if the object is new, add it
             if ( visualization_line_markers_.count( id ) == 0 )
             {
-                PlotLines::Ptr line_strip( new PlotLines( (float)marker.scale.x * METERS ) );
+                PlotLines::Ptr line_strip = boost::make_shared< PlotLines >( (float)marker.scale.x * METERS );
                 line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
                                        toBulletColorArray( marker.colors ));
                 visualization_line_markers_[id] = line_strip;
