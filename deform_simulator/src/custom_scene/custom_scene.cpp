@@ -289,7 +289,7 @@ void CustomScene::makeCylinder()
     // cylinder parameters
     const btVector3 cylinder_com_origin =
         btVector3( GetCylinderCenterOfMassX( nh_ ),
-                   GetCylinderCenterOfMassY( nh_ ),
+                   GetCylinderCenterOfMassY( nh_ ) - 0.15f,
                    GetCylinderCenterOfMassZ( nh_ ) ) * METERS;
 
     const btScalar cylinder_radius = GetCylinderRadius( nh_ ) * METERS;
@@ -326,9 +326,9 @@ void CustomScene::makeCylinder()
     else if ( deformable_type_ == DeformableType::CLOTH && ( task_type_ == TaskType::CYLINDER_COVERAGE || task_type_ == TaskType::WAFR ) )
     {
         #warning "Magic numbers - discretization level of cover points"
-        for ( float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10 )
+        for ( float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f )
         {
-            for ( float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10 )
+            for ( float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10.0f )
             {
                 // Only accept those points that are within the bounding circle
                 if ( x * x + y * y < cylinder_radius * cylinder_radius )
@@ -418,13 +418,13 @@ void CustomScene::makeCloth()
 //    psb->m_cfg.viterations	=	0;      // Velocity solver iterations   - default 0
     psb->m_cfg.piterations	=	10;     // Positions solver iterations  - default 1 - DmitrySim 10
 //    psb->m_cfg.diterations	=	10;     // Drift solver iterations      - default 0
-//    psb->m_cfg.citerations	=   4;      // Cluster solver iterations    - default 4
+    psb->m_cfg.citerations	=   15;     // Cluster solver iterations    - default 4
 
     psb->m_cfg.collisions   = btSoftBody::fCollision::CL_SS
             | btSoftBody::fCollision::CL_RS
             | btSoftBody::fCollision::CL_SELF;
 
-    psb->getCollisionShape()->setMargin( 0.05f ); // default 0.25 - DmitrySim 0.05
+    psb->getCollisionShape()->setMargin( 0.0025f * METERS ); // default 0.25 - DmitrySim 0.05
 
 
     psb->m_cfg.kDP          = 0.05f;    // Damping coeffient [0, +inf]          - default 0
@@ -448,11 +448,11 @@ void CustomScene::makeCloth()
     // splits the soft body volume up into the given number of small, convex clusters,
     // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
     // Sending '0' causes the function to us the number of tetrahedral/face elemtents as the number of clusters
-//    psb->generateClusters(500);
-//    for (int i = 0; i < psb->m_clusters.size(); ++i)
-//    {
-//        psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.1f;
-//    }
+    psb->generateClusters(500);
+    for (int i = 0; i < psb->m_clusters.size(); ++i)
+    {
+        psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
+    }
 
     cloth_ = boost::make_shared< BulletSoftObject >( psb );
     // note that we need to add the cloth to the environment before setting the
@@ -601,10 +601,11 @@ void CustomScene::makeClothWorld()
             makeCylinder();
 
             BoxObject::Ptr left_block = boost::make_shared< BoxObject > (
-                        0, btVector3( 0.01f, 0.25f, 0.25f ) * METERS,
-                        btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.1f, -0.1f, 0.7f ) * METERS ) );
+                        0, btVector3( 0.04f, 0.25f, 0.55f ) * METERS,
+                        btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.1f, -0.3f, 0.7f ) * METERS ) );
             left_block->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
             left_block->rigidBody->setFriction(1);
+            left_block->collisionShape->setMargin(0.05f * METERS);
 
             env->add( left_block );
             world_objects_["left_block"] = left_block;

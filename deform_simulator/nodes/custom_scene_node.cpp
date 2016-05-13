@@ -14,15 +14,15 @@ int main(int argc, char* argv[])
 
     if ( smmap::GetDeformableType( nh ) == smmap::DeformableType::CLOTH )
     {
-        ViewerConfig::cameraHomePosition = btVector3(20, 0, 25);
-        ViewerConfig::pointCameraLooksAt = btVector3(-10, 0, 10);
+        ViewerConfig::cameraHomePosition = btVector3(1, 0, 1.25) * METERS;
+        ViewerConfig::pointCameraLooksAt = btVector3(-0.5, 0, 0.5) * METERS;
 //        ViewerConfig::cameraHomePosition = btVector3(9, 0, 42);
 //        ViewerConfig::pointCameraLooksAt = btVector3(0, 0, 0);
     }
     else if ( smmap::GetDeformableType( nh ) == smmap::DeformableType::ROPE )
     {
-        ViewerConfig::cameraHomePosition = btVector3(0, 20, 70);
-        ViewerConfig::pointCameraLooksAt = btVector3(0, -5, 0);
+        ViewerConfig::cameraHomePosition = btVector3(0, 1, 3.5) * METERS;
+        ViewerConfig::pointCameraLooksAt = btVector3(0, -0.25, 0) * METERS;
     }
 
     BulletConfig::dt = (float)smmap::GetRobotControlPeriod( nh );
