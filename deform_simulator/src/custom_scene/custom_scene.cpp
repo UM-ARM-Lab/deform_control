@@ -1407,7 +1407,7 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
         case osgGA::GUIEventAdapter::DRAG:
         {
             // drag the active manipulator in the plane of view
-            if ( (ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON) && current_gripper_ != nullptr)
+            if ((ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON) && current_gripper_ != nullptr)
             {
                 // if we've just started moving, reset our internal position trackers
                 if (start_dragging_)

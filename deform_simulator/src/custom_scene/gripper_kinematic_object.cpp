@@ -341,7 +341,7 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
         state = GripperState_DONE;
         bOpen = false;
         if(!bAttached)
-            toggleAttach(psb );
+            toggleAttach(psb);
 
     }
     if(state == GripperState_OPENING && cur_gap_length >= apperture)
