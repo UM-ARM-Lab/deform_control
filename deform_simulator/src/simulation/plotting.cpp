@@ -153,7 +153,7 @@ void PlotSpheres::plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::r
   for (int i=0; i < centers->size(); i++) {
     osg::TessellationHints* hints = new osg::TessellationHints;
     hints->setDetailRatio(0.25f);
-    osg::Sphere* sphere = new osg::Sphere( centers->at(i), radii.at(i));
+    osg::Sphere* sphere = new osg::Sphere(centers->at(i), radii.at(i));
     osg::ShapeDrawable* sphereDrawable = new osg::ShapeDrawable(sphere,hints);
     sphereDrawable->setColor(cols->at(i));
     m_geode->addDrawable(sphereDrawable);

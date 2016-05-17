@@ -27,13 +27,13 @@
 class CustomScene : public Scene
 {
     public:
-        CustomScene( ros::NodeHandle& nh, smmap::DeformableType deformable_type, smmap::TaskType task_type );
+        CustomScene(ros::NodeHandle& nh, smmap::DeformableType deformable_type, smmap::TaskType task_type);
 
         ////////////////////////////////////////////////////////////////////////
         // Main function that makes things happen
         ////////////////////////////////////////////////////////////////////////
 
-        void run( bool drawScene = false, bool syncTime = false );
+        void run(bool drawScene = false, bool syncTime = false);
 
     private:
         /// Protects against multiple threads accessing data that modifies the
@@ -64,9 +64,9 @@ class CustomScene : public Scene
         // Internal helper functions
         ////////////////////////////////////////////////////////////////////////
 
-        std::vector< btVector3 > getDeformableObjectNodes() const;
+        std::vector<btVector3> getDeformableObjectNodes() const;
         btPointCollector collisionHelper(
-                const GripperKinematicObject::Ptr& gripper );
+                const GripperKinematicObject::Ptr& gripper);
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks
@@ -74,38 +74,38 @@ class CustomScene : public Scene
 
         bool getGripperNamesCallback(
                 smmap_msgs::GetGripperNames::Request& req,
-                smmap_msgs::GetGripperNames::Response& res );
+                smmap_msgs::GetGripperNames::Response& res);
         bool getGripperAttachedNodeIndicesCallback(
                 smmap_msgs::GetGripperAttachedNodeIndices::Request& req,
-                smmap_msgs::GetGripperAttachedNodeIndices::Response& res );
+                smmap_msgs::GetGripperAttachedNodeIndices::Response& res);
         bool getGripperPoseCallback(
                 smmap_msgs::GetGripperPose::Request& req,
-                smmap_msgs::GetGripperPose::Response& res );
+                smmap_msgs::GetGripperPose::Response& res);
         bool gripperCollisionCheckCallback(
                 smmap_msgs::GetGripperCollisionReport::Request& req,
-                smmap_msgs::GetGripperCollisionReport::Response& res );
+                smmap_msgs::GetGripperCollisionReport::Response& res);
         bool getCoverPointsCallback(
                 smmap_msgs::GetPointSet::Request& req,
-                smmap_msgs::GetPointSet::Response& res );
+                smmap_msgs::GetPointSet::Response& res);
         bool getMirrorLineCallback(
                 smmap_msgs::GetMirrorLine::Request& req,
-                smmap_msgs::GetMirrorLine::Response& res );
+                smmap_msgs::GetMirrorLine::Response& res);
         bool getObjectInitialConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
-                smmap_msgs::GetPointSet::Response& res );
+                smmap_msgs::GetPointSet::Response& res);
         bool getObjectCurrentConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
-                smmap_msgs::GetPointSet::Response& res );
+                smmap_msgs::GetPointSet::Response& res);
 
-        void visualizationMarkerCallback( visualization_msgs::Marker marker );
-        void visualizationMarkerArrayCallback( visualization_msgs::MarkerArray marker_array );
+        void visualizationMarkerCallback(visualization_msgs::Marker marker);
+        void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
 
         ////////////////////////////////////////////////////////////////////
         // ROS Objects and Helpers
         ////////////////////////////////////////////////////////////////////
 
         // Our internal version of ros::spin()
-        static void spin( double loop_rate );
+        static void spin(double loop_rate);
 
         ////////////////////////////////////////////////////////////////////////
         // Pre-step Callbacks
@@ -116,9 +116,9 @@ class CustomScene : public Scene
         PlotPoints::Ptr plot_points_;
         PlotLines::Ptr plot_lines_;
 
-        std::map< std::string,  PlotLines::Ptr > visualization_line_markers_;
-        std::map< std::string,  PlotPoints::Ptr > visualization_point_markers_;
-        std::map< std::string,  PlotSpheres::Ptr > visualization_sphere_markers_;
+        std::map<std::string,  PlotLines::Ptr> visualization_line_markers_;
+        std::map<std::string,  PlotPoints::Ptr> visualization_point_markers_;
+        std::map<std::string,  PlotSpheres::Ptr> visualization_sphere_markers_;
 
         ////////////////////////////////////////////////////////////////////////
         // Post-step Callbacks
@@ -138,37 +138,37 @@ class CustomScene : public Scene
 
         GripperKinematicObject::Ptr collision_check_gripper_;
 
-        std::map< std::string, PlotAxes::Ptr > gripper_axes_;
-        std::map< std::string, GripperKinematicObject::Ptr > grippers_;
-        std::vector< std::string > auto_grippers_;
-        std::vector< std::string > manual_grippers_;
+        std::map<std::string, PlotAxes::Ptr> gripper_axes_;
+        std::map<std::string, GripperKinematicObject::Ptr> grippers_;
+        std::vector<std::string> auto_grippers_;
+        std::vector<std::string> manual_grippers_;
 
-        std::vector< smmap::ManualGripperPath > manual_grippers_paths_;
+        std::vector<smmap::ManualGripperPath> manual_grippers_paths_;
 
         ////////////////////////////////////////////////////////////////////////
         // Shared world objects
         ////////////////////////////////////////////////////////////////////////
 
-        std::map< std::string, BulletObject::Ptr > world_objects_;
+        std::map<std::string, BulletObject::Ptr> world_objects_;
 
         ////////////////////////////////////////////////////////////////////////
         // Rope world objects
         ////////////////////////////////////////////////////////////////////////
 
-        boost::shared_ptr< CapsuleRope > rope_;
+        boost::shared_ptr<CapsuleRope> rope_;
 
         ////////////////////////////////////////////////////////////////////////
         // Cloth world objects
         ////////////////////////////////////////////////////////////////////////
 
         BulletSoftObject::Ptr cloth_;
-        std::vector< int > cloth_corner_node_indices_;
+        std::vector<int> cloth_corner_node_indices_;
 
         ////////////////////////////////////////////////////////////////////////
         // Task specific objects
         ////////////////////////////////////////////////////////////////////////
 
-        std::vector< btVector3 > cover_points_;
+        std::vector<btVector3> cover_points_;
         smmap_msgs::GetMirrorLine::Response mirror_line_data_;
 
         ////////////////////////////////////////////////////////////////////////
@@ -189,11 +189,11 @@ class CustomScene : public Scene
         ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer mirror_line_srv_;
-        std::vector< geometry_msgs::Point > object_initial_configuration_;
+        std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;
 
-        actionlib::SimpleActionServer< smmap_msgs::CmdGrippersTrajectoryAction > cmd_grippers_traj_as_;
+        actionlib::SimpleActionServer<smmap_msgs::CmdGrippersTrajectoryAction> cmd_grippers_traj_as_;
         smmap_msgs::CmdGrippersTrajectoryGoalConstPtr cmd_grippers_traj_goal_;
         smmap_msgs::CmdGrippersTrajectoryResult cmd_grippers_traj_result_;
         size_t cmd_grippers_traj_next_index_;
@@ -212,9 +212,9 @@ class CustomScene : public Scene
         class CustomKeyHandler : public osgGA::GUIEventHandler
         {
             public:
-                CustomKeyHandler( CustomScene &scene );
+                CustomKeyHandler(CustomScene &scene);
 
-                bool handle( const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter& );
+                bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&);
 
             private:
                 CustomScene& scene_;
@@ -229,7 +229,7 @@ class CustomScene : public Scene
                 float mouse_last_x_;
                 float mouse_last_y_;
 
-                GripperKinematicObject::Ptr getGripper( size_t gripper_num );
+                GripperKinematicObject::Ptr getGripper(size_t gripper_num);
         };
 };
 

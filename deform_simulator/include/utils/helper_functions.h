@@ -24,15 +24,16 @@ inline float box_muller(float m, float s)	// normal random variate generator
             x1 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
             x2 = 2.0 * (float)rand()/(float)RAND_MAX - 1.0;
             w = x1 * x1 + x2 * x2;
-        } while ( w >= 1.0 );
+        }
+        while (w >= 1.0);
 
-        w = sqrt( (-2.0 * log( w ) ) / w );
+        w = sqrt((-2.0 * log(w)) / w);
         y1 = x1 * w;
         y2 = x2 * w;
         use_last = 1;
     }
 
-    return( m + y1 * s );
+    return(m + y1 * s);
 }
 
 inline int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 projection_matrix,
@@ -65,7 +66,7 @@ inline int getExtremalPoint(std::vector<btVector3> &pnt_vec, btMatrix3x3 project
         if(projected_pnt[1] >= extremal_pnt[1] && second_dim_minmax == 1)
             bDimOK_2 = true;
 
-        if(projected_pnt[1] <= extremal_pnt[1] && !second_dim_minmax )
+        if(projected_pnt[1] <= extremal_pnt[1] && !second_dim_minmax)
             bDimOK_2 = true;
 
         if(projected_pnt[2] >= extremal_pnt[2] && third_dim_minmax == 1)
@@ -90,7 +91,7 @@ inline Eigen::MatrixXf pinv(const Eigen::MatrixXf &a)
 {
     // see : http://en.wikipedia.org/wiki/Moore-Penrose_pseudoinverse#The_general_case_and_the_SVD_method
 
-    if ( a.rows()<a.cols() )
+    if (a.rows()<a.cols())
     {
         cout << "pinv error!" << endl;
         return Eigen::MatrixXf();
@@ -108,13 +109,13 @@ inline Eigen::MatrixXf pinv(const Eigen::MatrixXf &a)
 
     for (int iRow =0; iRow<vSingular.rows(); iRow++)
     {
-        if ( fabs(vSingular(iRow))<=1e-10 ) // Todo : Put epsilon in parameter
+        if (fabs(vSingular(iRow)) <= 1e-10) // Todo : Put epsilon in parameter
         {
-            vPseudoInvertedSingular(iRow,0)=0.;
+            vPseudoInvertedSingular(iRow,0)= 0 .;
         }
         else
         {
-            vPseudoInvertedSingular(iRow,0)=1./vSingular(iRow);
+            vPseudoInvertedSingular(iRow,0) = 1./vSingular(iRow);
         }
     }
 

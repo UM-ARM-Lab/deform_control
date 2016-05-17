@@ -29,23 +29,23 @@ using namespace smmap;
 // Constructor and Destructor
 ////////////////////////////////////////////////////////////////////////////////
 
-CustomScene::CustomScene( ros::NodeHandle& nh,
+CustomScene::CustomScene(ros::NodeHandle& nh,
                           DeformableType deformable_type,
-                          TaskType task_type )
-    : plot_points_( boost::make_shared< PlotPoints >( 0.1f * METERS ) )
-    , plot_lines_( boost::make_shared< PlotLines >( 0.25f * METERS ) )
-    , deformable_type_( deformable_type )
-    , task_type_( task_type )
-    , nh_( nh )
-    , feedback_covariance_( GetFeedbackCovariance( nh ) )
-    , cmd_grippers_traj_as_( nh, GetCommandGripperTrajTopic( nh ), false )
-    , cmd_grippers_traj_goal_( nullptr )
-    , num_timesteps_to_execute_per_gripper_cmd_( 4 )
+                          TaskType task_type)
+    : plot_points_(boost::make_shared<PlotPoints>(0.1f * METERS))
+    , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
+    , deformable_type_(deformable_type)
+    , task_type_(task_type)
+    , nh_(nh)
+    , feedback_covariance_(GetFeedbackCovariance(nh))
+    , cmd_grippers_traj_as_(nh, GetCommandGripperTrajTopic(nh), false)
+    , cmd_grippers_traj_goal_(nullptr)
+    , num_timesteps_to_execute_per_gripper_cmd_(4)
 {
-    ROS_INFO( "Building the world" );
+    ROS_INFO("Building the world");
     // Build the world
     // TODO: make this setable/resetable via a ROS service call
-    switch ( deformable_type_ )
+    switch (deformable_type_)
     {
         case DeformableType::ROPE:
             makeRopeWorld();
@@ -57,137 +57,137 @@ CustomScene::CustomScene( ros::NodeHandle& nh,
 
         default:
         {
-            ROS_FATAL_STREAM( "Unknown deformable type " << deformable_type_ );
-            throw new std::invalid_argument( "Unknown deformable object type " + deformable_type_ );
+            ROS_FATAL_STREAM("Unknown deformable type " << deformable_type_);
+            throw new std::invalid_argument("Unknown deformable object type " + deformable_type_);
         }
     };
 
     // Store the initial configuration as it will be needed by other libraries
     // TODO: find a better way to do this that exposes less internals
-    object_initial_configuration_ = toRosPointVector( getDeformableObjectNodes(), METERS );
+    object_initial_configuration_ = toRosPointVector(getDeformableObjectNodes(), METERS);
 
-    ROS_INFO( "Creating subscribers and publishers" );
+    ROS_INFO("Creating subscribers and publishers");
     // Publish to the feedback channel
-    simulator_fbk_pub_ = nh_.advertise< smmap_msgs::SimulatorFeedback >(
-            GetSimulatorFeedbackTopic( nh_ ), 20 );
+    simulator_fbk_pub_ = nh_.advertise<smmap_msgs::SimulatorFeedback>(
+            GetSimulatorFeedbackTopic(nh_), 20);
 
-    ROS_INFO( "Creating services" );
+    ROS_INFO("Creating services");
     // Create a service to let others know the internal gripper names
     gripper_names_srv_ = nh_.advertiseService(
-            GetGripperNamesTopic( nh_ ), &CustomScene::getGripperNamesCallback, this );
+            GetGripperNamesTopic(nh_), &CustomScene::getGripperNamesCallback, this);
 
     // Create a service to let others know what nodes the grippers are attached too
     gripper_attached_node_indices_srv_ = nh_.advertiseService(
-            GetGripperAttachedNodeIndicesTopic( nh_ ), &CustomScene::getGripperAttachedNodeIndicesCallback, this );
+            GetGripperAttachedNodeIndicesTopic(nh_), &CustomScene::getGripperAttachedNodeIndicesCallback, this);
 
     // Create a service to let others know the current gripper pose
     gripper_pose_srv_ = nh_.advertiseService(
-            GetGripperPoseTopic( nh_ ), &CustomScene::getGripperPoseCallback, this);
+            GetGripperPoseTopic(nh_), &CustomScene::getGripperPoseCallback, this);
 
     // Create a service to let others know the current gripper pose
     gripper_collision_check_srv_ = nh_.advertiseService(
-            GetGripperCollisionCheckTopic( nh_ ), &CustomScene::gripperCollisionCheckCallback, this);
+            GetGripperCollisionCheckTopic(nh_), &CustomScene::gripperCollisionCheckCallback, this);
 
     // Create a service to let others know the cover points
     cover_points_srv_ = nh_.advertiseService(
-            GetCoverPointsTopic( nh_ ), &CustomScene::getCoverPointsCallback, this );
+            GetCoverPointsTopic(nh_), &CustomScene::getCoverPointsCallback, this);
 
     // Create a service to let others know the mirror line data
     mirror_line_srv_ = nh_.advertiseService(
-            GetMirrorLineTopic( nh_ ), &CustomScene::getMirrorLineCallback, this );
+            GetMirrorLineTopic(nh_), &CustomScene::getMirrorLineCallback, this);
 
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
-            GetObjectInitialConfigurationTopic( nh_ ), &CustomScene::getObjectInitialConfigurationCallback, this );
+            GetObjectInitialConfigurationTopic(nh_), &CustomScene::getObjectInitialConfigurationCallback, this);
 
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
-            GetVisualizationMarkerTopic( nh_ ), 20, &CustomScene::visualizationMarkerCallback, this );
+            GetVisualizationMarkerTopic(nh_), 20, &CustomScene::visualizationMarkerCallback, this);
 
     // Create a subscriber to take visualization instructions
     visualization_marker_array_sub_ = nh_.subscribe(
-            GetVisualizationMarkerArrayTopic( nh_ ), 20, &CustomScene::visualizationMarkerArrayCallback, this );
+            GetVisualizationMarkerArrayTopic(nh_), 20, &CustomScene::visualizationMarkerArrayCallback, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // Main function that makes things happen
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::run( bool drawScene, bool syncTime )
+void CustomScene::run(bool drawScene, bool syncTime)
 {
     // Note that viewer cleans up this memory
-    viewer.addEventHandler( new CustomKeyHandler( *this ) );
+    viewer.addEventHandler(new CustomKeyHandler(*this));
 
     // When the viewer closes, shutdown ROS
-    addVoidCallback( osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-            boost::bind( &ros::shutdown ) );
+    addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
+            boost::bind(&ros::shutdown));
 
-    addPreStepCallback( boost::bind( &CustomScene::drawAxes, this ) );
+    addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
 
     // if syncTime is set, the simulator blocks until the real time elapsed
     // matches the simulator time elapsed, or something, it's not clear
-    setDrawing( drawScene );
-    if ( drawScene )
+    setDrawing(drawScene);
+    if (drawScene)
     {
         startViewer();
     }
-    setSyncTime( syncTime );
+    setSyncTime(syncTime);
 
     // Let the object settle before anything else happens
-    stepFor( BulletConfig::dt, 2 );
+    stepFor(BulletConfig::dt, 2);
 
     base_sim_time_ = simTime;
 
     // Create a service to let others know the object current configuration
     object_current_configuration_srv_ = nh_.advertiseService(
-                GetObjectCurrentConfigurationTopic( nh_ ),
-                &CustomScene::getObjectCurrentConfigurationCallback, this );
+                GetObjectCurrentConfigurationTopic(nh_),
+                &CustomScene::getObjectCurrentConfigurationCallback, this);
 
     // Startup the action server
     cmd_grippers_traj_as_.start();
 
     // TODO: remove this hardcoded spin rate
-    std::thread spin_thread( CustomScene::spin, 100.0 / BulletConfig::dt );
+    std::thread spin_thread(CustomScene::spin, 100.0 / BulletConfig::dt);
 
-    ROS_INFO( "Simulation ready." );
+    ROS_INFO("Simulation ready.");
 
     // Run the simulation
-    while ( ros::ok() )
+    while (ros::ok())
     {
         // Check if we've been asked to follow a trajectory
-        if ( cmd_grippers_traj_as_.isNewGoalAvailable() )
+        if (cmd_grippers_traj_as_.isNewGoalAvailable())
         {
             // If we already have a trajectory, premept the current one with the results so far
-            if ( cmd_grippers_traj_as_.isActive() )
+            if (cmd_grippers_traj_as_.isActive())
             {
-                cmd_grippers_traj_as_.setPreempted( cmd_grippers_traj_result_ );
+                cmd_grippers_traj_as_.setPreempted(cmd_grippers_traj_result_);
             }
 
             cmd_grippers_traj_goal_ = cmd_grippers_traj_as_.acceptNewGoal();
             cmd_grippers_traj_result_.sim_state_trajectory.clear();
-            cmd_grippers_traj_result_.sim_state_trajectory.reserve( cmd_grippers_traj_goal_->trajectory.size() );
+            cmd_grippers_traj_result_.sim_state_trajectory.reserve(cmd_grippers_traj_goal_->trajectory.size());
             cmd_grippers_traj_next_index_ = 0;
         }
 
         // If the current goal (new or not) has been preempted, send our current results and clear the goal
-        if ( cmd_grippers_traj_as_.isPreemptRequested() )
+        if (cmd_grippers_traj_as_.isPreemptRequested())
         {
-            cmd_grippers_traj_as_.setPreempted( cmd_grippers_traj_result_ );
+            cmd_grippers_traj_as_.setPreempted(cmd_grippers_traj_result_);
             cmd_grippers_traj_goal_ = nullptr; // stictly speaking, this shouldn't be needed
         }
 
         smmap_msgs::SimulatorFeedback msg;
         // If we have not reached the end of the current gripper trajectory, execute the next step
-        if ( cmd_grippers_traj_as_.isActive() )
+        if (cmd_grippers_traj_as_.isActive())
         {
             // Advance the sim time and record the sim state
             {
-                std::lock_guard< std::mutex > lock ( sim_mutex_ );
+                std::lock_guard<std::mutex> lock (sim_mutex_);
                 moveGrippers();
 
-                for ( size_t filter_ind = 0; filter_ind < num_timesteps_to_execute_per_gripper_cmd_; filter_ind++ )
+                for (size_t filter_ind = 0; filter_ind < num_timesteps_to_execute_per_gripper_cmd_; filter_ind++)
                 {
-                    step( BulletConfig::dt );
+                    step(BulletConfig::dt);
                 }
 
                 msg = createSimulatorFbk();
@@ -196,28 +196,28 @@ void CustomScene::run( bool drawScene, bool syncTime )
             // Deal with the action server parts of feedback
             smmap_msgs::CmdGrippersTrajectoryFeedback as_feedback;
             as_feedback.sim_state = msg;
-            cmd_grippers_traj_as_.publishFeedback( as_feedback );
+            cmd_grippers_traj_as_.publishFeedback(as_feedback);
 
-            cmd_grippers_traj_result_.sim_state_trajectory.push_back( msg );
+            cmd_grippers_traj_result_.sim_state_trajectory.push_back(msg);
 
-            if ( cmd_grippers_traj_next_index_ == cmd_grippers_traj_goal_->trajectory.size() )
+            if (cmd_grippers_traj_next_index_ == cmd_grippers_traj_goal_->trajectory.size())
             {
-                cmd_grippers_traj_as_.setSucceeded( cmd_grippers_traj_result_ );
+                cmd_grippers_traj_as_.setSucceeded(cmd_grippers_traj_result_);
             }
         }
         else
         {
             {
-                std::lock_guard< std::mutex > lock ( sim_mutex_ );
-                step( 0 );
+                std::lock_guard<std::mutex> lock (sim_mutex_);
+                step(0);
                 msg = createSimulatorFbk();
             }
 
-            usleep( (__useconds_t)(BulletConfig::dt * 1e6) );
+            usleep((__useconds_t)(BulletConfig::dt * 1e6));
         }
 
         // publish the simulator state
-        simulator_fbk_pub_.publish( msg );
+        simulator_fbk_pub_.publish(msg);
     }
 
     // clean up the extra thread we started
@@ -232,55 +232,55 @@ void CustomScene::makeTable()
 {
     // table parameters
     const btVector3 table_surface_position =
-            btVector3( GetTableSurfaceX( nh_ ),
-                       GetTableSurfaceY( nh_ ),
-                       GetTableSurfaceZ( nh_ ) ) * METERS;
+            btVector3(GetTableSurfaceX(nh_),
+                       GetTableSurfaceY(nh_),
+                       GetTableSurfaceZ(nh_)) * METERS;
     const btVector3 table_half_extents =
-            btVector3( GetTableSizeX( nh_ ),
-                       GetTableSizeY( nh_ ),
-                       GetTableThickness( nh_ ) ) / 2.0f * METERS;
+            btVector3(GetTableSizeX(nh_),
+                       GetTableSizeY(nh_),
+                       GetTableThickness(nh_)) / 2.0f * METERS;
 
-    const btVector3 table_com = table_surface_position - btVector3( 0, 0, table_half_extents.z() );
+    const btVector3 table_com = table_surface_position - btVector3(0, 0, table_half_extents.z());
 
     // create the table
-    BoxObject::Ptr table = boost::make_shared< BoxObject > (
+    BoxObject::Ptr table = boost::make_shared<BoxObject> (
                 0, table_half_extents,
-                btTransform( btQuaternion( 0, 0, 0, 1 ), table_com ) );
-    table->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
-    table->rigidBody->setFriction( 1.0f );
-//    table->rigidBody->getCollisionShape()->setMargin( 0.0001f * METERS ); // default 0.04
+                btTransform(btQuaternion(0, 0, 0, 1), table_com));
+    table->setColor(0.4f, 0.4f, 0.4f, 0.5f);
+    table->rigidBody->setFriction(1.0f);
+//    table->rigidBody->getCollisionShape()->setMargin(0.0001f * METERS); // default 0.04
 
-    env->add( table );
+    env->add(table);
     world_objects_["table"] = table;
 
     // if we are doing a table coverage task, create the table coverage points
-    if ( task_type_ == TaskType::TABLE_COVERAGE )
+    if (task_type_ == TaskType::TABLE_COVERAGE)
     {
         #warning "Cloth table cover points step size magic number"
         const float stepsize = 0.0125f * METERS;
         btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
 
-        std::vector< btVector3 > cloth_coverage_lines;
+        std::vector<btVector3> cloth_coverage_lines;
         for(float y = -table->halfExtents.y(); y <= table->halfExtents.y(); y += stepsize)
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 ( -table->halfExtents.x(), y, table->halfExtents.z() ) );
+                    table_tf * btVector3 (-table->halfExtents.x(), y, table->halfExtents.z()));
 
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 ( +table->halfExtents.x(), y, table->halfExtents.z() ) );
+                    table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z()));
 
             // Add many coverage points along the coverage line
             for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
             {
-                cover_points_.push_back( table_tf * btVector3( x, y, table->halfExtents.z() ) );
+                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z()));
             }
         }
-        ROS_INFO_STREAM( "Number of cover points: " << cover_points_.size() );
+        ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
 
-//        std::vector<btVector4> cloth_coverage_color( cloth_coverage_lines.size(), btVector4( 1, 0, 0, 1 ) );
-//        plot_lines_->setPoints( cloth_coverage_lines, cloth_coverage_color );
-//        env->add( plot_lines_ );
+//        std::vector<btVector4> cloth_coverage_color(cloth_coverage_lines.size(), btVector4(1, 0, 0, 1));
+//        plot_lines_->setPoints(cloth_coverage_lines, cloth_coverage_color);
+//        env->add(plot_lines_);
     }
 }
 
@@ -288,130 +288,130 @@ void CustomScene::makeCylinder()
 {
     // cylinder parameters
     const btVector3 cylinder_com_origin =
-        btVector3( GetCylinderCenterOfMassX( nh_ ),
-                   GetCylinderCenterOfMassY( nh_ ) - 0.15f,
-                   GetCylinderCenterOfMassZ( nh_ ) ) * METERS;
+        btVector3(GetCylinderCenterOfMassX(nh_),
+                   GetCylinderCenterOfMassY(nh_) - 0.15f,
+                   GetCylinderCenterOfMassZ(nh_)) * METERS;
 
-    const btScalar cylinder_radius = GetCylinderRadius( nh_ ) * METERS;
-    const btScalar cylinder_height = GetCylinderHeight( nh_ ) * METERS;
+    const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
+    const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
 
     // create a cylinder
-    CylinderStaticObject::Ptr cylinder = boost::make_shared< CylinderStaticObject >(
+    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
                 0, cylinder_radius, cylinder_height,
-                btTransform( btQuaternion( 0, 0, 0, 1 ), cylinder_com_origin ) );
-    cylinder->setColor( 179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f );
+                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
     // add the cylinder to the world
-    env->add( cylinder );
+    env->add(cylinder);
     world_objects_["cylinder"] = cylinder;
 
-    if ( deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::CYLINDER_COVERAGE )
+    if (deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::CYLINDER_COVERAGE)
     {
         #warning "Magic numbers - discretization level of cover points"
         // consider 21 points around the cylinder
-        for ( float theta = 0; theta < 2.0f * M_PI; theta += 0.3f )
+        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
         // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
         {
             // 31 points per theta
-            for ( float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f )
+            for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
             {
                 cover_points_.push_back(
                         cylinder_com_origin
-                        + btVector3( ( cylinder_radius + rope_->radius / 2.0f ) * std::cos( theta ),
-                                     ( cylinder_radius + rope_->radius / 2.0f ) * std::sin( theta ),
-                                     h ) );
+                        + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                     (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                     h));
             }
         }
     }
-    else if ( deformable_type_ == DeformableType::CLOTH && ( task_type_ == TaskType::CYLINDER_COVERAGE || task_type_ == TaskType::WAFR ) )
+    else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::CYLINDER_COVERAGE || task_type_ == TaskType::WAFR))
     {
         #warning "Magic numbers - discretization level of cover points"
-        for ( float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f )
+        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f)
         {
-            for ( float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10.0f )
+            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10.0f)
             {
                 // Only accept those points that are within the bounding circle
-                if ( x * x + y * y < cylinder_radius * cylinder_radius )
+                if (x * x + y * y < cylinder_radius * cylinder_radius)
                 {
                     cover_points_.push_back(
                                 cylinder_com_origin
-                                + btVector3( x, y, cylinder_height / 2.0f ) );
+                                + btVector3(x, y, cylinder_height / 2.0f));
                 }
             }
         }
 
          #warning "Magic numbers - discretization level of cover points"
         // consider 21 points around the cylinder
-        for ( float theta = 0; theta < 2.0f * M_PI; theta += 0.3f )
+        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
             // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
         {
             // 31 points per theta
-            for ( float h = cylinder_height / 4.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f )
+            for (float h = cylinder_height / 4.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
             {
                 cover_points_.push_back(
                             cylinder_com_origin
-                            + btVector3( cylinder_radius * std::cos( theta ),
-                                         cylinder_radius * std::sin( theta ),
-                                         h ) );
+                            + btVector3(cylinder_radius * std::cos(theta),
+                                         cylinder_radius * std::sin(theta),
+                                         h));
             }
         }
     }
 
-    std::vector<btVector4> coverage_color( cover_points_.size(), btVector4( 1, 0, 0, 1 ) );
-    plot_points_->setPoints( cover_points_, coverage_color );
-    env->add( plot_points_ );
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
 }
 
 void CustomScene::makeRope()
 {
     // find the needed table parameters
     const btVector3 rope_com =
-            btVector3( GetRopeCenterOfMassX( nh_ ),
-                       GetRopeCenterOfMassY( nh_ ),
-                       GetRopeCenterOfMassZ( nh_ ) ) * METERS;
+            btVector3(GetRopeCenterOfMassX(nh_),
+                       GetRopeCenterOfMassY(nh_),
+                       GetRopeCenterOfMassZ(nh_)) * METERS;
 
-    const float rope_segment_length = GetRopeSegmentLength( nh_ ) * METERS;
-    const int num_links = GetRopeNumLinks( nh_ );
+    const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
+    const int num_links = GetRopeNumLinks(nh_);
 
     // make the rope
-    std::vector<btVector3> control_points( num_links );
-    for ( int n = 0; n < num_links; n++ )
+    std::vector<btVector3> control_points(num_links);
+    for (int n = 0; n < num_links; n++)
     {
         control_points[(size_t)n] = rope_com
-                + btVector3( ( (float)n - (float)(num_links) / 2.0f ) * rope_segment_length, 0, 0 );
+                + btVector3(((float)n - (float)(num_links) / 2.0f) * rope_segment_length, 0, 0);
 
     }
-    rope_ = boost::make_shared< CapsuleRope >( control_points, GetRopeRadius( nh_ ) * METERS );
+    rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
 
     // color the rope
-    std::vector< BulletObject::Ptr > children = rope_->getChildren();
-    for ( size_t j = 0; j < children.size(); j++ )
+    std::vector<BulletObject::Ptr> children = rope_->getChildren();
+    for (size_t j = 0; j < children.size(); j++)
     {
-        children[j]->setColor( 0.15f, 0.65f, 0.15f, 1.0f );
+        children[j]->setColor(0.15f, 0.65f, 0.15f, 1.0f);
     }
 
     // add the table and rope to the world
-    env->add( rope_ );
+    env->add(rope_);
 }
 
 void CustomScene::makeCloth()
 {
     // cloth parameters
     const btVector3 cloth_center = btVector3(
-                GetClothCenterOfMassX( nh_ ),
-                GetClothCenterOfMassY( nh_ ),
-                GetClothCenterOfMassZ( nh_ ) ) * METERS;
+                GetClothCenterOfMassX(nh_),
+                GetClothCenterOfMassY(nh_),
+                GetClothCenterOfMassZ(nh_)) * METERS;
 
-    const btScalar cloth_x_half_side_length = GetClothXSize( nh_ ) * METERS / 2.0f;
-    const btScalar cloth_y_half_side_length = GetClothYSize( nh_ ) * METERS / 2.0f;
-    const int num_divs = GetClothNumDivs( nh_ );
+    const btScalar cloth_x_half_side_length = GetClothXSize(nh_) * METERS / 2.0f;
+    const btScalar cloth_y_half_side_length = GetClothYSize(nh_) * METERS / 2.0f;
+    const int num_divs = GetClothNumDivs(nh_);
 
     btSoftBody *psb = btSoftBodyHelpers::CreatePatch(
         env->bullet->softBodyWorldInfo,
-        cloth_center + btVector3( -cloth_x_half_side_length, -cloth_y_half_side_length, 0),
-        cloth_center + btVector3( +cloth_x_half_side_length, -cloth_y_half_side_length, 0),
-        cloth_center + btVector3( -cloth_x_half_side_length, +cloth_y_half_side_length, 0),
-        cloth_center + btVector3( +cloth_x_half_side_length, +cloth_y_half_side_length, 0),
+        cloth_center + btVector3(-cloth_x_half_side_length, -cloth_y_half_side_length, 0),
+        cloth_center + btVector3(+cloth_x_half_side_length, -cloth_y_half_side_length, 0),
+        cloth_center + btVector3(-cloth_x_half_side_length, +cloth_y_half_side_length, 0),
+        cloth_center + btVector3(+cloth_x_half_side_length, +cloth_y_half_side_length, 0),
         num_divs, num_divs,
         0, true);
 
@@ -424,7 +424,7 @@ void CustomScene::makeCloth()
             | btSoftBody::fCollision::CL_RS
             | btSoftBody::fCollision::CL_SELF;
 
-    psb->getCollisionShape()->setMargin( 0.0025f * METERS ); // default 0.25 - DmitrySim 0.05
+    psb->getCollisionShape()->setMargin(0.0025f * METERS); // default 0.25 - DmitrySim 0.05
 
 
     psb->m_cfg.kDP          = 0.05f;    // Damping coeffient [0, +inf]          - default 0
@@ -454,11 +454,11 @@ void CustomScene::makeCloth()
         psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
     }
 
-    cloth_ = boost::make_shared< BulletSoftObject >( psb );
+    cloth_ = boost::make_shared<BulletSoftObject>(psb);
     // note that we need to add the cloth to the environment before setting the
     // color, otherwise we get a segfault
-    env->add( cloth_ );
-    cloth_->setColor( 0.15f, 0.65f, 0.15f, 1.0f );
+    env->add(cloth_);
+    cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
     findClothCornerNodes();
 }
@@ -468,7 +468,7 @@ void CustomScene::makeRopeWorld()
     makeRope();
 
     // Here we assume that we are already working with a rope object
-    switch ( task_type_ )
+    switch (task_type_)
     {
         case TaskType::CYLINDER_COVERAGE:
         {
@@ -478,39 +478,39 @@ void CustomScene::makeRopeWorld()
             // add a single auto gripper to the world
             grippers_["gripper"] = boost::make_shared< GripperKinematicObject>(
                         "gripper",
-                        GetRopeGripperApperture( nh_ ) * METERS,
-                        btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) );
+                        GetRopeGripperApperture(nh_) * METERS,
+                        btVector4(0.6f, 0.6f, 0.6f, 0.4f));
             grippers_["gripper"]->setWorldTransform(
-                    rope_->children[0]->rigidBody->getCenterOfMassTransform() );
-            grippers_["gripper"]->rigidGrab( rope_->children[0]->rigidBody.get(), 0, env );
+                    rope_->children[0]->rigidBody->getCenterOfMassTransform());
+            grippers_["gripper"]->rigidGrab(rope_->children[0]->rigidBody.get(), 0, env);
 
-            auto_grippers_.push_back( "gripper" );
+            auto_grippers_.push_back("gripper");
 
             break;
         }
         default:
         {
-            ROS_FATAL_STREAM( "Unknown task type for a ROPE object " << task_type_ );
-            throw new std::invalid_argument( "Unknown task type for a ROPE object" );
+            ROS_FATAL_STREAM("Unknown task type for a ROPE object " << task_type_);
+            throw new std::invalid_argument("Unknown task type for a ROPE object");
         }
     }
 
-    for ( auto& gripper: grippers_ )
+    for (auto& gripper: grippers_)
     {
-        gripper_axes_[gripper.first] = boost::make_shared< PlotAxes >();
+        gripper_axes_[gripper.first] = boost::make_shared<PlotAxes>();
 
         // Add the gripper and it's axis to the world
-        env->add( gripper.second );
-        env->add( gripper_axes_[gripper.first] );
+        env->add(gripper.second);
+        env->add(gripper_axes_[gripper.first]);
     }
 
     // Add a gripper that is in the same state as used for the rope experiments
     collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
                 "collision_check_gripper",
-                GetRopeGripperApperture( nh_ ) * METERS,
-                btVector4( 0, 0, 0, 0 ) );
-    collision_check_gripper_->setWorldTransform( btTransform() );
-    env->add( collision_check_gripper_ );
+                GetRopeGripperApperture(nh_) * METERS,
+                btVector4(0, 0, 0, 0));
+    collision_check_gripper_->setWorldTransform(btTransform());
+    env->add(collision_check_gripper_);
 }
 
 void CustomScene::makeClothWorld()
@@ -524,31 +524,31 @@ void CustomScene::makeClothWorld()
         // auto gripper0
         grippers_["auto_gripper0"] = boost::make_shared< GripperKinematicObject>(
                     "auto_gripper0",
-                    GetClothGripperApperture( nh_ ) * METERS,
-                    btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) );
+                    GetClothGripperApperture(nh_) * METERS,
+                    btVector4(0.6f, 0.6f, 0.6f, 0.4f));
         gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
         grippers_["auto_gripper0"]->setWorldTransform(
-                btTransform( btQuaternion( 0, 0, 0, 1 ),
+                btTransform(btQuaternion(0, 0, 0, 1),
                              cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
-                             + btVector3( gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
+                             + btVector3(gripper_half_extents.x(), gripper_half_extents.y(), 0)));
 
-        auto_grippers_.push_back( "auto_gripper0" );
+        auto_grippers_.push_back("auto_gripper0");
 
         // auto gripper1
         grippers_["auto_gripper1"] = boost::make_shared< GripperKinematicObject>(
                     "auto_gripper1",
-                    GetClothGripperApperture( nh_ ) * METERS,
-                    btVector4( 0.6f, 0.6f, 0.6f, 0.4f ) );
+                    GetClothGripperApperture(nh_) * METERS,
+                    btVector4(0.6f, 0.6f, 0.6f, 0.4f));
         gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
         grippers_["auto_gripper1"]->setWorldTransform(
-                btTransform( btQuaternion( 0, 0, 0, 1 ),
+                btTransform(btQuaternion(0, 0, 0, 1),
                              cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
-                             + btVector3( gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
+                             + btVector3(gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
 
-        auto_grippers_.push_back( "auto_gripper1" );
+        auto_grippers_.push_back("auto_gripper1");
     }
 
-    switch ( task_type_ )
+    switch (task_type_)
     {
         case TaskType::TABLE_COVERAGE:
         {
@@ -569,30 +569,30 @@ void CustomScene::makeClothWorld()
                 // manual gripper0
                 grippers_["manual_gripper0"] = boost::make_shared< GripperKinematicObject>(
                             "manual_gripper0",
-                            GetClothGripperApperture( nh_ ) * METERS,
-                            btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) );
+                            GetClothGripperApperture(nh_) * METERS,
+                            btVector4(0.0f, 0.0f, 0.6f, 0.4f));
                 gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
                 grippers_["manual_gripper0"]->setWorldTransform(
-                            btTransform( btQuaternion( 0, 0, 0, 1 ),
+                            btTransform(btQuaternion(0, 0, 0, 1),
                                          cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x
-                        + btVector3( -gripper_half_extents.x(), gripper_half_extents.y(), 0 ) ) );
+                        + btVector3(-gripper_half_extents.x(), gripper_half_extents.y(), 0)));
 
-                manual_grippers_.push_back( "manual_gripper0" );
-                manual_grippers_paths_.push_back( ManualGripperPath( grippers_["manual_gripper0"], &gripperPath0 ) );
+                manual_grippers_.push_back("manual_gripper0");
+                manual_grippers_paths_.push_back(ManualGripperPath(grippers_["manual_gripper0"], &gripperPath0));
 
                 // manual gripper1
                 grippers_["manual_gripper1"] = boost::make_shared< GripperKinematicObject>(
                             "manual_gripper1",
-                            GetClothGripperApperture( nh_ ) * METERS,
-                            btVector4( 0.0f, 0.0f, 0.6f, 0.4f ) );
+                            GetClothGripperApperture(nh_) * METERS,
+                            btVector4(0.0f, 0.0f, 0.6f, 0.4f));
                 gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
                 grippers_["manual_gripper1"]->setWorldTransform(
-                            btTransform( btQuaternion( 0, 0, 0, 1 ),
+                            btTransform(btQuaternion(0, 0, 0, 1),
                                          cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x
-                        + btVector3( -gripper_half_extents.x(), -gripper_half_extents.y(), 0 ) ) );
+                        + btVector3(-gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
 
-                manual_grippers_.push_back( "manual_gripper1" );
-                manual_grippers_paths_.push_back( ManualGripperPath( grippers_["manual_gripper1"], &gripperPath1 ) );
+                manual_grippers_.push_back("manual_gripper1");
+                manual_grippers_paths_.push_back(ManualGripperPath(grippers_["manual_gripper1"], &gripperPath1));
             }
             break;
         }
@@ -600,50 +600,50 @@ void CustomScene::makeClothWorld()
         {
             makeCylinder();
 
-            BoxObject::Ptr left_block = boost::make_shared< BoxObject > (
-                        0, btVector3( 0.04f, 0.25f, 0.55f ) * METERS,
-                        btTransform( btQuaternion( 0, 0, 0, 1 ), btVector3( -0.1f, -0.3f, 0.7f ) * METERS ) );
-            left_block->setColor( 0.4f, 0.4f, 0.4f, 0.5f );
+            BoxObject::Ptr left_block = boost::make_shared<BoxObject> (
+                        0, btVector3(0.04f, 0.25f, 0.55f) * METERS,
+                        btTransform(btQuaternion(0, 0, 0, 1), btVector3(-0.1f, -0.3f, 0.7f) * METERS));
+            left_block->setColor(0.4f, 0.4f, 0.4f, 0.5f);
             left_block->rigidBody->setFriction(1);
             left_block->collisionShape->setMargin(0.05f * METERS);
 
-            env->add( left_block );
+            env->add(left_block);
             world_objects_["left_block"] = left_block;
 
             break;
         }
         default:
         {
-            ROS_FATAL_STREAM( "Unknown task type for a CLOTH object " << task_type_ );
-            throw new std::invalid_argument( "Unknown task type for a CLOTH object " + task_type_);
+            ROS_FATAL_STREAM("Unknown task type for a CLOTH object " << task_type_);
+            throw new std::invalid_argument("Unknown task type for a CLOTH object " + task_type_);
         }
     }
 
-    for ( auto& gripper: grippers_ )
+    for (auto& gripper: grippers_)
     {
         // Grip the cloth
         gripper.second->toggleOpen();
-        gripper.second->toggleAttach( cloth_->softBody.get() );
+        gripper.second->toggleAttach(cloth_->softBody.get());
 
-        gripper_axes_[gripper.first] = boost::make_shared< PlotAxes >();
+        gripper_axes_[gripper.first] = boost::make_shared<PlotAxes>();
 
-        // Add the gripper and it's axis to the world
-        env->add( gripper.second );
-        env->add( gripper_axes_[gripper.first] );
+        // Add the gripper and its axis to the world
+        env->add(gripper.second);
+        env->add(gripper_axes_[gripper.first]);
 
         // Add a callback in case this gripper gets step_openclose activated on it
         // This is a state machine whose input comes from CustomKeyHandler
-        addPreStepCallback( boost::bind( &GripperKinematicObject::step_openclose, gripper.second, cloth_->softBody.get() ) );
+        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, gripper.second, cloth_->softBody.get()));
     }
 
     // Add a gripper that is in the same state as used for the cloth experiments
     collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
                 "collision_check_gripper",
-                GetClothGripperApperture( nh_ ) * METERS,
-                btVector4( 0, 0, 0, 0 ) );
-    collision_check_gripper_->setWorldTransform( btTransform() );
+                GetClothGripperApperture(nh_) * METERS,
+                btVector4(0, 0, 0, 0));
+    collision_check_gripper_->setWorldTransform(btTransform());
     collision_check_gripper_->toggleOpen();
-    env->add( collision_check_gripper_ );
+    env->add(collision_check_gripper_);
 }
 
 /**
@@ -658,57 +658,57 @@ void CustomScene::findClothCornerNodes()
 {
     cloth_corner_node_indices_.resize(4, 0);
     // Setup defaults for doing the max and min operations inside of the loop
-    std::vector< btVector3 > corner_node_positions( 4 );
+    std::vector<btVector3> corner_node_positions(4);
 
     // min_x, min_y
     corner_node_positions[0] = btVector3(
-            std::numeric_limits< btScalar >::infinity(),
-            std::numeric_limits< btScalar >::infinity(),
-            0 );
+            std::numeric_limits<btScalar>::infinity(),
+            std::numeric_limits<btScalar>::infinity(),
+            0);
 
     // min_x, max_y
     corner_node_positions[1] = btVector3(
-            std::numeric_limits< btScalar >::infinity(),
-            -std::numeric_limits< btScalar >::infinity(),
-            0 );
+            std::numeric_limits<btScalar>::infinity(),
+            -std::numeric_limits<btScalar>::infinity(),
+            0);
 
     // max_x, min_y
     corner_node_positions[2] = btVector3(
-            -std::numeric_limits< btScalar >::infinity(),
-            std::numeric_limits< btScalar >::infinity(),
-            0 );
+            -std::numeric_limits<btScalar>::infinity(),
+            std::numeric_limits<btScalar>::infinity(),
+            0);
 
     // max_x, max_y
     corner_node_positions[3] = btVector3(
-            -std::numeric_limits< btScalar >::infinity(),
-            -std::numeric_limits< btScalar >::infinity(),
-            0 );
+            -std::numeric_limits<btScalar>::infinity(),
+            -std::numeric_limits<btScalar>::infinity(),
+            0);
 
     btSoftBody::tNodeArray cloth_nodes = cloth_->softBody->m_nodes;
 
     // Itterate through the nodes in the cloth, finding the extremal points
-    for ( int ind = 0; ind < cloth_nodes.size(); ind++ )
+    for (int ind = 0; ind < cloth_nodes.size(); ind++)
     {
-        if ( cloth_nodes[ind].m_x.x() <= corner_node_positions[0].x() &&
-                cloth_nodes[ind].m_x.y() <= corner_node_positions[0].y() )
+        if (cloth_nodes[ind].m_x.x() <= corner_node_positions[0].x() &&
+                cloth_nodes[ind].m_x.y() <= corner_node_positions[0].y())
         {
             cloth_corner_node_indices_[0] = ind;
             corner_node_positions[0] = cloth_nodes[ind].m_x;
         }
-        else if ( cloth_nodes[ind].m_x.x() <= corner_node_positions[1].x() &&
-                cloth_nodes[ind].m_x.y() >= corner_node_positions[1].y() )
+        else if (cloth_nodes[ind].m_x.x() <= corner_node_positions[1].x() &&
+                cloth_nodes[ind].m_x.y() >= corner_node_positions[1].y())
         {
             cloth_corner_node_indices_[1] = ind;
             corner_node_positions[1] = cloth_nodes[ind].m_x;
         }
-        else if ( cloth_nodes[ind].m_x.x() >= corner_node_positions[2].x() &&
-                cloth_nodes[ind].m_x.y() <= corner_node_positions[2].y() )
+        else if (cloth_nodes[ind].m_x.x() >= corner_node_positions[2].x() &&
+                cloth_nodes[ind].m_x.y() <= corner_node_positions[2].y())
         {
             cloth_corner_node_indices_[2] = ind;
             corner_node_positions[2] = cloth_nodes[ind].m_x;
         }
-        else if ( cloth_nodes[ind].m_x.x() >= corner_node_positions[3].x() &&
-                cloth_nodes[ind].m_x.y() >= corner_node_positions[3].y() )
+        else if (cloth_nodes[ind].m_x.x() >= corner_node_positions[3].x() &&
+                cloth_nodes[ind].m_x.y() >= corner_node_positions[3].y())
         {
             cloth_corner_node_indices_[3] = ind;
             corner_node_positions[3] = cloth_nodes[ind].m_x;
@@ -716,25 +716,25 @@ void CustomScene::findClothCornerNodes()
     }
 
     // Create a mirror line if we are doing colaborative folding
-    if ( task_type_ == TaskType::COLAB_FOLDING )
+    if (task_type_ == TaskType::COLAB_FOLDING)
     {
         mirror_line_data_.min_y = corner_node_positions[0].y() / METERS;
         mirror_line_data_.max_y = corner_node_positions[3].y() / METERS;
-        mirror_line_data_.mid_x = ( corner_node_positions[0].x() +
-                (corner_node_positions[3].x() - corner_node_positions[0].x() ) / 2 )  / METERS;
+        mirror_line_data_.mid_x = (corner_node_positions[0].x() +
+                (corner_node_positions[3].x() - corner_node_positions[0].x()) / 2)  / METERS;
 
-        std::vector< btVector3 > mirror_line_points;
-        mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.min_y, 0.8f) * METERS );
-        mirror_line_points.push_back( btVector3( (float)mirror_line_data_.mid_x, (float)mirror_line_data_.max_y, 0.8f) * METERS );
-        std::vector< btVector4 > mirror_line_colors;
-        mirror_line_colors.push_back( btVector4(1,0,0,1) );
+        std::vector<btVector3> mirror_line_points;
+        mirror_line_points.push_back(btVector3((float)mirror_line_data_.mid_x, (float)mirror_line_data_.min_y, 0.8f) * METERS);
+        mirror_line_points.push_back(btVector3((float)mirror_line_data_.mid_x, (float)mirror_line_data_.max_y, 0.8f) * METERS);
+        std::vector<btVector4> mirror_line_colors;
+        mirror_line_colors.push_back(btVector4(1,0,0,1));
 
-        PlotLines::Ptr line_strip = boost::make_shared< PlotLines >( 0.1f * METERS );
-        line_strip->setPoints( mirror_line_points,
-                               mirror_line_colors );
+        PlotLines::Ptr line_strip = boost::make_shared<PlotLines>(0.1f * METERS);
+        line_strip->setPoints(mirror_line_points,
+                               mirror_line_colors);
         visualization_line_markers_["mirror_line"] = line_strip;
 
-        env->add( line_strip );
+        env->add(line_strip);
     }
 }
 
@@ -747,25 +747,24 @@ void CustomScene::moveGrippers()
     // Given that we are moving the grippers, we know that cmd_grippers_traj_goal_
     // is valid, and cmd_grippers_traj_index_ is less than the length of the
     // trajectories we are following
-    // TODO: remove these asserts once I've confirmed that I haven't made any coding errors
-    assert( cmd_grippers_traj_goal_ != nullptr );
-    assert( cmd_grippers_traj_goal_->trajectory.size() > 0 );
-    assert( cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectory.size() );
+    assert(cmd_grippers_traj_goal_ != nullptr);
+    assert(cmd_grippers_traj_goal_->trajectory.size() > 0);
+    assert(cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectory.size());
 
     // TODO check for valid gripper names (and length of names vector)
-    for ( size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++ )
+    for (size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++)
     {
-        GripperKinematicObject::Ptr gripper = grippers_.at( cmd_grippers_traj_goal_->gripper_names[gripper_ind] );
+        GripperKinematicObject::Ptr gripper = grippers_.at(cmd_grippers_traj_goal_->gripper_names[gripper_ind]);
 
         const btTransform tf = toBulletTransform(
-                    cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind], METERS );
+                    cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind], METERS);
 
-        gripper->setWorldTransform( tf );
+        gripper->setWorldTransform(tf);
     }
     cmd_grippers_traj_next_index_++;
 
     // Advance the manual grippers on their paths
-    for ( auto& path: manual_grippers_paths_ )
+    for (auto& path: manual_grippers_paths_)
     {
         path.advanceGripper();
     }
@@ -773,47 +772,47 @@ void CustomScene::moveGrippers()
 
 smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 {
-    assert( num_timesteps_to_execute_per_gripper_cmd_ > 0 );
+    assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
 
     smmap_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector( getDeformableObjectNodes(), METERS );
-    if ( feedback_covariance_ > 0 )
+    msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
+    if (feedback_covariance_ > 0)
     {
-        for ( auto& point: msg.object_configuration )
+        for (auto& point: msg.object_configuration)
         {
-            point.x += BoxMuller( 0, feedback_covariance_ );
-            point.y += BoxMuller( 0, feedback_covariance_ );
-            point.z += BoxMuller( 0, feedback_covariance_ );
+            point.x += BoxMuller(0, feedback_covariance_);
+            point.y += BoxMuller(0, feedback_covariance_);
+            point.z += BoxMuller(0, feedback_covariance_);
         }
     }
 
     // fill out the gripper data
-    for ( const std::string &gripper_name: auto_grippers_ )
+    for (const std::string &gripper_name: auto_grippers_)
     {
-        msg.gripper_names.push_back( gripper_name );
-        msg.gripper_poses.push_back( toRosPose( grippers_[gripper_name]->getWorldTransform(), METERS ) );
+        msg.gripper_names.push_back(gripper_name);
+        msg.gripper_poses.push_back(toRosPose(grippers_[gripper_name]->getWorldTransform(), METERS));
 
-        btPointCollector collision_result = collisionHelper( grippers_[gripper_name] );
+        btPointCollector collision_result = collisionHelper(grippers_[gripper_name]);
 
-        if ( collision_result.m_hasResult )
+        if (collision_result.m_hasResult)
         {
-            msg.gripper_distance_to_obstacle.push_back( collision_result.m_distance / METERS );
+            msg.gripper_distance_to_obstacle.push_back(collision_result.m_distance / METERS);
         }
         else
         {
-            msg.gripper_distance_to_obstacle.push_back( std::numeric_limits< double >::infinity() );
+            msg.gripper_distance_to_obstacle.push_back(std::numeric_limits<double>::infinity());
         }
 
-        msg.obstacle_surface_normal.push_back( toRosVector3( collision_result.m_normalOnBInWorld, 1 ) );
-        msg.gripper_nearest_point_to_obstacle.push_back( toRosPoint(
+        msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1));
+        msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(
                     collision_result.m_pointInWorld
-                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS ) );
+                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS));
     }
 
     // update the sim_time
-    msg.sim_time = ( simTime - base_sim_time_ ) / (double)num_timesteps_to_execute_per_gripper_cmd_;
+    msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
 
     return msg;
 }
@@ -822,18 +821,18 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 // Internal helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
-std::vector< btVector3 > CustomScene::getDeformableObjectNodes() const
+std::vector<btVector3> CustomScene::getDeformableObjectNodes() const
 {
-    std::vector< btVector3 > nodes;
+    std::vector<btVector3> nodes;
 
-    switch ( deformable_type_ )
+    switch (deformable_type_)
     {
         case DeformableType::ROPE:
             nodes = rope_->getNodes();
             break;
 
         case DeformableType::CLOTH:
-            nodes = nodeArrayToNodePosVector( cloth_->softBody->m_nodes );
+            nodes = nodeArrayToNodePosVector(cloth_->softBody->m_nodes);
             break;
     }
 
@@ -849,35 +848,35 @@ std::vector< btVector3 > CustomScene::getDeformableObjectNodes() const
  * @return The result of the collision check
  */
 btPointCollector CustomScene::collisionHelper(
-        const GripperKinematicObject::Ptr& gripper )
+        const GripperKinematicObject::Ptr& gripper)
 {
-    assert( gripper );
+    assert(gripper);
 
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
 
     // find the distance to any objects in the world
-    for ( auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr )
+    for (auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr)
     {
         BulletObject::Ptr obj = ittr->second;
-        for ( size_t gripper_child_ind = 0; gripper_child_ind < gripper->getChildren().size(); gripper_child_ind++ )
+        for (size_t gripper_child_ind = 0; gripper_child_ind < gripper->getChildren().size(); gripper_child_ind++)
         {
             // TODO: how much (if any) of this should be static/class members?
             btGjkEpaPenetrationDepthSolver epaSolver;
             btVoronoiSimplexSolver sGjkSimplexSolver;
             btPointCollector gjkOutput;
 
-            btGjkPairDetector convexConvex( dynamic_cast< btBoxShape* >( gripper->getChildren()[gripper_child_ind]->collisionShape.get() ),
-                    dynamic_cast< btConvexShape* >(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver );
+            btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*>(gripper->getChildren()[gripper_child_ind]->collisionShape.get()),
+                    dynamic_cast<btConvexShape*>(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver);
 
             btGjkPairDetector::ClosestPointInput input;
 
-            gripper->children[gripper_child_ind]->motionState->getWorldTransform( input.m_transformA );
-            obj->motionState->getWorldTransform( input.m_transformB );
+            gripper->children[gripper_child_ind]->motionState->getWorldTransform(input.m_transformA);
+            obj->motionState->getWorldTransform(input.m_transformB);
             input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
-            convexConvex.getClosestPoints( input, gjkOutput, nullptr );
+            convexConvex.getClosestPoints(input, gjkOutput, nullptr);
 
-            if ( gjkOutput.m_distance < gjkOutput_min.m_distance )
+            if (gjkOutput.m_distance < gjkOutput_min.m_distance)
             {
                 gjkOutput_min = gjkOutput;
             }
@@ -893,7 +892,7 @@ btPointCollector CustomScene::collisionHelper(
 
 bool CustomScene::getGripperNamesCallback(
         smmap_msgs::GetGripperNames::Request& req,
-        smmap_msgs::GetGripperNames::Response& res )
+        smmap_msgs::GetGripperNames::Response& res)
 {
     (void)req;
     res.names = auto_grippers_;
@@ -902,50 +901,50 @@ bool CustomScene::getGripperNamesCallback(
 
 bool CustomScene::getGripperAttachedNodeIndicesCallback(
         smmap_msgs::GetGripperAttachedNodeIndices::Request& req,
-        smmap_msgs::GetGripperAttachedNodeIndices::Response& res )
+        smmap_msgs::GetGripperAttachedNodeIndices::Response& res)
 {
-    GripperKinematicObject::Ptr gripper = grippers_.at( req.name );
+    GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
     res.indices = gripper->getAttachedNodeIndices();
     return true;
 }
 
 bool CustomScene::getGripperPoseCallback(
         smmap_msgs::GetGripperPose::Request& req,
-        smmap_msgs::GetGripperPose::Response& res )
+        smmap_msgs::GetGripperPose::Response& res)
 {
-    GripperKinematicObject::Ptr gripper = grippers_.at( req.name );
-    res.pose = toRosPose( gripper->getWorldTransform(), METERS );
+    GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
+    res.pose = toRosPose(gripper->getWorldTransform(), METERS);
     return true;
 }
 
 bool CustomScene::gripperCollisionCheckCallback(
         smmap_msgs::GetGripperCollisionReport::Request& req,
-        smmap_msgs::GetGripperCollisionReport::Response& res )
+        smmap_msgs::GetGripperCollisionReport::Response& res)
 {
     size_t num_checks = req.pose.size();
 
-    res.gripper_distance_to_obstacle.resize( num_checks );
-    res.gripper_nearest_point_to_obstacle.resize( num_checks );
-    res.obstacle_surface_normal.resize( num_checks );
+    res.gripper_distance_to_obstacle.resize(num_checks);
+    res.gripper_nearest_point_to_obstacle.resize(num_checks);
+    res.obstacle_surface_normal.resize(num_checks);
 
-    for ( size_t pose_ind = 0; pose_ind < num_checks; pose_ind++ )
+    for (size_t pose_ind = 0; pose_ind < num_checks; pose_ind++)
     {
-        collision_check_gripper_->setWorldTransform( toBulletTransform( req.pose[pose_ind], METERS ) );
-        btPointCollector collision_result = collisionHelper( collision_check_gripper_ );
+        collision_check_gripper_->setWorldTransform(toBulletTransform(req.pose[pose_ind], METERS));
+        btPointCollector collision_result = collisionHelper(collision_check_gripper_);
 
-        if ( collision_result.m_hasResult )
+        if (collision_result.m_hasResult)
         {
             res.gripper_distance_to_obstacle[pose_ind] = collision_result.m_distance / METERS;
         }
         else
         {
-            res.gripper_distance_to_obstacle[pose_ind] = std::numeric_limits< double >::infinity();
+            res.gripper_distance_to_obstacle[pose_ind] = std::numeric_limits<double>::infinity();
         }
 
-        res.obstacle_surface_normal[pose_ind] = toRosVector3( collision_result.m_normalOnBInWorld, 1 );
+        res.obstacle_surface_normal[pose_ind] = toRosVector3(collision_result.m_normalOnBInWorld, 1);
         res.gripper_nearest_point_to_obstacle[pose_ind] = toRosPoint(
                     collision_result.m_pointInWorld
-                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS );
+                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS);
     }
 
     return true;
@@ -953,36 +952,36 @@ bool CustomScene::gripperCollisionCheckCallback(
 
 bool CustomScene::getCoverPointsCallback(
         smmap_msgs::GetPointSet::Request& req,
-        smmap_msgs::GetPointSet::Response& res )
+        smmap_msgs::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector( cover_points_, METERS );
+    res.points = toRosPointVector(cover_points_, METERS);
     return true;
 }
 
 bool CustomScene::getMirrorLineCallback(
         smmap_msgs::GetMirrorLine::Request& req,
-        smmap_msgs::GetMirrorLine::Response& res )
+        smmap_msgs::GetMirrorLine::Response& res)
 {
     (void)req;
-    if ( task_type_ == TaskType::COLAB_FOLDING &&
-         deformable_type_ == DeformableType::CLOTH )
+    if (task_type_ == TaskType::COLAB_FOLDING &&
+         deformable_type_ == DeformableType::CLOTH)
     {
         res = mirror_line_data_;
         return true;
     }
     else
     {
-        res.mid_x = std::numeric_limits< double >::infinity();
-        res.min_y = std::numeric_limits< double >::infinity();
-        res.max_y = std::numeric_limits< double >::infinity();
+        res.mid_x = std::numeric_limits<double>::infinity();
+        res.min_y = std::numeric_limits<double>::infinity();
+        res.max_y = std::numeric_limits<double>::infinity();
         return false;
     }
 }
 
 bool CustomScene::getObjectInitialConfigurationCallback(
         smmap_msgs::GetPointSet::Request& req,
-        smmap_msgs::GetPointSet::Response& res )
+        smmap_msgs::GetPointSet::Response& res)
 {
     (void)req;
     res.points = object_initial_configuration_;
@@ -991,102 +990,102 @@ bool CustomScene::getObjectInitialConfigurationCallback(
 
 bool CustomScene::getObjectCurrentConfigurationCallback(
         smmap_msgs::GetPointSet::Request& req,
-        smmap_msgs::GetPointSet::Response& res )
+        smmap_msgs::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector( getDeformableObjectNodes(), METERS );
+    res.points = toRosPointVector(getDeformableObjectNodes(), METERS);
     return true;
 }
 
 // TODO: be able to delete markers and have a timeout
 void CustomScene::visualizationMarkerCallback(
-        visualization_msgs::Marker marker )
+        visualization_msgs::Marker marker)
 {
-    std::string id = marker.ns + std::to_string( marker.id );
+    std::string id = marker.ns + std::to_string(marker.id);
 
     // TODO: make this mutex not quite so "global" around this switch
-    std::lock_guard< std::mutex > lock( sim_mutex_ );
+    std::lock_guard<std::mutex> lock(sim_mutex_);
 
-    switch ( marker.type )
+    switch (marker.type)
     {
         case visualization_msgs::Marker::POINTS:
         {
-            if ( visualization_point_markers_.count(id) == 0 )
+            if (visualization_point_markers_.count(id) == 0)
             {
-                PlotPoints::Ptr points = boost::make_shared< PlotPoints >();
-                points->setPoints( toOsgRefVec3Array( marker.points, METERS ),
-                                   toOsgRefVec4Array( marker.colors ) );
+                PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
+                points->setPoints(toOsgRefVec3Array(marker.points, METERS),
+                                   toOsgRefVec4Array(marker.colors));
                 visualization_point_markers_[id] = points;
 
-                env->add( points );
+                env->add(points);
             }
             else
             {
                 PlotPoints::Ptr points = visualization_point_markers_[id];
-                points->setPoints( toOsgRefVec3Array( marker.points, METERS ),
-                                   toOsgRefVec4Array( marker.colors ) );
+                points->setPoints(toOsgRefVec3Array(marker.points, METERS),
+                                   toOsgRefVec4Array(marker.colors));
             }
             break;
         }
         case visualization_msgs::Marker::SPHERE:
         {
-            if ( visualization_sphere_markers_.count(id) == 0 )
+            if (visualization_sphere_markers_.count(id) == 0)
             {
-                PlotSpheres::Ptr spheres = boost::make_shared< PlotSpheres >();
-                spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
-                               toOsgRefVec4Array( marker.colors ),
-                               std::vector< float >( marker.points.size(), (float)marker.scale.x * METERS ) );
+                PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
+                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
+                               toOsgRefVec4Array(marker.colors),
+                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
                 visualization_sphere_markers_[id] = spheres;
 
-                env->add( spheres );
+                env->add(spheres);
             }
             else
             {
                 PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
-                spheres->plot( toOsgRefVec3Array( marker.points, METERS ),
-                               toOsgRefVec4Array( marker.colors ),
-                               std::vector< float >( marker.points.size(), (float)marker.scale.x * METERS ) );
+                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
+                               toOsgRefVec4Array(marker.colors),
+                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
             }
             break;
         }
         case visualization_msgs::Marker::LINE_STRIP:
         {
-            convertLineStripToLineList( marker );
+            convertLineStripToLineList(marker);
         }
         case visualization_msgs::Marker::LINE_LIST:
         {
             // if the object is new, add it
-            if ( visualization_line_markers_.count( id ) == 0 )
+            if (visualization_line_markers_.count(id) == 0)
             {
-                PlotLines::Ptr line_strip = boost::make_shared< PlotLines >( (float)marker.scale.x * METERS );
-                line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
-                                       toBulletColorArray( marker.colors ));
+                PlotLines::Ptr line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
+                line_strip->setPoints(toBulletPointVector(marker.points, METERS),
+                                       toBulletColorArray(marker.colors));
                 visualization_line_markers_[id] = line_strip;
 
-                env->add( line_strip );
+                env->add(line_strip);
             }
             else
             {
                 PlotLines::Ptr line_strip = visualization_line_markers_[id];
-                line_strip->setPoints( toBulletPointVector( marker.points, METERS ),
-                                       toBulletColorArray( marker.colors ));
+                line_strip->setPoints(toBulletPointVector(marker.points, METERS),
+                                       toBulletColorArray(marker.colors));
             }
             break;
         }
         default:
         {
-            ROS_ERROR_STREAM_NAMED( "visualization",
-                    "Marker type " << marker.type << " not implemented " << id );
+            ROS_ERROR_STREAM_NAMED("visualization",
+                    "Marker type " << marker.type << " not implemented " << id);
         }
     }
 }
 
 void CustomScene::visualizationMarkerArrayCallback(
-        visualization_msgs::MarkerArray marker_array )
+        visualization_msgs::MarkerArray marker_array)
 {
-    for ( visualization_msgs::Marker marker: marker_array.markers )
+    for (visualization_msgs::Marker marker: marker_array.markers)
     {
-        visualizationMarkerCallback( marker );
+        visualizationMarkerCallback(marker);
     }
 }
 
@@ -1094,13 +1093,13 @@ void CustomScene::visualizationMarkerArrayCallback(
 // ROS Objects and Helpers
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::spin( double loop_rate )
+void CustomScene::spin(double loop_rate)
 {
     ros::NodeHandle ph("~");
-    ROS_INFO( "Starting feedback spinner" );
-    while ( ros::ok() )
+    ROS_INFO("Starting feedback spinner");
+    while (ros::ok())
     {
-        ros::getGlobalCallbackQueue()->callAvailable( ros::WallDuration( loop_rate ) );
+        ros::getGlobalCallbackQueue()->callAvailable(ros::WallDuration(loop_rate));
     }
 }
 
@@ -1110,9 +1109,9 @@ void CustomScene::spin( double loop_rate )
 
 void CustomScene::drawAxes()
 {
-    for ( auto& axes: gripper_axes_ )
+    for (auto& axes: gripper_axes_)
     {
-        axes.second->setup( grippers_[axes.first]->getWorldTransform(), 1 );
+        axes.second->setup(grippers_[axes.first]->getWorldTransform(), 1);
     }
 }
 
@@ -1126,36 +1125,36 @@ void CustomScene::drawAxes()
 // Key Handler for our Custom Scene
 ////////////////////////////////////////////////////////////////////////
 
-CustomScene::CustomKeyHandler::CustomKeyHandler( CustomScene &scene )
-    : scene_( scene )
-    , current_gripper_( nullptr )
-    , translate_gripper_( false )
-    , rotate_gripper_( false )
+CustomScene::CustomKeyHandler::CustomKeyHandler(CustomScene &scene)
+    : scene_(scene)
+    , current_gripper_(nullptr)
+    , translate_gripper_(false)
+    , rotate_gripper_(false)
 {}
 
-bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdapter & aa )
+bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdapter & aa)
 {
     (void)aa;
     bool suppress_default_handler = false;
 
-    switch ( ea.getEventType() )
+    switch (ea.getEventType())
     {
         case osgGA::GUIEventAdapter::KEYDOWN:
         {
-            switch ( ea.getKey() )
+            switch (ea.getKey())
             {
                 // Gripper translate/rotate selection keybinds
                 {
                     case '1':
                     {
-                        current_gripper_ = getGripper( 0 );
+                        current_gripper_ = getGripper(0);
                         translate_gripper_ = true;
                         rotate_gripper_ = false;
                         break;
                     }
                     case 'q':
                     {
-                        current_gripper_ = getGripper( 0 );
+                        current_gripper_ = getGripper(0);
                         translate_gripper_ = false;
                         rotate_gripper_ = true;
                         break;
@@ -1163,14 +1162,14 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 
                     case '2':
                     {
-                        current_gripper_ = getGripper( 1 );
+                        current_gripper_ = getGripper(1);
                         translate_gripper_ = true;
                         rotate_gripper_ = false;
                         break;
                     }
                     case 'w':
                     {
-                        current_gripper_ = getGripper( 1 );
+                        current_gripper_ = getGripper(1);
                         translate_gripper_ = false;
                         rotate_gripper_ = true;
                         break;
@@ -1178,14 +1177,14 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 
                     case '3':
                     {
-                        current_gripper_ = getGripper( 2 );
+                        current_gripper_ = getGripper(2);
                         translate_gripper_ = true;
                         rotate_gripper_ = false;
                         break;
                     }
                     case 'e':
                     {
-                        current_gripper_ = getGripper( 2 );
+                        current_gripper_ = getGripper(2);
                         translate_gripper_ = false;
                         rotate_gripper_ = true;
                         break;
@@ -1193,14 +1192,14 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 
                     case '4':
                     {
-                        current_gripper_ = getGripper( 3 );
+                        current_gripper_ = getGripper(3);
                         translate_gripper_ = true;
                         rotate_gripper_ = false;
                         break;
                     }
                     case 'r':
                     {
-                        current_gripper_ = getGripper( 3 );
+                        current_gripper_ = getGripper(3);
                         translate_gripper_ = false;
                         rotate_gripper_ = true;
                         break;
@@ -1211,28 +1210,28 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
                 case '[':
                 {
                     scene.left_gripper1->toggle();
-                    scene.left_gripper1->toggleattach( scene.clothPtr->softBody.get() );
-                    if( scene.num_auto_grippers > 1 )
+                    scene.left_gripper1->toggleattach(scene.clothPtr->softBody.get());
+                    if(scene.num_auto_grippers > 1)
                     {
                         scene.left_gripper2->toggle();
-                        scene.left_gripper2->toggleattach( scene.clothPtr->softBody.get() );
+                        scene.left_gripper2->toggleattach(scene.clothPtr->softBody.get());
                     }
                     break;
                 }
 
                 case ']':
                 {
-                    if( scene.num_auto_grippers > 1 )
+                    if(scene.num_auto_grippers > 1)
                         scene.corner_number_ += 2;
                     else
                         scene.corner_number_ += 1;
-                    if( scene.corner_number_ > 3 )
+                    if(scene.corner_number_ > 3)
                         scene.corner_number_ = 0;
-                    scene.left_gripper1->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
-                        scene.clothPtr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number_]].m_x ) );
-                    if( scene.num_auto_grippers > 1 )
-                        scene.left_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
-                            scene.clothPtr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number_+1]].m_x ) );
+                    scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1),
+                        scene.clothPtr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number_]].m_x));
+                    if(scene.num_auto_grippers > 1)
+                        scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1),
+                            scene.clothPtr->softBody->m_nodes[scene.corner_grasp_point_inds[scene.corner_number_+1]].m_x));
                     break;
                 }
 */
@@ -1243,45 +1242,45 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
                     break;
 
                 case 'z':
-                    scene.left_gripper1->toggleattach( scene.clothPtr->softBody.get() );
+                    scene.left_gripper1->toggleattach(scene.clothPtr->softBody.get());
                     break;
 
                 case 'x':
-                    scene.left_gripper2->toggleattach( scene.clothPtr->softBody.get() );
+                    scene.left_gripper2->toggleattach(scene.clothPtr->softBody.get());
                     break;
 
 
                 case 'c':
-                    scene.regraspWithOneGripper( scene.left_gripper1,scene.left_gripper2 );
+                    scene.regraspWithOneGripper(scene.left_gripper1,scene.left_gripper2);
                     break;
 
                 case 'v':
-                    scene.regraspWithOneGripper( scene.right_gripper1,scene.right_gripper2 );
+                    scene.regraspWithOneGripper(scene.right_gripper1,scene.right_gripper2);
                     break;
 */
 /*                case 'f':
-                    // scene.regraspWithOneGripper( scene.right_gripper1,scene.left_gripper1 );
-                    // scene.left_gripper1->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ), btVector3( 0,0,100 ) ) );
-                    scene.testRelease( scene.left_gripper1 );
+                    // scene.regraspWithOneGripper(scene.right_gripper1,scene.left_gripper1);
+                    // scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
+                    scene.testRelease(scene.left_gripper1);
                     break;
 
                 case 't':
-                    scene.testRelease2( scene.left_gripper2 );
+                    scene.testRelease2(scene.left_gripper2);
                     break;scene.inputState.startDragging = true;
 
                 case 'y':
-                    scene.testRegrasp2( scene.left_gripper2 );
+                    scene.testRegrasp2(scene.left_gripper2);
                     break;
 
                 case 'g':
-                    // scene.regraspWithOneGripper( scene.right_gripper2,scene.left_gripper2 );
-                    // scene.left_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ), btVector3( 0,0,110 ) ) );
-                    scene.testRegrasp( scene.left_gripper1 );
+                    // scene.regraspWithOneGripper(scene.right_gripper2,scene.left_gripper2);
+                    // scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,110)));
+                    scene.testRegrasp(scene.left_gripper1);
                     break;
 
                 case 'k':
                     std::cout << "try to adjust first gripper" << std::endl;
-                    scene.testAdjust( scene.left_gripper1 );
+                    scene.testAdjust(scene.left_gripper1);
                     break;
 
                 case 'l':
@@ -1290,58 +1289,58 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
                     break;
 */
                 // case 'k':
-                //     scene.right_gripper1->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),-0.2 )*
+                //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
                 //         scene.right_gripper1->getWorldTransform().getRotation(),
-                //         scene.right_gripper1->getWorldTransform().getOrigin() ) );
+                //         scene.right_gripper1->getWorldTransform().getOrigin()));
                 //     break;
 
                 // case ',':
-                //     scene.right_gripper1->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),0.2 )*
+                //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
                 //         scene.right_gripper1->getWorldTransform().getRotation(),
-                //         scene.right_gripper1->getWorldTransform().getOrigin() ) );
+                //         scene.right_gripper1->getWorldTransform().getOrigin()));
                 //     break;
 
 
                 // case 'l':
-                //     scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),0.2 )*
+                //     scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
                 //         scene.right_gripper2->getWorldTransform().getRotation(),
-                //         scene.right_gripper2->getWorldTransform().getOrigin() ) );
+                //         scene.right_gripper2->getWorldTransform().getOrigin()));
                 //     break;
 
                 //case '.':
-                //    scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( btVector3( 1,0,0 ),-0.2 )*
+                //    scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
                 //        scene.right_gripper2->getWorldTransform().getRotation(),
-                //        scene.right_gripper2->getWorldTransform().getOrigin() ) );
+                //        scene.right_gripper2->getWorldTransform().getOrigin()));
                 //    break;
 
 
                 // case 'y':
-                //     scene.right_gripper1->setWorldTransform( btTransform( btQuaternion( btVector3( 0,1,0 ),-0.2 )*
+                //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
                 //         scene.right_gripper1->getWorldTransform().getRotation(),
-                //         scene.right_gripper1->getWorldTransform().getOrigin() ) );
+                //         scene.right_gripper1->getWorldTransform().getOrigin()));
                 //     break;
 
 
                 //case 'u':
-                //    scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( btVector3( 0,1,0 ),-0.2 )*
+                //    scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
                 //        scene.right_gripper2->getWorldTransform().getRotation(),
-                //        scene.right_gripper2->getWorldTransform().getOrigin() ) );
+                //        scene.right_gripper2->getWorldTransform().getOrigin()));
                 //    break;
 
 /*
                 case 'i':
-                    scene.left_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
-                        scene.clothPtr->softBody->m_nodes[scene.robot_mid_point_ind].m_x ) );
+                    scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1),
+                        scene.clothPtr->softBody->m_nodes[scene.robot_mid_point_ind].m_x));
                     break;
 
                 case 'o':
-                    scene.right_gripper2->setWorldTransform( btTransform( btQuaternion( 0,0,0,1 ),
-                        scene.clothPtr->softBody->m_nodes[scene.user_mid_point_ind].m_x ) );
+                    scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1),
+                        scene.clothPtr->softBody->m_nodes[scene.user_mid_point_ind].m_x));
                     break;
 
 
                 case 'b':
-                    if( scene.right_gripper2->bOpen )
+                    if(scene.right_gripper2->bOpen)
                         scene.right_gripper2->state = GripperState_CLOSING;
                     else
                         scene.right_gripper2->state = GripperState_OPENING;
@@ -1349,7 +1348,7 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
                     break;
 
                 case 'n':
-                    if( scene.left_gripper2->bOpen )
+                    if(scene.left_gripper2->bOpen)
                         scene.left_gripper2->state = GripperState_CLOSING;
                     else
                         scene.left_gripper2->state = GripperState_OPENING;
@@ -1359,16 +1358,16 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
                 case 'j':
                 {
                     /// by bFirstTrackingIteration
-                    scene.getDeformableObjectNodes( scene.prev_node_pos );
+                    scene.getDeformableObjectNodes(scene.prev_node_pos);
                     scene.bTracking = !scene.bTracking;
-                    if( scene.bTracking )
+                    if(scene.bTracking)
                     {
                         scene.bFirstTrackingIteration = true;
                         scene.itrnumber = 0;
                     }
-                    if( !scene.bTracking )
+                    if(!scene.bTracking)
                     {
-                        scene.plot_points->setPoints( std::vector<btVector3> (), std::vector<btVector4> () );
+                        scene.plot_points->setPoints(std::vector<btVector3> (), std::vector<btVector4> ());
                     }
 
                     break;
@@ -1380,7 +1379,7 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 
         case osgGA::GUIEventAdapter::KEYUP:
         {
-            switch ( ea.getKey() )
+            switch (ea.getKey())
             {
                 case '1':
                 case 'q':
@@ -1408,10 +1407,10 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
         case osgGA::GUIEventAdapter::DRAG:
         {
             // drag the active manipulator in the plane of view
-            if (  ( ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON ) && current_gripper_ != nullptr )
+            if ( (ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON) && current_gripper_ != nullptr)
             {
                 // if we've just started moving, reset our internal position trackers
-                if ( start_dragging_ )
+                if (start_dragging_)
                 {
                     mouse_last_x_ = ea.getXnormalized();
                     mouse_last_y_ = ea.getYnormalized();
@@ -1425,45 +1424,45 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 
                 // get our current view
                 osg::Vec3d osgCenter, osgEye, osgUp;
-                scene_.manip->getTransformation( osgCenter, osgEye, osgUp );
-                btVector3 from( util::toBtVector( osgEye ) );
-                btVector3 to( util::toBtVector( osgCenter ) );
-                btVector3 up( util::toBtVector( osgUp ) ); up.normalize();
+                scene_.manip->getTransformation(osgCenter, osgEye, osgUp);
+                btVector3 from(util::toBtVector(osgEye));
+                btVector3 to(util::toBtVector(osgCenter));
+                btVector3 up(util::toBtVector(osgUp)); up.normalize();
 
                 // compute basis vectors for the plane of view
-                // ( the plane normal to the ray from the camera to the center of the scene )
-                btVector3 camera_normal_vector = ( to - from ).normalized();
-                btVector3 camera_y_axis = ( up - ( up.dot( camera_normal_vector ) )*camera_normal_vector ).normalized(); //TODO: FIXME: is this necessary with osg?
-                btVector3 camera_x_axis = camera_normal_vector.cross( camera_y_axis );
-                btVector3 drag_vector = SceneConfig::mouseDragScale * ( dx*camera_x_axis + dy*camera_y_axis );
+                // (the plane normal to the ray from the camera to the center of the scene)
+                btVector3 camera_normal_vector = (to - from).normalized();
+                btVector3 camera_y_axis = (up - (up.dot(camera_normal_vector))*camera_normal_vector).normalized(); //TODO: FIXME: is this necessary with osg?
+                btVector3 camera_x_axis = camera_normal_vector.cross(camera_y_axis);
+                btVector3 drag_vector = SceneConfig::mouseDragScale * (dx*camera_x_axis + dy*camera_y_axis);
 
                 btTransform current_transform = current_gripper_->getWorldTransform();
-                btTransform next_transform( current_transform );
+                btTransform next_transform(current_transform);
 
-                if ( translate_gripper_ )
+                if (translate_gripper_)
                 {
                     // if moving the manip, just set the origin appropriately
-                    next_transform.setOrigin( drag_vector + current_transform.getOrigin() );
+                    next_transform.setOrigin(drag_vector + current_transform.getOrigin());
                 }
-                else if ( rotate_gripper_ )
+                else if (rotate_gripper_)
                 {
                     // if we're rotating, the axis is perpendicular to the
                     // direction the mouse is dragging
-                    btVector3 axis = camera_normal_vector.cross( drag_vector );
+                    btVector3 axis = camera_normal_vector.cross(drag_vector);
                     btScalar angle = drag_vector.length();
-                    btQuaternion rot( axis, angle );
+                    btQuaternion rot(axis, angle);
                     // we must ensure that we never get a bad rotation quaternion
-                    // due to really small ( effectively zero ) mouse movements
+                    // due to really small (effectively zero) mouse movements
                     // this is the easiest way to do this:
-                    if ( rot.length() > 0.99f && rot.length() < 1.01f )
+                    if (rot.length() > 0.99f && rot.length() < 1.01f)
                     {
-                        next_transform.setRotation( rot * current_transform.getRotation() );
+                        next_transform.setRotation(rot * current_transform.getRotation());
                     }
                 }
 
                 // We don't need to lock here, as this is called inside of draw()
                 // at which point we've already locked
-                current_gripper_->setWorldTransform( next_transform );
+                current_gripper_->setWorldTransform(next_transform);
                 suppress_default_handler = true;
             }
             break;
@@ -1478,13 +1477,13 @@ bool CustomScene::CustomKeyHandler::handle( const osgGA::GUIEventAdapter &ea, os
 }
 
 
-GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper( size_t gripper_num )
+GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper(size_t gripper_num)
 {
-    if ( gripper_num < scene_.auto_grippers_.size() )
+    if (gripper_num < scene_.auto_grippers_.size())
     {
         return scene_.grippers_[scene_.auto_grippers_[gripper_num]];
     }
-    else if ( gripper_num - scene_.auto_grippers_.size() < scene_.manual_grippers_.size() )
+    else if (gripper_num - scene_.auto_grippers_.size() < scene_.manual_grippers_.size())
     {
         gripper_num = gripper_num - scene_.auto_grippers_.size();
         return scene_.grippers_[scene_.manual_grippers_[gripper_num]];
@@ -1492,8 +1491,8 @@ GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper( size_t gr
     else
     {
         std::cerr << "Invalid gripper number: " << gripper_num << std::endl;
-        std::cerr << "Existing auto grippers:   " << PrettyPrint::PrettyPrint( scene_.auto_grippers_ ) << std::endl;
-        std::cerr << "Existing manual grippers: " << PrettyPrint::PrettyPrint( scene_.manual_grippers_ ) << std::endl;
+        std::cerr << "Existing auto grippers:   " << PrettyPrint::PrettyPrint(scene_.auto_grippers_) << std::endl;
+        std::cerr << "Existing manual grippers: " << PrettyPrint::PrettyPrint(scene_.manual_grippers_) << std::endl;
         return nullptr;
     }
 }

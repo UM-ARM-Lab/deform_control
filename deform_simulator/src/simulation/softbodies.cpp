@@ -178,7 +178,7 @@ EnvironmentObject::Ptr BulletSoftObject::copy(Fork &f) const {
 
         f.registerCopy(node, newNode);
         BOOST_ASSERT(f.copyOf(node) == newNode);
-        BOOST_ASSERT( ((btSoftBody::Node*)f.copyOf(node))->m_x == node->m_x );
+        BOOST_ASSERT(((btSoftBody::Node*)f.copyOf(node))->m_x == node->m_x);
     }
 
     // links
@@ -189,8 +189,8 @@ EnvironmentObject::Ptr BulletSoftObject::copy(Fork &f) const {
         btSoftBody::Node *n0 = (btSoftBody::Node *) f.copyOf(link->m_n[0]);
         btSoftBody::Node *n1 = (btSoftBody::Node *) f.copyOf(link->m_n[1]);
         BOOST_ASSERT(n0 && n1);
-        BOOST_ASSERT( ((btSoftBody::Node*)f.copyOf(link->m_n[0]))->m_x == link->m_n[0]->m_x );
-        BOOST_ASSERT( ((btSoftBody::Node*)f.copyOf(link->m_n[1]))->m_x == link->m_n[1]->m_x );
+        BOOST_ASSERT(((btSoftBody::Node*)f.copyOf(link->m_n[0]))->m_x == link->m_n[0]->m_x);
+        BOOST_ASSERT(((btSoftBody::Node*)f.copyOf(link->m_n[1]))->m_x == link->m_n[1]->m_x);
         psb->appendLink(n0, n1, mat);
 
         btSoftBody::Link *newLink = &psb->m_links[psb->m_links.size() - 1];
