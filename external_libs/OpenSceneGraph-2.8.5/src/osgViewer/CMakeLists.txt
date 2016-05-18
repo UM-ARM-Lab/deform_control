@@ -41,8 +41,8 @@ SET(LIB_EXTRA_LIBS)
 IF(WIN32)
 
     #
-    # Enable workaround for OpenGL driver issues when used in multithreaded/multiscreen with NVidia drivers on Windows XP 
-    # For example: osgviewer dumptruck.osg was showing total garbage (screen looked like shattered, splashed hedgehog) 
+    # Enable workaround for OpenGL driver issues when used in multithreaded/multiscreen with NVidia drivers on Windows XP
+    # For example: osgviewer dumptruck.osg was showing total garbage (screen looked like shattered, splashed hedgehog)
     # There were also serious issues with render to texture cameras.
     # Workaround repeats makeCurrentContext call as it was found that this causes the problems to dissapear.
     #
@@ -56,8 +56,8 @@ IF(WIN32)
         ${HEADER_PATH}/api/Win32/GraphicsWindowWin32
         ${HEADER_PATH}/api/Win32/PixelBufferWin32
     )
-        
-    SET(LIB_COMMON_FILES ${LIB_COMMON_FILES} 
+
+    SET(LIB_COMMON_FILES ${LIB_COMMON_FILES}
         GraphicsWindowWin32.cpp
         PixelBufferWin32.cpp
     )
@@ -69,37 +69,37 @@ ELSE(WIN32)
     ELSE(APPLE)
         SET(OSG_WINDOWING_SYSTEM "X11" CACHE STRING "Windowing system type for graphics window creation. options only X11")
     ENDIF(APPLE)
-    
+
     IF(${OSG_WINDOWING_SYSTEM} STREQUAL "Cocoa")
-		ADD_DEFINITIONS(-DUSE_DARWIN_COCOA_IMPLEMENTATION)
-        SET(LIB_PUBLIC_HEADERS ${LIB_PUBLIC_HEADERS} 
+        ADD_DEFINITIONS(-DUSE_DARWIN_COCOA_IMPLEMENTATION)
+        SET(LIB_PUBLIC_HEADERS ${LIB_PUBLIC_HEADERS}
             ${HEADER_PATH}/api/Cocoa/GraphicsHandleCocoa
             ${HEADER_PATH}/api/Cocoa/GraphicsWindowCocoa
             ${HEADER_PATH}/api/Cocoa/PixelBufferCocoa
         )
-        SET(LIB_COMMON_FILES ${LIB_COMMON_FILES} 
+        SET(LIB_COMMON_FILES ${LIB_COMMON_FILES}
             GraphicsWindowCocoa.mm
             DarwinUtils.h
             DarwinUtils.mm
             PixelBufferCocoa.mm
         )
 
-	SET(LIB_EXTRA_LIBS ${COCOA_LIBRARY} ${LIB_EXTRA_LIBS})
+    SET(LIB_EXTRA_LIBS ${COCOA_LIBRARY} ${LIB_EXTRA_LIBS})
 
     ELSE(${OSG_WINDOWING_SYSTEM} STREQUAL "Cocoa")
-        IF(${OSG_WINDOWING_SYSTEM} STREQUAL "Carbon")	
-			ADD_DEFINITIONS(-DUSE_DARWIN_CARBON_IMPLEMENTATION)
-            SET(LIB_PUBLIC_HEADERS ${LIB_PUBLIC_HEADERS} 
+        IF(${OSG_WINDOWING_SYSTEM} STREQUAL "Carbon")
+            ADD_DEFINITIONS(-DUSE_DARWIN_CARBON_IMPLEMENTATION)
+            SET(LIB_PUBLIC_HEADERS ${LIB_PUBLIC_HEADERS}
                 ${HEADER_PATH}/api/Carbon/GraphicsWindowCarbon
                 ${HEADER_PATH}/api/Carbon/PixelBufferCarbon
             )
-            SET(LIB_COMMON_FILES ${LIB_COMMON_FILES} 
+            SET(LIB_COMMON_FILES ${LIB_COMMON_FILES}
                 GraphicsWindowCarbon.cpp
                 DarwinUtils.h
                 DarwinUtils.mm
                 PixelBufferCarbon.cpp
             )
-	    SET(LIB_EXTRA_LIBS ${COCOA_LIBRARY} ${LIB_EXTRA_LIBS})
+        SET(LIB_EXTRA_LIBS ${COCOA_LIBRARY} ${LIB_EXTRA_LIBS})
 
         ELSE(${OSG_WINDOWING_SYSTEM} STREQUAL "Carbon")
 
@@ -110,10 +110,10 @@ ELSE(WIN32)
             IF (PKG_CONFIG_FOUND)
 
                 PKG_CHECK_MODULES(XRANDR xrandr)
-                
-                IF (XRANDR_FOUND) 
+
+                IF (XRANDR_FOUND)
                     OPTION(OSGVIEWER_USE_XRANDR "Set to ON to enable Xrandr support for GraphicsWindowX11." ON)
-                ELSE(XRANDR_FOUND) 
+                ELSE(XRANDR_FOUND)
                     SET(OSGVIEWER_USE_XRANDR OFF)
                 ENDIF (XRANDR_FOUND)
             ELSE(PKG_CONFIG_FOUND)
@@ -127,13 +127,13 @@ ELSE(WIN32)
             )
 
 
-            SET(LIB_COMMON_FILES ${LIB_COMMON_FILES} 
-                GraphicsWindowX11.cpp 
+            SET(LIB_COMMON_FILES ${LIB_COMMON_FILES}
+                GraphicsWindowX11.cpp
                 PixelBufferX11.cpp
             )
-            
+
             IF(OSGVIEWER_USE_XRANDR)
-            
+
                 ADD_DEFINITIONS(-DOSGVIEWER_USE_XRANDR)
                 SET(LIB_PRIVATE_HEADERS ${LIB_PRIVATE_HEADERS} ${XRANDR_INCLUDE_DIRS} )
 
@@ -142,12 +142,12 @@ ELSE(WIN32)
                 ELSE(X11_Xrandr_LIB)
                     SET(LIB_EXTRA_LIBS ${XRANDR_LIBRARIES} ${LIB_EXTRA_LIBS})
                 ENDIF(X11_Xrandr_LIB)
-                
+
             ENDIF(OSGVIEWER_USE_XRANDR)
 
             # X11 on Apple requires X11 library plus OpenGL linking hack on Leopard
             IF(APPLE)
-                # Find GL/glx.h 
+                # Find GL/glx.h
                 IF(EXISTS ${CMAKE_OSX_SYSROOT}/usr/X11/include/GL/glx.h)
                     SET(OPENGL_INCLUDE_DIR /usr/X11/include)
                     SET(OPENGL_LIBRARIES /usr/X11/lib/libGL.dylib)
@@ -160,7 +160,7 @@ ELSE(WIN32)
                 SET(LIB_EXTRA_LIBS ${X11_X11_LIB} ${OPENGL_LIBRARIES} ${LIB_EXTRA_LIBS})
                 SET(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,-dylib_file,/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib:${CMAKE_OSX_SYSROOT}/System/Library/Frameworks/OpenGL.framework/Versions/A/Libraries/libGL.dylib")
             ENDIF(APPLE)
-                
+
 
         ENDIF(${OSG_WINDOWING_SYSTEM} STREQUAL "Carbon")
     ENDIF(${OSG_WINDOWING_SYSTEM} STREQUAL "Cocoa")
@@ -175,7 +175,7 @@ ADD_LIBRARY(${LIB_NAME}
 )
 
 
-LINK_INTERNAL(${LIB_NAME}     
+LINK_INTERNAL(${LIB_NAME}
     osgGA
     osgText
     osgDB

@@ -289,7 +289,7 @@ void CustomScene::makeCylinder()
     // cylinder parameters
     const btVector3 cylinder_com_origin =
         btVector3(GetCylinderCenterOfMassX(nh_),
-                   GetCylinderCenterOfMassY(nh_) - 0.15f,
+                   GetCylinderCenterOfMassY(nh_),// - 0.15f,
                    GetCylinderCenterOfMassZ(nh_)) * METERS;
 
     const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
