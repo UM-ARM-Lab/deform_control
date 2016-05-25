@@ -58,7 +58,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
         default:
         {
             ROS_FATAL_STREAM("Unknown deformable type " << deformable_type_);
-            throw new std::invalid_argument("Unknown deformable object type " + deformable_type_);
+            throw new arc_exceptions::invalid_argument("Unknown deformable object type " + std::to_string(deformable_type_), __FILE__, __LINE__);
         }
     };
 
@@ -371,13 +371,13 @@ void CustomScene::makeRope()
                        GetRopeCenterOfMassZ(nh_)) * METERS;
 
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
-    const int num_links = GetRopeNumLinks(nh_);
+    const size_t num_links = (size_t)GetRopeNumLinks(nh_);
 
     // make the rope
     std::vector<btVector3> control_points(num_links);
-    for (int n = 0; n < num_links; n++)
+    for (size_t n = 0; n < num_links; n++)
     {
-        control_points[(size_t)n] = rope_com
+        control_points[n] = rope_com
                 + btVector3(((float)n - (float)(num_links) / 2.0f) * rope_segment_length, 0, 0);
 
     }
@@ -491,7 +491,7 @@ void CustomScene::makeRopeWorld()
         default:
         {
             ROS_FATAL_STREAM("Unknown task type for a ROPE object " << task_type_);
-            throw new std::invalid_argument("Unknown task type for a ROPE object");
+            throw new arc_exceptions::invalid_argument("Unknown task type for a ROPE object " + std::to_string(task_type_), __FILE__, __LINE__);
         }
     }
 
@@ -615,7 +615,7 @@ void CustomScene::makeClothWorld()
         default:
         {
             ROS_FATAL_STREAM("Unknown task type for a CLOTH object " << task_type_);
-            throw new std::invalid_argument("Unknown task type for a CLOTH object " + task_type_);
+            throw new arc_exceptions::invalid_argument("Unknown task type for a CLOTH object " + std::to_string(task_type_), __FILE__, __LINE__);
         }
     }
 
