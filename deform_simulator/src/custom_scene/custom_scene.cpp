@@ -233,12 +233,12 @@ void CustomScene::makeTable()
     // table parameters
     const btVector3 table_surface_position =
             btVector3(GetTableSurfaceX(nh_),
-                       GetTableSurfaceY(nh_),
-                       GetTableSurfaceZ(nh_)) * METERS;
+                      GetTableSurfaceY(nh_),
+                      GetTableSurfaceZ(nh_)) * METERS;
     const btVector3 table_half_extents =
-            btVector3(GetTableSizeX(nh_),
-                       GetTableSizeY(nh_),
-                       GetTableThickness(nh_)) / 2.0f * METERS;
+            btVector3(GetTableHalfExtentsX(nh_),
+                      GetTableHalfExtentsY(nh_),
+                      GetTableThickness(nh_)) / 2.0f * METERS;
 
     const btVector3 table_com = table_surface_position - btVector3(0, 0, table_half_extents.z());
 
@@ -256,7 +256,7 @@ void CustomScene::makeTable()
     // if we are doing a table coverage task, create the table coverage points
     if (task_type_ == TaskType::TABLE_COVERAGE)
     {
-        #warning "Cloth table cover points step size magic number"
+        #pragma message "Cloth table cover points step size magic number"
         const float stepsize = 0.0125f * METERS;
         btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
 
@@ -307,7 +307,7 @@ void CustomScene::makeCylinder()
 
     if (deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::CYLINDER_COVERAGE)
     {
-        #warning "Magic numbers - discretization level of cover points"
+        #pragma message "Magic numbers - discretization level of cover points"
         // consider 21 points around the cylinder
         for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
         // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
@@ -325,7 +325,7 @@ void CustomScene::makeCylinder()
     }
     else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::CYLINDER_COVERAGE || task_type_ == TaskType::WAFR))
     {
-        #warning "Magic numbers - discretization level of cover points"
+        #pragma message "Magic numbers - discretization level of cover points"
         for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f)
         {
             for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10.0f)
@@ -340,7 +340,7 @@ void CustomScene::makeCylinder()
             }
         }
 
-         #warning "Magic numbers - discretization level of cover points"
+        #pragma message "Magic numbers - discretization level of cover points"
         // consider 21 points around the cylinder
         for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
             // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
