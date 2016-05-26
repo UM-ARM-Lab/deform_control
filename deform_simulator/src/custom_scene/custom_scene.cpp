@@ -340,21 +340,21 @@ void CustomScene::makeCylinder()
             }
         }
 
-        #pragma message "Magic numbers - discretization level of cover points"
-        // consider 21 points around the cylinder
-        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
-        {
-            // 31 points per theta
-            for (float h = cylinder_height / 4.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
-            {
-                cover_points_.push_back(
-                            cylinder_com_origin
-                            + btVector3(cylinder_radius * std::cos(theta),
-                                         cylinder_radius * std::sin(theta),
-                                         h));
-            }
-        }
+//        #pragma message "Magic numbers - discretization level of cover points"
+//        // consider 21 points around the cylinder
+//        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+//            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+//        {
+//            // 31 points per theta
+//            for (float h = cylinder_height / 4.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
+//            {
+//                cover_points_.push_back(
+//                            cylinder_com_origin
+//                            + btVector3(cylinder_radius * std::cos(theta),
+//                                        cylinder_radius * std::sin(theta),
+//                                        h));
+//            }
+//        }
     }
 
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
@@ -481,8 +481,8 @@ void CustomScene::makeRopeWorld()
                         GetRopeGripperApperture(nh_) * METERS,
                         btVector4(0.6f, 0.6f, 0.6f, 0.4f));
             grippers_["gripper"]->setWorldTransform(
-                    rope_->children[0]->rigidBody->getCenterOfMassTransform());
-            grippers_["gripper"]->rigidGrab(rope_->children[0]->rigidBody.get(), 0, env);
+                    rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
+            grippers_["gripper"]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
 
             auto_grippers_.push_back("gripper");
 
@@ -871,7 +871,7 @@ btPointCollector CustomScene::collisionHelper(
 
             btGjkPairDetector::ClosestPointInput input;
 
-            gripper->children[gripper_child_ind]->motionState->getWorldTransform(input.m_transformA);
+            gripper->getChildren()[gripper_child_ind]->motionState->getWorldTransform(input.m_transformA);
             obj->motionState->getWorldTransform(input.m_transformB);
             input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
             convexConvex.getClosestPoints(input, gjkOutput, nullptr);
