@@ -56,7 +56,7 @@ void Scene::toggleDebugDraw() {
 void Scene::step(float dt, int maxsteps, float internaldt) {
     static float startTime=viewer.getFrameStamp()->getSimulationTime(), endTime;
 
-    if (drawingOn && loopState.debugDraw)
+    if (drawingOn && loopState.debugDraw && !dbgDraw->getActive())
     {
         dbgDraw->BeginDraw();
     }
@@ -113,8 +113,10 @@ void Scene::draw() {
     if (!drawingOn)
         return;
     if (loopState.debugDraw) {
-        // This call was moved to the start of the step() function as part of the bullet collision pipeline involves drawing thing when debug draw is enabled
-//        dbgDraw->BeginDraw();
+        // This call was moved to the start of the step() function as part of the bullet collision pipeline involves drawing things when debug draw is enabled
+        if (!dbgDraw->getActive()) {
+            dbgDraw->BeginDraw();
+        }
         bullet->dynamicsWorld->debugDrawWorld();
         dbgDraw->EndDraw();
     }
