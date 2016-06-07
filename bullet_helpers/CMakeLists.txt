@@ -67,7 +67,7 @@ include_directories(include SYSTEM
   ${catkin_INCLUDE_DIRS}
 )
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -march=native -std=c++0x -Wall -Wextra -Wpedantic -Werror" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -march=native -std=c++0x -Wall -Wextra -Wpedantic -Werror" )
 
 ## Declare a C++ library
 add_library( ${PROJECT_NAME}

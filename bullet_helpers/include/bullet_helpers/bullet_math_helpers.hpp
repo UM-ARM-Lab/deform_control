@@ -2,7 +2,10 @@
 #define BULLET_MATH_HELPERS_HPP
 
 #include <btBulletDynamicsCommon.h>
+#include <BulletSoftBody/btSoftBody.h>
 #include <vector>
+#include <cmath>
+#include <iostream>
 
 namespace BulletHelpers
 {
@@ -31,6 +34,25 @@ namespace BulletHelpers
         }
 
         return average;
+    }
+
+    inline bool VectorContainsNaN(const btVector3& vec)
+    {
+//        std::cout << vec.x() << " " << vec.y() << " " << vec.z() << std::endl;
+        return std::isnan(vec.x()) || std::isnan(vec.y()) || std::isnan(vec.z());
+    }
+
+    inline bool NodeArrayValid(const btSoftBody::tNodeArray& node_array)
+    {
+        std::cout << "Checking Node Array Valid\n";
+        for(int ind = 0; ind < node_array.size(); ind++)
+        {
+            if (VectorContainsNaN(node_array[ind].m_x))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 }
 

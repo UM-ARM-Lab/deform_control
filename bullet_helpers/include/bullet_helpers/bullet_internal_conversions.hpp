@@ -6,9 +6,11 @@
 #include <btBulletDynamicsCommon.h>
 #include <BulletSoftBody/btSoftBody.h>
 
+#include "bullet_helpers/bullet_math_helpers.hpp"
+
 namespace BulletHelpers
 {
-    inline void nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes, std::vector<btVector3> &nodeposvec)
+    inline void nodeArrayToNodePosVector(const btSoftBody::tNodeArray &m_nodes, std::vector<btVector3> &nodeposvec)
     {
         nodeposvec.resize(m_nodes.size());
         for(int i =0; i < m_nodes.size(); i++)
@@ -17,7 +19,7 @@ namespace BulletHelpers
         }
     }
 
-    inline std::vector<btVector3> nodeArrayToNodePosVector(const btAlignedObjectArray<btSoftBody::Node> &m_nodes)
+    inline std::vector<btVector3> nodeArrayToNodePosVector(const btSoftBody::tNodeArray &m_nodes)
     {
         std::vector<btVector3> nodeposvec(m_nodes.size());
         for(int i = 0; i < m_nodes.size(); i++)

@@ -137,7 +137,7 @@ public:
         SDF_RS	=	0x0001,	///SDF based rigid vs soft
         CL_RS	=	0x0002, ///Cluster vs convex rigid vs soft
 
-        SVSmask	=	0x0030,	///Rigid versus soft mask
+        SVSmask	=	0x0030,	///Soft versus soft mask
         VF_SS	=	0x0010,	///Vertex vs face soft vs soft handling
         CL_SS	=	0x0020, ///Cluster vs cluster soft vs soft handling
         CL_SELF =	0x0040, ///Cluster soft body self collision
@@ -569,16 +569,16 @@ public:
         btScalar				kVC;			// Volume conversation coefficient [0,+inf]
         btScalar				kDF;			// Dynamic friction coefficient [0,1]
         btScalar				kMT;			// Pose matching coefficient [0,1]
-        btScalar				kCHR;			// Rigid contacts hardness [0,1]
+        btScalar				kCHR;			// Rigid   contacts hardness [0,1]
         btScalar				kKHR;			// Kinetic contacts hardness [0,1]
-        btScalar				kSHR;			// Soft contacts hardness [0,1]
+        btScalar				kSHR;			// Soft    contacts hardness [0,1]
         btScalar				kAHR;			// Anchors hardness [0,1]
-        btScalar				kSRHR_CL;		// Soft vs rigid hardness [0,1] (cluster only)
+        btScalar				kSRHR_CL;		// Soft vs rigid   hardness [0,1] (cluster only)
         btScalar				kSKHR_CL;		// Soft vs kinetic hardness [0,1] (cluster only)
-        btScalar				kSSHR_CL;		// Soft vs soft hardness [0,1] (cluster only)
-        btScalar				kSR_SPLT_CL;	// Soft vs rigid impulse split [0,1] (cluster only)
-        btScalar				kSK_SPLT_CL;	// Soft vs rigid impulse split [0,1] (cluster only)
-        btScalar				kSS_SPLT_CL;	// Soft vs rigid impulse split [0,1] (cluster only)
+        btScalar				kSSHR_CL;		// Soft vs soft    hardness [0,1] (cluster only)
+        btScalar				kSR_SPLT_CL;	// Soft vs rigid   impulse split [0,1] (cluster only)
+        btScalar				kSK_SPLT_CL;	// Soft vs kinetic impulse split [0,1] (cluster only)
+        btScalar				kSS_SPLT_CL;	// Soft vs soft    impulse split [0,1] (cluster only)
         btScalar				maxvolume;		// Maximum volume ratio for pose
         btScalar				timescale;		// Time scale
         int						viterations;	// Velocities solver iterations

@@ -13,16 +13,18 @@ GripperKinematicObject::GripperKinematicObject(const std::string& name_input, fl
     , state(GripperState_DONE)
     , bOpen (true)
     , apperture(apperture_input)
-    , closed_gap(0.005f*METERS)
+    , closed_gap(0.006f*METERS)
     , bAttached(false)
 {
     BoxObject::Ptr top_jaw(new BoxObject(0, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)), true));
     top_jaw->setColor(color[0],color[1],color[2],color[3]);
+    top_jaw->collisionShape->setMargin(0.004f*METERS);
 
     BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, -apperture/2)), true));
     bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
+    bottom_jaw->collisionShape->setMargin(0.004f*METERS);
 
     // Find the center of the gripper composite object
     top_jaw->motionState->getWorldTransform(cur_tm);

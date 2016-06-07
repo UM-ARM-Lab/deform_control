@@ -134,7 +134,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
     setSyncTime(syncTime);
 
     // Let the object settle before anything else happens
-    stepFor(BulletConfig::dt, 2);
+    stepFor(BulletConfig::dt, 4);
 
     base_sim_time_ = simTime;
 
@@ -184,12 +184,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
             {
                 std::lock_guard<std::mutex> lock (sim_mutex_);
                 moveGrippers();
-
-                for (size_t filter_ind = 0; filter_ind < num_timesteps_to_execute_per_gripper_cmd_; filter_ind++)
-                {
-                    step(BulletConfig::dt);
-                }
-
+                stepFor(BulletConfig::dt, BulletConfig::dt * (float)num_timesteps_to_execute_per_gripper_cmd_);
                 msg = createSimulatorFbk();
             }
 
@@ -213,7 +208,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
                 msg = createSimulatorFbk();
             }
 
-            usleep((__useconds_t)(BulletConfig::dt * 1e6));
+            usleep((__useconds_t)10000);
         }
 
         // publish the simulator state
@@ -333,28 +328,78 @@ void CustomScene::makeCylinder()
                 // Only accept those points that are within the bounding circle
                 if (x * x + y * y < cylinder_radius * cylinder_radius)
                 {
+                    #pragma message "Hard coded value - Cloth doesn't exist yet, so collision margin can't be looked up"
                     cover_points_.push_back(
                                 cylinder_com_origin
-                                + btVector3(x, y, cylinder_height / 2.0f));
+                                + btVector3(x, y, cylinder_height / 2.0f + 0.0025f * METERS));
                 }
             }
         }
 
+
+        ////////////////////////////////////////////////////////////////////////
+        // Horizontal Cylinder above first cylinder
+        ////////////////////////////////////////////////////////////////////////
+        const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
+                btVector3(-0.15f, 0.0f, 0.3f) * METERS;
+
+        CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius / 2.0f, cylinder_height * 2.0f,
+                    btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
+        horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+        // add the cylinder to the world
+        env->add(horizontal_cylinder);
+        world_objects_["horizontal_cylinder"] = horizontal_cylinder;
+
+        #pragma message "Magic numbers - discretization level of cover points"
+        for (float theta = 0.0f; theta <= 2.0f * M_PI; theta += 0.627f)
+        {
+            for (float h = -cylinder_height/1.0f; h <= cylinder_height/0.99f; h += cylinder_height / 15.0f)
+            {
+                #pragma message "Hard codded value - Cloth doesn't exist yet, so collision margin can't be looked up"
+                cover_points_.push_back(
+                            horizontal_cylinder_com_origin
+                            + btVector3(
+                                (cylinder_radius / 2.0f + 0.0025f * METERS) * std::sin(theta),
+                                h,
+                                (cylinder_radius / 2.0f + 0.0025f * METERS) * std::cos(theta)));
+            }
+        }
+
+
+
+        ////////////////////////////////////////////////////////////////////////
+        // Vertical Cylinder above first cylinder
+        ////////////////////////////////////////////////////////////////////////
+//        const btVector3 upper_cylinder_com_origin = cylinder_com_origin +
+//                btVector3(0.0f, 0.0f, 0.35f) * METERS;
+
+//        CylinderStaticObject::Ptr upper_cylinder = boost::make_shared<CylinderStaticObject>(
+//                    0, cylinder_radius, cylinder_height,
+//                    btTransform(btQuaternion(0, 0, 0, 1), upper_cylinder_com_origin));
+//        upper_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+//        // add the cylinder to the world
+//        env->add(upper_cylinder);
+//        world_objects_["upper_cylinder"] = upper_cylinder;
+
 //        #pragma message "Magic numbers - discretization level of cover points"
-//        // consider 21 points around the cylinder
-//        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-//            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+//        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f)
 //        {
-//            // 31 points per theta
-//            for (float h = cylinder_height / 4.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
+//            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10.0f)
 //            {
-//                cover_points_.push_back(
-//                            cylinder_com_origin
-//                            + btVector3(cylinder_radius * std::cos(theta),
-//                                        cylinder_radius * std::sin(theta),
-//                                        h));
+//                // Only accept those points that are within the bounding circle
+//                if (x * x + y * y < cylinder_radius * cylinder_radius)
+//                {
+//                    #pragma message "Hard coded value - Cloth doesn't exist yet, so collision margin can't be looked up"
+//                    cover_points_.push_back(
+//                                upper_cylinder_com_origin
+//                                + btVector3(x, y, -cylinder_height / 2.0f - 0.0025f * METERS));
+//                }
 //            }
 //        }
+
     }
 
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
@@ -415,14 +460,15 @@ void CustomScene::makeCloth()
         num_divs, num_divs,
         0, true);
 
-//    psb->m_cfg.viterations	=	0;      // Velocity solver iterations   - default 0
-    psb->m_cfg.piterations	=	10;     // Positions solver iterations  - default 1 - DmitrySim 10
-//    psb->m_cfg.diterations	=	10;     // Drift solver iterations      - default 0
-    psb->m_cfg.citerations	=   15;     // Cluster solver iterations    - default 4
+//    psb->m_cfg.viterations = 10;     // Velocity solver iterations   - default 0 - changing this to 10 causes the cloth to just pass through objects it seems
+    psb->m_cfg.piterations = 10;     // Positions solver iterations  - default 1 - DmitrySim 10
+//    psb->m_cfg.diterations = 10;     // Drift solver iterations      - default 0 - changing this to 10 or 100 doesn't seem to cause any meaningful change
+    psb->m_cfg.citerations = 10;     // Cluster solver iterations    - default 4
 
-    psb->m_cfg.collisions   = btSoftBody::fCollision::CL_SS
-            | btSoftBody::fCollision::CL_RS
-            | btSoftBody::fCollision::CL_SELF;
+    psb->m_cfg.collisions   =
+            btSoftBody::fCollision::CL_SS |
+            btSoftBody::fCollision::CL_RS |
+            btSoftBody::fCollision::CL_SELF;
 
     psb->getCollisionShape()->setMargin(0.0025f * METERS); // default 0.25 - DmitrySim 0.05
 
@@ -434,12 +480,12 @@ void CustomScene::makeCloth()
 
 
     btSoftBody::Material *pm = psb->m_materials[0];
-//    pm->m_kLST              = 0.2f;     // Linear stiffness coefficient [0,1]       - default is 1 - makes it rubbery (handles self collisions better)
-//    pm->m_kAST              = 1;        // Area/Angular stiffness coefficient [0,1] - default is 1
+    pm->m_kLST              = task_type_ == TaskType::TABLE_COVERAGE ? 1.0f : 0.50f;     // Linear stiffness coefficient [0,1]       - default is 1 - 0.2 makes it rubbery (handles self collisions better)
+//    pm->m_kAST              = 0.90f;     // Area/Angular stiffness coefficient [0,1] - default is 1
 //    pm->m_kVST              = 1;        // Volume stiffness coefficient [0,1]       - default is 1
     const int distance = 2; // node radius for creating constraints
     psb->generateBendingConstraints(distance, pm);
-    psb->randomizeConstraints();
+//    psb->randomizeConstraints();
 
 
     psb->setTotalMass(0.1f, true);
@@ -447,11 +493,13 @@ void CustomScene::makeCloth()
 
     // splits the soft body volume up into the given number of small, convex clusters,
     // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
-    // Sending '0' causes the function to us the number of tetrahedral/face elemtents as the number of clusters
-    psb->generateClusters(500);
+    // Sending '0' causes the function to use the number of tetrahedral/face elemtents as the number of clusters
+//    psb->generateClusters(num_divs * num_divs / 25);
+    psb->generateClusters(100);
     for (int i = 0; i < psb->m_clusters.size(); ++i)
     {
         psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
+//        psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
     }
 
     cloth_ = boost::make_shared<BulletSoftObject>(psb);
@@ -600,15 +648,22 @@ void CustomScene::makeClothWorld()
         {
             makeCylinder();
 
-            BoxObject::Ptr left_block = boost::make_shared<BoxObject> (
-                        0, btVector3(0.04f, 0.25f, 0.55f) * METERS,
-                        btTransform(btQuaternion(0, 0, 0, 1), btVector3(-0.1f, -0.3f, 0.7f) * METERS));
-            left_block->setColor(0.4f, 0.4f, 0.4f, 0.5f);
-            left_block->rigidBody->setFriction(1);
-            left_block->collisionShape->setMargin(0.05f * METERS);
+//            CylinderStaticObject::Ptr right_endcap = boost::make_shared<CylinderStaticObject>(
+//                        0, 0.04f * METERS, 1.1f * METERS,
+//                        btTransform(btQuaternion(0, 0, 0, 1), btVector3(-0.1f, -0.3f + 0.25f - 0.04f, 0.7f) * METERS));
+//            right_endcap->setColor(0.3f, 0.3f, 0.3f, 1.0f);
+//            right_endcap->collisionShape->setMargin(0.04f * METERS); // Default 0.04f
+//            env->add(right_endcap);
+//            world_objects_["right_endcap"] = right_endcap;
 
-            env->add(left_block);
-            world_objects_["left_block"] = left_block;
+//            BoxObject::Ptr left_block = boost::make_shared<BoxObject>(
+//                        0, btVector3(0.04f, 0.25f, 0.55f) * METERS,
+//                        btTransform(btQuaternion(0, 0, 0, 1), btVector3(-0.1f, -0.34f, 0.7f) * METERS));
+//            left_block->setColor(0.3f, 0.3f, 0.3f, 1.0f);
+//            left_block->collisionShape->setMargin(0.04f * METERS); // Default 0.04f
+
+//            env->add(left_block);
+//            world_objects_["left_block"] = left_block;
 
             break;
         }
@@ -1475,7 +1530,6 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
     }
     return suppress_default_handler;
 }
-
 
 GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper(size_t gripper_num)
 {
