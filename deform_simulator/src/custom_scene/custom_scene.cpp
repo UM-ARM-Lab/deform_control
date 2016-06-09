@@ -320,6 +320,8 @@ void CustomScene::makeCylinder()
     }
     else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::CYLINDER_COVERAGE || task_type_ == TaskType::WAFR))
     {
+        const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
+
         #pragma message "Magic numbers - discretization level of cover points"
         for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f)
         {
@@ -328,10 +330,9 @@ void CustomScene::makeCylinder()
                 // Only accept those points that are within the bounding circle
                 if (x * x + y * y < cylinder_radius * cylinder_radius)
                 {
-                    #pragma message "Hard coded value - Cloth doesn't exist yet, so collision margin can't be looked up"
                     cover_points_.push_back(
                                 cylinder_com_origin
-                                + btVector3(x, y, cylinder_height / 2.0f + 0.0025f * METERS));
+                                + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
                 }
             }
         }
@@ -340,11 +341,12 @@ void CustomScene::makeCylinder()
         ////////////////////////////////////////////////////////////////////////
         // Horizontal Cylinder above first cylinder
         ////////////////////////////////////////////////////////////////////////
+
         const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                btVector3(-0.15f, 0.0f, 0.3f) * METERS;
+                btVector3(-0.1f, 0.0f, 0.20f) * METERS;
 
         CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                    0, cylinder_radius / 2.0f, cylinder_height * 2.0f,
+                    0, cylinder_radius / 4.0f, cylinder_height * 2.0f,
                     btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
         horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
@@ -357,13 +359,12 @@ void CustomScene::makeCylinder()
         {
             for (float h = -cylinder_height/1.0f; h <= cylinder_height/0.99f; h += cylinder_height / 15.0f)
             {
-                #pragma message "Hard codded value - Cloth doesn't exist yet, so collision margin can't be looked up"
                 cover_points_.push_back(
                             horizontal_cylinder_com_origin
                             + btVector3(
-                                (cylinder_radius / 2.0f + 0.0025f * METERS) * std::sin(theta),
+                                (horizontal_cylinder->getRadius() + cloth_collision_margin) * std::sin(theta),
                                 h,
-                                (cylinder_radius / 2.0f + 0.0025f * METERS) * std::cos(theta)));
+                                (horizontal_cylinder->getRadius() + cloth_collision_margin) * std::cos(theta)));
             }
         }
 
@@ -459,6 +460,7 @@ void CustomScene::makeCloth()
         cloth_center + btVector3(+cloth_x_half_side_length, +cloth_y_half_side_length, 0),
         num_divs, num_divs,
         0, true);
+    psb->setTotalMass(0.1f, true);
 
 //    psb->m_cfg.viterations = 10;     // Velocity solver iterations   - default 0 - changing this to 10 causes the cloth to just pass through objects it seems
     psb->m_cfg.piterations = 10;     // Positions solver iterations  - default 1 - DmitrySim 10
@@ -485,21 +487,25 @@ void CustomScene::makeCloth()
 //    pm->m_kVST              = 1;        // Volume stiffness coefficient [0,1]       - default is 1
     const int distance = 2; // node radius for creating constraints
     psb->generateBendingConstraints(distance, pm);
-//    psb->randomizeConstraints();
+    psb->randomizeConstraints();
 
 
-    psb->setTotalMass(0.1f, true);
-
-
-    // splits the soft body volume up into the given number of small, convex clusters,
-    // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
-    // Sending '0' causes the function to use the number of tetrahedral/face elemtents as the number of clusters
-//    psb->generateClusters(num_divs * num_divs / 25);
-    psb->generateClusters(100);
-    for (int i = 0; i < psb->m_clusters.size(); ++i)
+    if (task_type_ == TaskType::TABLE_COVERAGE)
     {
-        psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
-//        psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
+        psb->generateClusters(0);
+    }
+    else
+    {
+        // splits the soft body volume up into the given number of small, convex clusters,
+        // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
+        // Sending '0' causes the function to use the number of tetrahedral/face elemtents as the number of clusters
+//        psb->generateClusters(num_divs * num_divs / 25);
+        psb->generateClusters(100);
+        for (int i = 0; i < psb->m_clusters.size(); ++i)
+        {
+            psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
+            //        psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
+        }
     }
 
     cloth_ = boost::make_shared<BulletSoftObject>(psb);
