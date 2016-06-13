@@ -284,8 +284,8 @@ void CustomScene::makeCylinder()
     // cylinder parameters
     const btVector3 cylinder_com_origin =
         btVector3(GetCylinderCenterOfMassX(nh_),
-                   GetCylinderCenterOfMassY(nh_),
-                   GetCylinderCenterOfMassZ(nh_)) * METERS;
+                  GetCylinderCenterOfMassY(nh_),
+                  GetCylinderCenterOfMassZ(nh_)) * METERS;
 
     const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
     const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
@@ -323,9 +323,9 @@ void CustomScene::makeCylinder()
         const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
 
         #pragma message "Magic numbers - discretization level of cover points"
-        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f)
+        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
         {
-            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10.0f)
+            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
             {
                 // Only accept those points that are within the bounding circle
                 if (x * x + y * y < cylinder_radius * cylinder_radius)
@@ -343,10 +343,10 @@ void CustomScene::makeCylinder()
         ////////////////////////////////////////////////////////////////////////
 
         const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                btVector3(-0.1f, 0.0f, 0.20f) * METERS;
+                btVector3(-0.15f, 0.0f, 0.20f) * METERS;
 
         CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                    0, cylinder_radius / 4.0f, cylinder_height * 2.0f,
+                    0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
                     btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
         horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
@@ -355,16 +355,18 @@ void CustomScene::makeCylinder()
         world_objects_["horizontal_cylinder"] = horizontal_cylinder;
 
         #pragma message "Magic numbers - discretization level of cover points"
-        for (float theta = 0.0f; theta <= 2.0f * M_PI; theta += 0.627f)
+        for (float theta = 1.0f * M_PI; theta <= 2.0f * M_PI; theta += 0.523f)
         {
-            for (float h = -cylinder_height/1.0f; h <= cylinder_height/0.99f; h += cylinder_height / 15.0f)
+            const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
+
+            for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
             {
                 cover_points_.push_back(
                             horizontal_cylinder_com_origin
                             + btVector3(
-                                (horizontal_cylinder->getRadius() + cloth_collision_margin) * std::sin(theta),
+                                cover_points_radius * std::sin(theta),
                                 h,
-                                (horizontal_cylinder->getRadius() + cloth_collision_margin) * std::cos(theta)));
+                                cover_points_radius * std::cos(theta)));
             }
         }
 
