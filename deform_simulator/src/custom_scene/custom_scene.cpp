@@ -36,11 +36,12 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
     , deformable_type_(deformable_type)
     , task_type_(task_type)
+    , advance_grippers_(true)
     , nh_(nh)
     , feedback_covariance_(GetFeedbackCovariance(nh))
     , cmd_grippers_traj_as_(nh, GetCommandGripperTrajTopic(nh), false)
     , cmd_grippers_traj_goal_(nullptr)
-    , num_timesteps_to_execute_per_gripper_cmd_(4)
+    , num_timesteps_to_execute_per_gripper_cmd_(20)
 {
     ROS_INFO("Building the world");
     // Build the world
@@ -58,7 +59,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
         default:
         {
             ROS_FATAL_STREAM("Unknown deformable type " << deformable_type_);
-            throw new arc_exceptions::invalid_argument("Unknown deformable object type " + std::to_string(deformable_type_), __FILE__, __LINE__);
+            throw_arc_exception(std::invalid_argument, "Unknown deformable object type " + std::to_string(deformable_type_));
         }
     };
 
@@ -134,7 +135,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
     setSyncTime(syncTime);
 
     // Let the object settle before anything else happens
-    stepFor(BulletConfig::dt, 4);
+    stepFor(BulletConfig::dt, 4.0);
 
     base_sim_time_ = simTime;
 
@@ -183,8 +184,14 @@ void CustomScene::run(bool drawScene, bool syncTime)
             // Advance the sim time and record the sim state
             {
                 std::lock_guard<std::mutex> lock (sim_mutex_);
-                moveGrippers();
-                stepFor(BulletConfig::dt, BulletConfig::dt * (float)num_timesteps_to_execute_per_gripper_cmd_);
+                if (advance_grippers_.load())
+                {
+                    moveGrippers();
+                }
+                for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+                {
+                    step(BulletConfig::dt);
+                }
                 msg = createSimulatorFbk();
             }
 
@@ -355,7 +362,7 @@ void CustomScene::makeCylinder()
         world_objects_["horizontal_cylinder"] = horizontal_cylinder;
 
         #pragma message "Magic numbers - discretization level of cover points"
-        for (float theta = 1.0f * M_PI; theta <= 2.0f * M_PI; theta += 0.523f)
+        for (float theta = 1.0f * (float)M_PI; theta <= 2.0f * M_PI; theta += 0.523f)
         {
             const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
 
@@ -470,9 +477,9 @@ void CustomScene::makeCloth()
     psb->m_cfg.citerations = 10;     // Cluster solver iterations    - default 4
 
     psb->m_cfg.collisions   =
-            btSoftBody::fCollision::CL_SS |
-            btSoftBody::fCollision::CL_RS |
-            btSoftBody::fCollision::CL_SELF;
+            btSoftBody::fCollision::CL_SS |         // Cluster collisions, soft vs. soft
+            btSoftBody::fCollision::CL_RS |         // Cluster collisions, soft vs. rigid
+            btSoftBody::fCollision::CL_SELF;        // Cluster collisions, self - requires CL_SS
 
     psb->getCollisionShape()->setMargin(0.0025f * METERS); // default 0.25 - DmitrySim 0.05
 
@@ -484,9 +491,9 @@ void CustomScene::makeCloth()
 
 
     btSoftBody::Material *pm = psb->m_materials[0];
-    pm->m_kLST              = task_type_ == TaskType::TABLE_COVERAGE ? 1.0f : 0.50f;     // Linear stiffness coefficient [0,1]       - default is 1 - 0.2 makes it rubbery (handles self collisions better)
-//    pm->m_kAST              = 0.90f;     // Area/Angular stiffness coefficient [0,1] - default is 1
-//    pm->m_kVST              = 1;        // Volume stiffness coefficient [0,1]       - default is 1
+    pm->m_kLST = GetClothLinearStiffness(nh_);     // Linear stiffness coefficient [0,1]       - default is 1 - 0.2 makes it rubbery (handles self collisions better)
+//    pm->m_kAST = 0.90f;     // Area/Angular stiffness coefficient [0,1] - default is 1
+//    pm->m_kVST = 1;        // Volume stiffness coefficient [0,1]       - default is 1
     const int distance = 2; // node radius for creating constraints
     psb->generateBendingConstraints(distance, pm);
     psb->randomizeConstraints();
@@ -502,11 +509,11 @@ void CustomScene::makeCloth()
         // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
         // Sending '0' causes the function to use the number of tetrahedral/face elemtents as the number of clusters
 //        psb->generateClusters(num_divs * num_divs / 25);
-        psb->generateClusters(100);
+        psb->generateClusters(500);
         for (int i = 0; i < psb->m_clusters.size(); ++i)
         {
             psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
-            //        psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
+//            psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
         }
     }
 
@@ -547,7 +554,7 @@ void CustomScene::makeRopeWorld()
         default:
         {
             ROS_FATAL_STREAM("Unknown task type for a ROPE object " << task_type_);
-            throw new arc_exceptions::invalid_argument("Unknown task type for a ROPE object " + std::to_string(task_type_), __FILE__, __LINE__);
+            throw_arc_exception(std::invalid_argument, "Unknown task type for a ROPE object " + std::to_string(task_type_));
         }
     }
 
@@ -678,7 +685,7 @@ void CustomScene::makeClothWorld()
         default:
         {
             ROS_FATAL_STREAM("Unknown task type for a CLOTH object " << task_type_);
-            throw new arc_exceptions::invalid_argument("Unknown task type for a CLOTH object " + std::to_string(task_type_), __FILE__, __LINE__);
+            throw_arc_exception(std::invalid_argument, "Unknown task type for a CLOTH object " + std::to_string(task_type_));
         }
     }
 
@@ -1269,6 +1276,15 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
                     }
                 }
 
+                // Simulation behaviour keybinds
+                {
+                    case 'a':
+                    {
+                        scene_.advance_grippers_.store(!scene_.advance_grippers_.load());
+                        break;
+                    }
+                }
+
 /*
                 case '[':
                 {
@@ -1298,7 +1314,6 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
                     break;
                 }
 */
-
 /*
                 case 's':
                     scene.left_gripper2->toggle();
@@ -1321,7 +1336,8 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
                     scene.regraspWithOneGripper(scene.right_gripper1,scene.right_gripper2);
                     break;
 */
-/*                case 'f':
+/*
+                case 'f':
                     // scene.regraspWithOneGripper(scene.right_gripper1,scene.left_gripper1);
                     // scene.left_gripper1->setWorldTransform(btTransform(btQuaternion(0,0,0,1), btVector3(0,0,100)));
                     scene.testRelease(scene.left_gripper1);
@@ -1351,45 +1367,46 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
                     scene.switchTarget();
                     break;
 */
-                // case 'k':
-                //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
-                //         scene.right_gripper1->getWorldTransform().getRotation(),
-                //         scene.right_gripper1->getWorldTransform().getOrigin()));
-                //     break;
+/*
+                 case 'k':
+                     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
+                         scene.right_gripper1->getWorldTransform().getRotation(),
+                         scene.right_gripper1->getWorldTransform().getOrigin()));
+                     break;
 
-                // case ',':
-                //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
-                //         scene.right_gripper1->getWorldTransform().getRotation(),
-                //         scene.right_gripper1->getWorldTransform().getOrigin()));
-                //     break;
-
-
-                // case 'l':
-                //     scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
-                //         scene.right_gripper2->getWorldTransform().getRotation(),
-                //         scene.right_gripper2->getWorldTransform().getOrigin()));
-                //     break;
-
-                //case '.':
-                //    scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
-                //        scene.right_gripper2->getWorldTransform().getRotation(),
-                //        scene.right_gripper2->getWorldTransform().getOrigin()));
-                //    break;
+                 case ',':
+                     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
+                         scene.right_gripper1->getWorldTransform().getRotation(),
+                         scene.right_gripper1->getWorldTransform().getOrigin()));
+                     break;
 
 
-                // case 'y':
-                //     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
-                //         scene.right_gripper1->getWorldTransform().getRotation(),
-                //         scene.right_gripper1->getWorldTransform().getOrigin()));
-                //     break;
+                 case 'l':
+                     scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),0.2)*
+                         scene.right_gripper2->getWorldTransform().getRotation(),
+                         scene.right_gripper2->getWorldTransform().getOrigin()));
+                     break;
+
+                case '.':
+                    scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(1,0,0),-0.2)*
+                        scene.right_gripper2->getWorldTransform().getRotation(),
+                        scene.right_gripper2->getWorldTransform().getOrigin()));
+                    break;
 
 
-                //case 'u':
-                //    scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
-                //        scene.right_gripper2->getWorldTransform().getRotation(),
-                //        scene.right_gripper2->getWorldTransform().getOrigin()));
-                //    break;
+                 case 'y':
+                     scene.right_gripper1->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
+                         scene.right_gripper1->getWorldTransform().getRotation(),
+                         scene.right_gripper1->getWorldTransform().getOrigin()));
+                     break;
 
+
+                case 'u':
+                    scene.right_gripper2->setWorldTransform(btTransform(btQuaternion(btVector3(0,1,0),-0.2)*
+                        scene.right_gripper2->getWorldTransform().getRotation(),
+                        scene.right_gripper2->getWorldTransform().getOrigin()));
+                    break;
+*/
 /*
                 case 'i':
                     scene.left_gripper2->setWorldTransform(btTransform(btQuaternion(0,0,0,1),

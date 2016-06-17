@@ -1,6 +1,7 @@
 #ifndef CUSTOM_SCENE_H
 #define CUSTOM_SCENE_H
 
+#include <atomic>
 #include <mutex>
 
 #include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
@@ -135,6 +136,8 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
         // Grippers
         ////////////////////////////////////////////////////////////////////////
+
+        std::atomic<bool> advance_grippers_;
 
         GripperKinematicObject::Ptr collision_check_gripper_;
 
