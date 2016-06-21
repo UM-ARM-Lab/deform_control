@@ -8,6 +8,7 @@
 #include <osg/BlendFunc>
 #include <osg/ShapeDrawable>
 #include <boost/foreach.hpp>
+#include <boost/make_shared.hpp>
 
 using namespace std;
 using namespace util;
@@ -160,17 +161,20 @@ void PlotSpheres::plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::r
   }
 }
 
-void PlotAxes::setup(btTransform tf, float size) {
-  btMatrix3x3 mat(tf.getRotation());
-  osg::Vec3f origin = util::toOSGVector(tf.getOrigin());
-  osg::Vec3f x = util::toOSGVector(mat.getColumn(0));
-  osg::Vec3f y = util::toOSGVector(mat.getColumn(1));
-  osg::Vec3f z = util::toOSGVector(mat.getColumn(2));
+PlotAxes::PlotAxes()
+  : m_ends(boost::make_shared<PlotSpheres>())
+{}
+
+PlotAxes::PlotAxes(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, float size)
+  : PlotAxes()
+{
   setup(origin, x, y, z, size);
 }
 
-PlotAxes::PlotAxes(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, float size) {
-  setup(origin, x, y, z, size);
+PlotAxes::PlotAxes(btTransform tf, float size)
+  : PlotAxes()
+{
+  setup(tf, size);
 }
 
 void PlotAxes::setup(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, float size) {
@@ -196,4 +200,13 @@ void PlotAxes::setup(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z
   endpts->push_back(origin+z*(size/z.length()));
   vector<float> radii(3,.1*size);
   m_ends->plot(endpts, cols, radii);
+}
+
+void PlotAxes::setup(btTransform tf, float size) {
+  btMatrix3x3 mat(tf.getRotation());
+  osg::Vec3f origin = util::toOSGVector(tf.getOrigin());
+  osg::Vec3f x = util::toOSGVector(mat.getColumn(0));
+  osg::Vec3f y = util::toOSGVector(mat.getColumn(1));
+  osg::Vec3f z = util::toOSGVector(mat.getColumn(2));
+  setup(origin, x, y, z, size);
 }

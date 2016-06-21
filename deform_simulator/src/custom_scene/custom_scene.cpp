@@ -3,6 +3,7 @@
 #include <limits>
 #include <string>
 #include <thread>
+#include <future>
 #include <ros/callback_queue.h>
 #include <smmap_experiment_params/ros_params.hpp>
 
@@ -30,13 +31,23 @@ using namespace smmap;
 ////////////////////////////////////////////////////////////////////////////////
 
 CustomScene::CustomScene(ros::NodeHandle& nh,
-                          DeformableType deformable_type,
-                          TaskType task_type)
+                         DeformableType deformable_type,
+                         TaskType task_type)
     : plot_points_(boost::make_shared<PlotPoints>(0.1f * METERS))
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
     , deformable_type_(deformable_type)
     , task_type_(task_type)
     , advance_grippers_(true)
+    , world_x_min_(GetWorldXMin(nh) * METERS)
+    , world_x_step_(GetWorldXStep(nh) * METERS)
+    , world_x_num_steps_(GetWorldXNumSteps(nh))
+    , world_y_min_(GetWorldYMin(nh) * METERS)
+    , world_y_step_(GetWorldYStep(nh) * METERS)
+    , world_y_num_steps_(GetWorldYNumSteps(nh))
+    , world_z_min_(GetWorldZMin(nh) * METERS)
+    , world_z_step_(GetWorldZStep(nh) * METERS)
+    , world_z_num_steps_(GetWorldZNumSteps(nh))
+    , free_space_graph_((size_t)(world_x_num_steps_ * world_y_num_steps_ * world_z_num_steps_))
     , nh_(nh)
     , feedback_covariance_(GetFeedbackCovariance(nh))
     , cmd_grippers_traj_as_(nh, GetCommandGripperTrajTopic(nh), false)
@@ -134,8 +145,17 @@ void CustomScene::run(bool drawScene, bool syncTime)
     }
     setSyncTime(syncTime);
 
+    // Create a thread to create the free space graph while the object settles
+//    std::thread create_free_space_graph_thread();
+    auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this);
     // Let the object settle before anything else happens
     stepFor(BulletConfig::dt, 4.0);
+    // Wait for the graph to be finished being made
+    while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
+    {
+        step(0);
+    }
+    free_space_graph_future.get(); // TODO: Is this needed at all?
 
     base_sim_time_ = simTime;
 
@@ -148,7 +168,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
     cmd_grippers_traj_as_.start();
 
     // TODO: remove this hardcoded spin rate
-    std::thread spin_thread(CustomScene::spin, 100.0 / BulletConfig::dt);
+    std::thread spin_thread(&CustomScene::spin, 100.0 / BulletConfig::dt);
 
     ROS_INFO("Simulation ready.");
 
@@ -210,7 +230,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
         else
         {
             {
-                std::lock_guard<std::mutex> lock (sim_mutex_);
+                std::lock_guard<std::mutex> lock(sim_mutex_);
                 step(0);
                 msg = createSimulatorFbk();
             }
@@ -240,7 +260,7 @@ void CustomScene::makeTable()
     const btVector3 table_half_extents =
             btVector3(GetTableHalfExtentsX(nh_),
                       GetTableHalfExtentsY(nh_),
-                      GetTableThickness(nh_)) / 2.0f * METERS;
+                      GetTableThickness(nh_) / 2.0f ) * METERS;
 
     const btVector3 table_com = table_surface_position - btVector3(0, 0, table_half_extents.z());
 
@@ -273,9 +293,10 @@ void CustomScene::makeTable()
                     table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z()));
 
             // Add many coverage points along the coverage line
+            const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
             for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
             {
-                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z()));
+                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin));
             }
         }
         ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
@@ -808,6 +829,212 @@ void CustomScene::findClothCornerNodes()
     }
 }
 
+int64_t CustomScene::xyzIndexToGridIndex(const int64_t x_ind, const int64_t y_ind, const int64_t z_ind)
+{
+    // If the point is in the grid, return the index
+    if ((0 <= x_ind && x_ind < world_x_num_steps_)
+        && (0 <= y_ind && y_ind < world_y_num_steps_)
+        && (0 <= z_ind && z_ind < world_z_num_steps_))
+    {
+        return (x_ind * world_y_num_steps_ + y_ind) * world_z_num_steps_ + z_ind;
+    }
+    // Otherwise return -1
+    else
+    {
+        return -1;
+    }
+}
+
+int64_t CustomScene::worldPosToGridIndex(const double x, const double y, const double z)
+{
+    const int64_t x_ind = std::lround((x - world_x_min_) / world_x_step_);
+    const int64_t y_ind = std::lround((y - world_y_min_) / world_y_step_);
+    const int64_t z_ind = std::lround((z - world_z_min_) / world_z_step_);
+
+    return xyzIndexToGridIndex(x_ind, y_ind, z_ind);
+}
+
+int64_t CustomScene::worldPosToGridIndex(const btVector3& vec)
+{
+    return worldPosToGridIndex(vec.x(), vec.y(), vec.z());
+}
+
+void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind)
+{
+    const int64_t starting_ind = xyzIndexToGridIndex(x_starting_ind, y_starting_ind, z_starting_ind);
+    assert(starting_ind >= 0);
+    const double x = world_x_min_ + world_x_step_ * (double)x_starting_ind;
+    const double y = world_y_min_ + world_y_step_ * (double)y_starting_ind;
+    const double z = world_z_min_ + world_z_step_ * (double)z_starting_ind;
+    const btVector3 starting_pos((btScalar)x, (btScalar)y, (btScalar)z);
+
+    // Note that these are in [min, max) form - i.e. exclude the max
+    const int64_t x_min_ind = std::max(0L, x_starting_ind - 1);
+    const int64_t x_max_ind = std::min(world_x_num_steps_, x_starting_ind + 2);
+    const int64_t y_min_ind = std::max(0L, y_starting_ind - 1);
+    const int64_t y_max_ind = std::min(world_y_num_steps_, y_starting_ind + 2);
+    const int64_t z_min_ind = std::max(0L, z_starting_ind - 1);
+    const int64_t z_max_ind = std::min(world_z_num_steps_, z_starting_ind + 2);
+
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
+
+    for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
+    {
+        const double x_loop = world_x_min_ + world_x_step_ * (double)x_loop_ind;
+        for (int64_t y_loop_ind = y_min_ind; y_loop_ind < y_max_ind; y_loop_ind++)
+        {
+            const double y_loop = world_y_min_ + world_y_step_ * (double)y_loop_ind;
+            for (int64_t z_loop_ind = z_min_ind; z_loop_ind < z_max_ind; z_loop_ind++)
+            {
+                // Only count a neighbour if it's not the same as the starting position
+                if (x_starting_ind != x_loop_ind || y_starting_ind != y_loop_ind || z_starting_ind != z_loop_ind)
+                {
+                    const double z_loop = world_z_min_ + world_z_step_ * (double)z_loop_ind;
+
+                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop)));
+
+                    // If we are not in collision already, then check for neighbours
+                    if (collisionHelper(test_sphere).m_distance >= 0.0)
+                    {
+                        const btVector3 loop_pos((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop);
+                        const btScalar dist = (loop_pos - starting_pos).length();
+
+                        const int64_t loop_ind = xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
+                        assert(loop_ind >= 0);
+                        free_space_graph_.AddEdgeBetweenNodes(starting_ind, loop_ind, dist);
+                    }
+                }
+            }
+        }
+    }
+}
+
+void CustomScene::createFreeSpaceGraph()
+{
+    // Debugging - draw the corners of the grid
+    {
+//        std::cout << "Drawing the 8 corners of the graph world\n";
+//        graph_corners_.reserve((8));
+//        #pragma GCC diagnostic push
+//        #pragma GCC diagnostic ignored "-Wconversion"
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_, world_y_min_, world_z_min_)), 1.0f));
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_, world_y_min_, world_z_min_ + world_z_step_ * (world_z_num_steps_ - 1))), 1.0f));
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_, world_y_min_ + world_y_step_ * (world_y_num_steps_ - 1), world_z_min_)), 1.0f));
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_, world_y_min_ + world_y_step_ * (world_y_num_steps_ - 1), world_z_min_ + world_z_step_ * (world_z_num_steps_ - 1))), 1.0f));
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_ + world_x_step_ * (world_x_num_steps_ - 1), world_y_min_, world_z_min_)), 1.0f));
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_ + world_x_step_ * (world_x_num_steps_ - 1), world_y_min_, world_z_min_ + world_z_step_ * world_z_num_steps_)), 1.0f));
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_ + world_x_step_ * (world_x_num_steps_ - 1), world_y_min_ + world_y_step_ * (world_y_num_steps_ - 1), world_z_min_)), 1.0f));
+//        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_x_min_ + world_x_step_ * (world_x_num_steps_ - 1), world_y_min_ + world_y_step_ * (world_y_num_steps_ - 1), world_z_min_ + world_z_step_ * (world_z_num_steps_ - 1))), 1.0f));
+//        #pragma GCC diagnostic pop
+//        for (auto& corner: graph_corners_)
+//        {
+//            env->add(corner);
+//        }
+    }
+
+    // First add all of the cells to the graph with no edges
+    std::cout << "Creating the nodes for the graph\n";
+    for (int64_t x_ind = 0; x_ind < world_x_num_steps_; x_ind++)
+    {
+        const double x = world_x_min_ + world_x_step_ * (double)x_ind;
+        for (int64_t y_ind = 0; y_ind < world_y_num_steps_; y_ind++)
+        {
+            const double y = world_y_min_ + world_y_step_ * (double)y_ind;
+            for (int64_t z_ind = 0; z_ind < world_z_num_steps_; z_ind++)
+            {
+                const double z = world_z_min_ + world_z_step_ * (double)z_ind;
+                const int64_t node_ind = free_space_graph_.AddNode(btVector3((btScalar)x, (btScalar)y, (btScalar)z));
+                // Double checking my math here
+                assert(node_ind == worldPosToGridIndex(x, y, z));
+            }
+        }
+    }
+
+//    std::vector<btVector3> collision_points;
+
+    // Next add edges between adjacent nodes that are not in collision
+    std::cout << "Creating the edges between nodes\n";
+    for (int64_t x_ind = 0; x_ind < world_x_num_steps_; x_ind++)
+    {
+        const double x = world_x_min_ + world_x_step_ * (double)x_ind;
+        for (int64_t y_ind = 0; y_ind < world_y_num_steps_; y_ind++)
+        {
+            const double y = world_y_min_ + world_y_step_ * (double)y_ind;
+            for (int64_t z_ind = 0; z_ind < world_z_num_steps_; z_ind++)
+            {
+                SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
+
+                const double z = world_z_min_ + world_z_step_ * (double)z_ind;
+                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x, (btScalar)y, (btScalar)z)));
+
+                // If we are not in collision already, then check for neighbours
+                if (collisionHelper(test_sphere).m_distance >= 0.0)
+                {
+                    createEdgesToNeighbours(x_ind, y_ind, z_ind);
+                }
+//                else
+//                {
+//                    collision_points.push_back(btVector3((btScalar)x, (btScalar)y, (btScalar)z));
+//                }
+            }
+        }
+    }
+
+//    PlotPoints::Ptr collision_vis = boost::make_shared<PlotPoints>();
+//    collision_vis->setDefaultColor(0, 0, 1, 1);
+//    collision_vis->setPoints(collision_points);
+//    env->add(collision_vis);
+
+//    std::vector<btVector3> cover_points_weird_dist;
+//    std::vector<btVector4> cover_points_weird_dist_colors;
+
+    std::cout << "Finding nearest graph index to cover points\n";
+    for (size_t cover_ind = 0; cover_ind < cover_points_.size(); cover_ind++)
+    {
+//        const int64_t cover_node_ind = free_space_graph_.AddNode(cover_points_[cover_ind]);
+
+        // Find the nearest node in the graph due to the grid
+        btVector3 nearest_node_pos = cover_points_[cover_ind];
+        int64_t graph_ind = worldPosToGridIndex(nearest_node_pos);
+        assert(graph_ind >= 0);
+
+        const double step_size = std::min({world_x_step_, world_y_step_, world_z_step_}) / 2.0;
+        SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
+
+        // If the node is in collision, find the nearest grid node that is not in collision
+        while (free_space_graph_.GetNodeImmutable(graph_ind).GetInEdgesImmutable().size() == 0)
+        {
+            // Find the direction to move
+            test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), nearest_node_pos));
+            btPointCollector collision_result = collisionHelper(test_sphere);
+
+            // Move a step out of collision
+            nearest_node_pos = nearest_node_pos + collision_result.m_normalOnBInWorld * (btScalar)step_size;
+
+            graph_ind = worldPosToGridIndex(nearest_node_pos);
+            assert(graph_ind >= 0);
+            assert(graph_ind < world_x_num_steps_ * world_y_num_steps_ * world_z_num_steps_);
+        }
+
+        // Add an edge between the cover point and the nearest point on the grid
+        const double dist = (free_space_graph_.GetNodeImmutable(graph_ind).GetValueImmutable() - cover_points_[cover_ind]).length();
+//        if (dist > std::sqrt(2.0 * std::min({world_x_step_, world_y_step_, world_z_step_})))
+//        {
+//            std::cout << dist << " " << std::min({world_x_step_, world_y_step_, world_z_step_}) << std::endl;
+//            cover_points_weird_dist.push_back(cover_points_[cover_ind]);
+//            cover_points_weird_dist_colors.push_back(btVector4(1, 0, 0, 1));
+//            cover_points_weird_dist.push_back(free_space_graph_.GetNodeImmutable(graph_ind).GetValueImmutable());
+//            cover_points_weird_dist_colors.push_back(btVector4(0, 0, 1, 1));
+//        }
+//        free_space_graph_.AddEdgesBetweenNodes(cover_node_ind, graph_ind, dist);
+        cover_ind_to_free_space_graph_.insert(std::make_pair(cover_ind, std::make_pair(graph_ind, dist)));
+    }
+
+//    PlotPoints::Ptr cover_points_weird_dist_vis = boost::make_shared<PlotPoints>();
+//    cover_points_weird_dist_vis->setPoints(cover_points_weird_dist, cover_points_weird_dist_colors);
+//    env->add(cover_points_weird_dist_vis);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Main loop helper functions
 ////////////////////////////////////////////////////////////////////////////////
@@ -917,8 +1144,7 @@ std::vector<btVector3> CustomScene::getDeformableObjectNodes() const
  *
  * @return The result of the collision check
  */
-btPointCollector CustomScene::collisionHelper(
-        const GripperKinematicObject::Ptr& gripper)
+btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr& gripper)
 {
     assert(gripper);
 
@@ -953,6 +1179,42 @@ btPointCollector CustomScene::collisionHelper(
         }
     }
 
+    gjkOutput_min.m_normalOnBInWorld.normalize();
+    return gjkOutput_min;
+}
+
+btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere)
+{
+    assert(sphere);
+    // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
+    btPointCollector gjkOutput_min;
+
+    // find the distance to any objects in the world
+    for (auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr)
+    {
+        BulletObject::Ptr obj = ittr->second;
+
+        // TODO: how much (if any) of this should be static/class members?
+        btGjkEpaPenetrationDepthSolver epaSolver;
+        btVoronoiSimplexSolver sGjkSimplexSolver;
+        btPointCollector gjkOutput;
+
+        btGjkPairDetector convexConvex(dynamic_cast<btSphereShape*>(sphere->collisionShape.get()),
+                dynamic_cast<btConvexShape*>(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver);
+
+        btGjkPairDetector::ClosestPointInput input;
+        sphere->motionState->getWorldTransform(input.m_transformA);
+        obj->motionState->getWorldTransform(input.m_transformB);
+        input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
+        convexConvex.getClosestPoints(input, gjkOutput, nullptr);
+
+        if (gjkOutput.m_distance < gjkOutput_min.m_distance)
+        {
+            gjkOutput_min = gjkOutput;
+        }
+    }
+
+    gjkOutput_min.m_normalOnBInWorld.normalize();
     return gjkOutput_min;
 }
 
@@ -1163,7 +1425,7 @@ void CustomScene::visualizationMarkerArrayCallback(
 // ROS Objects and Helpers
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::spin(double loop_rate)
+void CustomScene::spin(const double loop_rate)
 {
     ros::NodeHandle ph("~");
     ROS_INFO("Starting feedback spinner");
