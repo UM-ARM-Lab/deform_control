@@ -97,6 +97,9 @@ class CustomScene : public Scene
         bool getMirrorLineCallback(
                 smmap_msgs::GetMirrorLine::Request& req,
                 smmap_msgs::GetMirrorLine::Response& res);
+        bool getFreeSpaceGraphCallback(
+                smmap_msgs::GetFreeSpaceGraphRequest& req,
+                smmap_msgs::GetFreeSpaceGraphResponse& res);
         bool getObjectInitialConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res);
@@ -172,6 +175,7 @@ class CustomScene : public Scene
         const double world_z_step_;
         const int64_t world_z_num_steps_;
         arc_dijkstras::Graph<btVector3> free_space_graph_;
+        size_t num_graph_edges_;
         std::map<size_t, std::pair<int64_t, double>> cover_ind_to_free_space_graph_; // map from cover ind to graph ind + distance
         std::vector<PlotAxes::Ptr> graph_corners_;
 
@@ -213,6 +217,7 @@ class CustomScene : public Scene
         ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer mirror_line_srv_;
+        ros::ServiceServer free_space_graph_srv_;
         std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;

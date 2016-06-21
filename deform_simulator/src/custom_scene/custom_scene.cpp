@@ -48,6 +48,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , world_z_step_(GetWorldZStep(nh) * METERS)
     , world_z_num_steps_(GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)(world_x_num_steps_ * world_y_num_steps_ * world_z_num_steps_))
+    , num_graph_edges_(0)
     , nh_(nh)
     , feedback_covariance_(GetFeedbackCovariance(nh))
     , cmd_grippers_traj_as_(nh, GetCommandGripperTrajTopic(nh), false)
@@ -107,6 +108,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     // Create a service to let others know the mirror line data
     mirror_line_srv_ = nh_.advertiseService(
             GetMirrorLineTopic(nh_), &CustomScene::getMirrorLineCallback, this);
+
+    // Create a service to let others know what the free space of the world looks like
+    free_space_graph_srv_ = nh_.advertiseService(
+            GetFreeSpaceGraphTopic(nh_), &CustomScene::getFreeSpaceGraphCallback, this);
 
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
@@ -902,6 +907,7 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
                         const int64_t loop_ind = xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
                         assert(loop_ind >= 0);
                         free_space_graph_.AddEdgeBetweenNodes(starting_ind, loop_ind, dist);
+                        num_graph_edges_ += 2;
                     }
                 }
             }
@@ -967,12 +973,8 @@ void CustomScene::createFreeSpaceGraph()
                 const double z = world_z_min_ + world_z_step_ * (double)z_ind;
                 test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x, (btScalar)y, (btScalar)z)));
 
-                // If we are not in collision already, then check for neighbours
-                if (collisionHelper(test_sphere).m_distance >= 0.0)
-                {
-                    createEdgesToNeighbours(x_ind, y_ind, z_ind);
-                }
-//                else
+                createEdgesToNeighbours(x_ind, y_ind, z_ind);
+//                if (collisionHelper(test_sphere).m_distance < 0.0)
 //                {
 //                    collision_points.push_back(btVector3((btScalar)x, (btScalar)y, (btScalar)z));
 //                }
@@ -1309,6 +1311,82 @@ bool CustomScene::getMirrorLineCallback(
         res.max_y = std::numeric_limits<double>::infinity();
         return false;
     }
+}
+
+bool CustomScene::getFreeSpaceGraphCallback(
+        smmap_msgs::GetFreeSpaceGraphRequest& req,
+        smmap_msgs::GetFreeSpaceGraphResponse& res)
+{
+    (void)req;
+
+    // First serialze the graph itself
+    {
+        // Allocate a data buffer to store the results in
+        res.graph_data_buffer.clear();
+        size_t expected_data_len = 0;
+        expected_data_len += sizeof(size_t); // Graph node vector header
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 3 * sizeof(btScalar); // Value item for each graph node
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * sizeof(double); // Distance value for each graph node
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 2 * sizeof(size_t); // Edge vector overhead
+        expected_data_len += num_graph_edges_ * sizeof(arc_dijkstras::GraphEdge); // Total number of edges to store
+        res.graph_data_buffer.reserve(expected_data_len);
+
+        // Define the graph value serialization function
+        const std::function<uint64_t(const btVector3&, std::vector<uint8_t>&)> value_serializer_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
+        {
+            const uint64_t start_buffer_size = buffer.size();
+            uint64_t running_total = 0;
+
+            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.x() / METERS, buffer);
+            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.y() / METERS, buffer);
+            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.z() / METERS, buffer);
+
+            const uint64_t end_buffer_size = buffer.size();
+            const uint64_t bytes_written = end_buffer_size - start_buffer_size;
+
+            assert(running_total == bytes_written);
+
+            return bytes_written;
+        };
+
+        // Serialze the graph
+        free_space_graph_.SerializeSelf(res.graph_data_buffer, value_serializer_fn);
+
+        const auto diff = res.graph_data_buffer.size() - expected_data_len;
+//        std::cout << "Expected size: " << expected_data_len << " True size: " << res.graph_data_buffer.size() << " diff " << diff
+//                  << "\nnum_nodes " << free_space_graph_.GetNodesImmutable().size() << " ratio: " << (double)diff/(double)free_space_graph_.GetNodesImmutable().size()
+//                  << "\nnum_edges " << num_graph_edges_ << " ratio: " << (double)diff/(double)num_graph_edges_ << std::endl;
+    }
+
+    // Next serialize the map between cover points and nodes on the graph
+    {
+        // Allocate a data buffer to store the results in
+        res.cover_point_map_buffer.clear();
+        size_t expected_data_len = 0;
+        expected_data_len += sizeof(size_t); // map header
+        expected_data_len += cover_ind_to_free_space_graph_.size() * (sizeof(size_t) + sizeof(int64_t) + sizeof(double)); // each data element
+        res.cover_point_map_buffer.reserve(expected_data_len);
+
+        // Define the map value serialization function
+        const std::function<uint64_t(const std::pair<int64_t, double>&, std::vector<uint8_t>&)> value_serializer_fn = [] (const std::pair<int64_t, double>& value, std::vector<uint8_t>& buffer)
+        {
+            const auto first_serializer_fn = std::bind(&arc_helpers::SerializeFixedSizePOD<int64_t>, std::placeholders::_1, std::placeholders::_2);
+            const auto second_serializer_fn = std::bind(&arc_helpers::SerializeFixedSizePOD<double>, std::placeholders::_1, std::placeholders::_2);
+            return arc_helpers::SerializePair<int64_t, double>(value, buffer, first_serializer_fn, second_serializer_fn);
+        };
+
+        // Define the key value serialization function
+        const std::function<uint64_t(const size_t&, std::vector<uint8_t>&)> key_serializer_fn = [] (const size_t& key, std::vector<uint8_t>& buffer)
+        {
+            return arc_helpers::SerializeFixedSizePOD<size_t>(key, buffer);
+        };
+
+        arc_helpers::SerializeMap(cover_ind_to_free_space_graph_, res.cover_point_map_buffer, key_serializer_fn, value_serializer_fn);
+
+//        std::cout << "Expected size: " << expected_data_len << " True size: " << res.cover_point_map_buffer.size() << std::endl;
+    }
+
+    return true;
 }
 
 bool CustomScene::getObjectInitialConfigurationCallback(
