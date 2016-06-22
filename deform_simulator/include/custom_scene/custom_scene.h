@@ -54,9 +54,9 @@ class CustomScene : public Scene
         void makeClothWorld();
         void findClothCornerNodes();
 
-        int64_t xyzIndexToGridIndex(const int64_t x_ind, const int64_t y_ind, const int64_t z_ind);
-        int64_t worldPosToGridIndex(const double x, const double y, const double z);
-        int64_t worldPosToGridIndex(const btVector3& vec);
+        int64_t xyzIndexToGridIndex(const int64_t x_ind, const int64_t y_ind, const int64_t z_ind) const;
+        int64_t worldPosToGridIndex(const double x, const double y, const double z) const;
+        int64_t worldPosToGridIndex(const btVector3& vec) const;
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
         void createFreeSpaceGraph();
 
@@ -176,7 +176,7 @@ class CustomScene : public Scene
         const int64_t world_z_num_steps_;
         arc_dijkstras::Graph<btVector3> free_space_graph_;
         size_t num_graph_edges_;
-        std::map<size_t, std::pair<int64_t, double>> cover_ind_to_free_space_graph_; // map from cover ind to graph ind + distance
+        std::vector<int64_t> cover_ind_to_free_space_graph_ind_;
         std::vector<PlotAxes::Ptr> graph_corners_;
 
         ////////////////////////////////////////////////////////////////////////

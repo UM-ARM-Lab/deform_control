@@ -47,7 +47,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , world_z_min_(GetWorldZMin(nh) * METERS)
     , world_z_step_(GetWorldZStep(nh) * METERS)
     , world_z_num_steps_(GetWorldZNumSteps(nh))
-    , free_space_graph_((size_t)(world_x_num_steps_ * world_y_num_steps_ * world_z_num_steps_))
+    , free_space_graph_((size_t)(world_x_num_steps_ * world_y_num_steps_ * world_z_num_steps_) + 1000)
     , num_graph_edges_(0)
     , nh_(nh)
     , feedback_covariance_(GetFeedbackCovariance(nh))
@@ -287,18 +287,18 @@ void CustomScene::makeTable()
         const float stepsize = 0.0125f * METERS;
         btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
 
+        const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
         std::vector<btVector3> cloth_coverage_lines;
         for(float y = -table->halfExtents.y(); y <= table->halfExtents.y(); y += stepsize)
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (-table->halfExtents.x(), y, table->halfExtents.z()));
+                    table_tf * btVector3 (-table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
 
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z()));
+                    table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
 
             // Add many coverage points along the coverage line
-            const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
             for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
             {
                 cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin));
@@ -306,9 +306,9 @@ void CustomScene::makeTable()
         }
         ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
 
-//        std::vector<btVector4> cloth_coverage_color(cloth_coverage_lines.size(), btVector4(1, 0, 0, 1));
-//        plot_lines_->setPoints(cloth_coverage_lines, cloth_coverage_color);
-//        env->add(plot_lines_);
+        std::vector<btVector4> cloth_coverage_color(cloth_coverage_lines.size(), btVector4(1, 0, 0, 1));
+        plot_lines_->setPoints(cloth_coverage_lines, cloth_coverage_color);
+        env->add(plot_lines_);
     }
 }
 
@@ -388,7 +388,7 @@ void CustomScene::makeCylinder()
         world_objects_["horizontal_cylinder"] = horizontal_cylinder;
 
         #pragma message "Magic numbers - discretization level of cover points"
-        for (float theta = 1.0f * (float)M_PI; theta <= 2.0f * M_PI; theta += 0.523f)
+        for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
         {
             const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
 
@@ -834,7 +834,7 @@ void CustomScene::findClothCornerNodes()
     }
 }
 
-int64_t CustomScene::xyzIndexToGridIndex(const int64_t x_ind, const int64_t y_ind, const int64_t z_ind)
+int64_t CustomScene::xyzIndexToGridIndex(const int64_t x_ind, const int64_t y_ind, const int64_t z_ind) const
 {
     // If the point is in the grid, return the index
     if ((0 <= x_ind && x_ind < world_x_num_steps_)
@@ -850,7 +850,7 @@ int64_t CustomScene::xyzIndexToGridIndex(const int64_t x_ind, const int64_t y_in
     }
 }
 
-int64_t CustomScene::worldPosToGridIndex(const double x, const double y, const double z)
+int64_t CustomScene::worldPosToGridIndex(const double x, const double y, const double z) const
 {
     const int64_t x_ind = std::lround((x - world_x_min_) / world_x_step_);
     const int64_t y_ind = std::lround((y - world_y_min_) / world_y_step_);
@@ -859,7 +859,7 @@ int64_t CustomScene::worldPosToGridIndex(const double x, const double y, const d
     return xyzIndexToGridIndex(x_ind, y_ind, z_ind);
 }
 
-int64_t CustomScene::worldPosToGridIndex(const btVector3& vec)
+int64_t CustomScene::worldPosToGridIndex(const btVector3& vec) const
 {
     return worldPosToGridIndex(vec.x(), vec.y(), vec.z());
 }
@@ -956,8 +956,6 @@ void CustomScene::createFreeSpaceGraph()
         }
     }
 
-//    std::vector<btVector3> collision_points;
-
     // Next add edges between adjacent nodes that are not in collision
     std::cout << "Creating the edges between nodes\n";
     for (int64_t x_ind = 0; x_ind < world_x_num_steps_; x_ind++)
@@ -974,67 +972,49 @@ void CustomScene::createFreeSpaceGraph()
                 test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x, (btScalar)y, (btScalar)z)));
 
                 createEdgesToNeighbours(x_ind, y_ind, z_ind);
-//                if (collisionHelper(test_sphere).m_distance < 0.0)
-//                {
-//                    collision_points.push_back(btVector3((btScalar)x, (btScalar)y, (btScalar)z));
-//                }
             }
         }
     }
 
-//    PlotPoints::Ptr collision_vis = boost::make_shared<PlotPoints>();
-//    collision_vis->setDefaultColor(0, 0, 1, 1);
-//    collision_vis->setPoints(collision_points);
-//    env->add(collision_vis);
-
-//    std::vector<btVector3> cover_points_weird_dist;
-//    std::vector<btVector4> cover_points_weird_dist_colors;
 
     std::cout << "Finding nearest graph index to cover points\n";
+    cover_ind_to_free_space_graph_ind_.resize(cover_points_.size());
     for (size_t cover_ind = 0; cover_ind < cover_points_.size(); cover_ind++)
     {
-//        const int64_t cover_node_ind = free_space_graph_.AddNode(cover_points_[cover_ind]);
+        const btVector3& cover_point = cover_points_[cover_ind];
 
         // Find the nearest node in the graph due to the grid
-        btVector3 nearest_node_pos = cover_points_[cover_ind];
-        int64_t graph_ind = worldPosToGridIndex(nearest_node_pos);
+        btVector3 nearest_node_point = cover_point;
+        int64_t graph_ind = worldPosToGridIndex(nearest_node_point);
         assert(graph_ind >= 0);
 
-        const double step_size = std::min({world_x_step_, world_y_step_, world_z_step_}) / 2.0;
+        const double step_size = std::min({world_x_step_, world_y_step_, world_z_step_}) / 4.0;
         SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
 
         // If the node is in collision, find the nearest grid node that is not in collision
         while (free_space_graph_.GetNodeImmutable(graph_ind).GetInEdgesImmutable().size() == 0)
         {
             // Find the direction to move
-            test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), nearest_node_pos));
+            test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), nearest_node_point));
             btPointCollector collision_result = collisionHelper(test_sphere);
 
             // Move a step out of collision
-            nearest_node_pos = nearest_node_pos + collision_result.m_normalOnBInWorld * (btScalar)step_size;
+            nearest_node_point = nearest_node_point + collision_result.m_normalOnBInWorld * (btScalar)step_size;
 
-            graph_ind = worldPosToGridIndex(nearest_node_pos);
+            graph_ind = worldPosToGridIndex(nearest_node_point);
             assert(graph_ind >= 0);
             assert(graph_ind < world_x_num_steps_ * world_y_num_steps_ * world_z_num_steps_);
         }
 
         // Add an edge between the cover point and the nearest point on the grid
-        const double dist = (free_space_graph_.GetNodeImmutable(graph_ind).GetValueImmutable() - cover_points_[cover_ind]).length();
-//        if (dist > std::sqrt(2.0 * std::min({world_x_step_, world_y_step_, world_z_step_})))
-//        {
-//            std::cout << dist << " " << std::min({world_x_step_, world_y_step_, world_z_step_}) << std::endl;
-//            cover_points_weird_dist.push_back(cover_points_[cover_ind]);
-//            cover_points_weird_dist_colors.push_back(btVector4(1, 0, 0, 1));
-//            cover_points_weird_dist.push_back(free_space_graph_.GetNodeImmutable(graph_ind).GetValueImmutable());
-//            cover_points_weird_dist_colors.push_back(btVector4(0, 0, 1, 1));
-//        }
-//        free_space_graph_.AddEdgesBetweenNodes(cover_node_ind, graph_ind, dist);
-        cover_ind_to_free_space_graph_.insert(std::make_pair(cover_ind, std::make_pair(graph_ind, dist)));
+        const btVector3& graph_point = free_space_graph_.GetNodeImmutable(graph_ind).GetValueImmutable();
+        const double dist = (graph_point - cover_point).length();
+        const int64_t cover_node_ind = free_space_graph_.AddNode(cover_point);
+        free_space_graph_.AddEdgesBetweenNodes(cover_node_ind, graph_ind, dist);
+        cover_ind_to_free_space_graph_ind_[cover_ind] = graph_ind;
     }
 
-//    PlotPoints::Ptr cover_points_weird_dist_vis = boost::make_shared<PlotPoints>();
-//    cover_points_weird_dist_vis->setPoints(cover_points_weird_dist, cover_points_weird_dist_colors);
-//    env->add(cover_points_weird_dist_vis);
+    assert(free_space_graph_.CheckGraphLinkage());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1332,7 +1312,7 @@ bool CustomScene::getFreeSpaceGraphCallback(
         res.graph_data_buffer.reserve(expected_data_len);
 
         // Define the graph value serialization function
-        const std::function<uint64_t(const btVector3&, std::vector<uint8_t>&)> value_serializer_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
+        const auto value_serializer_with_scaling_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
         {
             const uint64_t start_buffer_size = buffer.size();
             uint64_t running_total = 0;
@@ -1347,44 +1327,75 @@ bool CustomScene::getFreeSpaceGraphCallback(
             assert(running_total == bytes_written);
 
             return bytes_written;
+//            return 0;
         };
 
-        // Serialze the graph
-        free_space_graph_.SerializeSelf(res.graph_data_buffer, value_serializer_fn);
+        const auto value_serializer_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
+        {
+            const uint64_t start_buffer_size = buffer.size();
+            uint64_t running_total = 0;
 
-        const auto diff = res.graph_data_buffer.size() - expected_data_len;
-//        std::cout << "Expected size: " << expected_data_len << " True size: " << res.graph_data_buffer.size() << " diff " << diff
-//                  << "\nnum_nodes " << free_space_graph_.GetNodesImmutable().size() << " ratio: " << (double)diff/(double)free_space_graph_.GetNodesImmutable().size()
-//                  << "\nnum_edges " << num_graph_edges_ << " ratio: " << (double)diff/(double)num_graph_edges_ << std::endl;
+            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.x(), buffer);
+            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.y(), buffer);
+            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.z(), buffer);
+
+            const uint64_t end_buffer_size = buffer.size();
+            const uint64_t bytes_written = end_buffer_size - start_buffer_size;
+
+            assert(running_total == bytes_written);
+
+            return bytes_written;
+//            return 0;
+        };
+
+        // Define the graph value serialization function
+        const auto value_deserializer_fn = [] (const std::vector<uint8_t>& buffer, const int64_t current)
+        {
+            uint64_t current_position = current;
+
+            // Deserialze 3 floats, converting into doubles afterwards
+            std::pair<btScalar, uint64_t> x = arc_helpers::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
+            current_position += x.second;
+            std::pair<btScalar, uint64_t> y = arc_helpers::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
+            current_position += y.second;
+            std::pair<btScalar, uint64_t> z = arc_helpers::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
+            current_position += z.second;
+
+            const btVector3 deserialized(x.first, y.first, z.first);
+
+            // Figure out how many bytes were read
+            const uint64_t bytes_read = current_position - current;
+            return std::make_pair(deserialized, bytes_read);
+//            return std::make_pair(btVector3(), 0L);
+        };
+
+        // Resize the edge weights by a factor of METERS
+        free_space_graph_.SerializeSelf(res.graph_data_buffer, value_serializer_with_scaling_fn);
+        auto resized_graph = arc_dijkstras::Graph<btVector3>::Deserialize(res.graph_data_buffer, 0, value_deserializer_fn).first;
+
+        for (auto& node: resized_graph.GetNodesMutable())
+        {
+            for (auto& edge: node.GetInEdgesMutable())
+            {
+                edge.SetWeight(edge.GetWeight() / METERS);
+            }
+            for (auto& edge: node.GetOutEdgesMutable())
+            {
+                edge.SetWeight(edge.GetWeight() / METERS);
+            }
+        }
+        // Ensure we still have a valid graph
+        assert(free_space_graph_.CheckGraphLinkage());
+        assert(resized_graph.CheckGraphLinkage());
+
+        // Finally, serialze the graph
+        res.graph_data_buffer.clear();
+        res.graph_data_buffer.reserve(expected_data_len);
+        resized_graph.SerializeSelf(res.graph_data_buffer, value_serializer_fn);
     }
 
-    // Next serialize the map between cover points and nodes on the graph
-    {
-        // Allocate a data buffer to store the results in
-        res.cover_point_map_buffer.clear();
-        size_t expected_data_len = 0;
-        expected_data_len += sizeof(size_t); // map header
-        expected_data_len += cover_ind_to_free_space_graph_.size() * (sizeof(size_t) + sizeof(int64_t) + sizeof(double)); // each data element
-        res.cover_point_map_buffer.reserve(expected_data_len);
-
-        // Define the map value serialization function
-        const std::function<uint64_t(const std::pair<int64_t, double>&, std::vector<uint8_t>&)> value_serializer_fn = [] (const std::pair<int64_t, double>& value, std::vector<uint8_t>& buffer)
-        {
-            const auto first_serializer_fn = std::bind(&arc_helpers::SerializeFixedSizePOD<int64_t>, std::placeholders::_1, std::placeholders::_2);
-            const auto second_serializer_fn = std::bind(&arc_helpers::SerializeFixedSizePOD<double>, std::placeholders::_1, std::placeholders::_2);
-            return arc_helpers::SerializePair<int64_t, double>(value, buffer, first_serializer_fn, second_serializer_fn);
-        };
-
-        // Define the key value serialization function
-        const std::function<uint64_t(const size_t&, std::vector<uint8_t>&)> key_serializer_fn = [] (const size_t& key, std::vector<uint8_t>& buffer)
-        {
-            return arc_helpers::SerializeFixedSizePOD<size_t>(key, buffer);
-        };
-
-        arc_helpers::SerializeMap(cover_ind_to_free_space_graph_, res.cover_point_map_buffer, key_serializer_fn, value_serializer_fn);
-
-//        std::cout << "Expected size: " << expected_data_len << " True size: " << res.cover_point_map_buffer.size() << std::endl;
-    }
+    // Next add the mapping between cover indices and graph indices
+    res.cover_point_ind_to_graph_ind = cover_ind_to_free_space_graph_ind_;
 
     return true;
 }
