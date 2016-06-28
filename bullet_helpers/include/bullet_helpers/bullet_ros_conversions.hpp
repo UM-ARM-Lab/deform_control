@@ -16,13 +16,13 @@ namespace BulletHelpers
         return btQuaternion(quat.x, quat.y, quat.z, quat.w);
     }
 
-    inline btVector3 toBulletVector3(const geometry_msgs::Point& pos, float bt_scale)
+    inline btVector3 toBulletVector3(const geometry_msgs::Point& pos, const float bt_scale)
     {
         return btVector3(pos.x, pos.y, pos.z)*bt_scale;
     }
 
 
-    inline geometry_msgs::Vector3 toRosVector3(const btVector3& bt, float bt_scale)
+    inline geometry_msgs::Vector3 toRosVector3(const btVector3& bt, const float bt_scale)
     {
         geometry_msgs::Vector3 ros;
         ros.x = bt.x() * bt_scale;
@@ -31,7 +31,7 @@ namespace BulletHelpers
         return ros;
     }
 
-    inline btTransform toBulletTransform(const geometry_msgs::Pose& pose, float bt_scale)
+    inline btTransform toBulletTransform(const geometry_msgs::Pose& pose, const float bt_scale)
     {
         btQuaternion rot = toBulletQuaternion(pose.orientation);
         btVector3 trans = toBulletVector3(pose.position, bt_scale);
@@ -50,16 +50,19 @@ namespace BulletHelpers
         return ros;
     }
 
-    inline geometry_msgs::Point toRosPoint(const btVector3& vec, float bt_scale)
+    inline geometry_msgs::Point toRosPoint(const btVector3& vec, const float bt_scale)
     {
         geometry_msgs::Point point;
+        assert(-100.0f < vec.x() && vec.x() < 100.0f);
+        assert(-100.0f < vec.y() && vec.y() < 100.0f);
+        assert(-100.0f < vec.z() && vec.z() < 100.0f);
         point.x = vec.x()/bt_scale;
         point.y = vec.y()/bt_scale;
         point.z = vec.z()/bt_scale;
         return point;
     }
 
-    inline geometry_msgs::Pose toRosPose(const btTransform& tf, float bt_scale)
+    inline geometry_msgs::Pose toRosPose(const btTransform& tf, const float bt_scale)
     {
         geometry_msgs::Pose pose;
         pose.position = toRosPoint(tf.getOrigin(), bt_scale);
@@ -67,7 +70,7 @@ namespace BulletHelpers
         return pose;
     }
 
-    inline std::vector<geometry_msgs::Point > toRosPointVector(const std::vector< btVector3>& bt, float bt_scale)
+    inline std::vector<geometry_msgs::Point> toRosPointVector(const std::vector< btVector3>& bt, const float bt_scale)
     {
         std::vector<geometry_msgs::Point> ros(bt.size());
         for (size_t i = 0; i < bt.size() ; i++)
@@ -98,7 +101,7 @@ namespace BulletHelpers
         }
     }
 
-    inline std::vector<btVector3 > toBulletPointVector(const std::vector< geometry_msgs::Point>& ros, float bt_scale)
+    inline std::vector<btVector3> toBulletPointVector(const std::vector< geometry_msgs::Point>& ros, const float bt_scale)
     {
         std::vector<btVector3> bt(ros.size());
         for (size_t i = 0; i < ros.size() ; i++)
@@ -113,7 +116,7 @@ namespace BulletHelpers
         return btVector4(ros.r, ros.g, ros.b, ros.a);
     }
 
-    inline std::vector<btVector4 > toBulletColorArray(const std::vector< std_msgs::ColorRGBA>& ros)
+    inline std::vector<btVector4> toBulletColorArray(const std::vector< std_msgs::ColorRGBA>& ros)
     {
         std::vector<btVector4> bt(ros.size());
         for (size_t i = 0; i < ros.size() ; i++)
@@ -129,7 +132,7 @@ namespace BulletHelpers
     }
 
 
-    inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array(const std::vector<geometry_msgs::Point>& ros, float bt_scale)
+    inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array(const std::vector<geometry_msgs::Point>& ros, const float bt_scale)
     {
         osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
         out->reserve(ros.size());

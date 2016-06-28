@@ -1030,13 +1030,16 @@ void CustomScene::moveGrippers()
     assert(cmd_grippers_traj_goal_->trajectory.size() > 0);
     assert(cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectory.size());
 
-    // TODO check for valid gripper names (and length of names vector)
     for (size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++)
     {
         GripperKinematicObject::Ptr gripper = grippers_.at(cmd_grippers_traj_goal_->gripper_names[gripper_ind]);
 
         const btTransform tf = toBulletTransform(
                     cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind], METERS);
+
+        assert(-100.0f < tf.getOrigin().x() && tf.getOrigin().x() < 100.0f);
+        assert(-100.0f < tf.getOrigin().y() && tf.getOrigin().y() < 100.0f);
+        assert(-100.0f < tf.getOrigin().z() && tf.getOrigin().z() < 100.0f);
 
         gripper->setWorldTransform(tf);
     }
