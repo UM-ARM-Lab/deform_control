@@ -1081,16 +1081,17 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
         if (collision_result.m_hasResult)
         {
             msg.gripper_distance_to_obstacle.push_back(collision_result.m_distance / METERS);
+            msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1));
+            msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(
+                        collision_result.m_pointInWorld
+                        + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS));
         }
         else
         {
             msg.gripper_distance_to_obstacle.push_back(std::numeric_limits<double>::infinity());
+            msg.obstacle_surface_normal.push_back(toRosVector3(btVector3(1.0f, 0.0f, 0.0f), 1));
+            msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(btVector3(0.0f, 0.0f, 0.0f), 1));
         }
-
-        msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1));
-        msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(
-                    collision_result.m_pointInWorld
-                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS));
     }
 
     // update the sim_time
