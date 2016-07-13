@@ -25,6 +25,17 @@
 #include <smmap_experiment_params/task_enums.h>
 #include <smmap_msgs/messages.h>
 
+struct SimForkResult
+{
+    public:
+        BulletInstance::Ptr bullet_;
+        OSGInstance::Ptr osg_;
+        Fork::Ptr fork_;
+        BulletSoftObject::Ptr cloth_;
+        boost::shared_ptr<CapsuleRope> rope_;
+        std::map<std::string, GripperKinematicObject::Ptr> grippers_;
+};
+
 class CustomScene : public Scene
 {
     public:
@@ -64,16 +75,38 @@ class CustomScene : public Scene
         // Main loop helper functions
         ////////////////////////////////////////////////////////////////////////
 
+
+        std::vector<boost::shared_ptr<osgbCollision::GLDebugDrawer>> dbgDraw_forks;
+        std::vector<osgViewer::Viewer> viewer_forks;
+        std::vector<osg::ref_ptr<EventHandler>> manip_forks;
+        std::vector<std::function<void()>> draw_function_forks;
+
+
+        SimForkResult createForkWithNoSimulationDone(
+                const std::vector<std::string>& gripper_names,
+                const std::vector<geometry_msgs::Pose>& gripper_poses);
+        void createVisualizerForFork(SimForkResult& fork_result, const int fork_ind);
+        SimForkResult simulateInNewFork(
+                const std::vector<std::string>& gripper_names,
+                const std::vector<geometry_msgs::Pose>& gripper_poses);
+
+
+        static void ApplyTransform(
+                const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
+                const std::string& name,
+                const geometry_msgs::Pose& pose);
         void moveGrippers();
-        smmap_msgs::SimulatorFeedback createSimulatorFbk();
+        smmap_msgs::SimulatorFeedback createSimulatorFbk() const;
+        smmap_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
 
         ////////////////////////////////////////////////////////////////////////
         // Internal helper functions
         ////////////////////////////////////////////////////////////////////////
 
         std::vector<btVector3> getDeformableObjectNodes() const;
-        btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper);
-        btPointCollector collisionHelper(const SphereObject::Ptr& sphere);
+        std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
+        btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
+        btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks
@@ -106,6 +139,9 @@ class CustomScene : public Scene
         bool getObjectCurrentConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res);
+
+        void testGripperPosesExecuteCallback(
+                const smmap_msgs::TestGrippersPosesGoalConstPtr& goal);
 
         void visualizationMarkerCallback(visualization_msgs::Marker marker);
         void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
@@ -226,6 +262,8 @@ class CustomScene : public Scene
         smmap_msgs::CmdGrippersTrajectoryGoalConstPtr cmd_grippers_traj_goal_;
         smmap_msgs::CmdGrippersTrajectoryResult cmd_grippers_traj_result_;
         size_t cmd_grippers_traj_next_index_;
+
+        actionlib::SimpleActionServer<smmap_msgs::TestGrippersPosesAction> test_grippers_poses_as_;
 
         ////////////////////////////////////////////////////////////////////////
         // Low-pass filter / quasi static world data structures

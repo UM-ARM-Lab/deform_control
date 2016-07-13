@@ -21,7 +21,7 @@ boost::shared_ptr<btCompoundShape> ConvexDecomp::run(std::vector<boost::shared_p
     //size_t nClusters = 2;
     size_t nClusters = 1;
     double concavity = 100;
-    bool invert = false;
+//    bool invert = false;
     bool addExtraDistPoints = false;
     bool addNeighboursDistPoints = false;
     bool addFacesPoints = false;
@@ -37,7 +37,7 @@ boost::shared_ptr<btCompoundShape> ConvexDecomp::run(std::vector<boost::shared_p
     nClusters = hacd.GetNClusters();
 
     boost::shared_ptr<btCompoundShape> compound(new btCompoundShape());
-    for (int c = 0; c < nClusters; ++c) {
+    for (size_t c = 0; c < nClusters; ++c) {
         btVector3 centroid;
         boost::shared_ptr<btConvexHullShape> shape(processCluster(hacd, c, centroid));
         shapeStorage.push_back(shape);

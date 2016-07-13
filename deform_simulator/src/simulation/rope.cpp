@@ -82,7 +82,7 @@ CapsuleRope::CapsuleRope(
     {
         btTransform trans = transforms[i];
         btScalar len = lengths[i];
-        float mass = 1;
+//        float mass = 1;
         CapsuleObject::Ptr child(new CapsuleObject(1,radius,len,trans));
         child->rigidBody->setDamping(linDamping,angDamping);
         child->rigidBody->setFriction(1);
@@ -114,7 +114,7 @@ void CapsuleRope::init()
 {
     CompoundObject<BulletObject>::init();
 
-    for (int i = 0; i< joints.size(); i++)
+    for (size_t i = 0; i< joints.size(); i++)
     {
         getEnvironment()->addConstraint(joints[i]);
     }
@@ -128,7 +128,7 @@ void CapsuleRope::destroy()
 vector<btVector3> CapsuleRope::getNodes() const
 {
     vector<btVector3> out(children.size());
-    for (int i = 0; i < children.size(); i++)
+    for (size_t i = 0; i < children.size(); i++)
     {
         out[i] = children[i]->rigidBody->getCenterOfMassPosition();
     }
@@ -139,7 +139,7 @@ vector<btVector3> CapsuleRope::getControlPoints() const
 {
     vector<btVector3> out;
     out.reserve(children.size()+1);
-    for (int i = 0; i < children.size(); i++)
+    for (size_t i = 0; i < children.size(); i++)
     {
         btRigidBody* body = children[i]->rigidBody.get();
         btCapsuleShape* capsule = dynamic_cast<btCapsuleShapeX*>(body->getCollisionShape());

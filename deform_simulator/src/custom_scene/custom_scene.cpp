@@ -1,5 +1,11 @@
 #include "custom_scene/custom_scene.h"
 
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+#include <omp.h>
+#include <chrono>
 #include <limits>
 #include <string>
 #include <thread>
@@ -53,6 +59,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , feedback_covariance_(GetFeedbackCovariance(nh))
     , cmd_grippers_traj_as_(nh, GetCommandGripperTrajTopic(nh), false)
     , cmd_grippers_traj_goal_(nullptr)
+    , test_grippers_poses_as_(nh, GetTestGrippersPosesTopic(nh), boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(20)
 {
     ROS_INFO("Building the world");
@@ -132,49 +139,115 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
 void CustomScene::run(bool drawScene, bool syncTime)
 {
-    // Note that viewer cleans up this memory
-    viewer.addEventHandler(new CustomKeyHandler(*this));
-
-    // When the viewer closes, shutdown ROS
-    addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-            boost::bind(&ros::shutdown));
-
-    addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
-
-    // if syncTime is set, the simulator blocks until the real time elapsed
-    // matches the simulator time elapsed, or something, it's not clear
-    setDrawing(drawScene);
-    if (drawScene)
+    // Run the startup code for the viewer and everything else
     {
-        startViewer();
-    }
-    setSyncTime(syncTime);
+        // Note that viewer cleans up this memory
+        viewer.addEventHandler(new CustomKeyHandler(*this));
 
-    // Create a thread to create the free space graph while the object settles
-//    std::thread create_free_space_graph_thread();
-    auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this);
-    // Let the object settle before anything else happens
-    stepFor(BulletConfig::dt, 4.0);
-    // Wait for the graph to be finished being made
-    while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
+        // When the viewer closes, shutdown ROS
+        addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
+                        boost::bind(&ros::shutdown));
+
+        addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
+
+        // if syncTime is set, the simulator blocks until the real time elapsed
+        // matches the simulator time elapsed, or something, it's not clear
+        setDrawing(drawScene);
+        if (drawScene)
+        {
+            startViewer();
+        }
+        setSyncTime(syncTime);
+
+        // Create a thread to create the free space graph while the object settles
+        //    std::thread create_free_space_graph_thread();
+        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this);
+        // Let the object settle before anything else happens
+        stepFor(BulletConfig::dt, 4.0);
+        // Wait for the graph to be finished being made
+        while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
+        {
+            step(0);
+        }
+        free_space_graph_future.get(); // TODO: Is this needed at all?
+
+        base_sim_time_ = simTime;
+
+        // Create a service to let others know the object current configuration
+        object_current_configuration_srv_ = nh_.advertiseService(
+                    GetObjectCurrentConfigurationTopic(nh_),
+                    &CustomScene::getObjectCurrentConfigurationCallback, this);
+
+        // Startup the action servers
+        cmd_grippers_traj_as_.start();
+        test_grippers_poses_as_.start();
+    }
+
+
+
+
+
+    std::vector<geometry_msgs::Pose> pose(2);
+    pose[0] = BulletHelpers::toRosPose(grippers_.at(auto_grippers_[0])->getWorldTransform(), METERS);
+//    pose[0].position.x += -0.0;
+    pose[1] = BulletHelpers::toRosPose(grippers_.at(auto_grippers_[1])->getWorldTransform(), METERS);
+//    pose[1].position.x += -0.0;
+
+    dbgDraw_forks.resize(2);
+    viewer_forks.resize(2);
+    manip_forks.resize(2);
+
+    auto fork_state0 = createForkWithNoSimulationDone(auto_grippers_, pose);
+    createVisualizerForFork(fork_state0, 0);
+
+    auto fork_state1 = createForkWithNoSimulationDone(auto_grippers_, pose);
+    createVisualizerForFork(fork_state1, 1);
+
+
+    ApplyTransform(grippers_, auto_grippers_[0], pose[0]);
+    ApplyTransform(grippers_, auto_grippers_[1], pose[1]);
+    for (size_t timestep = 0; timestep < 20*num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
-        step(0);
+//        env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+        fork_state0.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//        fork_state1.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+        draw();
+        draw_function_forks[0]();
+        draw_function_forks[1]();
     }
-    free_space_graph_future.get(); // TODO: Is this needed at all?
 
-    base_sim_time_ = simTime;
 
-    // Create a service to let others know the object current configuration
-    object_current_configuration_srv_ = nh_.advertiseService(
-                GetObjectCurrentConfigurationTopic(nh_),
-                &CustomScene::getObjectCurrentConfigurationCallback, this);
+    auto fork_result0 = createSimulatorFbk(fork_state0);
+    fork_result0.object_configuration.erase(fork_result0.object_configuration.begin() + 5, fork_result0.object_configuration.end());
+    std::cout << "Result0:\n" << PrettyPrint::PrettyPrint(fork_result0.object_configuration, false, "\n") << std::endl << std::endl;
 
-    // Startup the action server
-    cmd_grippers_traj_as_.start();
+    auto fork_result1 = createSimulatorFbk(fork_state1);
+    fork_result1.object_configuration.erase(fork_result1.object_configuration.begin() + 5, fork_result1.object_configuration.end());
+    std::cout << "Result1:\n" << PrettyPrint::PrettyPrint(fork_result1.object_configuration, false, "\n") << std::endl << std::endl;
+
+    auto visual_result = createSimulatorFbk();
+    visual_result.object_configuration.erase(visual_result.object_configuration.begin() + 5, visual_result.object_configuration.end());
+    std::cout << "Visual Result:\n" << PrettyPrint::PrettyPrint(visual_result.object_configuration, false, "\n") << std::endl << std::endl;
+
+
+
+    while(true)
+    {
+        draw();
+        draw_function_forks[0]();
+        draw_function_forks[1]();
+        std::this_thread::sleep_for(std::chrono::duration<double>(0.001));
+    }
+
+
+    exit(-1);
+
+
+
+
 
     // TODO: remove this hardcoded spin rate
     std::thread spin_thread(&CustomScene::spin, 100.0 / BulletConfig::dt);
-
     ROS_INFO("Simulation ready.");
 
     // Run the simulation
@@ -1021,6 +1094,100 @@ void CustomScene::createFreeSpaceGraph()
 // Main loop helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
+SimForkResult CustomScene::createForkWithNoSimulationDone(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
+{
+    assert(task_type_ != TaskType::COLAB_FOLDING && "This does not yet work with colab folding - due to manual gripper path stuff");
+    assert(gripper_names.size() == gripper_poses.size());
+
+    SimForkResult result;
+    result.bullet_.reset(new BulletInstance(bullet));
+    result.osg_.reset(new OSGInstance);
+    result.fork_.reset(new Fork(env, result.bullet_, result.osg_));
+    result.rope_ = boost::static_pointer_cast<CapsuleRope>(result.fork_->forkOf(rope_));
+    result.cloth_ = boost::static_pointer_cast<BulletSoftObject>(result.fork_->forkOf(cloth_));
+
+    result.cloth_->softBody->assertEqual(cloth_->softBody.get());
+
+    for (const auto& gripper: grippers_)
+    {
+        GripperKinematicObject::Ptr gripper_copy = boost::static_pointer_cast<GripperKinematicObject>(result.fork_->forkOf(gripper.second));
+        result.grippers_[gripper.first] = gripper_copy;
+    }
+
+    std::cout << "Forked sim:\n";
+    for (size_t gripper_ind = 0; gripper_ind < gripper_names.size(); gripper_ind++)
+    {
+        ApplyTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses[gripper_ind]);
+    }
+
+    return result;
+}
+
+void CustomScene::createVisualizerForFork(SimForkResult& fork_result, const int fork_ind)
+{
+    auto& dbgDraw_internal = dbgDraw_forks[fork_ind];
+    auto& viewer_internal = viewer_forks[fork_ind];
+    auto& manip_internal = manip_forks[fork_ind];
+
+    dbgDraw_internal.reset(new osgbCollision::GLDebugDrawer());
+    dbgDraw_internal->setDebugMode(btIDebugDraw::DBG_MAX_DEBUG_DRAW_MODE /*btIDebugDraw::DBG_DrawWireframe*/);
+    dbgDraw_internal->setEnabled(false);
+    fork_result.bullet_->dynamicsWorld->setDebugDrawer(dbgDraw_internal.get());
+    fork_result.osg_->root->addChild(dbgDraw_internal->getSceneGraph());
+
+    viewer_internal.setUpViewInWindow((fork_ind + 1) * ViewerConfig::windowWidth, 0, ViewerConfig::windowWidth, ViewerConfig::windowHeight);
+    manip_internal = new EventHandler(*this);
+    manip_internal->setHomePosition(util::toOSGVector(ViewerConfig::cameraHomePosition), util::toOSGVector(ViewerConfig::pointCameraLooksAt), osg::Z_AXIS);
+    viewer_internal.setCameraManipulator(manip_internal);
+    viewer_internal.setSceneData(fork_result.osg_->root.get());
+    viewer_internal.realize();
+
+    const auto draw_fork = [&] ()
+    {
+        if (!drawingOn)
+            return;
+        if (loopState.debugDraw) {
+            // This call was moved to the start of the step() function as part of the bullet collision pipeline involves drawing things when debug draw is enabled
+            if (!dbgDraw_internal->getActive()) {
+                dbgDraw_internal->BeginDraw();
+            }
+            fork_result.bullet_->dynamicsWorld->debugDrawWorld();
+            dbgDraw_internal->EndDraw();
+        }
+        viewer_internal.frame();
+    };
+
+    draw_function_forks.push_back(draw_fork);
+}
+
+SimForkResult CustomScene::simulateInNewFork(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
+{
+    SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses);
+
+    for (size_t timestep = 0; timestep < 20*num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+    {
+        result.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+    }
+
+    return result;
+}
+
+
+void CustomScene::ApplyTransform(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map, const std::string& name, const geometry_msgs::Pose& pose)
+{
+    std::cout << "Moving gripper " << name << " to " << pose << std::endl;
+
+    GripperKinematicObject::Ptr gripper = grippers_map.at(name);
+
+    const btTransform tf = toBulletTransform(pose, METERS);
+
+    assert(-100.0f < tf.getOrigin().x() && tf.getOrigin().x() < 100.0f);
+    assert(-100.0f < tf.getOrigin().y() && tf.getOrigin().y() < 100.0f);
+    assert(-100.0f < tf.getOrigin().z() && tf.getOrigin().z() < 100.0f);
+
+    gripper->setWorldTransform(tf);
+}
+
 void CustomScene::moveGrippers()
 {
     // Given that we are moving the grippers, we know that cmd_grippers_traj_goal_
@@ -1030,18 +1197,10 @@ void CustomScene::moveGrippers()
     assert(cmd_grippers_traj_goal_->trajectory.size() > 0);
     assert(cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectory.size());
 
+    std::cout << "Main sim:\n";
     for (size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++)
     {
-        GripperKinematicObject::Ptr gripper = grippers_.at(cmd_grippers_traj_goal_->gripper_names[gripper_ind]);
-
-        const btTransform tf = toBulletTransform(
-                    cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind], METERS);
-
-        assert(-100.0f < tf.getOrigin().x() && tf.getOrigin().x() < 100.0f);
-        assert(-100.0f < tf.getOrigin().y() && tf.getOrigin().y() < 100.0f);
-        assert(-100.0f < tf.getOrigin().z() && tf.getOrigin().z() < 100.0f);
-
-        gripper->setWorldTransform(tf);
+        ApplyTransform(grippers_, cmd_grippers_traj_goal_->gripper_names[gripper_ind], cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind]);
     }
     cmd_grippers_traj_next_index_++;
 
@@ -1052,7 +1211,7 @@ void CustomScene::moveGrippers()
     }
 }
 
-smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
+smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
 {
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
 
@@ -1073,10 +1232,11 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
     {
+        const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
         msg.gripper_names.push_back(gripper_name);
-        msg.gripper_poses.push_back(toRosPose(grippers_[gripper_name]->getWorldTransform(), METERS));
+        msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
 
-        btPointCollector collision_result = collisionHelper(grippers_[gripper_name]);
+        btPointCollector collision_result = collisionHelper(gripper);
 
         if (collision_result.m_hasResult)
         {
@@ -1096,6 +1256,44 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk()
 
     // update the sim_time
     msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
+
+    return msg;
+}
+
+smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(const SimForkResult& result) const
+{
+    smmap_msgs::SimulatorFeedback msg;
+
+    msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
+
+    // fill out the gripper data
+    for (const std::string &gripper_name: auto_grippers_)
+    {
+        const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
+        msg.gripper_names.push_back(gripper_name);
+        msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
+
+        btPointCollector collision_result = collisionHelper(gripper);
+
+        if (collision_result.m_hasResult)
+        {
+            msg.gripper_distance_to_obstacle.push_back(collision_result.m_distance / METERS);
+            msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1));
+            msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(
+                        collision_result.m_pointInWorld
+                        + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS));
+        }
+        else
+        {
+            msg.gripper_distance_to_obstacle.push_back(std::numeric_limits<double>::infinity());
+            msg.obstacle_surface_normal.push_back(toRosVector3(btVector3(1.0f, 0.0f, 0.0f), 1));
+            msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(btVector3(0.0f, 0.0f, 0.0f), 1));
+        }
+
+        // update the sim_time
+        // TODO: I think this math is wrong - sim time won't be updated yet
+        msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
+    }
 
     return msg;
 }
@@ -1122,6 +1320,24 @@ std::vector<btVector3> CustomScene::getDeformableObjectNodes() const
     return nodes;
 }
 
+std::vector<btVector3> CustomScene::getDeformableObjectNodes(const SimForkResult& result) const
+{
+    std::vector<btVector3> nodes;
+
+    switch (deformable_type_)
+    {
+        case DeformableType::ROPE:
+            nodes = result.rope_->getNodes();
+            break;
+
+        case DeformableType::CLOTH:
+            nodes = nodeArrayToNodePosVector(result.cloth_->softBody->m_nodes);
+            break;
+    }
+
+    return nodes;
+}
+
 /**
  * @brief Invoke bullet's collision detector to find the points on the gripper
  * and cylinder/table that are nearest each other.
@@ -1130,7 +1346,7 @@ std::vector<btVector3> CustomScene::getDeformableObjectNodes() const
  *
  * @return The result of the collision check
  */
-btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr& gripper)
+btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr& gripper) const
 {
     assert(gripper);
 
@@ -1169,7 +1385,7 @@ btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr&
     return gjkOutput_min;
 }
 
-btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere)
+btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) const
 {
     assert(sphere);
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
@@ -1353,7 +1569,7 @@ bool CustomScene::getFreeSpaceGraphCallback(
         };
 
         // Define the graph value serialization function
-        const auto value_deserializer_fn = [] (const std::vector<uint8_t>& buffer, const int64_t current)
+        const auto value_deserializer_fn = [] (const std::vector<uint8_t>& buffer, const uint64_t current)
         {
             uint64_t current_position = current;
 
@@ -1420,6 +1636,28 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
     (void)req;
     res.points = toRosPointVector(getDeformableObjectNodes(), METERS);
     return true;
+}
+
+void CustomScene::testGripperPosesExecuteCallback(
+        const smmap_msgs::TestGrippersPosesGoalConstPtr& goal)
+{
+    const size_t num_tests = goal->poses_to_test.size();
+
+//    #pragma omp parallel for
+    for (size_t test_ind = 0; test_ind < num_tests; test_ind++)
+    {
+        ROS_INFO_STREAM_NAMED("test_gripper_poses", "Testing gripper pose " << test_ind);
+        const SimForkResult result = simulateInNewFork(goal->gripper_names, goal->poses_to_test[test_ind].pose);
+
+        // Create a feedback message
+        smmap_msgs::TestGrippersPosesFeedback fbk;
+        fbk.sim_state = createSimulatorFbk(result);
+        fbk.test_id = test_ind;
+        // Send feedback
+        test_grippers_poses_as_.publishFeedback(fbk);
+    }
+
+    test_grippers_poses_as_.setSucceeded();
 }
 
 // TODO: be able to delete markers and have a timeout

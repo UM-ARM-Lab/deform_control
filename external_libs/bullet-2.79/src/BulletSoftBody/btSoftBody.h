@@ -17,6 +17,8 @@ subject to the following restrictions:
 #ifndef _BT_SOFT_BODY_H
 #define _BT_SOFT_BODY_H
 
+#include <iostream>
+
 #include "LinearMath/btAlignedObjectArray.h"
 #include "LinearMath/btTransform.h"
 #include "LinearMath/btIDebugDraw.h"
@@ -47,7 +49,7 @@ struct	btSoftBodyWorldInfo
     btScalar				water_offset;
     btVector3				water_normal;
     btBroadphaseInterface*	m_broadphase;
-    btDispatcher*	m_dispatcher;
+    btDispatcher*           m_dispatcher;
     btVector3				m_gravity;
     btSparseSdf<3>			m_sparsesdf;
 
@@ -56,8 +58,8 @@ struct	btSoftBodyWorldInfo
         water_density(0),
         water_offset(0),
         water_normal(0,0,0),
-        m_broadphase(0),
-        m_dispatcher(0),
+        m_broadphase(NULL),
+        m_dispatcher(NULL),
         m_gravity(0,-10,0)
     {
     }
@@ -676,11 +678,88 @@ public:
     // Api
     //
 
-    /* ctor																	*/
-    btSoftBody(	btSoftBodyWorldInfo* worldInfo,int node_count,		const btVector3* x,		const btScalar* m);
+
+    void assertEqual(const btSoftBody * const other) const
+    {
+        // base btCollisionObject stuff
+        assert(m_worldTransform == other->m_worldTransform);
+        assert(m_interpolationWorldTransform == other->m_interpolationWorldTransform);
+        assert(m_interpolationLinearVelocity == other->m_interpolationLinearVelocity);
+        assert(m_interpolationAngularVelocity == other->m_interpolationAngularVelocity);
+        assert(m_anisotropicFriction == other->m_anisotropicFriction);
+        assert(m_hasAnisotropicFriction == other->m_hasAnisotropicFriction);
+        assert(m_contactProcessingThreshold == other->m_contactProcessingThreshold);
+
+//        assert(m_broadphaseHandle == other->m_broadphaseHandle);
+//        assert(m_collisionShape == other->m_collisionShape);      // Shouldn't be the problem
+        assert(m_extensionPointer == other->m_extensionPointer);
+        assert(m_rootCollisionShape == other->m_rootCollisionShape);
+
+        assert(m_collisionFlags == other->m_collisionFlags);
+        assert(m_islandTag1 == other->m_islandTag1);
+        assert(m_companionId == other->m_companionId);
+        assert(m_activationState1 == other->m_activationState1);
+        assert(m_deactivationTime == other->m_deactivationTime);
+        assert(m_friction == other->m_friction);
+        assert(m_restitution == other->m_restitution);
+        assert(m_internalType == other->m_internalType);
+
+        assert(m_userObjectPointer == other->m_userObjectPointer);
+
+        assert(m_hitFraction == other->m_hitFraction);
+        assert(m_ccdSweptSphereRadius == other->m_ccdSweptSphereRadius);
+        assert(m_ccdMotionThreshold == other->m_ccdMotionThreshold);
+        assert(m_checkCollideWith == other->m_checkCollideWith);
+
+        // btSoftBodyStuff
+//        assert(m_cfg == other->m_cfg);    // Somewhat confirmed to not be the problem
+
+        assert(m_sst.sdt == other->m_sst.sdt);
+        assert(m_sst.isdt == other->m_sst.isdt);
+        assert(m_sst.velmrg == other->m_sst.velmrg);
+        assert(m_sst.radmrg == other->m_sst.radmrg);
+        assert(m_sst.updmrg == other->m_sst.updmrg);
+
+        assert(m_pose.m_bvolume == other->m_pose.m_bvolume);
+        assert(m_pose.m_bframe == other->m_pose.m_bframe);
+        assert(m_pose.m_volume == other->m_pose.m_volume);
+//        assert(m_pose.m_pos == other->m_pose.m_pos);
+//        assert(m_pose.m_wgh == other->m_pose.m_wgh);
+        assert(m_pose.m_com == other->m_pose.m_com);
+        assert(m_pose.m_rot == other->m_pose.m_rot);
+        assert(m_pose.m_scl == other->m_pose.m_scl);
+        assert(m_pose.m_aqq == other->m_pose.m_aqq);
+
+        assert(m_tag == other->m_tag);
+        assert(m_notes.size() == other->m_notes.size());
+        assert(m_nodes.size() == other->m_nodes.size());
+        assert(m_links.size() == other->m_links.size());
+        assert(m_faces.size() == other->m_faces.size());
+        assert(m_tetras.size() == other->m_tetras.size());
+        assert(m_anchors.size() == other->m_anchors.size());
+        assert(m_rcontacts.size() == other->m_rcontacts.size());
+        assert(m_scontacts.size() == other->m_scontacts.size());
+        assert(m_joints.size() == other->m_joints.size());
+        assert(m_materials.size() == other->m_materials.size());
+        assert(m_timeacc == other->m_timeacc);
+        assert(m_bounds[0] == other->m_bounds[0]);
+        assert(m_bounds[1] == other->m_bounds[1]);
+//        assert(m_bUpdateRtCst == other->m_bUpdateRtCst);
+//        assert(m_ndbvt == other->m_ndbvt);
+//        assert(m_fdbvt == other->m_fdbvt);
+//        assert(m_cdbvt == other->m_cdbvt);
+        assert(m_clusters.size() == other->m_clusters.size());
+        assert(m_clusterConnectivity.size() == other->m_clusterConnectivity.size());
+        assert(m_initialWorldTransform == other->m_initialWorldTransform);
+        assert(m_windVelocity == other->m_windVelocity);
+    }
+
 
     /* ctor																	*/
-    btSoftBody(	btSoftBodyWorldInfo* worldInfo);
+    btSoftBody(btSoftBodyWorldInfo* worldInfo,int node_count,const btVector3* x,const btScalar* m);
+
+    /* ctor																	*/
+    btSoftBody(btSoftBodyWorldInfo* worldInfo);
 
     void	initDefaults();
 
@@ -696,69 +775,36 @@ public:
     }
 
     ///@todo: avoid internal softbody shape hack and move collision code to collision library
-    virtual void	setCollisionShape(btCollisionShape* collisionShape)
+    virtual void        setCollisionShape(btCollisionShape* collisionShape)
     {
 
     }
 
-    bool				checkLink(	int node0,
-        int node1) const;
-    bool				checkLink(	const Node* node0,
-        const Node* node1) const;
+    bool				checkLink(int node0,int node1) const;
+    bool				checkLink(const Node* node0,const Node* node1) const;
     /* Check for existring face												*/
-    bool				checkFace(	int node0,
-        int node1,
-        int node2) const;
+    bool				checkFace(int node0,int node1,int node2) const;
     /* Append material														*/
     Material*			appendMaterial();
     /* Append note															*/
-    void				appendNote(	const char* text,
-        const btVector3& o,
-        const btVector4& c=btVector4(1,0,0,0),
-        Node* n0=0,
-        Node* n1=0,
-        Node* n2=0,
-        Node* n3=0);
-    void				appendNote(	const char* text,
-        const btVector3& o,
-        Node* feature);
-    void				appendNote(	const char* text,
-        const btVector3& o,
-        Link* feature);
-    void				appendNote(	const char* text,
-        const btVector3& o,
-        Face* feature);
+    void				appendNote(	const char* text,const btVector3& o,const btVector4& c=btVector4(1,0,0,0),Node* n0=0,Node* n1=0,Node* n2=0,Node* n3=0);
+    void				appendNote(	const char* text,const btVector3& o,Node* feature);
+    void				appendNote(	const char* text,const btVector3& o,Link* feature);
+    void				appendNote(	const char* text,const btVector3& o,Face* feature);
     /* Append node															*/
     void				appendNode(	const btVector3& x,btScalar m);
     /* Append link															*/
     void				appendLink(int model=-1,Material* mat=0);
-    void				appendLink(	int node0,
-        int node1,
-        Material* mat=0,
-        bool bcheckexist=false);
-    void				appendLink(	Node* node0,
-        Node* node1,
-        Material* mat=0,
-        bool bcheckexist=false);
+    void				appendLink(int node0,int node1,Material* mat=0,bool bcheckexist=false);
+    void				appendLink(Node* node0,Node* node1,Material* mat=0,bool bcheckexist=false);
     /* Append face															*/
     void				appendFace(int model=-1,Material* mat=0);
-    void				appendFace(	int node0,
-        int node1,
-        int node2,
-        Material* mat=0);
-    void			appendTetra(int model,Material* mat);
-    //
-    void			appendTetra(int node0,
-                                        int node1,
-                                        int node2,
-                                        int node3,
-                                        Material* mat=0);
-
-
+    void				appendFace(int node0,int node1,int node2,Material* mat=0);
+    void                appendTetra(int model,Material* mat);
+    void                appendTetra(int node0,int node1,int node2,int node3,Material* mat=0);
     /* Append anchor														*/
-    void				appendAnchor(	int node,
-        btRigidBody* body, bool disableCollisionBetweenLinkedBodies=false,btScalar influence = 1);
-    void			appendAnchor(int node,btRigidBody* body, const btVector3& localPivot,bool disableCollisionBetweenLinkedBodies=false,btScalar influence = 1);
+    void                appendAnchor(int node, btRigidBody* body, bool disableCollisionBetweenLinkedBodies=false, btScalar influence = 1);
+    void                appendAnchor(int node, btRigidBody* body, const btVector3& localPivot, bool disableCollisionBetweenLinkedBodies=false, btScalar influence = 1);
     /* Append linear joint													*/
     void				appendLinearJoint(const LJoint::Specs& specs,Cluster* body0,Body body1);
     void				appendLinearJoint(const LJoint::Specs& specs,Body body=Body());
@@ -768,46 +814,39 @@ public:
     void				appendAngularJoint(const AJoint::Specs& specs,Body body=Body());
     void				appendAngularJoint(const AJoint::Specs& specs,btSoftBody* body);
     /* Add force (or gravity) to the entire body							*/
-    void				addForce(		const btVector3& force);
+    void				addForce(const btVector3& force);
     /* Add force (or gravity) to a node of the body							*/
-    void				addForce(		const btVector3& force,
-        int node);
+    void				addForce(const btVector3& force,int node);
     /* Add velocity to the entire body										*/
-    void				addVelocity(	const btVector3& velocity);
-
+    void				addVelocity(const btVector3& velocity);
     /* Set velocity for the entire body										*/
-    void				setVelocity(	const btVector3& velocity);
-
+    void				setVelocity(const btVector3& velocity);
     /* Add velocity to a node of the body									*/
-    void				addVelocity(	const btVector3& velocity,
-        int node);
+    void				addVelocity(const btVector3& velocity,int node);
     /* Set mass																*/
-    void				setMass(		int node,
-        btScalar mass);
+    void				setMass(int node,btScalar mass);
     /* Get mass																*/
-    btScalar			getMass(		int node) const;
+    btScalar			getMass(int node) const;
     /* Get total mass														*/
     btScalar			getTotalMass() const;
     /* Set total mass (weighted by previous masses)							*/
-    void				setTotalMass(	btScalar mass,
-        bool fromfaces=false);
+    void				setTotalMass(btScalar mass,bool fromfaces=false);
     /* Set total density													*/
     void				setTotalDensity(btScalar density);
     /* Set volume mass (using tetrahedrons)									*/
-    void				setVolumeMass(		btScalar mass);
+    void				setVolumeMass(btScalar mass);
     /* Set volume density (using tetrahedrons)								*/
-    void				setVolumeDensity(	btScalar density);
+    void				setVolumeDensity(btScalar density);
     /* Transform															*/
-    void				transform(		const btTransform& trs);
+    void				transform(const btTransform& trs);
     /* Translate															*/
-    void				translate(		const btVector3& trs);
-    /* Rotate															*/
-    void				rotate(	const btQuaternion& rot);
+    void				translate(const btVector3& trs);
+    /* Rotate                                                               */
+    void				rotate(const btQuaternion& rot);
     /* Scale																*/
-    void				scale(	const btVector3& scl);
+    void				scale(const btVector3& scl);
     /* Set current state as pose											*/
-    void				setPose(		bool bvolume,
-        bool bframe);
+    void				setPose(bool bvolume,bool bframe);
     /* Return the volume													*/
     btScalar			getVolume() const;
     /* Cluster count														*/
@@ -826,8 +865,7 @@ public:
     static void			clusterAImpulse(Cluster* cluster,const Impulse& impulse);
     static void			clusterDCImpulse(Cluster* cluster,const btVector3& impulse);
     /* Generate bending constraints based on distance in the adjency graph	*/
-    int					generateBendingConstraints(	int distance,
-        Material* mat=0);
+    int					generateBendingConstraints(int distance,Material* mat=0);
     /* Randomize constraints to reduce solver bias							*/
     void				randomizeConstraints();
     /* Release clusters														*/
@@ -940,8 +978,7 @@ public:
     void				pointersToIndices();
     void				indicesToPointers(const int* map=0);
 
-    int					rayTest(const btVector3& rayFrom,const btVector3& rayTo,
-        btScalar& mint,eFeature::_& feature,int& index,bool bcountonly) const;
+    int					rayTest(const btVector3& rayFrom,const btVector3& rayTo,btScalar& mint,eFeature::_& feature,int& index,bool bcountonly) const;
     void				initializeFaceTree();
     btVector3			evaluateCom() const;
     bool				checkContact(btCollisionObject* colObj,const btVector3& x,btScalar margin,btSoftBody::sCti& cti) const;

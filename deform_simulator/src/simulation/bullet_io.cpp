@@ -28,7 +28,7 @@ ostream &operator<<(ostream &stream, const btTransform& v) {
 }
 
 ostream &operator<<(ostream &stream, const vector<btVector3>& vs) {
-  for (int i=0; i < vs.size(); i++) stream << vs[i] << endl;
+  for (size_type i=0; i < vs.size(); i++) stream << vs[i] << endl;
   return stream;
 }
 
@@ -65,7 +65,7 @@ istream &operator>>(istream &stream, btMatrix3x3& m) {
   btVector3 r1,r2,r3;
   stream >> r1 >> r2 >> r3;
   m = btMatrix3x3(r1.x(), r1.y(), r1.z(),
-		  r2.x(), r2.y(), r2.z(),
-		  r3.x(), r3.y(), r3.z());
+          r2.x(), r2.y(), r2.z(),
+          r3.x(), r3.y(), r3.z());
   return stream;
 }

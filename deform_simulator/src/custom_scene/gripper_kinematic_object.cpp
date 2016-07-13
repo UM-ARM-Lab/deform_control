@@ -373,15 +373,17 @@ EnvironmentObject::Ptr GripperKinematicObject::copy(Fork &f) const
 
 void GripperKinematicObject::internalCopy(GripperKinematicObject::Ptr o, Fork &f) const
 {
-    o->apperture = apperture;
-    o->cur_tm = cur_tm;
-    o->bOpen = bOpen;
-    o->state = state;
-    o->closed_gap = closed_gap;
-    o->vattached_node_inds = vattached_node_inds;
-    o->halfextents = halfextents;
     o->name = name;
+    o->halfextents = halfextents;
+    o->cur_tm = cur_tm;
+
+    o->state = state;
+    o->bOpen = bOpen;
+    o->apperture = apperture;
+    o->closed_gap = closed_gap;
+
     o->bAttached = bAttached;
+    o->vattached_node_inds = vattached_node_inds;
 
     o->children.clear();
     o->children.reserve(children.size());
@@ -392,6 +394,8 @@ void GripperKinematicObject::internalCopy(GripperKinematicObject::Ptr o, Fork &f
         else
             o->children.push_back(BoxObject::Ptr());
     }
+
+    // TODO: constraints?
 }
 
 const btVector3& GripperKinematicObject::getHalfExtents() const

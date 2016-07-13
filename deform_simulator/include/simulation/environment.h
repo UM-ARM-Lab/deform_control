@@ -38,6 +38,7 @@ struct BulletInstance
     btSoftBodyWorldInfo softBodyWorldInfo;
 
     BulletInstance();
+    BulletInstance(const Ptr& other);
     ~BulletInstance();
 
     void setGravity(const btVector3 &gravity);

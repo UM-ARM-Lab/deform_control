@@ -59,7 +59,8 @@ BulletObject::BulletObject(btScalar mass, btCollisionShape *cs, const btTransfor
 }
 
 BulletObject::BulletObject(const BulletObject &o)
-    : isKinematic(o.isKinematic)
+    : EnvironmentObject()
+    , isKinematic(o.isKinematic)
 {
     // we need to access lots of private members of btRigidBody and etc
     // the easiest way to do this is to use serialization
@@ -404,7 +405,7 @@ EnvironmentObject::Ptr BulletConstraint::copy(Fork &f) const
     {
         btGeneric6DofConstraintData* dofData = (btGeneric6DofConstraintData*)constraintData;
         btGeneric6DofConstraint* dof = 0;
-        if (rbA&& rbB)
+        if (rbA && rbB)
         {
             btTransform rbAFrame,rbBFrame;
             rbAFrame.deSerializeFloat(dofData->m_rbAFrame);

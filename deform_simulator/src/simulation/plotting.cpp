@@ -67,7 +67,7 @@ void PlotPoints::setPoints(const osg::ref_ptr<osg::Vec3Array>& osgPts) {
 
 void PlotPoints::forceTransparency(float a) {
   osg::Vec4Array &colors = (osg::Vec4Array&) *m_geom->getColorArray();
-  for (int i = 0; i < colors.size(); ++i) {
+  for (size_t i = 0; i < colors.size(); ++i) {
     osg::Vec4 c = colors[i];
     colors[i] = osg::Vec4(c.r(), c.g(), c.b(), a);
   }
@@ -151,7 +151,7 @@ void PlotSpheres::clear() {
 void PlotSpheres::plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::ref_ptr<osg::Vec4Array>& cols, const vector<float>& radii) {
   m_geode->removeDrawables(0,m_nDrawables);
   m_nDrawables = centers->size();
-  for (int i=0; i < centers->size(); i++) {
+  for (size_t i=0; i < centers->size(); i++) {
     osg::TessellationHints* hints = new osg::TessellationHints;
     hints->setDetailRatio(0.25f);
     osg::Sphere* sphere = new osg::Sphere(centers->at(i), radii.at(i));
