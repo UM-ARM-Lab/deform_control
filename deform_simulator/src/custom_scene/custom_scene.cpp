@@ -1690,14 +1690,14 @@ bool CustomScene::executeGripperMovementAndUpdateSimCallback(
         smmap_msgs::ExecuteGripperMovement::Request& req,
         smmap_msgs::ExecuteGripperMovement::Response& res)
 {
-    assert(req.grippers_names.size() == req.grippers_poses.size());
+    assert(req.grippers_names.size() == req.grippers_poses.pose.size());
 
     std::lock_guard<std::mutex> lock (sim_mutex_);
 
     // Move the grippers
     for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
     {
-        ApplyTransform(main_simulator_state_.grippers_, req.grippers_names[gripper_ind], req.grippers_poses[gripper_ind]);
+        ApplyTransform(main_simulator_state_.grippers_, req.grippers_names[gripper_ind], req.grippers_poses.pose[gripper_ind]);
     }
 
     // Forward simulate the results
