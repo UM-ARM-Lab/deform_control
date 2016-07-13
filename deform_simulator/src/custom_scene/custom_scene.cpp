@@ -1734,6 +1734,7 @@ void CustomScene::testGripperPosesExecuteCallback(
     const size_t num_tests = goal->poses_to_test.size();
 
     std::lock_guard<std::mutex> lock (sim_mutex_);
+//    omp_set_num_threads(8);
     #pragma omp parallel for
     for (size_t test_ind = 0; test_ind < num_tests; test_ind++)
     {
