@@ -1,3 +1,13 @@
+unset(USE_OPEN_MP CACHE)
+option(USE_OPEN_MP "Set to ON if we want to use OpenMP" ON)
+if (USE_OPEN_MP)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -DUSE_OPEN_MP")
+    message(STATUS "Enabling OpenMP for SMMAP library")
+else(USE_OPEN_MP)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unknown-pragmas")
+    message(WARNING "Disabling OpenMP for SMMAP library")
+endif(USE_OPEN_MP)
+
 SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Wextra -Wpedantic -Wconversion" )
 
 add_library( custom_scene

@@ -1200,7 +1200,7 @@ SimForkResult CustomScene::simulateInNewFork(const SimForkResult& sim_to_fork, c
 
 void CustomScene::ApplyTransform(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map, const std::string& name, const geometry_msgs::Pose& pose)
 {
-    std::cout << "Moving gripper " << name << " to " << pose << std::endl;
+//    std::cout << "Moving gripper " << name << " to " << pose << std::endl;
 
     GripperKinematicObject::Ptr gripper = grippers_map.at(name);
 
@@ -1734,7 +1734,7 @@ void CustomScene::testGripperPosesExecuteCallback(
     const size_t num_tests = goal->poses_to_test.size();
 
     std::lock_guard<std::mutex> lock (sim_mutex_);
-//    #pragma omp parallel for
+    #pragma omp parallel for
     for (size_t test_ind = 0; test_ind < num_tests; test_ind++)
     {
         ROS_INFO_STREAM_NAMED("test_gripper_poses", "Testing gripper pose " << test_ind);
