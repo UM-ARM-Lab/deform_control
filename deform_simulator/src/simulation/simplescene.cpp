@@ -33,19 +33,19 @@ void Scene::startViewer() {
     drawingOn = syncTime = true;
     loopState.looping = loopState.paused = loopState.debugDraw = loopState.skip_step = false;
 
-    dbgDraw.reset(new osgbCollision::GLDebugDrawer());
-    dbgDraw->setDebugMode(btIDebugDraw::DBG_MAX_DEBUG_DRAW_MODE /*btIDebugDraw::DBG_DrawWireframe*/);
-    dbgDraw->setEnabled(false);
-    bullet->dynamicsWorld->setDebugDrawer(dbgDraw.get());
-    osg->root->addChild(dbgDraw->getSceneGraph());
+//    dbgDraw.reset(new osgbCollision::GLDebugDrawer());
+//    dbgDraw->setDebugMode(btIDebugDraw::DBG_MAX_DEBUG_DRAW_MODE /*btIDebugDraw::DBG_DrawWireframe*/);
+//    dbgDraw->setEnabled(false);
+//    bullet->dynamicsWorld->setDebugDrawer(dbgDraw.get());
+//    osg->root->addChild(dbgDraw->getSceneGraph());
 
-    viewer.setUpViewInWindow(0, 0, ViewerConfig::windowWidth, ViewerConfig::windowHeight);
-    manip = new EventHandler(*this);
-    manip->setHomePosition(util::toOSGVector(ViewerConfig::cameraHomePosition), util::toOSGVector(ViewerConfig::pointCameraLooksAt), osg::Z_AXIS);
-    viewer.setCameraManipulator(manip);
-    viewer.setSceneData(osg->root.get());
-    viewer.realize();
-    step(0);
+//    viewer.setUpViewInWindow(0, 0, ViewerConfig::windowWidth, ViewerConfig::windowHeight);
+//    manip = new EventHandler(*this);
+//    manip->setHomePosition(util::toOSGVector(ViewerConfig::cameraHomePosition), util::toOSGVector(ViewerConfig::pointCameraLooksAt), osg::Z_AXIS);
+//    viewer.setCameraManipulator(manip);
+//    viewer.setSceneData(osg->root.get());
+//    viewer.realize();
+//    step(0);
 }
 
 void Scene::toggleDebugDraw() {
