@@ -142,6 +142,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
 {
     // Run the startup code for the viewer and everything else
     {
+        step(0);
         main_simulator_state_ = createForkWithNoSimulationDone();
         main_simulator_state_.fork_->env->step(0, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
 
@@ -159,7 +160,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
         setDrawing(drawScene);
         if (drawScene)
         {
-//            startViewer();
+            startViewer();
             drawingOn = syncTime = true;
             loopState.looping = loopState.paused = loopState.debugDraw = loopState.skip_step = false;
             main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
@@ -173,9 +174,11 @@ void CustomScene::run(bool drawScene, bool syncTime)
         // Let the object settle before anything else happens
         for (size_t timestep = 0; timestep < 400; timestep++)
         {
+//            step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
             main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
             if (drawScene)
             {
+//                draw();
                 main_simulator_viewer_->draw();
             }
 
@@ -203,7 +206,11 @@ void CustomScene::run(bool drawScene, bool syncTime)
                     &CustomScene::getObjectCurrentConfigurationCallback, this);
 
 
-        main_simulator_state_ = createForkWithNoSimulationDone();
+//        main_simulator_state_ = createForkWithNoSimulationDone(main_simulator_state_);
+//        if (drawingOn)
+//        {
+//            main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
+//        }
 
         // Startup the action server
 //        cmd_grippers_traj_as_.start();
@@ -217,11 +224,12 @@ void CustomScene::run(bool drawScene, bool syncTime)
     // Run the simulation
     while (ros::ok())
     {
+        main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
         if (drawScene)
         {
             std::lock_guard<std::mutex> lock (sim_mutex_);
             main_simulator_viewer_->draw();
-            usleep((__useconds_t)10000);
+//            usleep((__useconds_t)10000);
         }
 
         // Disabled code
@@ -1069,6 +1077,7 @@ void CustomScene::createFreeSpaceGraph()
 ////////////////////////////////////////////////////////////////////////////////
 
 
+
 std::shared_ptr<ViewerData> CustomScene::createVisualizerForFork(SimForkResult& fork_result)
 {
     std::shared_ptr<ViewerData> viewer(new ViewerData(*this, fork_result));
@@ -1111,6 +1120,7 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
     for (const auto& gripper: grippers_to_fork)
     {
         GripperKinematicObject::Ptr gripper_copy = boost::static_pointer_cast<GripperKinematicObject>(result.fork_->forkOf(gripper.second));
+        assert(gripper_copy);
         result.grippers_[gripper.first] = gripper_copy;
     }
 
@@ -1695,19 +1705,18 @@ bool CustomScene::executeGripperMovementAndUpdateSimCallback(
     }
 
     // Fork the result and presettle for the next timestep
-    SimForkResult next_simulator = createForkWithNoSimulationDone(main_simulator_state_);
+    main_simulator_state_ = createForkWithNoSimulationDone(main_simulator_state_);
+    if (drawingOn)
+    {
+        main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
+    }
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
-        next_simulator.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+        main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
         if (drawingOn)
         {
             main_simulator_viewer_->draw();
         }
-    }
-    main_simulator_state_ = next_simulator;
-    if (drawingOn)
-    {
-        main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
     }
 
     // Return the results
@@ -2163,7 +2172,7 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
         case osgGA::GUIEventAdapter::DRAG:
         {
             // drag the active manipulator in the plane of view
-            if ((ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON) && current_gripper_ != nullptr)
+            if ((ea.getButtonMask() & ea.LEFT_MOUSE_BUTTON) && current_gripper_)
             {
                 // if we've just started moving, reset our internal position trackers
                 if (start_dragging_)
