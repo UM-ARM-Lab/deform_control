@@ -30,7 +30,7 @@ Scene::Scene() : drawingOn(false), syncTime(false), simTime(0) {
 }
 
 void Scene::startViewer() {
-    drawingOn = syncTime = true;
+    drawingOn = true;
     loopState.looping = loopState.paused = loopState.debugDraw = loopState.skip_step = false;
 
     dbgDraw.reset(new osgbCollision::GLDebugDrawer());

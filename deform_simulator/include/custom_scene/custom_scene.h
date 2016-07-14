@@ -69,9 +69,6 @@ struct ViewerData
         }
         viewer_.frame();
     }
-
-
-//        std::function<void()> drawFunction_;
 };
 
 
@@ -115,8 +112,8 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
 
-        SimForkResult main_simulator_state_;
-        std::shared_ptr<ViewerData> main_simulator_viewer_;
+//        SimForkResult main_simulator_state_;
+//        std::shared_ptr<ViewerData> main_simulator_viewer_;
 
 
         std::shared_ptr<ViewerData> createVisualizerForFork(SimForkResult& fork_result);
@@ -130,13 +127,13 @@ class CustomScene : public Scene
 
 
         SimForkResult createForkWithNoSimulationDone();
-        SimForkResult createForkWithNoSimulationDone(const SimForkResult& sim_to_fork);
+//        SimForkResult createForkWithNoSimulationDone(const SimForkResult& sim_to_fork);
         SimForkResult createForkWithNoSimulationDone(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
-        SimForkResult createForkWithNoSimulationDone(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
+//        SimForkResult createForkWithNoSimulationDone(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
 
 
-//        SimForkResult simulateInNewFork(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
-        SimForkResult simulateInNewFork(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
+        SimForkResult simulateInNewFork(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
+//        SimForkResult simulateInNewFork(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
 
 
 
@@ -147,7 +144,7 @@ class CustomScene : public Scene
                 const std::string& name,
                 const geometry_msgs::Pose& pose);
         void moveGrippers();
-        void moveGrippers(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map);
+//        void moveGrippers(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map);
         smmap_msgs::SimulatorFeedback createSimulatorFbk() const;
         smmap_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
 
@@ -195,9 +192,9 @@ class CustomScene : public Scene
 
 
 
-        bool executeGripperMovementAndUpdateSimCallback(
-                smmap_msgs::ExecuteGripperMovement::Request& req,
-                smmap_msgs::ExecuteGripperMovement::Response& res);
+//        bool executeGripperMovementAndUpdateSimCallback(
+//                smmap_msgs::ExecuteGripperMovement::Request& req,
+//                smmap_msgs::ExecuteGripperMovement::Response& res);
 
         void testGripperPosesExecuteCallback(
                 const smmap_msgs::TestGrippersPosesGoalConstPtr& goal);
@@ -325,7 +322,7 @@ class CustomScene : public Scene
         smmap_msgs::CmdGrippersTrajectoryResult cmd_grippers_traj_result_;
         size_t cmd_grippers_traj_next_index_;
 
-        ros::ServiceServer execute_gripper_movement_and_update_sim_srv_;
+//        ros::ServiceServer execute_gripper_movement_and_update_sim_srv_;
         actionlib::SimpleActionServer<smmap_msgs::TestGrippersPosesAction> test_grippers_poses_as_;
 
         ////////////////////////////////////////////////////////////////////////

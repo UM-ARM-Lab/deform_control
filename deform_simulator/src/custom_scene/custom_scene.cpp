@@ -120,6 +120,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     object_initial_configuration_srv_ = nh_.advertiseService(
             GetObjectInitialConfigurationTopic(nh_), &CustomScene::getObjectInitialConfigurationCallback, this);
 
+    // Create a service to let others know the object current configuration
+    object_current_configuration_srv_ = nh_.advertiseService(
+                GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
+
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
             GetVisualizationMarkerTopic(nh_), 20, &CustomScene::visualizationMarkerCallback, this);
@@ -129,9 +133,8 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
             GetVisualizationMarkerArrayTopic(nh_), 20, &CustomScene::visualizationMarkerArrayCallback, this);
 
 
-
-    execute_gripper_movement_and_update_sim_srv_ = nh_.advertiseService(
-                GetExecuteGrippersMovementAndUpdateSimTopic(nh_), &CustomScene::executeGripperMovementAndUpdateSimCallback, this);
+//    execute_gripper_movement_and_update_sim_srv_ = nh_.advertiseService(
+//                GetExecuteGrippersMovementAndUpdateSimTopic(nh_), &CustomScene::executeGripperMovementAndUpdateSimCallback, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,78 +145,40 @@ void CustomScene::run(bool drawScene, bool syncTime)
 {
     // Run the startup code for the viewer and everything else
     {
-        step(0);
-        main_simulator_state_ = createForkWithNoSimulationDone();
-        main_simulator_state_.fork_->env->step(0, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
 
-//        // Note that viewer cleans up this memory
-//        viewer.addEventHandler(new CustomKeyHandler(*this));
+        // Note that viewer cleans up this memory
+        viewer.addEventHandler(new CustomKeyHandler(*this));
 
-//        // When the viewer closes, shutdown ROS
-//        addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-//                        boost::bind(&ros::shutdown));
+        // When the viewer closes, shutdown ROS
+        addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
+                        boost::bind(&ros::shutdown));
 
-//        addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
+        addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
 
         // if syncTime is set, the simulator blocks until the real time elapsed
         // matches the simulator time elapsed, or something, it's not clear
+        setSyncTime(syncTime);
         setDrawing(drawScene);
         if (drawScene)
         {
             startViewer();
-            drawingOn = syncTime = true;
-            loopState.looping = loopState.paused = loopState.debugDraw = loopState.skip_step = false;
-            main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
         }
-        setSyncTime(syncTime);
-
 
         // Create a thread to create the free space graph while the object settles
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this);
-
         // Let the object settle before anything else happens
-        for (size_t timestep = 0; timestep < 400; timestep++)
-        {
-//            step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-            main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-            if (drawScene)
-            {
-//                draw();
-                main_simulator_viewer_->draw();
-            }
-
-//            auto feedback_data = createSimulatorFbk(main_simulator_state_);
-//            feedback_data.object_configuration.erase(feedback_data.object_configuration.begin() + 5, feedback_data.object_configuration.end());
-//            std::cout << "Result:\n" << PrettyPrint::PrettyPrint(feedback_data.object_configuration, false, "\n") << std::endl << std::endl;
-        }
-
-
+        stepFor(BulletConfig::dt, 4.0);
         // Wait for the graph to be finished being made
         while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
         {
-            if (drawScene)
-            {
-                main_simulator_viewer_->draw();
-            }
+            step(0);
         }
         free_space_graph_future.get(); // TODO: Is this needed at all?
 
         base_sim_time_ = simTime;
 
-        // Create a service to let others know the object current configuration
-        object_current_configuration_srv_ = nh_.advertiseService(
-                    GetObjectCurrentConfigurationTopic(nh_),
-                    &CustomScene::getObjectCurrentConfigurationCallback, this);
-
-
-//        main_simulator_state_ = createForkWithNoSimulationDone(main_simulator_state_);
-//        if (drawingOn)
-//        {
-//            main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
-//        }
-
         // Startup the action server
-//        cmd_grippers_traj_as_.start();
+        cmd_grippers_traj_as_.start();
         test_grippers_poses_as_.start();
     }
 
@@ -224,82 +189,71 @@ void CustomScene::run(bool drawScene, bool syncTime)
     // Run the simulation
     while (ros::ok())
     {
-        main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-        if (drawScene)
+        // Check if we've been asked to follow a trajectory
+        if (cmd_grippers_traj_as_.isNewGoalAvailable())
         {
-            std::lock_guard<std::mutex> lock (sim_mutex_);
-            main_simulator_viewer_->draw();
-//            usleep((__useconds_t)10000);
+            // If we already have a trajectory, premept the current one with the results so far
+            if (cmd_grippers_traj_as_.isActive())
+            {
+                cmd_grippers_traj_as_.setPreempted(cmd_grippers_traj_result_);
+            }
+
+            cmd_grippers_traj_goal_ = cmd_grippers_traj_as_.acceptNewGoal();
+            cmd_grippers_traj_result_.sim_state_trajectory.clear();
+            cmd_grippers_traj_result_.sim_state_trajectory.reserve(cmd_grippers_traj_goal_->trajectory.size());
+            cmd_grippers_traj_next_index_ = 0;
         }
 
-        // Disabled code
+        // If the current goal (new or not) has been preempted, send our current results and clear the goal
+        if (cmd_grippers_traj_as_.isPreemptRequested())
         {
-//            // Check if we've been asked to follow a trajectory
-//            if (cmd_grippers_traj_as_.isNewGoalAvailable())
-//            {
-//                // If we already have a trajectory, premept the current one with the results so far
-//                if (cmd_grippers_traj_as_.isActive())
-//                {
-//                    cmd_grippers_traj_as_.setPreempted(cmd_grippers_traj_result_);
-//                }
-
-//                cmd_grippers_traj_goal_ = cmd_grippers_traj_as_.acceptNewGoal();
-//                cmd_grippers_traj_result_.sim_state_trajectory.clear();
-//                cmd_grippers_traj_result_.sim_state_trajectory.reserve(cmd_grippers_traj_goal_->trajectory.size());
-//                cmd_grippers_traj_next_index_ = 0;
-//            }
-
-//            // If the current goal (new or not) has been preempted, send our current results and clear the goal
-//            if (cmd_grippers_traj_as_.isPreemptRequested())
-//            {
-//                cmd_grippers_traj_as_.setPreempted(cmd_grippers_traj_result_);
-//                cmd_grippers_traj_goal_ = nullptr; // stictly speaking, this shouldn't be needed
-//            }
-
-//            smmap_msgs::SimulatorFeedback msg;
-//            // If we have not reached the end of the current gripper trajectory, execute the next step
-//            if (cmd_grippers_traj_as_.isActive())
-//            {
-//                // Advance the sim time and record the sim state
-//                {
-//                    std::lock_guard<std::mutex> lock (sim_mutex_);
-//                    if (advance_grippers_.load())
-//                    {
-//                        moveGrippers();
-//                    }
-//                    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
-//                    {
-//                        step(BulletConfig::dt);
-//                    }
-//                    msg = createSimulatorFbk();
-//                }
-
-//                // Deal with the action server parts of feedback
-//                smmap_msgs::CmdGrippersTrajectoryFeedback as_feedback;
-//                as_feedback.sim_state = msg;
-//                cmd_grippers_traj_as_.publishFeedback(as_feedback);
-
-//                cmd_grippers_traj_result_.sim_state_trajectory.push_back(msg);
-
-//                if (cmd_grippers_traj_next_index_ == cmd_grippers_traj_goal_->trajectory.size())
-//                {
-//                    cmd_grippers_traj_as_.setSucceeded(cmd_grippers_traj_result_);
-//                }
-//            }
-//            else
-//            {
-//                {
-//                    std::lock_guard<std::mutex> lock(sim_mutex_);
-//                    step(0);
-//                    msg = createSimulatorFbk();
-//                }
-
-//                usleep((__useconds_t)10000);
-//            }
-
-//            // publish the simulator state
-//            simulator_fbk_pub_.publish(msg);
+            cmd_grippers_traj_as_.setPreempted(cmd_grippers_traj_result_);
+            cmd_grippers_traj_goal_ = nullptr; // stictly speaking, this shouldn't be needed
         }
+
+        smmap_msgs::SimulatorFeedback msg;
+        // If we have not reached the end of the current gripper trajectory, execute the next step
+        if (cmd_grippers_traj_as_.isActive())
+        {
+            // Advance the sim time and record the sim state
+            {
+                std::lock_guard<std::mutex> lock (sim_mutex_);
+                if (advance_grippers_.load())
+                {
+                    moveGrippers();
+                }
+                for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+                {
+                    step(BulletConfig::dt);
+                }
+                msg = createSimulatorFbk();
+            }
+
+            // Deal with the action server parts of feedback
+            smmap_msgs::CmdGrippersTrajectoryFeedback as_feedback;
+            as_feedback.sim_state = msg;
+            cmd_grippers_traj_as_.publishFeedback(as_feedback);
+
+            cmd_grippers_traj_result_.sim_state_trajectory.push_back(msg);
+
+            if (cmd_grippers_traj_next_index_ == cmd_grippers_traj_goal_->trajectory.size())
+            {
+                cmd_grippers_traj_as_.setSucceeded(cmd_grippers_traj_result_);
+            }
+        }
+        else
+        {
+            {
+                std::lock_guard<std::mutex> lock(sim_mutex_);
+                step(0);
+                msg = createSimulatorFbk();
+            }
+
+            usleep((__useconds_t)10000);
+        }
+
+        // publish the simulator state
+        simulator_fbk_pub_.publish(msg);
     }
 
     // clean up the extra thread we started
@@ -743,24 +697,6 @@ void CustomScene::makeClothWorld()
         case TaskType::WAFR:
         {
             makeCylinder();
-
-//            CylinderStaticObject::Ptr right_endcap = boost::make_shared<CylinderStaticObject>(
-//                        0, 0.04f * METERS, 1.1f * METERS,
-//                        btTransform(btQuaternion(0, 0, 0, 1), btVector3(-0.1f, -0.3f + 0.25f - 0.04f, 0.7f) * METERS));
-//            right_endcap->setColor(0.3f, 0.3f, 0.3f, 1.0f);
-//            right_endcap->collisionShape->setMargin(0.04f * METERS); // Default 0.04f
-//            env->add(right_endcap);
-//            world_objects_["right_endcap"] = right_endcap;
-
-//            BoxObject::Ptr left_block = boost::make_shared<BoxObject>(
-//                        0, btVector3(0.04f, 0.25f, 0.55f) * METERS,
-//                        btTransform(btQuaternion(0, 0, 0, 1), btVector3(-0.1f, -0.34f, 0.7f) * METERS));
-//            left_block->setColor(0.3f, 0.3f, 0.3f, 1.0f);
-//            left_block->collisionShape->setMargin(0.04f * METERS); // Default 0.04f
-
-//            env->add(left_block);
-//            world_objects_["left_block"] = left_block;
-
             break;
         }
         default:
@@ -1135,10 +1071,10 @@ SimForkResult CustomScene::createForkWithNoSimulationDone()
     return createForkWithNoSimulationDone(env, cloth_, rope_, grippers_);
 }
 
-SimForkResult CustomScene::createForkWithNoSimulationDone(const SimForkResult& sim_to_fork)
-{
-    return createForkWithNoSimulationDone(sim_to_fork.fork_->env, sim_to_fork.cloth_, sim_to_fork.rope_, sim_to_fork.grippers_);
-}
+//SimForkResult CustomScene::createForkWithNoSimulationDone(const SimForkResult& sim_to_fork)
+//{
+//    return createForkWithNoSimulationDone(sim_to_fork.fork_->env, sim_to_fork.cloth_, sim_to_fork.rope_, sim_to_fork.grippers_);
+//}
 
 SimForkResult CustomScene::createForkWithNoSimulationDone(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
 {
@@ -1154,36 +1090,24 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(const std::vector<std:
     return result;
 }
 
-SimForkResult CustomScene::createForkWithNoSimulationDone(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
-{
-    assert(gripper_names.size() == gripper_poses.size());
-
-    SimForkResult result = createForkWithNoSimulationDone(sim_to_fork);
-
-    for (size_t gripper_ind = 0; gripper_ind < gripper_names.size(); gripper_ind++)
-    {
-        ApplyTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses[gripper_ind]);
-    }
-
-    return result;
-}
-
-
-//SimForkResult CustomScene::simulateInNewFork(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
+//SimForkResult CustomScene::createForkWithNoSimulationDone(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
 //{
-//    SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses);
+//    assert(gripper_names.size() == gripper_poses.size());
 
-//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+//    SimForkResult result = createForkWithNoSimulationDone(sim_to_fork);
+
+//    for (size_t gripper_ind = 0; gripper_ind < gripper_names.size(); gripper_ind++)
 //    {
-//        result.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//        ApplyTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses[gripper_ind]);
 //    }
 
 //    return result;
 //}
 
-SimForkResult CustomScene::simulateInNewFork(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
+
+SimForkResult CustomScene::simulateInNewFork(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
 {
-    SimForkResult result = createForkWithNoSimulationDone(sim_to_fork, gripper_names, gripper_poses);
+    SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses);
 
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
@@ -1192,6 +1116,18 @@ SimForkResult CustomScene::simulateInNewFork(const SimForkResult& sim_to_fork, c
 
     return result;
 }
+
+//SimForkResult CustomScene::simulateInNewFork(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses)
+//{
+//    SimForkResult result = createForkWithNoSimulationDone(sim_to_fork, gripper_names, gripper_poses);
+
+//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+//    {
+//        result.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//    }
+
+//    return result;
+//}
 
 
 
@@ -1236,23 +1172,23 @@ void CustomScene::moveGrippers()
     }
 }
 
-void CustomScene::moveGrippers(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map)
-{
-     assert(task_type_ != TaskType::COLAB_FOLDING && "This does not yet work with colab folding - due to manual gripper path stuff");
+//void CustomScene::moveGrippers(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map)
+//{
+//     assert(task_type_ != TaskType::COLAB_FOLDING && "This does not yet work with colab folding - due to manual gripper path stuff");
 
-    // Given that we are moving the grippers, we know that cmd_grippers_traj_goal_
-    // is valid, and cmd_grippers_traj_index_ is less than the length of the
-    // trajectories we are following
-    assert(cmd_grippers_traj_goal_ != nullptr);
-    assert(cmd_grippers_traj_goal_->trajectory.size() > 0);
-    assert(cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectory.size());
+//    // Given that we are moving the grippers, we know that cmd_grippers_traj_goal_
+//    // is valid, and cmd_grippers_traj_index_ is less than the length of the
+//    // trajectories we are following
+//    assert(cmd_grippers_traj_goal_ != nullptr);
+//    assert(cmd_grippers_traj_goal_->trajectory.size() > 0);
+//    assert(cmd_grippers_traj_next_index_ < cmd_grippers_traj_goal_->trajectory.size());
 
-    for (size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++)
-    {
-        ApplyTransform(grippers_map, cmd_grippers_traj_goal_->gripper_names[gripper_ind], cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind]);
-    }
-    cmd_grippers_traj_next_index_++;
-}
+//    for (size_t gripper_ind = 0; gripper_ind < cmd_grippers_traj_goal_->gripper_names.size(); gripper_ind++)
+//    {
+//        ApplyTransform(grippers_map, cmd_grippers_traj_goal_->gripper_names[gripper_ind], cmd_grippers_traj_goal_->trajectory[cmd_grippers_traj_next_index_].pose[gripper_ind]);
+//    }
+//    cmd_grippers_traj_next_index_++;
+//}
 
 smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
 {
@@ -1684,46 +1620,46 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
 
 
 
-bool CustomScene::executeGripperMovementAndUpdateSimCallback(
-        smmap_msgs::ExecuteGripperMovement::Request& req,
-        smmap_msgs::ExecuteGripperMovement::Response& res)
-{
-    assert(req.grippers_names.size() == req.grippers_poses.pose.size());
+//bool CustomScene::executeGripperMovementAndUpdateSimCallback(
+//        smmap_msgs::ExecuteGripperMovement::Request& req,
+//        smmap_msgs::ExecuteGripperMovement::Response& res)
+//{
+//    assert(req.grippers_names.size() == req.grippers_poses.pose.size());
 
-    std::lock_guard<std::mutex> lock (sim_mutex_);
+//    std::lock_guard<std::mutex> lock (sim_mutex_);
 
-    // Move the grippers
-    for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
-    {
-        ApplyTransform(main_simulator_state_.grippers_, req.grippers_names[gripper_ind], req.grippers_poses.pose[gripper_ind]);
-    }
+//    // Move the grippers
+//    for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
+//    {
+//        ApplyTransform(main_simulator_state_.grippers_, req.grippers_names[gripper_ind], req.grippers_poses.pose[gripper_ind]);
+//    }
 
-    // Forward simulate the results
-    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
-    {
-        main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-    }
+//    // Forward simulate the results
+//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+//    {
+//        main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//    }
 
-    // Fork the result and presettle for the next timestep
-    main_simulator_state_ = createForkWithNoSimulationDone(main_simulator_state_);
-    if (drawingOn)
-    {
-        main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
-    }
-    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
-    {
-        main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-        if (drawingOn)
-        {
-            main_simulator_viewer_->draw();
-        }
-    }
+//    // Fork the result and presettle for the next timestep
+//    main_simulator_state_ = createForkWithNoSimulationDone(main_simulator_state_);
+//    if (drawingOn)
+//    {
+//        main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
+//    }
+//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+//    {
+//        main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//        if (drawingOn)
+//        {
+//            main_simulator_viewer_->draw();
+//        }
+//    }
 
-    // Return the results
-    res.sim_state = createSimulatorFbk(main_simulator_state_);
+//    // Return the results
+//    res.sim_state = createSimulatorFbk(main_simulator_state_);
 
-    return true;
-}
+//    return true;
+//}
 
 void CustomScene::testGripperPosesExecuteCallback(
         const smmap_msgs::TestGrippersPosesGoalConstPtr& goal)
@@ -1736,7 +1672,7 @@ void CustomScene::testGripperPosesExecuteCallback(
     for (size_t test_ind = 0; test_ind < num_tests; test_ind++)
     {
         ROS_INFO_STREAM_NAMED("test_gripper_poses", "Testing gripper pose " << test_ind);
-        const SimForkResult result = simulateInNewFork(main_simulator_state_, goal->gripper_names, goal->poses_to_test[test_ind].pose);
+        const SimForkResult result = simulateInNewFork(goal->gripper_names, goal->poses_to_test[test_ind].pose);
 
         // Create a feedback message
         smmap_msgs::TestGrippersPosesFeedback fbk;
