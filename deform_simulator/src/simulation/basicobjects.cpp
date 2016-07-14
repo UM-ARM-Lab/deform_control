@@ -167,11 +167,11 @@ void BulletObject::init()
 {
     getEnvironment()->bullet->dynamicsWorld->addRigidBody(rigidBody.get());
     node = createOSGNode();
-    transform = new osg::MatrixTransform;
+    transform = new osg::MatrixTransform();
     transform->addChild(node.get());
     getEnvironment()->osg->root->addChild(transform.get());
 
-    osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+    osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
     blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     osg::StateSet *ss = node->getOrCreateStateSet();
     ss->setAttributeAndModes(blendFunc);

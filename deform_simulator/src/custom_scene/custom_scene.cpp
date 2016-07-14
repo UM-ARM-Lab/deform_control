@@ -143,6 +143,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
     // Run the startup code for the viewer and everything else
     {
         main_simulator_state_ = createForkWithNoSimulationDone();
+        main_simulator_state_.fork_->env->step(0, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
 
 //        // Note that viewer cleans up this memory
 //        viewer.addEventHandler(new CustomKeyHandler(*this));
@@ -158,7 +159,9 @@ void CustomScene::run(bool drawScene, bool syncTime)
         setDrawing(drawScene);
         if (drawScene)
         {
-            startViewer();
+//            startViewer();
+            drawingOn = syncTime = true;
+            loopState.looping = loopState.paused = loopState.debugDraw = loopState.skip_step = false;
             main_simulator_viewer_ = createVisualizerForFork(main_simulator_state_);
         }
         setSyncTime(syncTime);
@@ -173,7 +176,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
             main_simulator_state_.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
             if (drawScene)
             {
-                main_simulator_viewer_->drawFunction_();
+                main_simulator_viewer_->draw();
             }
 
 //            auto feedback_data = createSimulatorFbk(main_simulator_state_);
@@ -187,7 +190,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
         {
             if (drawScene)
             {
-                main_simulator_viewer_->drawFunction_();
+                main_simulator_viewer_->draw();
             }
         }
         free_space_graph_future.get(); // TODO: Is this needed at all?
@@ -217,7 +220,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
         if (drawScene)
         {
             std::lock_guard<std::mutex> lock (sim_mutex_);
-            main_simulator_viewer_->drawFunction_();
+            main_simulator_viewer_->draw();
             usleep((__useconds_t)10000);
         }
 
@@ -1068,7 +1071,9 @@ void CustomScene::createFreeSpaceGraph()
 
 std::shared_ptr<ViewerData> CustomScene::createVisualizerForFork(SimForkResult& fork_result)
 {
-    std::shared_ptr<ViewerData> viewer(new ViewerData);
+    std::shared_ptr<ViewerData> viewer(new ViewerData(*this, fork_result));
+
+    viewer->viewer_.addEventHandler(new CustomKeyHandler(*this));
 
     viewer->dbgDraw_.reset(new osgbCollision::GLDebugDrawer());
     viewer->dbgDraw_->setDebugMode(btIDebugDraw::DBG_MAX_DEBUG_DRAW_MODE /*btIDebugDraw::DBG_DrawWireframe*/);
@@ -1082,29 +1087,10 @@ std::shared_ptr<ViewerData> CustomScene::createVisualizerForFork(SimForkResult& 
     viewer->viewer_.setCameraManipulator(viewer->manip_);
     viewer->viewer_.setSceneData(fork_result.osg_->root.get());
     viewer->viewer_.realize();
-    viewer->viewer_.addEventHandler(new CustomKeyHandler(*this));
-
-    viewer->drawFunction_ = [&] ()
-    {
-        if (!drawingOn)
-        {
-            return;
-        }
-        if (loopState.debugDraw)
-        {
-            // This call was moved to the start of the step() function as part of the bullet collision pipeline involves drawing things when debug draw is enabled
-            if (!viewer->dbgDraw_->getActive())
-            {
-                viewer->dbgDraw_->BeginDraw();
-            }
-            fork_result.bullet_->dynamicsWorld->debugDrawWorld();
-            viewer->dbgDraw_->EndDraw();
-        }
-        viewer->viewer_.frame();
-    };
 
     return viewer;
 }
+
 
 
 SimForkResult CustomScene::createForkWithNoSimulationDone(
@@ -1116,8 +1102,8 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
     assert(task_type_ != TaskType::COLAB_FOLDING && "This does not yet work with colab folding - due to manual gripper path stuff");
 
     SimForkResult result;
-    result.bullet_.reset(new BulletInstance);
-    result.osg_.reset(new OSGInstance);
+    result.bullet_.reset(new BulletInstance());
+    result.osg_.reset(new OSGInstance());
     result.fork_.reset(new Fork(environment_to_fork, result.bullet_, result.osg_));
     result.cloth_ = boost::static_pointer_cast<BulletSoftObject>(result.fork_->forkOf(cloth_to_fork));
     result.rope_ = boost::static_pointer_cast<CapsuleRope>(result.fork_->forkOf(rope_to_fork));
@@ -1130,6 +1116,8 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
 
     return result;
 }
+
+
 
 
 SimForkResult CustomScene::createForkWithNoSimulationDone()
@@ -1713,7 +1701,7 @@ bool CustomScene::executeGripperMovementAndUpdateSimCallback(
         next_simulator.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
         if (drawingOn)
         {
-            main_simulator_viewer_->drawFunction_();
+            main_simulator_viewer_->draw();
         }
     }
     main_simulator_state_ = next_simulator;

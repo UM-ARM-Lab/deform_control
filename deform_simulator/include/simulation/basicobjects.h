@@ -304,16 +304,16 @@ class PlaneStaticObject : public BulletObject
         // must override this since osgBullet doesn't recognize btStaticPlaneShape
         osg::ref_ptr<osg::Node> createOSGNode()
         {
-            osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+            osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array();
             vertices->push_back(osg::Vec3(-drawHalfExtents, -drawHalfExtents, 0.));
             vertices->push_back(osg::Vec3(drawHalfExtents, -drawHalfExtents, 0.));
             vertices->push_back(osg::Vec3(drawHalfExtents, drawHalfExtents, 0.));
             vertices->push_back(osg::Vec3(-drawHalfExtents, drawHalfExtents, 0.));
 
-            osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array;
+            osg::ref_ptr<osg::Vec3Array> normals = new osg::Vec3Array();
             normals->push_back(osg::Vec3(0., 0., 1.));
 
-            osg::ref_ptr<osg::Geometry> quad = new osg::Geometry;
+            osg::ref_ptr<osg::Geometry> quad = new osg::Geometry();
             quad->setVertexArray(vertices.get());
             quad->setNormalArray(normals.get());
             quad->setNormalBinding(osg::Geometry::BIND_OVERALL);
@@ -446,7 +446,7 @@ class CapsuleObject : public BulletObject
     protected:
         osg::ref_ptr<osg::Node> createOSGNode()
         {
-            osg::ref_ptr<osg::Geode> geode = new osg::Geode;
+            osg::ref_ptr<osg::Geode> geode = new osg::Geode();
             osg::ref_ptr<osg::Capsule> capsule = new osg::Capsule(osg::Vec3(0, 0, 0), radius, height);
             capsule->setRotation(osg::Quat(osg::PI_2, osg::Vec3(0, 1, 0)));
             geode->addDrawable(new osg::ShapeDrawable(capsule));

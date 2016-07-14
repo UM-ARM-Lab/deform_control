@@ -39,10 +39,39 @@ struct SimForkResult
 struct ViewerData
 {
     public:
+        ViewerData(const Scene& scene, const SimForkResult& fork_result)
+            : scene_(scene)
+            , fork_result_(fork_result)
+        {}
+
         boost::shared_ptr<osgbCollision::GLDebugDrawer> dbgDraw_;
         osgViewer::Viewer viewer_;
         osg::ref_ptr<EventHandler> manip_;
-        std::function<void()> drawFunction_;
+
+        const Scene& scene_;
+        const SimForkResult& fork_result_;
+
+    void draw()
+    {
+        if (!scene_.drawingOn)
+        {
+            return;
+        }
+        if (scene_.loopState.debugDraw)
+        {
+            // This call was moved to the start of the step() function as part of the bullet collision pipeline involves drawing things when debug draw is enabled
+            if (!dbgDraw_->getActive())
+            {
+                dbgDraw_->BeginDraw();
+            }
+            fork_result_.bullet_->dynamicsWorld->debugDrawWorld();
+            dbgDraw_->EndDraw();
+        }
+        viewer_.frame();
+    }
+
+
+//        std::function<void()> drawFunction_;
 };
 
 

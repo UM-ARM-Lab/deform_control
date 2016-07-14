@@ -656,7 +656,7 @@ ENDIF(DYNAMIC_OPENSCENEGRAPH)
 
 # Disable some warnings as I have no intention of mucking with the internals
 unset( ${CMAKE_CXX_COMPILER_ID} CACHE )
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -march=native -Wno-overloaded-virtual -Wno-unused-value -Wno-strict-aliasing")
+SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -march=native -Wno-overloaded-virtual -Wno-unused-value -Wno-strict-aliasing")
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-int-to-void-pointer-cast -Wno-bool-conversion -Wno-tautological-compare -Wno-tautological-undefined-compare")
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

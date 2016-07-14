@@ -21,8 +21,8 @@ void PlotObject::setDefaultColor(float r, float g, float b, float a) {
 
 void PlotObject::clear() {
   m_geom->getPrimitiveSetList().clear();
-  osg::ref_ptr<osg::Vec3Array> osgPts = new osg::Vec3Array;
-  osg::ref_ptr<osg::Vec4Array> osgCols = new osg::Vec4Array;
+  osg::ref_ptr<osg::Vec3Array> osgPts = new osg::Vec3Array();
+  osg::ref_ptr<osg::Vec4Array> osgCols = new osg::Vec4Array();
   m_geom->setVertexArray(osgPts);
   m_geom->setColorArray(osgCols);
 }
@@ -40,7 +40,7 @@ PlotPoints::PlotPoints(float size) {
   //  m_stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
   stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
-  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
   blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   stateset->setAttributeAndModes(blendFunc);
   stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -95,7 +95,7 @@ PlotLines::PlotLines(float width) {
   stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
   stateset->setAttribute(linewidth);
 
-  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
   blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   stateset->setAttributeAndModes(blendFunc);
   stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -135,7 +135,7 @@ PlotSpheres::PlotSpheres() {
 
   osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet();
   //stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
   blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   stateset->setAttributeAndModes(blendFunc);
   stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -152,7 +152,7 @@ void PlotSpheres::plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::r
   m_geode->removeDrawables(0,m_nDrawables);
   m_nDrawables = centers->size();
   for (int i=0; i < centers->size(); i++) {
-    osg::TessellationHints* hints = new osg::TessellationHints;
+    osg::TessellationHints* hints = new osg::TessellationHints();
     hints->setDetailRatio(0.25f);
     osg::Sphere* sphere = new osg::Sphere(centers->at(i), radii.at(i));
     osg::ShapeDrawable* sphereDrawable = new osg::ShapeDrawable(sphere,hints);

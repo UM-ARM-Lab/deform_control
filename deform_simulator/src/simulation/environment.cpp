@@ -7,7 +7,7 @@
 
 OSGInstance::OSGInstance()
 {
-    root = new osg::Group;
+    root = new osg::Group();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -20,7 +20,7 @@ BulletInstance::BulletInstance()
 //    broadphase = new btAxisSweep3(btVector3(-2*METERS, -2*METERS, -1*METERS), btVector3(2*METERS, 2*METERS, 3*METERS));
     collisionConfiguration = new btSoftBodyRigidBodyCollisionConfiguration();
     dispatcher = new btCollisionDispatcher(collisionConfiguration);
-    solver = new btSequentialImpulseConstraintSolver;
+    solver = new btSequentialImpulseConstraintSolver();
     dynamicsWorld = new btSoftRigidDynamicsWorld(dispatcher, broadphase, solver, collisionConfiguration);
     dynamicsWorld->getDispatchInfo().m_enableSPU = true;
 
