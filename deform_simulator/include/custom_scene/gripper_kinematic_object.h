@@ -39,7 +39,6 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         // Used by the manual grippers for cloth
         void step_openclose(btSoftBody * psb);
 
-        // TODO: get rid of these
         EnvironmentObject::Ptr copy(Fork &f) const;
         void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const;
 
@@ -61,7 +60,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         bool bAttached;
         std::vector<size_t> vattached_node_inds;
 
-        boost::shared_ptr<btGeneric6DofConstraint> cnt;
+        boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
 };
 
 #endif

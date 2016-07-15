@@ -81,14 +81,14 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
     btTransform top_tm;
     children[0]->motionState->getWorldTransform(top_tm);
 
-    cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
+    rope_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
                                             *prb, top_tm.inverse()*cur_tm,
                                             btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
-    cnt->setLinearLowerLimit(btVector3(0,0,0));
-    cnt->setLinearUpperLimit(btVector3(0,0,0));
-    cnt->setAngularLowerLimit(btVector3(0,0,0));
-    cnt->setAngularUpperLimit(btVector3(0,0,0));
-    env_ptr->bullet->dynamicsWorld->addConstraint(cnt.get());
+    rope_cnt->setLinearLowerLimit(btVector3(0,0,0));
+    rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
+    rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
+    rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
+    env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
 
     vattached_node_inds.clear();
     vattached_node_inds.push_back(objectnodeind);

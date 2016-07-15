@@ -164,6 +164,15 @@ void CustomScene::run(bool drawScene, bool syncTime)
             startViewer();
         }
 
+//        auto fork_result = createForkWithNoSimulationDone();
+//        auto fork_visualizer = createVisualizerForFork(fork_result);
+//        for (size_t timestep = 0; timestep < 400; timestep++)
+//        {
+//            step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//            fork_result.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//            fork_visualizer->draw();
+//        }
+
         // Create a thread to create the free space graph while the object settles
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this);
         // Let the object settle before anything else happens
@@ -1048,6 +1057,7 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
 
     SimForkResult result;
     result.bullet_.reset(new BulletInstance());
+    result.bullet_->setGravity(BulletConfig::gravity);
     result.osg_.reset(new OSGInstance());
     result.fork_.reset(new Fork(environment_to_fork, result.bullet_, result.osg_));
     result.cloth_ = boost::static_pointer_cast<BulletSoftObject>(result.fork_->forkOf(cloth_to_fork));
@@ -1058,6 +1068,13 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
         GripperKinematicObject::Ptr gripper_copy = boost::static_pointer_cast<GripperKinematicObject>(result.fork_->forkOf(gripper.second));
         assert(gripper_copy);
         result.grippers_[gripper.first] = gripper_copy;
+    }
+
+    // If we have a rope, regrasp with the gripper
+    if (result.rope_)
+    {
+        assert(result.grippers_.size() == 1);
+        result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
     }
 
     return result;
