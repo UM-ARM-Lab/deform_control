@@ -14,8 +14,14 @@ int main(int argc, char* argv[])
 
     if (smmap::GetDeformableType(nh) == smmap::DeformableType::CLOTH)
     {
-        ViewerConfig::cameraHomePosition = btVector3(1, 0, 1.25) * METERS;
-        ViewerConfig::pointCameraLooksAt = btVector3(-0.5, 0, 0.5) * METERS;
+        ViewerConfig::cameraHomePosition = btVector3(0.65, 0.7, 1.8) * METERS;
+        ViewerConfig::pointCameraLooksAt = btVector3(-0.35, -0.30, -0.1) * METERS;
+
+        if (smmap::GetTaskType(nh) == smmap::TaskType::WAFR)
+        {
+            ViewerConfig::cameraHomePosition = btVector3(-0.662754, 1.35221, 1.61409) * METERS;
+            ViewerConfig::pointCameraLooksAt = btVector3(-0.556761, -0.556197, 0.215254) * METERS;
+        }
 //        ViewerConfig::cameraHomePosition = btVector3(9, 0, 42);
 //        ViewerConfig::pointCameraLooksAt = btVector3(0, 0, 0);
     }

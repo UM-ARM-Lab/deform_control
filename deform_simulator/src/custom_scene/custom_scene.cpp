@@ -191,6 +191,9 @@ void CustomScene::run(bool drawScene, bool syncTime)
         test_grippers_poses_as_.start();
     }
 
+    ros::NodeHandle ph("~");
+    ScreenRecorder screen_recorder(viewer, smmap::GetScreenshotsEnabled(ph), nh_);
+
     // TODO: remove this hardcoded spin rate
     std::thread spin_thread(&CustomScene::spin, 100.0 / BulletConfig::dt);
     ROS_INFO("Simulation ready.");
@@ -233,6 +236,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
                 }
                 for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
                 {
+                    screen_recorder.snapshot();
                     step(BulletConfig::dt);
                 }
                 msg = createSimulatorFbk();
@@ -256,6 +260,13 @@ void CustomScene::run(bool drawScene, bool syncTime)
                 std::lock_guard<std::mutex> lock(sim_mutex_);
                 step(0);
                 msg = createSimulatorFbk();
+
+                osg::Vec3d eye, center, up;
+                manip->getTransformation(eye, center, up);
+
+                std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
+                          << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
+                          << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
             }
 
             usleep((__useconds_t)10000);
@@ -291,7 +302,7 @@ void CustomScene::makeTable()
     BoxObject::Ptr table = boost::make_shared<BoxObject> (
                 0, table_half_extents,
                 btTransform(btQuaternion(0, 0, 0, 1), table_com));
-    table->setColor(0.4f, 0.4f, 0.4f, 0.5f);
+    table->setColor(0.4f, 0.4f, 0.4f, 1.0f);
     table->rigidBody->setFriction(1.0f);
 //    table->rigidBody->getCollisionShape()->setMargin(0.0001f * METERS); // default 0.04
 

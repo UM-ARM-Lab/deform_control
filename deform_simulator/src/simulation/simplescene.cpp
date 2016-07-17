@@ -21,7 +21,7 @@ Scene::Scene() : drawingOn(false), syncTime(false), simTime(0) {
     env->add(plotLines);
 
     // populate the scene with some basic objects
-    ground.reset(new PlaneStaticObject(btVector3(0., 0., 1.), 0., btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, 0))));
+    ground.reset(new PlaneStaticObject(btVector3(0., 0., 1.), 0., btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, 0)), 75.0f));
     env->add(ground);
 
     // default callbacks
