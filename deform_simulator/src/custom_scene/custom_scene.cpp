@@ -261,12 +261,12 @@ void CustomScene::run(bool drawScene, bool syncTime)
                 step(0);
                 msg = createSimulatorFbk();
 
-                osg::Vec3d eye, center, up;
-                manip->getTransformation(eye, center, up);
+//                osg::Vec3d eye, center, up;
+//                manip->getTransformation(eye, center, up);
 
-                std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
-                          << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
-                          << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
+//                std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
+//                          << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
+//                          << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
             }
 
             usleep((__useconds_t)10000);
