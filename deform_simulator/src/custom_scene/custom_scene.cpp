@@ -597,7 +597,7 @@ void CustomScene::makeRopeWorld()
             grippers_["gripper"] = boost::make_shared< GripperKinematicObject>(
                         "gripper",
                         GetRopeGripperApperture(nh_) * METERS,
-                        btVector4(0.6f, 0.6f, 0.6f, 0.4f));
+                        btVector4(0.0f, 0.0f, 0.6f, 1.0f));
             grippers_["gripper"]->setWorldTransform(
                     rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
             grippers_["gripper"]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
@@ -643,7 +643,7 @@ void CustomScene::makeClothWorld()
         grippers_["auto_gripper0"] = boost::make_shared< GripperKinematicObject>(
                     "auto_gripper0",
                     GetClothGripperApperture(nh_) * METERS,
-                    btVector4(0.6f, 0.6f, 0.6f, 0.4f));
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
         grippers_["auto_gripper0"]->setWorldTransform(
                 btTransform(btQuaternion(0, 0, 0, 1),
@@ -656,7 +656,7 @@ void CustomScene::makeClothWorld()
         grippers_["auto_gripper1"] = boost::make_shared< GripperKinematicObject>(
                     "auto_gripper1",
                     GetClothGripperApperture(nh_) * METERS,
-                    btVector4(0.6f, 0.6f, 0.6f, 0.4f));
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
         grippers_["auto_gripper1"]->setWorldTransform(
                 btTransform(btQuaternion(0, 0, 0, 1),
@@ -688,7 +688,7 @@ void CustomScene::makeClothWorld()
                 grippers_["manual_gripper0"] = boost::make_shared< GripperKinematicObject>(
                             "manual_gripper0",
                             GetClothGripperApperture(nh_) * METERS,
-                            btVector4(0.0f, 0.0f, 0.6f, 0.4f));
+                            btVector4(0.6f, 0.6f, 0.6f, 0.4f));
                 gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
                 grippers_["manual_gripper0"]->setWorldTransform(
                             btTransform(btQuaternion(0, 0, 0, 1),
@@ -702,7 +702,7 @@ void CustomScene::makeClothWorld()
                 grippers_["manual_gripper1"] = boost::make_shared< GripperKinematicObject>(
                             "manual_gripper1",
                             GetClothGripperApperture(nh_) * METERS,
-                            btVector4(0.0f, 0.0f, 0.6f, 0.4f));
+                            btVector4(0.6f, 0.6f, 0.6f, 0.4f));
                 gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
                 grippers_["manual_gripper1"]->setWorldTransform(
                             btTransform(btQuaternion(0, 0, 0, 1),
