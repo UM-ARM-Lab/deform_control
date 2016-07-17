@@ -56,7 +56,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , cmd_grippers_traj_as_(nh, GetCommandGripperTrajTopic(nh), false)
     , cmd_grippers_traj_goal_(nullptr)
     , test_grippers_poses_as_(nh, GetTestGrippersPosesTopic(nh), boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
-    , num_timesteps_to_execute_per_gripper_cmd_(20)
+    , num_timesteps_to_execute_per_gripper_cmd_(GetDeformableType(nh_) == DeformableType::ROPE ? 4 : 20)
 {
     ROS_INFO("Building the world");
     // Build the world
