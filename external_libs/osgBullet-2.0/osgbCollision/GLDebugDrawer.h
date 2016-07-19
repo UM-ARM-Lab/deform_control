@@ -68,6 +68,7 @@ public:
 
     void EndDraw();
     void BeginDraw();
+    bool getActive();
 
     void setTextSize( const float size );
     float getTextSize() const;

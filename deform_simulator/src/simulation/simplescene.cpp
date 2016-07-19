@@ -21,7 +21,7 @@ Scene::Scene() : drawingOn(false), syncTime(false), simTime(0) {
     env->add(plotLines);
 
     // populate the scene with some basic objects
-    ground.reset(new PlaneStaticObject(btVector3(0., 0., 1.), 0., btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, 0))));
+    ground.reset(new PlaneStaticObject(btVector3(0., 0., 1.), 0., btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, 0)), 75.0f));
     env->add(ground);
 
     // default callbacks
@@ -30,7 +30,7 @@ Scene::Scene() : drawingOn(false), syncTime(false), simTime(0) {
 }
 
 void Scene::startViewer() {
-    drawingOn = syncTime = true;
+    drawingOn = true;
     loopState.looping = loopState.paused = loopState.debugDraw = loopState.skip_step = false;
 
     dbgDraw.reset(new osgbCollision::GLDebugDrawer());
@@ -56,6 +56,11 @@ void Scene::toggleDebugDraw() {
 void Scene::step(float dt, int maxsteps, float internaldt) {
     static float startTime=viewer.getFrameStamp()->getSimulationTime(), endTime;
 
+    if (drawingOn && loopState.debugDraw && !dbgDraw->getActive())
+    {
+        dbgDraw->BeginDraw();
+    }
+
     if (syncTime && drawingOn)
         endTime = viewer.getFrameStamp()->getSimulationTime();
 
@@ -64,7 +69,7 @@ void Scene::step(float dt, int maxsteps, float internaldt) {
         prestepCallbacks[i]();
 
     simTime += env->step(dt, maxsteps, internaldt);
-    // TODO: ensure all this fork business is cleaned up
+    // Note that this only steps the registered forks
     for (std::set<Fork::Ptr>::iterator i = forks.begin(); i != forks.end(); ++i)
         (*i)->env->step(dt, maxsteps, internaldt);
 
@@ -108,7 +113,10 @@ void Scene::draw() {
     if (!drawingOn)
         return;
     if (loopState.debugDraw) {
-        dbgDraw->BeginDraw();
+        // This call was moved to the start of the step() function as part of the bullet collision pipeline involves drawing things when debug draw is enabled
+        if (!dbgDraw->getActive()) {
+            dbgDraw->BeginDraw();
+        }
         bullet->dynamicsWorld->debugDrawWorld();
         dbgDraw->EndDraw();
     }

@@ -16,7 +16,7 @@ FOREACH( mylibfolder
         osgTerrain
         osgWidget
         osgVolume
-#        osgPlugins
+        osgPlugins
     )
 
     ADD_SUBDIRECTORY(${mylibfolder})
@@ -33,4 +33,3 @@ ENDIF(BUILD_OSG_WRAPPERS)
 IF(MSVC80)
   OPTION(OSG_MSVC_GENERATE_PLUGINS_AND_WRAPPERS_MANIFESTS "Generate or not manifests files under VS8 for dynamically loaded dlls" ON)
 ENDIF(MSVC80)
-

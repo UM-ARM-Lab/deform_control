@@ -31,7 +31,7 @@ namespace util {
     ///////////////// FILE IO ////////////////////////////
 
     template <class T>
-    void read_2d_array(std::vector< std::vector<T> >& arr, std::string fname) {
+    void read_2d_array(std::vector<std::vector<T>>& arr, std::string fname) {
 
         std::ifstream infile(fname.c_str());
         std::string line;

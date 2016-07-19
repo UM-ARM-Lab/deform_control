@@ -36,9 +36,9 @@ static void btSoftBody_appendFace(btSoftBody *psb, btSoftBody::Node *node0, btSo
 void BulletSoftObject::init() {
     getEnvironment()->bullet->dynamicsWorld->addSoftBody(softBody.get());
 
-    trivertices = new osg::Vec3Array;
-    trinormals = new osg::Vec3Array;
-    trigeom = new osg::Geometry;
+    trivertices = new osg::Vec3Array();
+    trinormals = new osg::Vec3Array();
+    trigeom = new osg::Geometry();
     trigeom->setDataVariance(osg::Object::DYNAMIC);
     trigeom->setUseDisplayList(false);
     trigeom->setUseVertexBufferObjects(true);
@@ -46,9 +46,9 @@ void BulletSoftObject::init() {
     trigeom->setNormalArray(trinormals.get());
     trigeom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 
-    quadvertices = new osg::Vec3Array;
-    quadnormals = new osg::Vec3Array;
-    quadgeom = new osg::Geometry;
+    quadvertices = new osg::Vec3Array();
+    quadnormals = new osg::Vec3Array();
+    quadgeom = new osg::Geometry();
     quadgeom->setDataVariance(osg::Object::DYNAMIC);
     quadgeom->setUseDisplayList(false);
     quadgeom->setUseVertexBufferObjects(true);
@@ -56,22 +56,22 @@ void BulletSoftObject::init() {
     quadgeom->setNormalArray(quadnormals.get());
     quadgeom->setNormalBinding(osg::Geometry::BIND_PER_VERTEX);
 
-    geode = new osg::Geode;
+    geode = new osg::Geode();
     geode->addDrawable(trigeom);
     geode->addDrawable(quadgeom);
 
-    osg::ref_ptr<osg::LightModel> lightModel = new osg::LightModel;
+    osg::ref_ptr<osg::LightModel> lightModel = new osg::LightModel();
     lightModel->setTwoSided(true);
     osg::StateSet* ss = geode->getOrCreateStateSet();
     ss->setAttributeAndModes(lightModel.get(), osg::StateAttribute::ON);
 
-    transform = new osg::MatrixTransform;
+    transform = new osg::MatrixTransform();
     transform->addChild(geode);
     getEnvironment()->osg->root->addChild(transform);
 }
 
 void BulletSoftObject::setColor(float r, float g, float b, float a) {
-  osg::Vec4Array* colors = new osg::Vec4Array;
+  osg::Vec4Array* colors = new osg::Vec4Array();
   colors->push_back(osg::Vec4(r,g,b,a));
   trigeom->setColorArray(colors);
   trigeom->setColorBinding(osg::Geometry::BIND_OVERALL);
@@ -79,7 +79,7 @@ void BulletSoftObject::setColor(float r, float g, float b, float a) {
   quadgeom->setColorBinding(osg::Geometry::BIND_OVERALL);
 
   if (a != 1.0f) { // precision problems?
-    osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+    osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
     blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     osg::StateSet *ss = geode->getOrCreateStateSet();
     ss->setAttributeAndModes(blendFunc);
@@ -178,7 +178,7 @@ EnvironmentObject::Ptr BulletSoftObject::copy(Fork &f) const {
 
         f.registerCopy(node, newNode);
         BOOST_ASSERT(f.copyOf(node) == newNode);
-        BOOST_ASSERT( ((btSoftBody::Node*)f.copyOf(node))->m_x == node->m_x );
+        BOOST_ASSERT(((btSoftBody::Node*)f.copyOf(node))->m_x == node->m_x);
     }
 
     // links
@@ -189,8 +189,8 @@ EnvironmentObject::Ptr BulletSoftObject::copy(Fork &f) const {
         btSoftBody::Node *n0 = (btSoftBody::Node *) f.copyOf(link->m_n[0]);
         btSoftBody::Node *n1 = (btSoftBody::Node *) f.copyOf(link->m_n[1]);
         BOOST_ASSERT(n0 && n1);
-        BOOST_ASSERT( ((btSoftBody::Node*)f.copyOf(link->m_n[0]))->m_x == link->m_n[0]->m_x );
-        BOOST_ASSERT( ((btSoftBody::Node*)f.copyOf(link->m_n[1]))->m_x == link->m_n[1]->m_x );
+        BOOST_ASSERT(((btSoftBody::Node*)f.copyOf(link->m_n[0]))->m_x == link->m_n[0]->m_x);
+        BOOST_ASSERT(((btSoftBody::Node*)f.copyOf(link->m_n[1]))->m_x == link->m_n[1]->m_x);
         psb->appendLink(n0, n1, mat);
 
         btSoftBody::Link *newLink = &psb->m_links[psb->m_links.size() - 1];

@@ -1,6 +1,7 @@
 <launch>
     <arg name="feedback_covariance" default="0.0"/>
     <arg name="start_bullet_viewer" default="true"/>
+    <arg name="screenshots_enabled" default="false"/>
 
     <env name="OSG_FILE_PATH" 
        value="$(find OpenSceneGraph)/data"/>
@@ -11,5 +12,6 @@
         required="true">
         <param name="feedback_covariance" value="$(arg feedback_covariance)"/>
         <param name="start_bullet_viewer" value="$(arg start_bullet_viewer)"/>
+        <param name="screenshots_enabled" value="$(arg screenshots_enabled)"/>
     </node>
 </launch>

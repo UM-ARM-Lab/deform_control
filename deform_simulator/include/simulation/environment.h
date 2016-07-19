@@ -9,7 +9,12 @@
 #include <boost/shared_ptr.hpp>
 #include <iostream>
 
-struct OSGInstance {
+////////////////////////////////////////////////////////////////////////////////
+// Struct used to create and interact with an OpenSceneGraph.                 //
+////////////////////////////////////////////////////////////////////////////////
+
+struct OSGInstance
+{
     typedef boost::shared_ptr<OSGInstance> Ptr;
 
     osg::ref_ptr<osg::Group> root;
@@ -17,7 +22,12 @@ struct OSGInstance {
     OSGInstance();
 };
 
-struct BulletInstance {
+////////////////////////////////////////////////////////////////////////////////
+// Struct used to create and interact with a Bullet dynamics world.           //
+////////////////////////////////////////////////////////////////////////////////
+
+struct BulletInstance
+{
     typedef boost::shared_ptr<BulletInstance> Ptr;
 
     btBroadphaseInterface *broadphase;
@@ -36,45 +46,74 @@ struct BulletInstance {
     // dynamicsWorld->updateAabbs() must be called before contactTest
     // see http://bulletphysics.org/Bullet/phpBB3/viewtopic.php?t=4850
     typedef std::set<const btCollisionObject *> CollisionObjectSet;
-    void contactTest(btCollisionObject *obj, CollisionObjectSet &out, const CollisionObjectSet *ignore=NULL);
+    void contactTest(btCollisionObject *obj, CollisionObjectSet &out, const CollisionObjectSet *ignore = nullptr);
 };
 
 struct Environment;
 class Fork;
-class EnvironmentObject {
-private:
-    Environment *env;
 
-public:
-    typedef boost::shared_ptr<EnvironmentObject> Ptr;
+////////////////////////////////////////////////////////////////////////////////
+// Base object type used to define what an object in OSG/Bullet has to be     //
+// able to do.                                                                //
+////////////////////////////////////////////////////////////////////////////////
 
-    EnvironmentObject() { }
-    EnvironmentObject(Environment *env_) : env(env_) { }
-    virtual ~EnvironmentObject() { }
+class EnvironmentObject
+{
+    private:
+        Environment *env;
 
-    Environment *getEnvironment() { return env; }
+    public:
+        typedef boost::shared_ptr<EnvironmentObject> Ptr;
 
-    // These are for environment forking.
-    // copy() should return a copy of the object suitable for addition
-    // into the environment contained by f. This should NOT add objects to f.env;
-    // however it should call f.registerCopy() for each Bullet
-    // collision object that it makes.
-    virtual EnvironmentObject::Ptr copy(Fork &f) const = 0;
-    // postCopy is called after all objects are copied and inserted into f.env.
-    // This is useful for updating constraints, anchors, etc.
-    // You're free to use f.forkOf()  or f.copyOf() to get equivalent objects in the new env.
-    virtual void postCopy(EnvironmentObject::Ptr copy, Fork &f) const
-    { (void)copy; (void)f; }
+        EnvironmentObject()
+            : env(nullptr)
+        {}
 
-    // methods only to be called by the Environment
-    void setEnvironment(Environment *env_) { env = env_; }
-    virtual void init() { }
-    virtual void prePhysics() { }
-    virtual void preDraw() { }
-    virtual void destroy() { }
+        EnvironmentObject(Environment *env_)
+            : env(env_)
+        {}
+
+        virtual ~EnvironmentObject()
+        {}
+
+        Environment *getEnvironment()
+        {
+            return env;
+        }
+
+        // These are for environment forking.
+        // copy() should return a copy of the object suitable for addition
+        // into the environment contained by f. This should NOT add objects to f.env;
+        // however it should call f.registerCopy() for each Bullet
+        // collision object that it makes.
+        virtual EnvironmentObject::Ptr copy(Fork &f) const = 0;
+        // postCopy is called after all objects are copied and inserted into f.env.
+        // This is useful for updating constraints, anchors, etc.
+        // You're free to use f.forkOf()  or f.copyOf() to get equivalent objects in the new env.
+        virtual void postCopy(EnvironmentObject::Ptr copy, Fork &f) const
+        {
+            (void)copy;
+            (void)f;
+        }
+
+        // methods only to be called by the Environment
+        void setEnvironment(Environment *env_)
+        {
+            env = env_;
+        }
+        virtual void init() {}
+        virtual void prePhysics() {}
+        virtual void preDraw() {}
+        virtual void destroy() {}
 };
 
-struct Environment {
+////////////////////////////////////////////////////////////////////////////////
+// Struct used to manage the collections of objects in both Bullet and        //
+// OpenSceneGraph at the same time.                                           //
+////////////////////////////////////////////////////////////////////////////////
+
+struct Environment
+{
     typedef boost::shared_ptr<Environment> Ptr;
 
     BulletInstance::Ptr bullet;
@@ -86,12 +125,16 @@ struct Environment {
     typedef std::vector<EnvironmentObject::Ptr> ConstraintList;
     ConstraintList constraints;
 
-    Environment(BulletInstance::Ptr bullet_, OSGInstance::Ptr osg_) : bullet(bullet_), osg(osg_) { }
+    Environment(BulletInstance::Ptr bullet_, OSGInstance::Ptr osg_);
     ~Environment();
 
+    // objects are reponsible for adding themselves
+    // to the dynamics world and the osg root via init()
     void add(EnvironmentObject::Ptr obj);
     void remove(EnvironmentObject::Ptr obj);
 
+    // objects are reponsible for adding themselves
+    // to the dynamics world and the osg root via init()
     void addConstraint(EnvironmentObject::Ptr cnt);
     void removeConstraint(EnvironmentObject::Ptr cnt);
 
@@ -99,129 +142,138 @@ struct Environment {
     double step(btScalar dt, int maxSubSteps, btScalar fixedTimeStep);
 };
 
+////////////////////////////////////////////////////////////////////////////////
+// An Environment Fork is a wrapper around an Environment with an operator    //
+// that associates copied objects with their original ones                    //
+////////////////////////////////////////////////////////////////////////////////
 
-// An Environment Fork is a wrapper around an Environment with an operator
-// that associates copied objects with their original ones
-class Fork {
-    void copyObjects();
+class Fork
+{
+    public:
+        typedef boost::shared_ptr<Fork> Ptr;
 
-public:
-    typedef boost::shared_ptr<Fork> Ptr;
+        const Environment *parentEnv;
+        Environment::Ptr env;
 
-    const Environment *parentEnv;
-    Environment::Ptr env;
+        // maps object in parentEnv to object in env
+        typedef std::map<EnvironmentObject::Ptr, EnvironmentObject::Ptr> ObjectMap;
+        ObjectMap objMap;
 
-    typedef std::map<EnvironmentObject::Ptr, EnvironmentObject::Ptr> ObjectMap;
-    ObjectMap objMap; // maps object in parentEnv to object in env
-
-    typedef std::map<const void *, void *> DataMap;
-    DataMap dataMap;
-    void registerCopy(const void *orig, void *copy) {
-        BOOST_ASSERT(copyOf(orig) == NULL && orig && copy);
-        dataMap.insert(std::make_pair(orig, copy));
-    }
-
-    Fork(const Environment *parentEnv_, BulletInstance::Ptr bullet, OSGInstance::Ptr osg) :
-        parentEnv(parentEnv_), env(new Environment(bullet, osg)) { copyObjects(); }
-    Fork(const Environment::Ptr parentEnv_, BulletInstance::Ptr bullet, OSGInstance::Ptr osg) :
-        parentEnv(parentEnv_.get()), env(new Environment(bullet, osg)) { copyObjects(); }
-
-    void *copyOf(const void *orig) const {
-        DataMap::const_iterator i = dataMap.find(orig);
-        return i == dataMap.end() ? NULL : i->second;
-    }
-    EnvironmentObject::Ptr forkOf(EnvironmentObject::Ptr orig) const {
-        ObjectMap::const_iterator i = objMap.find(orig);
-        return i == objMap.end() ? EnvironmentObject::Ptr() : i->second;
-    }
-
-};
-
-// objects
-
-// Not a real object; just wraps a bunch of child objects.
-template<class ChildType>
-class CompoundObject : public EnvironmentObject {
-protected:
-    typedef std::vector<typename ChildType::Ptr> ChildVector;
-
-public:
-    typedef boost::shared_ptr<CompoundObject<ChildType> > Ptr;
-    ChildVector children;
-    ChildVector &getChildren() { return children; }
-
-    CompoundObject() { }
-
-    EnvironmentObject::Ptr copy(Fork &f) const {
-        Ptr o(new CompoundObject<ChildType>());
-        internalCopy(o, f);
-        return o;
-    }
-
-    void internalCopy(CompoundObject::Ptr o, Fork &f) const {
-        o->children.reserve(children.size());
-        typename ChildVector::const_iterator i;
-        for (i = children.begin(); i != children.end(); ++i) {
-            if (*i)
-                o->children.push_back(boost::static_pointer_cast<ChildType> ((*i)->copy(f)));
-            else
-                o->children.push_back(typename ChildType::Ptr());
+        typedef std::map<const void *, void *> DataMap;
+        DataMap dataMap;
+        void registerCopy(const void *orig, void *copy)
+        {
+            // make sure that the original doesn't exist in the map already
+            assert(orig != nullptr && copy != nullptr && copyOf(orig) == nullptr);
+            dataMap.insert(std::make_pair(orig, copy));
         }
-    }
 
-    void init() {
-        typename ChildVector::iterator i;
-        for (i = children.begin(); i != children.end(); ++i) {
-            if (*i) {
-                (*i)->setEnvironment(getEnvironment());
-                (*i)->init();
+        Fork(const Environment *parentEnv_, BulletInstance::Ptr bullet, OSGInstance::Ptr osg)
+            : parentEnv(parentEnv_)
+            , env(new Environment(bullet, osg))
+        {
+            copyObjects();
+        }
+
+        Fork(const Environment::Ptr parentEnv_, BulletInstance::Ptr bullet, OSGInstance::Ptr osg)
+            : Fork(parentEnv_.get(), bullet, osg)
+        {}
+
+        void* copyOf(const void* orig) const
+        {
+            DataMap::const_iterator ittr = dataMap.find(orig);
+            return ittr == dataMap.end() ? nullptr : ittr->second;
+        }
+
+        EnvironmentObject::Ptr forkOf(EnvironmentObject::Ptr orig) const
+        {
+            ObjectMap::const_iterator ittr = objMap.find(orig);
+            return ittr == objMap.end() ? EnvironmentObject::Ptr() : ittr->second;
+        }
+
+    private:
+        void copyObjects()
+        {
+            // copy objects first
+            for (Environment::ObjectList::const_iterator ittr = parentEnv->objects.begin(); ittr != parentEnv->objects.end(); ++ittr)
+            {
+                EnvironmentObject::Ptr copy = (*ittr)->copy(*this);
+                env->add(copy);
+                objMap[*ittr] = copy;
+            }
+            // some objects might need processing after all objects have been added
+            // e.g. anchors and joints for soft bodies
+            for (Environment::ObjectList::const_iterator ittr = parentEnv->objects.begin(); ittr != parentEnv->objects.end(); ++ittr)
+            {
+                (*ittr)->postCopy(objMap[*ittr], *this);
+            }
+
+            // copy constraints
+            for (Environment::ConstraintList::const_iterator ittr = parentEnv->constraints.begin(); ittr != parentEnv->constraints.end(); ++ittr)
+            {
+                EnvironmentObject::Ptr copy = (*ittr)->copy(*this);
+                env->addConstraint(copy);
+                objMap[*ittr] = copy;
+            }
+            for (Environment::ConstraintList::const_iterator ittr = parentEnv->constraints.begin(); ittr != parentEnv->constraints.end(); ++ittr)
+            {
+                (*ittr)->postCopy(objMap[*ittr], *this);
             }
         }
-    }
-
-    void prePhysics() {
-        typename ChildVector::iterator i;
-        for (i = children.begin(); i != children.end(); ++i)
-            if (*i)
-                (*i)->prePhysics();
-    }
-
-    void preDraw() {
-        typename ChildVector::iterator i;
-        for (i = children.begin(); i != children.end(); ++i)
-            if (*i)
-                (*i)->preDraw();
-    }
-
-    void destroy() {
-        typename ChildVector::iterator i;
-        for (i = children.begin(); i != children.end(); ++i)
-            if (*i)
-                (*i)->destroy();
-    }
 };
 
-class Action {
-protected:
-    float timeElapsed;
-    float execTime;
-    bool isDone;
-    int plotOnly;
+class Action
+{
+    public:
+        typedef boost::shared_ptr<Action> Ptr;
 
-    void setDone(bool b) { isDone = b; }
-    void stepTime(float dt) { timeElapsed += dt; }
-    float fracElapsed() const { return std::min(timeElapsed / execTime, 1.f); }
-    void setColor(float r, float g, float b, float a);
+        Action()
+            : Action(1.0f)
+        {}
 
-public:
-    typedef boost::shared_ptr<Action> Ptr;
-    Action() : timeElapsed(0.), execTime(1.), isDone(false) { }
-    Action(float execTime_) : timeElapsed(0.), execTime(execTime_), isDone(false) { }
+        Action(float execTime_)
+            : timeElapsed(0.0f)
+            , execTime(execTime_)
+            , isDone(false)
+        {}
 
-    virtual bool done() const { return timeElapsed >= execTime || isDone; }
-    virtual void step(float dt) = 0;
-    virtual void reset() { timeElapsed = 0.; setDone(false); }
-    virtual void setExecTime(float t) { execTime = t; }
+        virtual bool done() const
+        {
+            return timeElapsed >= execTime || isDone;
+        }
+
+        virtual void reset()
+        {
+            timeElapsed = 0.; setDone(false);
+        }
+
+        virtual void setExecTime(float t)
+        {
+            execTime = t;
+        }
+
+        virtual void step(float dt) = 0;
+
+    protected:
+        float timeElapsed;
+        float execTime;
+        bool isDone;
+        int plotOnly;
+
+        void setDone(bool b)
+        {
+            isDone = b;
+        }
+
+        void stepTime(float dt)
+        {
+            timeElapsed += dt;
+        }
+
+        float fracElapsed() const
+        {
+            return std::min(timeElapsed / execTime, 1.0f);
+        }
 };
 
 #endif // _ENVIRONMENT_H_

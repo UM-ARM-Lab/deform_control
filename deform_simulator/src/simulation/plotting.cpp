@@ -8,6 +8,7 @@
 #include <osg/BlendFunc>
 #include <osg/ShapeDrawable>
 #include <boost/foreach.hpp>
+#include <boost/make_shared.hpp>
 
 using namespace std;
 using namespace util;
@@ -20,8 +21,8 @@ void PlotObject::setDefaultColor(float r, float g, float b, float a) {
 
 void PlotObject::clear() {
   m_geom->getPrimitiveSetList().clear();
-  osg::ref_ptr<osg::Vec3Array> osgPts = new osg::Vec3Array;
-  osg::ref_ptr<osg::Vec4Array> osgCols = new osg::Vec4Array;
+  osg::ref_ptr<osg::Vec3Array> osgPts = new osg::Vec3Array();
+  osg::ref_ptr<osg::Vec4Array> osgCols = new osg::Vec4Array();
   m_geom->setVertexArray(osgPts);
   m_geom->setColorArray(osgCols);
 }
@@ -39,7 +40,7 @@ PlotPoints::PlotPoints(float size) {
   //  m_stateset->setMode(GL_DEPTH_TEST, osg::StateAttribute::OFF);
   stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
 
-  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
   blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   stateset->setAttributeAndModes(blendFunc);
   stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -94,7 +95,7 @@ PlotLines::PlotLines(float width) {
   stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
   stateset->setAttribute(linewidth);
 
-  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
   blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   stateset->setAttributeAndModes(blendFunc);
   stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -134,7 +135,7 @@ PlotSpheres::PlotSpheres() {
 
   osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet();
   //stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc;
+  osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
   blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   stateset->setAttributeAndModes(blendFunc);
   stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
@@ -151,26 +152,29 @@ void PlotSpheres::plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::r
   m_geode->removeDrawables(0,m_nDrawables);
   m_nDrawables = centers->size();
   for (int i=0; i < centers->size(); i++) {
-    osg::TessellationHints* hints = new osg::TessellationHints;
+    osg::TessellationHints* hints = new osg::TessellationHints();
     hints->setDetailRatio(0.25f);
-    osg::Sphere* sphere = new osg::Sphere( centers->at(i), radii.at(i));
+    osg::Sphere* sphere = new osg::Sphere(centers->at(i), radii.at(i));
     osg::ShapeDrawable* sphereDrawable = new osg::ShapeDrawable(sphere,hints);
     sphereDrawable->setColor(cols->at(i));
     m_geode->addDrawable(sphereDrawable);
   }
 }
 
-void PlotAxes::setup(btTransform tf, float size) {
-  btMatrix3x3 mat(tf.getRotation());
-  osg::Vec3f origin = util::toOSGVector(tf.getOrigin());
-  osg::Vec3f x = util::toOSGVector(mat.getColumn(0));
-  osg::Vec3f y = util::toOSGVector(mat.getColumn(1));
-  osg::Vec3f z = util::toOSGVector(mat.getColumn(2));
+PlotAxes::PlotAxes()
+  : m_ends(boost::make_shared<PlotSpheres>())
+{}
+
+PlotAxes::PlotAxes(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, float size)
+  : PlotAxes()
+{
   setup(origin, x, y, z, size);
 }
 
-PlotAxes::PlotAxes(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, float size) {
-  setup(origin, x, y, z, size);
+PlotAxes::PlotAxes(btTransform tf, float size)
+  : PlotAxes()
+{
+  setup(tf, size);
 }
 
 void PlotAxes::setup(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z, float size) {
@@ -196,4 +200,13 @@ void PlotAxes::setup(osg::Vec3f origin, osg::Vec3f x, osg::Vec3f y, osg::Vec3f z
   endpts->push_back(origin+z*(size/z.length()));
   vector<float> radii(3,.1*size);
   m_ends->plot(endpts, cols, radii);
+}
+
+void PlotAxes::setup(btTransform tf, float size) {
+  btMatrix3x3 mat(tf.getRotation());
+  osg::Vec3f origin = util::toOSGVector(tf.getOrigin());
+  osg::Vec3f x = util::toOSGVector(mat.getColumn(0));
+  osg::Vec3f y = util::toOSGVector(mat.getColumn(1));
+  osg::Vec3f z = util::toOSGVector(mat.getColumn(2));
+  setup(origin, x, y, z, size);
 }
