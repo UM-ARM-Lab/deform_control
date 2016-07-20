@@ -934,5 +934,6 @@ catkin_package(
                     osgWidget
                     osgVolume
                     OpenThreads
+                    osgdb_jpeg
 )
 
