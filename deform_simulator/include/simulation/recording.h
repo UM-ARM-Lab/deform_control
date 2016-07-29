@@ -3,12 +3,11 @@
 #include <osgViewer/Viewer>
 #include <osgViewer/ViewerEventHandlers>
 #include <memory>
-#include <ros/ros.h>
 
 class ScreenRecorder
 {
     public:
-        ScreenRecorder(osgViewer::Viewer& viewer, const bool screenshots_enabled, ros::NodeHandle& nh);
+        ScreenRecorder(osgViewer::Viewer& viewer, const bool screenshots_enabled, const std::string& screenshot_dir);
 
         void snapshot(); //call this BEFORE scene's step() method
 

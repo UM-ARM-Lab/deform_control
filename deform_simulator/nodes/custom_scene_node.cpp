@@ -14,21 +14,21 @@ int main(int argc, char* argv[])
 
     if (smmap::GetDeformableType(nh) == smmap::DeformableType::CLOTH)
     {
-        ViewerConfig::cameraHomePosition = btVector3(0.65, 0.7, 1.8) * METERS;
-        ViewerConfig::pointCameraLooksAt = btVector3(-0.35, -0.30, -0.1) * METERS;
+        ViewerConfig::cameraHomePosition = btVector3(0.65f, 0.7f, 1.8f) * METERS;
+        ViewerConfig::pointCameraLooksAt = btVector3(-0.35f, -0.30f, -0.1f) * METERS;
 
         if (smmap::GetTaskType(nh) == smmap::TaskType::WAFR)
         {
-            ViewerConfig::cameraHomePosition = btVector3(-0.662754, 1.35221, 1.71409) * METERS;
-            ViewerConfig::pointCameraLooksAt = btVector3(-0.556761, -0.556197, 0.315254) * METERS;
+            ViewerConfig::cameraHomePosition = btVector3(-0.662754f, 1.35221f, 1.71409f) * METERS;
+            ViewerConfig::pointCameraLooksAt = btVector3(-0.556761f, -0.556197f, 0.315254f) * METERS;
         }
 //        ViewerConfig::cameraHomePosition = btVector3(9, 0, 42);
 //        ViewerConfig::pointCameraLooksAt = btVector3(0, 0, 0);
     }
     else if (smmap::GetDeformableType(nh) == smmap::DeformableType::ROPE)
     {
-        ViewerConfig::cameraHomePosition = btVector3(0, 1, 3.5) * METERS;
-        ViewerConfig::pointCameraLooksAt = btVector3(0, -0.25, 0) * METERS;
+        ViewerConfig::cameraHomePosition = btVector3(0.0f, 1.0f, 3.5f) * METERS;
+        ViewerConfig::pointCameraLooksAt = btVector3(0.0f, -0.25f, 0.0f) * METERS;
     }
 
     BulletConfig::dt = (float)smmap::GetRobotControlPeriod(nh);

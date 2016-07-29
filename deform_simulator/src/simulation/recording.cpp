@@ -38,7 +38,27 @@ void askToResetDir(fs::path p)
         }
         else throw IOError();
     }
-    ENSURE(fs::create_directory(p));
+    if (!fs::is_directory(p))
+    {
+        std::cerr << "\x1b[33;1m" << p << " does not exist! Creating ... ";
+
+        // NOTE: create_directories should be able to return true in this case
+        // however due to a bug related to a trailing '/' this is not currently
+        // the case in my version of boost
+        // https://svn.boost.org/trac/boost/ticket/7258
+        fs::create_directories(p);
+        if (fs::is_directory(p))
+//            if (boost::filesystem::create_directories(p))
+        {
+            std::cerr << "Succeeded!\x1b[37m\n";
+        }
+        else
+        {
+            std::cerr << "\x1b[31;1mFailed!\x1b[37m\n";
+        }
+    }
+
+    ENSURE(fs::is_directory(p));
 }
 
 void resetDir(fs::path p)
@@ -47,16 +67,36 @@ void resetDir(fs::path p)
     {
         fs::remove_all(p);
     }
-    ENSURE(fs::create_directory(p));
+
+    if (!fs::is_directory(p))
+    {
+        std::cerr << "\x1b[33;1m" << p << " does not exist! Creating ... ";
+
+        // NOTE: create_directories should be able to return true in this case
+        // however due to a bug related to a trailing '/' this is not currently
+        // the case in my version of boost
+        // https://svn.boost.org/trac/boost/ticket/7258
+        fs::create_directories(p);
+        if (fs::is_directory(p))
+//            if (boost::filesystem::create_directories(p))
+        {
+            std::cerr << "Succeeded!\x1b[37m\n";
+        }
+        else
+        {
+            std::cerr << "\x1b[31;1mFailed!\x1b[37m\n";
+        }
+    }
+
+    ENSURE(fs::is_directory(p));
 }
 
-ScreenRecorder::ScreenRecorder(osgViewer::Viewer& viewer, const bool screenshots_enabled, ros::NodeHandle& nh)
+ScreenRecorder::ScreenRecorder(osgViewer::Viewer& viewer, const bool screenshots_enabled, const std::string& screenshot_dir)
     : m_screenshotsEnabled(screenshots_enabled)
     , m_viewer(viewer)
 {
     if (m_screenshotsEnabled)
     {
-        const std::string screenshot_dir = smmap::GetScreenshotFolder(nh);
         std::cout << "Clearing screenshot folder " << screenshot_dir << std::endl;
         resetDir(screenshot_dir.c_str());
         m_captureOperation = std::make_shared<osgViewer::ScreenCaptureHandler::WriteToFile>(screenshot_dir + "img", "jpg", osgViewer::ScreenCaptureHandler::WriteToFile::SEQUENTIAL_NUMBER);

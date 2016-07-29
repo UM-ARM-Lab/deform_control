@@ -85,10 +85,6 @@ class CustomScene : public Scene
         void run(bool drawScene = false, bool syncTime = false);
 
     private:
-        /// Protects against multiple threads accessing data that modifies the
-        /// environment/simulation at the same time
-        std::mutex sim_mutex_;
-
         ////////////////////////////////////////////////////////////////////////
         // Construction helper functions
         ////////////////////////////////////////////////////////////////////////
@@ -109,16 +105,28 @@ class CustomScene : public Scene
         void createFreeSpaceGraph();
 
         ////////////////////////////////////////////////////////////////////////
-        // Main loop helper functions
+        // Internal helper functions
         ////////////////////////////////////////////////////////////////////////
 
+        static void SetGripperTransform(
+                const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
+                const std::string& name,
+                const geometry_msgs::Pose& pose);
 
-//        SimForkResult main_simulator_state_;
-//        std::shared_ptr<ViewerData> main_simulator_viewer_;
+        smmap_msgs::SimulatorFeedback createSimulatorFbk() const;
+        smmap_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
 
+        std::vector<btVector3> getDeformableObjectNodes() const;
+        std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
+
+        btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
+        btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
+
+        ////////////////////////////////////////////////////////////////////////////////
+        // Fork and Fork-visualization management
+        ////////////////////////////////////////////////////////////////////////////////
 
         std::shared_ptr<ViewerData> createVisualizerForFork(SimForkResult& fork_result);
-
 
         SimForkResult createForkWithNoSimulationDone(
                 const Environment::Ptr environment_to_fork,
@@ -126,41 +134,20 @@ class CustomScene : public Scene
                 boost::shared_ptr<CapsuleRope> rope_to_fork,
                 std::map<std::string, GripperKinematicObject::Ptr> grippers_to_fork);
 
+        SimForkResult createForkWithNoSimulationDone(
+                const std::vector<std::string>& gripper_names,
+                const std::vector<geometry_msgs::Pose>& gripper_poses);
 
-        SimForkResult createForkWithNoSimulationDone();
-//        SimForkResult createForkWithNoSimulationDone(const SimForkResult& sim_to_fork);
-        SimForkResult createForkWithNoSimulationDone(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
-//        SimForkResult createForkWithNoSimulationDone(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
-
-
-        SimForkResult simulateInNewFork(const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
-//        SimForkResult simulateInNewFork(const SimForkResult& sim_to_fork, const std::vector<std::string>& gripper_names, const std::vector<geometry_msgs::Pose>& gripper_poses);
-
-
-
-
-
-        static void ApplyTransform(
-                const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
-                const std::string& name,
-                const geometry_msgs::Pose& pose);
-        void moveGrippers();
-//        void moveGrippers(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map);
-        smmap_msgs::SimulatorFeedback createSimulatorFbk() const;
-        smmap_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
-
-        ////////////////////////////////////////////////////////////////////////
-        // Internal helper functions
-        ////////////////////////////////////////////////////////////////////////
-
-        std::vector<btVector3> getDeformableObjectNodes() const;
-        std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
-        btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
-        btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
+        SimForkResult simulateInNewFork(
+                const std::vector<std::string>& gripper_names,
+                const std::vector<geometry_msgs::Pose>& gripper_poses);
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
+
+        void visualizationMarkerCallback(visualization_msgs::Marker marker);
+        void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
 
         bool getGripperNamesCallback(
                 smmap_msgs::GetGripperNames::Request& req,
@@ -190,28 +177,21 @@ class CustomScene : public Scene
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res);
 
-
-
-
-//        bool executeGripperMovementAndUpdateSimCallback(
-//                smmap_msgs::ExecuteGripperMovement::Request& req,
-//                smmap_msgs::ExecuteGripperMovement::Response& res);
+        bool executeGripperMovementCallback(
+                smmap_msgs::ExecuteGripperMovement::Request& req,
+                smmap_msgs::ExecuteGripperMovement::Response& res);
 
         void testGripperPosesExecuteCallback(
                 const smmap_msgs::TestGrippersPosesGoalConstPtr& goal);
 
-
-
-
-        void visualizationMarkerCallback(visualization_msgs::Marker marker);
-        void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
-
         ////////////////////////////////////////////////////////////////////
-        // ROS Objects and Helpers
+        // Stuff, and things
         ////////////////////////////////////////////////////////////////////
 
-        // Our internal version of ros::spin()
-        static void spin(const double loop_rate);
+        /// Protects against multiple threads accessing data that modifies the
+        /// environment/simulation at the same time
+        std::mutex sim_mutex_;
+        std::shared_ptr<ScreenRecorder> screen_recorder_;
 
         ////////////////////////////////////////////////////////////////////////
         // Pre-step Callbacks
@@ -300,6 +280,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         ros::NodeHandle nh_;
+        ros::NodeHandle ph_;
 
         ros::Publisher simulator_fbk_pub_;
         const double feedback_covariance_;
@@ -318,12 +299,7 @@ class CustomScene : public Scene
         ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;
 
-        actionlib::SimpleActionServer<smmap_msgs::CmdGrippersTrajectoryAction> cmd_grippers_traj_as_;
-        smmap_msgs::CmdGrippersTrajectoryGoalConstPtr cmd_grippers_traj_goal_;
-        smmap_msgs::CmdGrippersTrajectoryResult cmd_grippers_traj_result_;
-        size_t cmd_grippers_traj_next_index_;
-
-//        ros::ServiceServer execute_gripper_movement_and_update_sim_srv_;
+        ros::ServiceServer execute_gripper_movement_srv_;
         actionlib::SimpleActionServer<smmap_msgs::TestGrippersPosesAction> test_grippers_poses_as_;
 
         ////////////////////////////////////////////////////////////////////////
