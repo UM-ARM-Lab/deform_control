@@ -24,6 +24,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <arc_utilities/dijkstras.hpp>
 #include <smmap_experiment_params/task_enums.h>
+#include <smmap_experiment_params/xyzgrid.h>
 #include <smmap_msgs/messages.h>
 
 struct SimForkResult
@@ -98,9 +99,6 @@ class CustomScene : public Scene
         void makeClothWorld();
         void findClothCornerNodes();
 
-        int64_t xyzIndexToGridIndex(const int64_t x_ind, const int64_t y_ind, const int64_t z_ind) const;
-        int64_t worldPosToGridIndex(const double x, const double y, const double z) const;
-        int64_t worldPosToGridIndex(const btVector3& vec) const;
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
         void createFreeSpaceGraph();
 
@@ -239,17 +237,7 @@ class CustomScene : public Scene
 
         std::map<std::string, BulletObject::Ptr> world_objects_;
 
-        const double world_x_min_;
-        const double world_x_step_;
-        const int64_t world_x_num_steps_;
-
-        const double world_y_min_;
-        const double world_y_step_;
-        const int64_t world_y_num_steps_;
-
-        const double world_z_min_;
-        const double world_z_step_;
-        const int64_t world_z_num_steps_;
+        const smmap::XYZGrid free_space_grid_;
         arc_dijkstras::Graph<btVector3> free_space_graph_;
         size_t num_graph_edges_;
         std::vector<int64_t> cover_ind_to_free_space_graph_ind_;

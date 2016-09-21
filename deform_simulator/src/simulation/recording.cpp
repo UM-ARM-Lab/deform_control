@@ -113,7 +113,7 @@ void ScreenRecorder::snapshot()
 {
     if (m_screenshotsEnabled)
     {
-        std::cout << "Taking screenshot\n";
+        std::cout << "Taking screenshot (actual rate is half - Viewer is not rendering every frame)\n";
         m_captureHandler->captureNextFrame(m_viewer);
     }
 }

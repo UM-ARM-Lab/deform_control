@@ -3,8 +3,7 @@
     <arg name="start_bullet_viewer" default="true"/>
     <arg name="screenshots_enabled" default="false"/>
 
-    <env name="OSG_FILE_PATH" 
-       value="$(find OpenSceneGraph)/data"/>
+    <env name="OSG_FILE_PATH" value="$(find OpenSceneGraph)/data"/>
 
     <node name="deform_simulator_node"
         pkg="deform_simulator"
