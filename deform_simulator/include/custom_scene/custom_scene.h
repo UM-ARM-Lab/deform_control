@@ -34,7 +34,7 @@ struct SimForkResult
         OSGInstance::Ptr osg_;
         Fork::Ptr fork_;
         BulletSoftObject::Ptr cloth_;
-        boost::shared_ptr<CapsuleRope> rope_;
+        CapsuleRope::Ptr rope_;
         std::map<std::string, GripperKinematicObject::Ptr> grippers_;
 };
 
@@ -77,13 +77,13 @@ struct ViewerData
 class CustomScene : public Scene
 {
     public:
-        CustomScene(ros::NodeHandle& nh, smmap::DeformableType deformable_type, smmap::TaskType task_type);
+        CustomScene(ros::NodeHandle& nh, const smmap::DeformableType deformable_type, const smmap::TaskType task_type);
 
         ////////////////////////////////////////////////////////////////////////
         // Main function that makes things happen
         ////////////////////////////////////////////////////////////////////////
 
-        void run(bool drawScene = false, bool syncTime = false);
+        void run(const bool drawScene = false, const bool syncTime = false);
 
     private:
         ////////////////////////////////////////////////////////////////////////
@@ -100,7 +100,7 @@ class CustomScene : public Scene
         void findClothCornerNodes();
 
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
-        void createFreeSpaceGraph();
+        void createFreeSpaceGraph(const bool draw_graph_corners = false);
 
         ////////////////////////////////////////////////////////////////////////
         // Internal helper functions
@@ -213,8 +213,8 @@ class CustomScene : public Scene
         // TODO to be moved into a CustomSceneConfig file?
         ////////////////////////////////////////////////////////////////////////
 
-        smmap::DeformableType deformable_type_;
-        smmap::TaskType task_type_;
+        const smmap::DeformableType deformable_type_;
+        const smmap::TaskType task_type_;
 
         ////////////////////////////////////////////////////////////////////////
         // Grippers

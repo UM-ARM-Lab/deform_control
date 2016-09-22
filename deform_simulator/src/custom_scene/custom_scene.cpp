@@ -34,8 +34,8 @@ using namespace smmap;
 ////////////////////////////////////////////////////////////////////////////////
 
 CustomScene::CustomScene(ros::NodeHandle& nh,
-                         DeformableType deformable_type,
-                         TaskType task_type)
+                         const DeformableType deformable_type,
+                         const TaskType task_type)
     : plot_points_(boost::make_shared<PlotPoints>(0.1f * METERS))
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
     , deformable_type_(deformable_type)
@@ -134,7 +134,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 // Main function that makes things happen
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::run(bool drawScene, bool syncTime)
+void CustomScene::run(const bool drawScene, const bool syncTime)
 {
     // Run the startup code for the viewer and everything else
     {
@@ -158,7 +158,7 @@ void CustomScene::run(bool drawScene, bool syncTime)
         screen_recorder_ = std::make_shared<ScreenRecorder>(viewer, smmap::GetScreenshotsEnabled(ph_), smmap::GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph while the object settles
-        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this);
+        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, false);
         // Let the object settle before anything else happens
         ROS_INFO("Waiting for the scene to settle");
         stepFor(BulletConfig::dt, 4.0);
@@ -817,11 +817,12 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     }
 }
 
-void CustomScene::createFreeSpaceGraph()
+void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 {
     ROS_INFO("Creating free space graph");
-    // Debugging - draw the corners of the grid
+    if (draw_graph_corners)
     {
+        // Debugging - draw the corners of the grid
         std::cout << "Drawing the 8 corners of the graph world\n";
         graph_corners_.reserve((8));
         #pragma GCC diagnostic push
