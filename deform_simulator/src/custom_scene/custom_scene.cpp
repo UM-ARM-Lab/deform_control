@@ -36,7 +36,8 @@ using namespace smmap;
 CustomScene::CustomScene(ros::NodeHandle& nh,
                          const DeformableType deformable_type,
                          const TaskType task_type)
-    : plot_points_(boost::make_shared<PlotPoints>(0.1f * METERS))
+    : screen_recorder_(nullptr)
+    , plot_points_(boost::make_shared<PlotPoints>(0.1f * METERS))
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
     , deformable_type_(deformable_type)
     , task_type_(task_type)
@@ -118,6 +119,18 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     object_current_configuration_srv_ = nh_.advertiseService(
                 GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
 
+    // Create a service to listen to in order to know when to shutdown
+    terminate_sim_srv_ = nh_.advertiseService(
+                GetTerminateSimulationTopic(nh_), &CustomScene::terminateSimulationCallback, this);
+
+
+
+    // Create a service to listen to in order to move the grippers and advance sim time
+    execute_gripper_movement_srv_ = nh_.advertiseService(
+                GetExecuteGrippersMovementTopic(nh_), &CustomScene::executeGripperMovementCallback, this);
+
+
+
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
             GetVisualizationMarkerTopic(nh_), 20, &CustomScene::visualizationMarkerCallback, this);
@@ -125,9 +138,6 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     // Create a subscriber to take visualization instructions
     visualization_marker_array_sub_ = nh_.subscribe(
             GetVisualizationMarkerArrayTopic(nh_), 20, &CustomScene::visualizationMarkerArrayCallback, this);
-
-    execute_gripper_movement_srv_ = nh_.advertiseService(
-                GetExecuteGrippersMovementTopic(nh_), &CustomScene::executeGripperMovementCallback, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -137,13 +147,14 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 void CustomScene::run(const bool drawScene, const bool syncTime)
 {
     // Run the startup code for the viewer and everything else
+    if (ros::ok())
     {
         // Note that viewer cleans up this memory
         viewer.addEventHandler(new CustomKeyHandler(*this));
 
         // When the viewer closes, shutdown ROS
         addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-                        boost::bind(&ros::shutdown));
+                        boost::bind(&CustomScene::terminateSimulationCallback, this, std_srvs::Empty::Request(), std_srvs::Empty::Response()));
 
         addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
 
@@ -155,7 +166,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         {
             startViewer();
         }
-        screen_recorder_ = std::make_shared<ScreenRecorder>(viewer, smmap::GetScreenshotsEnabled(ph_), smmap::GetScreenshotFolder(nh_));
+        screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, smmap::GetScreenshotsEnabled(ph_), smmap::GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph while the object settles
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, false);
@@ -1547,6 +1558,22 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
 {
     (void)req;
     res.points = toRosPointVector(getDeformableObjectNodes(), METERS);
+    return true;
+}
+
+bool CustomScene::terminateSimulationCallback(
+        std_srvs::Empty::Request &req,
+        std_srvs::Empty::Response &res)
+{
+    (void)req;
+    (void)res;
+
+    if (screen_recorder_)
+    {
+        screen_recorder_->zipScreenshots();
+    }
+    ros::shutdown();
+
     return true;
 }
 
