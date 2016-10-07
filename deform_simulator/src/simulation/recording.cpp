@@ -124,10 +124,23 @@ void ScreenRecorder::zipScreenshots()
 {
     if (m_screenshotsEnabled)
     {
+        int rv;
+        const std::string video_file = m_screenshotDir.substr(0, m_screenshotDir.length() - 1) + ".avi";
+        std::cout << "Creating output video " << video_file << std::endl;
+        rv = system(("cd /tmp/smmap_screenshots && imToMov.sh 100 " + video_file + " jpg").c_str());
+        if (rv < 0)
+        {
+            std::cerr << "Unable to create video; return value " << rv << std::endl;
+        }
+
         const std::string zip_file = m_screenshotDir.substr(0, m_screenshotDir.length() - 1) + ".tar.gz";
         std::cout << "Zipping screenshots and moving to" << zip_file << std::endl;
         const std::string sys_cmd = "tar -czf ";
-        system((sys_cmd + zip_file + " -C /tmp/smmap_screenshots .").c_str());
+        rv = system((sys_cmd + zip_file + " -C /tmp/smmap_screenshots .").c_str());
+        if (rv < 0)
+        {
+            std::cerr << "Unable to zip and move screenshots; return value " << rv << std::endl;
+        }
     }
 }
 

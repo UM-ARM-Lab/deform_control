@@ -1588,7 +1588,7 @@ bool CustomScene::executeGripperMovementCallback(
     assert(req.grippers_names.size() == req.gripper_poses.size());
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
-    ROS_INFO("Execting gripper command");
+    ROS_INFO("Executing gripper command");
     for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
     {
         SetGripperTransform(grippers_, req.grippers_names[gripper_ind], req.gripper_poses[gripper_ind]);
