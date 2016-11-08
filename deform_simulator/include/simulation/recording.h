@@ -7,13 +7,15 @@
 class ScreenRecorder
 {
     public:
-        ScreenRecorder(osgViewer::Viewer& viewer, const bool screenshots_enabled, const std::string& screenshot_dir);
+        ScreenRecorder(osgViewer::Viewer* const viewer, const bool screenshots_enabled, const std::string& screenshot_dir);
+        void zipScreenshots();
 
         void snapshot(); //call this BEFORE scene's step() method
 
     private:
         const bool m_screenshotsEnabled;
-        osgViewer::Viewer& m_viewer;
+        const std::string m_screenshotDir;
+        osgViewer::Viewer* const m_viewer;
         std::shared_ptr<osgViewer::ScreenCaptureHandler::CaptureOperation> m_captureOperation;
         std::shared_ptr<osgViewer::ScreenCaptureHandler> m_captureHandler;
 };

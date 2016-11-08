@@ -20,6 +20,7 @@
 #include "manual_gripper_path.h"
 
 #include <ros/ros.h>
+#include <std_srvs/Empty.h>
 #include <actionlib/server/simple_action_server.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <arc_utilities/dijkstras.hpp>
@@ -174,6 +175,9 @@ class CustomScene : public Scene
         bool getObjectCurrentConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res);
+        bool terminateSimulationCallback(
+                std_srvs::Empty::Request& req,
+                std_srvs::Empty::Response& res);
 
         bool executeGripperMovementCallback(
                 smmap_msgs::ExecuteGripperMovement::Request& req,
@@ -283,6 +287,7 @@ class CustomScene : public Scene
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer free_space_graph_srv_;
+        ros::ServiceServer terminate_sim_srv_;
         std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;
