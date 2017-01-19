@@ -28,6 +28,13 @@ namespace BulletHelpers
         }
         return nodeposvec;
     }
+
+    template <typename T>
+    inline btVector3 stdVectorToBtVector3(const std::vector<T>& std_vector)
+    {
+        assert(std_vector.size() == 3);
+        return btVector3((btScalar)std_vector[0], (btScalar)std_vector[1], (btScalar)std_vector[2]);
+    }
 }
 
 #endif // BULLET_INTERNAL_CONVERSIONS_HPP

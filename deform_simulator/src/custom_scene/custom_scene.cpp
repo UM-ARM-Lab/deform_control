@@ -47,6 +47,12 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)free_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
+    , collision_map_for_export_(Eigen::Affine3d(Eigen::Translation3d(free_space_grid_.getXMin() / METERS, free_space_grid_.getYMin() / METERS, free_space_grid_.getZMin() / METERS)),
+                                smmap::GetWorldFrameName(), free_space_grid_.minStepDimension() / METERS / 2.0,
+                                (free_space_grid_.getXMax() - free_space_grid_.getXMin()) / METERS,
+                                (free_space_grid_.getYMax() - free_space_grid_.getYMin()) / METERS,
+                                (free_space_grid_.getZMax() - free_space_grid_.getZMin()) / METERS,
+                                sdf_tools::COLLISION_CELL(0.0))
     , nh_(nh)
     , ph_("~")
     , feedback_covariance_(GetFeedbackCovariance(nh_))
@@ -111,6 +117,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     free_space_graph_srv_ = nh_.advertiseService(
             GetFreeSpaceGraphTopic(nh_), &CustomScene::getFreeSpaceGraphCallback, this);
 
+    // Create a service to let others know what the signed distance field of the world looks like
+    signed_distance_field_srv_ = nh_.advertiseService(
+            GetSignedDistanceFieldTopic(nh_), &CustomScene::getSignedDistanceFieldCallback, this);
+
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
             GetObjectInitialConfigurationTopic(nh_), &CustomScene::getObjectInitialConfigurationCallback, this);
@@ -168,17 +178,26 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         }
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, smmap::GetScreenshotsEnabled(ph_), smmap::GetScreenshotFolder(nh_));
 
-        // Create a thread to create the free space graph while the object settles
+        // Create a thread to create the free space graph and collision map while the object settles
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, false);
+        auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
         // Let the object settle before anything else happens
         ROS_INFO("Waiting for the scene to settle");
         stepFor(BulletConfig::dt, 4.0);
         // Wait for the graph to be finished being made
-        while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
         {
-            step(0);
+            while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
+            {
+                step(0);
+            }
+            free_space_graph_future.get();
+
+            while (collision_map_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
+            {
+                step(0);
+            }
+            collision_map_future.get();
         }
-        free_space_graph_future.get();
 
         base_sim_time_ = simTime;
 
@@ -190,6 +209,14 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     std::thread spin_thread(&ROSHelpers::Spin, 100.0 / BulletConfig::dt);
     ROS_INFO("Simulation ready.");
 
+    ros::Publisher collision_map_pub = nh_.advertise<visualization_msgs::Marker>("collision_map", 1);
+    const visualization_msgs::Marker collision_map_marker = collision_map_for_export_.ExportForDisplay(
+                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1, 0, 0, 1),
+                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 1, 0, 0),
+                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 0.1f));
+    ros::Publisher sdf_pub = nh_.advertise<visualization_msgs::Marker>("sdf", 1);
+    const visualization_msgs::Marker sdf_marker = sdf_for_export_.ExportForDisplay();
+
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
     while (ros::ok())
     {
@@ -197,6 +224,9 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             std::lock_guard<std::mutex> lock(sim_mutex_);
             step(0);
             simulator_fbk_pub_.publish(createSimulatorFbk());
+
+            collision_map_pub.publish(collision_map_marker);
+            sdf_pub.publish(sdf_marker);
 
 //            osg::Vec3d eye, center, up;
 //            manip->getTransformation(eye, center, up);
@@ -794,7 +824,7 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     const int64_t z_min_ind = std::max(0L, z_starting_ind - 1);
     const int64_t z_max_ind = std::min(free_space_grid_.getZNumSteps(), z_starting_ind + 2);
 
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001 * METERS, btTransform(), true);
 
     for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
     {
@@ -828,9 +858,10 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     }
 }
 
+// Note that this function adds edges that move out of collision, to help deal with penetration inaccuracies in Bullet
 void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 {
-    ROS_INFO("Creating free space graph");
+    ROS_INFO("Creating free space graph and SDF for export");
     if (draw_graph_corners)
     {
         // Debugging - draw the corners of the grid
@@ -838,14 +869,14 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         graph_corners_.reserve((8));
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wconversion"
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMin())), 1.0f));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMax())), 1.0f));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMax(), free_space_grid_.getZMin())), 1.0f));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMax(), free_space_grid_.getZMax())), 1.0f));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMin(), free_space_grid_.getZMin())), 1.0f));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMin(), free_space_grid_.getZMax())), 1.0f));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMax(), free_space_grid_.getZMin())), 1.0f));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMax(), free_space_grid_.getZMax())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMax())), 1));
         #pragma GCC diagnostic pop
         for (auto& corner: graph_corners_)
         {
@@ -873,17 +904,10 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     // Next add edges between adjacent nodes that are not in collision
     for (int64_t x_ind = 0; x_ind < free_space_grid_.getXNumSteps(); x_ind++)
     {
-        const double x = free_space_grid_.xIndToWorldX(x_ind);
         for (int64_t y_ind = 0; y_ind < free_space_grid_.getYNumSteps(); y_ind++)
         {
-            const double y = free_space_grid_.yIndToWorldY(y_ind);
             for (int64_t z_ind = 0; z_ind < free_space_grid_.getZNumSteps(); z_ind++)
             {
-                SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
-
-                const double z = free_space_grid_.zIndToWorldZ(z_ind);
-                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x, (btScalar)y, (btScalar)z)));
-
                 createEdgesToNeighbours(x_ind, y_ind, z_ind);
             }
         }
@@ -927,6 +951,37 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     }
 
     assert(free_space_graph_.CheckGraphLinkage());
+}
+
+void CustomScene::createCollisionMapAndSDF()
+{
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.005 * METERS, btTransform(), true);
+
+    // Itterate through the collision map, checking for collision
+    for (int64_t x_ind = 0; x_ind < collision_map_for_export_.GetNumXCells(); x_ind++)
+    {
+        for (int64_t y_ind = 0; y_ind < collision_map_for_export_.GetNumYCells(); y_ind++)
+        {
+            for (int64_t z_ind = 0; z_ind < collision_map_for_export_.GetNumZCells(); z_ind++)
+            {
+                std::vector<double> pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
+
+                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), stdVectorToBtVector3(pos) * METERS));
+                const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
+                if (freespace)
+                {
+                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(0.0));
+                }
+                else
+                {
+                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(1.0));
+                }
+            }
+        }
+    }
+
+    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(BT_LARGE_FLOAT).first;
+    sdf_for_export_.Lock();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1436,6 +1491,8 @@ bool CustomScene::getMirrorLineCallback(
     }
 }
 
+
+
 bool CustomScene::getFreeSpaceGraphCallback(
         smmap_msgs::GetFreeSpaceGraphRequest& req,
         smmap_msgs::GetFreeSpaceGraphResponse& res)
@@ -1542,6 +1599,16 @@ bool CustomScene::getFreeSpaceGraphCallback(
 
     return true;
 }
+
+bool CustomScene::getSignedDistanceFieldCallback(
+        smmap_msgs::GetSignedDistanceFieldRequest &req,
+        smmap_msgs::GetSignedDistanceFieldResponse &res)
+{
+    (void)req;
+    res.sdf = sdf_for_export_.GetMessageRepresentation();
+    return true;
+}
+
 
 bool CustomScene::getObjectInitialConfigurationCallback(
         smmap_msgs::GetPointSet::Request& req,

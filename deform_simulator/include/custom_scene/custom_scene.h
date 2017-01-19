@@ -24,6 +24,8 @@
 #include <actionlib/server/simple_action_server.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <arc_utilities/dijkstras.hpp>
+#include <sdf_tools/collision_map.hpp>
+#include <sdf_tools/sdf.hpp>
 #include <smmap_experiment_params/task_enums.h>
 #include <smmap_experiment_params/xyzgrid.h>
 #include <smmap_msgs/messages.h>
@@ -102,6 +104,7 @@ class CustomScene : public Scene
 
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
         void createFreeSpaceGraph(const bool draw_graph_corners = false);
+        void createCollisionMapAndSDF();
 
         ////////////////////////////////////////////////////////////////////////
         // Internal helper functions
@@ -166,9 +169,14 @@ class CustomScene : public Scene
         bool getMirrorLineCallback(
                 smmap_msgs::GetMirrorLine::Request& req,
                 smmap_msgs::GetMirrorLine::Response& res);
+
         bool getFreeSpaceGraphCallback(
                 smmap_msgs::GetFreeSpaceGraphRequest& req,
                 smmap_msgs::GetFreeSpaceGraphResponse& res);
+        bool getSignedDistanceFieldCallback(
+                smmap_msgs::GetSignedDistanceFieldRequest& req,
+                smmap_msgs::GetSignedDistanceFieldResponse& res);
+
         bool getObjectInitialConfigurationCallback(
                 smmap_msgs::GetPointSet::Request& req,
                 smmap_msgs::GetPointSet::Response& res);
@@ -241,11 +249,16 @@ class CustomScene : public Scene
 
         std::map<std::string, BulletObject::Ptr> world_objects_;
 
+        // Uses bullet (scaled) translational distances
         const smmap::XYZGrid free_space_grid_;
         arc_dijkstras::Graph<btVector3> free_space_graph_;
         size_t num_graph_edges_;
         std::vector<int64_t> cover_ind_to_free_space_graph_ind_;
         std::vector<PlotAxes::Ptr> graph_corners_;
+
+        // Uses world (unscaled) translational distances
+        sdf_tools::CollisionMapGrid collision_map_for_export_;
+        sdf_tools::SignedDistanceField sdf_for_export_;
 
         ////////////////////////////////////////////////////////////////////////
         // Rope world objects
@@ -287,6 +300,7 @@ class CustomScene : public Scene
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer free_space_graph_srv_;
+        ros::ServiceServer signed_distance_field_srv_;
         ros::ServiceServer terminate_sim_srv_;
         std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;

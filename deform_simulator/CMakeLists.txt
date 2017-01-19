@@ -10,6 +10,7 @@ set( CATKIN_PACKAGES
     osg_bullet
     haptics
     bullet_helpers
+    sdf_tools
     smmap_msgs
     smmap_experiment_params
 )
@@ -51,7 +52,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -march=native -std=c++0x" )
+set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -std=c++0x" )
 
 include_directories( include SYSTEM
     ${catkin_INCLUDE_DIRS}
