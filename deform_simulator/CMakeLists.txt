@@ -1,7 +1,7 @@
-cmake_minimum_required( VERSION 2.8.3 )
-project( deform_simulator )
+cmake_minimum_required(VERSION 2.8.3)
+project(deform_simulator)
 
-set( CATKIN_PACKAGES
+set(CATKIN_PACKAGES
     actionlib
     arc_utilities
     geometry_msgs
@@ -16,18 +16,18 @@ set( CATKIN_PACKAGES
 )
 
 ## Find catkin macros and libraries
-find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
+find_package(catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES})
 
 ## System dependencies are found with CMake's conventions
-find_package( cmake_modules REQUIRED )
-find_package( Boost REQUIRED COMPONENTS
+find_package(cmake_modules REQUIRED)
+find_package(Boost REQUIRED COMPONENTS
     system
     filesystem
     program_options
     thread
 )
 
-find_package( Eigen3 REQUIRED )
+find_package(Eigen3 REQUIRED)
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -52,18 +52,18 @@ catkin_package(
 ## Build ##
 ###########
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O2 -std=c++0x" )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -g -std=c++0x")
 
-include_directories( include SYSTEM
+include_directories(include SYSTEM
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIR}
     ${Boost_INCLUDE_DIRS}
 )
 
-set( ${PROJECT_NAME}_LINK_TARGETS
+set(${PROJECT_NAME}_LINK_TARGETS
     ${catkin_LIBRARIES}
     ${Boost_LIBRARIES}
 )
 
-add_subdirectory( src )
-add_subdirectory( nodes )
+add_subdirectory(src)
+add_subdirectory(nodes)

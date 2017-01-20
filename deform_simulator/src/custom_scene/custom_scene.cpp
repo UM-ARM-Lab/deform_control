@@ -143,11 +143,11 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
-            GetVisualizationMarkerTopic(nh_), 20, &CustomScene::visualizationMarkerCallback, this);
+            GetVisualizationMarkerTopic(nh_), 3000, &CustomScene::visualizationMarkerCallback, this);
 
     // Create a subscriber to take visualization instructions
     visualization_marker_array_sub_ = nh_.subscribe(
-            GetVisualizationMarkerArrayTopic(nh_), 20, &CustomScene::visualizationMarkerArrayCallback, this);
+            GetVisualizationMarkerArrayTopic(nh_), 3000, &CustomScene::visualizationMarkerArrayCallback, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -179,7 +179,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, smmap::GetScreenshotsEnabled(ph_), smmap::GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph and collision map while the object settles
-        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, false);
+        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, true);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
         // Let the object settle before anything else happens
         ROS_INFO("Waiting for the scene to settle");
@@ -211,7 +211,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
     ros::Publisher collision_map_pub = nh_.advertise<visualization_msgs::Marker>("collision_map", 1);
     const visualization_msgs::Marker collision_map_marker = collision_map_for_export_.ExportForDisplay(
-                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1, 0, 0, 1),
+                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
                 arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 1, 0, 0),
                 arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 0.1f));
     ros::Publisher sdf_pub = nh_.advertise<visualization_msgs::Marker>("sdf", 1);
@@ -394,40 +394,63 @@ void CustomScene::makeCylinder()
                                 cover_points_radius * std::cos(theta)));
             }
         }
+    }
 
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+}
 
+void CustomScene::makeSinglePoleObstacles()
+{
+    // cylinder parameters
+    const btVector3 cylinder_com_origin =
+        btVector3(GetCylinderCenterOfMassX(nh_),
+                  GetCylinderCenterOfMassY(nh_),
+                  GetCylinderCenterOfMassZ(nh_)) * METERS;
 
-        ////////////////////////////////////////////////////////////////////////
-        // Vertical Cylinder above first cylinder
-        ////////////////////////////////////////////////////////////////////////
-//        const btVector3 upper_cylinder_com_origin = cylinder_com_origin +
-//                btVector3(0.0f, 0.0f, 0.35f) * METERS;
+    const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
+    const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
 
-//        CylinderStaticObject::Ptr upper_cylinder = boost::make_shared<CylinderStaticObject>(
-//                    0, cylinder_radius, cylinder_height,
-//                    btTransform(btQuaternion(0, 0, 0, 1), upper_cylinder_com_origin));
-//        upper_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    // create a cylinder
+    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                0, cylinder_radius, cylinder_height,
+                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
-//        // add the cylinder to the world
-//        env->add(upper_cylinder);
-//        world_objects_["upper_cylinder"] = upper_cylinder;
+    // add the cylinder to the world
+    env->add(cylinder);
+    world_objects_["cylinder"] = cylinder;
+}
 
-//        #pragma message "Magic numbers - discretization level of cover points"
-//        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 10.0f)
-//        {
-//            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 10.0f)
-//            {
-//                // Only accept those points that are within the bounding circle
-//                if (x * x + y * y < cylinder_radius * cylinder_radius)
-//                {
-//                    #pragma message "Hard coded value - Cloth doesn't exist yet, so collision margin can't be looked up"
-//                    cover_points_.push_back(
-//                                upper_cylinder_com_origin
-//                                + btVector3(x, y, -cylinder_height / 2.0f - 0.0025f * METERS));
-//                }
-//            }
-//        }
+void CustomScene::makeGenericRegionCoverPoints()
+{
+    const btScalar x_min = GetCoverRegionXMin(nh_) * METERS;
+    const size_t x_steps = GetCoverRegionXSteps(nh_);
+    const btScalar x_res = GetCoverRegionXRes(nh_) * METERS;
 
+    const btScalar y_min = GetCoverRegionYMin(nh_) * METERS;
+    const size_t y_steps = GetCoverRegionYSteps(nh_);
+    const btScalar y_res = GetCoverRegionYRes(nh_) * METERS;
+
+    const btScalar z_min = GetCoverRegionZMin(nh_) * METERS;
+    const size_t z_steps = GetCoverRegionZSteps(nh_);
+    const btScalar z_res = GetCoverRegionZRes(nh_) * METERS;
+
+    cover_points_.reserve(cover_points_.size() + x_steps * y_steps * z_steps);
+
+    for (size_t x_ind = 0; x_ind < x_steps; ++x_ind)
+    {
+        const btScalar x = x_min + (btScalar)x_steps * x_res;
+        for (size_t y_ind = 0; y_ind < y_steps; ++y_ind)
+        {
+            const btScalar y = y_min + (btScalar)y_steps * y_res;
+            for (size_t z_ind = 0; z_ind < z_steps; ++z_ind)
+            {
+                const btScalar z = z_min + (btScalar)z_steps * z_res;
+                cover_points_.push_back(btVector3(x, y, z));
+            }
+        }
     }
 
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
@@ -679,6 +702,12 @@ void CustomScene::makeClothWorld()
         case TaskType::WAFR:
         {
             makeCylinder();
+            break;
+        }
+        case TaskType::SINGLE_POLE:
+        {
+            makeSinglePoleObstacles();
+            makeGenericRegionCoverPoints();
             break;
         }
         default:

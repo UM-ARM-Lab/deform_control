@@ -95,6 +95,10 @@ class CustomScene : public Scene
 
         void makeTable();
         void makeCylinder();
+
+        void makeSinglePoleObstacles();
+        void makeGenericRegionCoverPoints();
+
         void makeRope();
         void makeCloth();
 
