@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
         ViewerConfig::cameraHomePosition = btVector3(0.65f, 0.7f, 1.8f) * METERS;
         ViewerConfig::pointCameraLooksAt = btVector3(-0.35f, -0.30f, -0.1f) * METERS;
 
-        if (smmap::GetTaskType(nh) == smmap::TaskType::WAFR)
+        if (smmap::GetTaskType(nh) == smmap::TaskType::CLOTH_WAFR)
         {
             ViewerConfig::cameraHomePosition = btVector3(-0.662754f, 1.35221f, 1.71409f) * METERS;
             ViewerConfig::pointCameraLooksAt = btVector3(-0.556761f, -0.556197f, 0.315254f) * METERS;

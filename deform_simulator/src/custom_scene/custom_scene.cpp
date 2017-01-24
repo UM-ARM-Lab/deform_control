@@ -59,25 +59,8 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , test_grippers_poses_as_(nh_, GetTestGrippersPosesTopic(nh_), boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
 {
-    ROS_INFO("Building the world");
-    // Build the world
-    // TODO: make this setable/resetable via a ROS service call
-    switch (deformable_type_)
-    {
-        case DeformableType::ROPE:
-            makeRopeWorld();
-            break;
+    makeBulletObjects();
 
-        case DeformableType::CLOTH:
-            makeClothWorld();
-            break;
-
-        default:
-        {
-            ROS_FATAL_STREAM("Unknown deformable type " << deformable_type_);
-            throw_arc_exception(std::invalid_argument, "Unknown deformable object type " + std::to_string(deformable_type_));
-        }
-    };
 
     // Store the initial configuration as it will be needed by other libraries
     // TODO: find a better way to do this that exposes less internals
@@ -247,6 +230,9 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 // Construction helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
+
+
+
 void CustomScene::makeTable()
 {
     // table parameters
@@ -273,7 +259,7 @@ void CustomScene::makeTable()
     world_objects_["table"] = table;
 
     // if we are doing a table coverage task, create the table coverage points
-    if (task_type_ == TaskType::TABLE_COVERAGE)
+    if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
     {
         #pragma message "Cloth table cover points step size magic number"
         const float stepsize = 0.0125f * METERS;
@@ -325,7 +311,7 @@ void CustomScene::makeCylinder()
     env->add(cylinder);
     world_objects_["cylinder"] = cylinder;
 
-    if (deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::CYLINDER_COVERAGE)
+    if (deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::ROPE_CYLINDER_COVERAGE)
     {
         #pragma message "Magic numbers - discretization level of cover points"
         // consider 21 points around the cylinder
@@ -343,7 +329,7 @@ void CustomScene::makeCylinder()
             }
         }
     }
-    else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::CYLINDER_COVERAGE || task_type_ == TaskType::WAFR))
+    else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE || task_type_ == TaskType::CLOTH_WAFR))
     {
         const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
 
@@ -458,6 +444,58 @@ void CustomScene::makeGenericRegionCoverPoints()
     env->add(plot_points_);
 }
 
+
+
+
+
+void CustomScene::makeBulletObjects()
+{
+    ROS_INFO("Building the world");
+    // Build the world
+    switch (deformable_type_)
+    {
+        case DeformableType::ROPE:
+            makeRope();
+            makeSingleRopeGrippper();
+            break;
+
+        case DeformableType::CLOTH:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            break;
+
+        default:
+            ROS_FATAL_STREAM("Unknown deformable object type " << deformable_type_);
+            throw_arc_exception(std::invalid_argument, "Unknown deformable object type " + std::to_string(deformable_type_));
+    };
+
+    switch (task_type_)
+    {
+        case TaskType::CLOTH_CYLINDER_COVERAGE:
+            makeCylinder();
+            break;
+
+        case TaskType::CLOTH_TABLE_COVERAGE:
+            makeTable();
+            break;
+
+        case TaskType::CLOTH_COLAB_FOLDING:
+            makeClothTwoHumanControlledGrippers();
+            break;
+
+        case TaskType::CLOTH_WAFR:
+            makeCylinder();
+            break;
+
+        default:
+            ROS_FATAL_STREAM("Unknown task type " << task_type_);
+            throw_arc_exception(std::invalid_argument, "Unknown task type " + std::to_string(task_type_));
+    }
+
+    addGripperAxesToWorld();
+}
+
+
 void CustomScene::makeRope()
 {
     // find the needed table parameters
@@ -474,7 +512,7 @@ void CustomScene::makeRope()
     for (size_t n = 0; n < num_links; n++)
     {
         control_points[n] = rope_com
-                + btVector3(((float)n - (float)(num_links) / 2.0f) * rope_segment_length, 0, 0);
+                + btVector3(((btScalar)n - (btScalar)(num_links) / 2.0f) * rope_segment_length, 0, 0);
 
     }
     rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
@@ -539,7 +577,7 @@ void CustomScene::makeCloth()
     psb->randomizeConstraints();
 
 
-    if (task_type_ == TaskType::TABLE_COVERAGE)
+    if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
     {
         psb->generateClusters(0);
     }
@@ -564,184 +602,6 @@ void CustomScene::makeCloth()
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
     findClothCornerNodes();
-}
-
-void CustomScene::makeRopeWorld()
-{
-    makeRope();
-
-    // Here we assume that we are already working with a rope object
-    switch (task_type_)
-    {
-        case TaskType::CYLINDER_COVERAGE:
-        {
-            makeTable();
-            makeCylinder();
-
-            // add a single auto gripper to the world
-            grippers_["gripper"] = boost::make_shared< GripperKinematicObject>(
-                        "gripper",
-                        GetRopeGripperApperture(nh_) * METERS,
-                        btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-            grippers_["gripper"]->setWorldTransform(
-                    rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
-            grippers_["gripper"]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
-
-            auto_grippers_.push_back("gripper");
-
-            break;
-        }
-        default:
-        {
-            ROS_FATAL_STREAM("Unknown task type for a ROPE object " << task_type_);
-            throw_arc_exception(std::invalid_argument, "Unknown task type for a ROPE object " + std::to_string(task_type_));
-        }
-    }
-
-    for (auto& gripper: grippers_)
-    {
-        gripper_axes_[gripper.first] = boost::make_shared<PlotAxes>();
-
-        // Add the gripper and it's axis to the world
-        env->add(gripper.second);
-        env->add(gripper_axes_[gripper.first]);
-    }
-
-    // Add a gripper that is in the same state as used for the rope experiments
-    collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
-                "collision_check_gripper",
-                GetRopeGripperApperture(nh_) * METERS,
-                btVector4(0, 0, 0, 0));
-    collision_check_gripper_->setWorldTransform(btTransform());
-    env->add(collision_check_gripper_);
-}
-
-void CustomScene::makeClothWorld()
-{
-    makeCloth();
-
-    // add 2 auto grippers to the world
-    {
-        btVector3 gripper_half_extents;
-
-        // auto gripper0
-        grippers_["auto_gripper0"] = boost::make_shared< GripperKinematicObject>(
-                    "auto_gripper0",
-                    GetClothGripperApperture(nh_) * METERS,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-        gripper_half_extents = grippers_["auto_gripper0"]->getHalfExtents();
-        grippers_["auto_gripper0"]->setWorldTransform(
-                btTransform(btQuaternion(0, 0, 0, 1),
-                             cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
-                             + btVector3(gripper_half_extents.x(), gripper_half_extents.y(), 0)));
-
-        auto_grippers_.push_back("auto_gripper0");
-
-        // auto gripper1
-        grippers_["auto_gripper1"] = boost::make_shared< GripperKinematicObject>(
-                    "auto_gripper1",
-                    GetClothGripperApperture(nh_) * METERS,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-        gripper_half_extents = grippers_["auto_gripper1"]->getHalfExtents();
-        grippers_["auto_gripper1"]->setWorldTransform(
-                btTransform(btQuaternion(0, 0, 0, 1),
-                             cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
-                             + btVector3(gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
-
-        auto_grippers_.push_back("auto_gripper1");
-    }
-
-    switch (task_type_)
-    {
-        case TaskType::TABLE_COVERAGE:
-        {
-            makeTable();
-            break;
-        }
-        case TaskType::CYLINDER_COVERAGE:
-        {
-            makeCylinder();
-            break;
-        }
-        case TaskType::COLAB_FOLDING:
-        {
-            // add 2 manual grippers to the world
-            {
-                btVector3 gripper_half_extents;
-
-                // manual gripper0
-                grippers_["manual_gripper0"] = boost::make_shared< GripperKinematicObject>(
-                            "manual_gripper0",
-                            GetClothGripperApperture(nh_) * METERS,
-                            btVector4(0.6f, 0.6f, 0.6f, 0.4f));
-                gripper_half_extents = grippers_["manual_gripper0"]->getHalfExtents();
-                grippers_["manual_gripper0"]->setWorldTransform(
-                            btTransform(btQuaternion(0, 0, 0, 1),
-                                         cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x
-                        + btVector3(-gripper_half_extents.x(), gripper_half_extents.y(), 0)));
-
-                manual_grippers_.push_back("manual_gripper0");
-                manual_grippers_paths_.push_back(ManualGripperPath(grippers_["manual_gripper0"], &gripperPath0));
-
-                // manual gripper1
-                grippers_["manual_gripper1"] = boost::make_shared< GripperKinematicObject>(
-                            "manual_gripper1",
-                            GetClothGripperApperture(nh_) * METERS,
-                            btVector4(0.6f, 0.6f, 0.6f, 0.4f));
-                gripper_half_extents = grippers_["manual_gripper1"]->getHalfExtents();
-                grippers_["manual_gripper1"]->setWorldTransform(
-                            btTransform(btQuaternion(0, 0, 0, 1),
-                                         cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x
-                        + btVector3(-gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
-
-                manual_grippers_.push_back("manual_gripper1");
-                manual_grippers_paths_.push_back(ManualGripperPath(grippers_["manual_gripper1"], &gripperPath1));
-            }
-            break;
-        }
-        case TaskType::WAFR:
-        {
-            makeCylinder();
-            break;
-        }
-        case TaskType::SINGLE_POLE:
-        {
-            makeSinglePoleObstacles();
-            makeGenericRegionCoverPoints();
-            break;
-        }
-        default:
-        {
-            ROS_FATAL_STREAM("Unknown task type for a CLOTH object " << task_type_);
-            throw_arc_exception(std::invalid_argument, "Unknown task type for a CLOTH object " + std::to_string(task_type_));
-        }
-    }
-
-    for (auto& gripper: grippers_)
-    {
-        // Grip the cloth
-        gripper.second->toggleOpen();
-        gripper.second->toggleAttach(cloth_->softBody.get());
-
-        gripper_axes_[gripper.first] = boost::make_shared<PlotAxes>();
-
-        // Add the gripper and its axis to the world
-        env->add(gripper.second);
-        env->add(gripper_axes_[gripper.first]);
-
-        // Add a callback in case this gripper gets step_openclose activated on it
-        // This is a state machine whose input comes from CustomKeyHandler
-        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, gripper.second, cloth_->softBody.get()));
-    }
-
-    // Add a gripper that is in the same state as used for the cloth experiments
-    collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
-                "collision_check_gripper",
-                GetClothGripperApperture(nh_) * METERS,
-                btVector4(0, 0, 0, 0));
-    collision_check_gripper_->setWorldTransform(btTransform());
-    collision_check_gripper_->toggleOpen();
-    env->add(collision_check_gripper_);
 }
 
 /**
@@ -812,29 +672,188 @@ void CustomScene::findClothCornerNodes()
             corner_node_positions[3] = cloth_nodes[ind].m_x;
         }
     }
+}
 
-    // Create a mirror line if we are doing colaborative folding
-    if (task_type_ == TaskType::COLAB_FOLDING)
+void CustomScene::createClothMirrorLine()
+{
+    const btSoftBody::tNodeArray cloth_nodes = cloth_->softBody->m_nodes;
+    const btVector3& min_x_min_y = cloth_nodes[cloth_corner_node_indices_[0]].m_x;
+//    const btVector3& min_x_max_y = cloth_nodes[cloth_corner_node_indices_[1]].m_x;
+//    const btVector3& max_x_min_y = cloth_nodes[cloth_corner_node_indices_[2]].m_x;
+    const btVector3& max_x_max_y = cloth_nodes[cloth_corner_node_indices_[3]].m_x;
+
+    mirror_line_data_.min_y = min_x_min_y.y() / METERS;
+    mirror_line_data_.max_y = max_x_max_y.y() / METERS;
+    mirror_line_data_.mid_x = (min_x_min_y.x() + (max_x_max_y.x() - min_x_min_y.x()) / 2) / METERS;
+
+    std::vector<btVector3> mirror_line_points;
+    mirror_line_points.push_back(btVector3((btScalar)mirror_line_data_.mid_x, (btScalar)mirror_line_data_.min_y, 0.8f) * METERS);
+    mirror_line_points.push_back(btVector3((btScalar)mirror_line_data_.mid_x, (btScalar)mirror_line_data_.max_y, 0.8f) * METERS);
+    std::vector<btVector4> mirror_line_colors;
+    mirror_line_colors.push_back(btVector4(1,0,0,1));
+
+    PlotLines::Ptr line_strip = boost::make_shared<PlotLines>(0.1f * METERS);
+    line_strip->setPoints(mirror_line_points, mirror_line_colors);
+    visualization_line_markers_["mirror_line"] = line_strip;
+
+    env->add(line_strip);
+}
+
+
+
+void CustomScene::makeSingleRopeGrippper()
+{
+    // rope_gripper (the only)
     {
-        mirror_line_data_.min_y = corner_node_positions[0].y() / METERS;
-        mirror_line_data_.max_y = corner_node_positions[3].y() / METERS;
-        mirror_line_data_.mid_x = (corner_node_positions[0].x() +
-                (corner_node_positions[3].x() - corner_node_positions[0].x()) / 2)  / METERS;
+        const std::string gripper_name = "rope_gripper";
 
-        std::vector<btVector3> mirror_line_points;
-        mirror_line_points.push_back(btVector3((float)mirror_line_data_.mid_x, (float)mirror_line_data_.min_y, 0.8f) * METERS);
-        mirror_line_points.push_back(btVector3((float)mirror_line_data_.mid_x, (float)mirror_line_data_.max_y, 0.8f) * METERS);
-        std::vector<btVector4> mirror_line_colors;
-        mirror_line_colors.push_back(btVector4(1,0,0,1));
+        // add a single auto gripper to the world
+        grippers_[gripper_name] = boost::make_shared< GripperKinematicObject>(gripper_name, GetRopeGripperApperture(nh_) * METERS, btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
 
-        PlotLines::Ptr line_strip = boost::make_shared<PlotLines>(0.1f * METERS);
-        line_strip->setPoints(mirror_line_points,
-                               mirror_line_colors);
-        visualization_line_markers_["mirror_line"] = line_strip;
+        auto_grippers_.push_back(gripper_name);
 
-        env->add(line_strip);
+        // Add some axes to the world at the origin of the gripper frame
+        gripper_axes_[gripper_name] = boost::make_shared<PlotAxes>();
+
+        env->add(grippers_[gripper_name]);
+        env->add(gripper_axes_[gripper_name]);
+    }
+
+    // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
+    collision_check_gripper_ = boost::make_shared< GripperKinematicObject>("collision_check_gripper", GetRopeGripperApperture(nh_) * METERS, btVector4(0, 0, 0, 0));
+    collision_check_gripper_->setWorldTransform(btTransform());
+    env->add(collision_check_gripper_);
+}
+
+void CustomScene::makeClothTwoRobotControlledGrippers()
+{
+    // auto gripper0
+    {
+        const std::string auto_gripper0_name = "auto_gripper0";
+        grippers_[auto_gripper0_name] = boost::make_shared< GripperKinematicObject>(
+                    auto_gripper0_name,
+                    GetClothGripperApperture(nh_) * METERS,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+        const btVector3 gripper_half_extents = grippers_[auto_gripper0_name]->getHalfExtents();
+        grippers_[auto_gripper0_name]->setWorldTransform(
+                btTransform(btQuaternion(0, 0, 0, 1),
+                             cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
+                             + btVector3(gripper_half_extents.x(), gripper_half_extents.y(), 0)));
+
+        // Grip the cloth
+        grippers_[auto_gripper0_name]->toggleOpen();
+        grippers_[auto_gripper0_name]->toggleAttach(cloth_->softBody.get());
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[auto_gripper0_name], cloth_->softBody.get()));
+
+        auto_grippers_.push_back(auto_gripper0_name);
+    }
+
+
+    // auto gripper1
+    {
+        const std::string auto_gripper1_name = "auto_gripper1";
+        grippers_[auto_gripper1_name] = boost::make_shared< GripperKinematicObject>(
+                    auto_gripper1_name,
+                    GetClothGripperApperture(nh_) * METERS,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+        const btVector3 gripper_half_extents = grippers_[auto_gripper1_name]->getHalfExtents();
+        grippers_[auto_gripper1_name]->setWorldTransform(
+                    btTransform(btQuaternion(0, 0, 0, 1),
+                                cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
+                + btVector3(gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
+
+        // Grip the cloth
+        grippers_[auto_gripper1_name]->toggleOpen();
+        grippers_[auto_gripper1_name]->toggleAttach(cloth_->softBody.get());
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[auto_gripper1_name], cloth_->softBody.get()));
+
+        auto_grippers_.push_back(auto_gripper1_name);
+    }
+
+
+    // Add a collision check gripper that is in the same kinematic state as used for the cloth experiments
+    {
+        collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
+                    "collision_check_gripper",
+                    GetClothGripperApperture(nh_) * METERS,
+                    btVector4(0, 0, 0, 0));
+        collision_check_gripper_->setWorldTransform(btTransform());
+        collision_check_gripper_->toggleOpen();
+        env->add(collision_check_gripper_);
     }
 }
+
+void CustomScene::makeClothTwoHumanControlledGrippers()
+{
+    // manual gripper0
+    {
+        const std::string manual_gripper0_name = "manual_gripper0";
+        grippers_[manual_gripper0_name] = boost::make_shared< GripperKinematicObject>(
+                    manual_gripper0_name,
+                    GetClothGripperApperture(nh_) * METERS,
+                    btVector4(0.6f, 0.6f, 0.6f, 0.4f));
+        const btVector3 gripper_half_extents = grippers_[manual_gripper0_name]->getHalfExtents();
+        grippers_[manual_gripper0_name]->setWorldTransform(
+                    btTransform(btQuaternion(0, 0, 0, 1),
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[2]].m_x
+                + btVector3(-gripper_half_extents.x(), gripper_half_extents.y(), 0)));
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[manual_gripper0_name], cloth_->softBody.get()));
+
+        manual_grippers_.push_back(manual_gripper0_name);
+        manual_grippers_paths_.push_back(ManualGripperPath(grippers_[manual_gripper0_name], &gripperPath0));
+    }
+
+
+    // manual gripper1
+    {
+        const std::string manual_gripper1_name = "manual_gripper1";
+        grippers_[manual_gripper1_name] = boost::make_shared< GripperKinematicObject>(
+                    manual_gripper1_name,
+                    GetClothGripperApperture(nh_) * METERS,
+                    btVector4(0.6f, 0.6f, 0.6f, 0.4f));
+        const btVector3 gripper_half_extents = grippers_[manual_gripper1_name]->getHalfExtents();
+        grippers_[manual_gripper1_name]->setWorldTransform(
+                    btTransform(btQuaternion(0, 0, 0, 1),
+                                 cloth_->softBody->m_nodes[cloth_corner_node_indices_[3]].m_x
+                + btVector3(-gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[manual_gripper1_name], cloth_->softBody.get()));
+
+        manual_grippers_.push_back(manual_gripper1_name);
+        manual_grippers_paths_.push_back(ManualGripperPath(grippers_[manual_gripper1_name], &gripperPath1));
+    }
+}
+
+void CustomScene::addGripperAxesToWorld()
+{
+    for (auto& gripper: grippers_)
+    {
+        gripper_axes_[gripper.first] = boost::make_shared<PlotAxes>();
+
+        // Add the gripper and its axis to the world
+        env->add(gripper.second);
+        env->add(gripper_axes_[gripper.first]);
+    }
+}
+
+
+
+
+
+
 
 void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind)
 {
@@ -1274,7 +1293,7 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
         boost::shared_ptr<CapsuleRope> rope_to_fork,
         std::map<std::string, GripperKinematicObject::Ptr> grippers_to_fork)
 {
-    assert(task_type_ != TaskType::COLAB_FOLDING && "This does not yet work with colab folding - due to manual gripper path stuff");
+    assert(task_type_ != TaskType::CLOTH_COLAB_FOLDING && "This does not yet work with colab folding - due to manual gripper path stuff");
 
     SimForkResult result;
     result.bullet_.reset(new BulletInstance());
@@ -1505,7 +1524,7 @@ bool CustomScene::getMirrorLineCallback(
         smmap_msgs::GetMirrorLine::Response& res)
 {
     (void)req;
-    if (task_type_ == TaskType::COLAB_FOLDING &&
+    if (task_type_ == TaskType::CLOTH_COLAB_FOLDING &&
          deformable_type_ == DeformableType::CLOTH)
     {
         res = mirror_line_data_;
