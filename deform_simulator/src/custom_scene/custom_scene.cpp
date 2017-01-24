@@ -230,11 +230,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 // Construction helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
-
-
-
-
-
 void CustomScene::makeBulletObjects()
 {
     ROS_INFO("Building the world");
@@ -279,6 +274,11 @@ void CustomScene::makeBulletObjects()
             makeCylinder();
             break;
 
+        case TaskType::CLOTH_SINGLE_POLE:
+            makeSinglePoleObstacles();
+            makeGenericRegionCoverPoints();
+            break;
+
         default:
             ROS_FATAL_STREAM("Unknown task type " << task_type_);
             throw_arc_exception(std::invalid_argument, "Unknown task type " + std::to_string(task_type_));
@@ -286,6 +286,7 @@ void CustomScene::makeBulletObjects()
 
     addGripperAxesToWorld();
 }
+
 
 
 void CustomScene::makeRope()
@@ -643,8 +644,6 @@ void CustomScene::addGripperAxesToWorld()
 
 
 
-
-
 void CustomScene::makeTable()
 {
     // table parameters
@@ -723,7 +722,7 @@ void CustomScene::makeCylinder()
     env->add(cylinder);
     world_objects_["cylinder"] = cylinder;
 
-    if (deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::ROPE_CYLINDER_COVERAGE)
+    if (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE)
     {
         #pragma message "Magic numbers - discretization level of cover points"
         // consider 21 points around the cylinder
@@ -839,13 +838,13 @@ void CustomScene::makeGenericRegionCoverPoints()
 
     for (size_t x_ind = 0; x_ind < x_steps; ++x_ind)
     {
-        const btScalar x = x_min + (btScalar)x_steps * x_res;
+        const btScalar x = x_min + (btScalar)x_ind * x_res;
         for (size_t y_ind = 0; y_ind < y_steps; ++y_ind)
         {
-            const btScalar y = y_min + (btScalar)y_steps * y_res;
+            const btScalar y = y_min + (btScalar)y_ind * y_res;
             for (size_t z_ind = 0; z_ind < z_steps; ++z_ind)
             {
-                const btScalar z = z_min + (btScalar)z_steps * z_res;
+                const btScalar z = z_min + (btScalar)z_ind * z_res;
                 cover_points_.push_back(btVector3(x, y, z));
             }
         }
@@ -854,9 +853,9 @@ void CustomScene::makeGenericRegionCoverPoints()
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
+
+    std::cout << "Num cover points: " << cover_points_.size() << std::endl;
 }
-
-
 
 
 
@@ -922,14 +921,14 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         graph_corners_.reserve((8));
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wconversion"
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMin(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMin(), (float)free_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3((float)free_space_grid_.getXMax(), (float)free_space_grid_.getYMax(), (float)free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMax(), free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMax(), free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMin(), free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMin(), free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMax(), free_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMax(), free_space_grid_.getZMax())), 1));
         #pragma GCC diagnostic pop
         for (auto& corner: graph_corners_)
         {
