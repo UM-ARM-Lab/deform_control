@@ -96,8 +96,8 @@ class CustomScene : public Scene
         void makeBulletObjects();
 
         void makeRope();
-        void makeCloth();
 
+        void makeCloth();
         void findClothCornerNodes();
         void createClothMirrorLine();
 
@@ -111,8 +111,11 @@ class CustomScene : public Scene
         void makeTable();
         void makeCylinder();
         void makeSinglePoleObstacles();
-        void makeGenericRegionCoverPoints();
+        void makeWallObstacles();
+        void makeClothWallObstacles();
+        void makeClothDoubleSlitObstacles();
 
+        void makeGenericRegionCoverPoints();
 
 
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);

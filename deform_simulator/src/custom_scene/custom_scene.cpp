@@ -279,6 +279,16 @@ void CustomScene::makeBulletObjects()
             makeGenericRegionCoverPoints();
             break;
 
+        case TaskType::CLOTH_WALL:
+            makeClothWallObstacles();
+            makeGenericRegionCoverPoints();
+            break;
+
+        case TaskType::CLOTH_DOUBLE_SLIT:
+            makeClothDoubleSlitObstacles();
+            makeGenericRegionCoverPoints();
+            break;
+
         default:
             ROS_FATAL_STREAM("Unknown task type " << task_type_);
             throw_arc_exception(std::invalid_argument, "Unknown task type " + std::to_string(task_type_));
@@ -819,6 +829,88 @@ void CustomScene::makeSinglePoleObstacles()
     env->add(cylinder);
     world_objects_["cylinder"] = cylinder;
 }
+
+void CustomScene::makeClothWallObstacles()
+{
+    // Cylinder parameters
+    const btVector3 cylinder_com_origin =
+        btVector3(GetCylinderCenterOfMassX(nh_),
+                  GetCylinderCenterOfMassY(nh_),
+                  GetCylinderCenterOfMassZ(nh_)) * METERS;
+
+    const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
+    const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
+
+    // create a cylinder
+    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                0, cylinder_radius, cylinder_height,
+                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+    // add the cylinder to the world
+    env->add(cylinder);
+    world_objects_["cylinder"] = cylinder;
+
+
+    // Wall parameters
+    const btVector3 wall_half_extents(cylinder_radius, 0.5f * METERS, cylinder_height / 2.0f);
+    const btVector3 wall_com = cylinder_com_origin - btVector3(0, wall_half_extents.y(), 0);
+
+    BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                0, wall_half_extents,
+                btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+    wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+    // add the wall to the world
+    env->add(wall);
+    world_objects_["wall"] = wall;
+}
+
+void CustomScene::makeClothDoubleSlitObstacles()
+{
+    const btVector3 wall_section_half_extents =
+            btVector3(0.04f, 0.12f, 0.5f) * METERS;
+
+    const btVector3 center_wall_section_com =
+            btVector3(0.0f, 0.0f, 0.8f) * METERS;
+
+    const btVector3 outside_wall_offset =
+            btVector3(0.0f, 0.3f, 0.0f) * METERS;
+
+    // Center wall
+    BoxObject::Ptr center_wall = boost::make_shared<BoxObject>(
+                0, wall_section_half_extents,
+                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com));
+    center_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+    // add the wall to the world
+    env->add(center_wall);
+    world_objects_["center_wall"] = center_wall;
+
+
+    // Left wall
+    BoxObject::Ptr left_wall = boost::make_shared<BoxObject>(
+                0, wall_section_half_extents,
+                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com + outside_wall_offset));
+    left_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+    // add the wall to the world
+    env->add(left_wall);
+    world_objects_["left_wall"] = left_wall;
+
+
+    // Right wall
+    BoxObject::Ptr right_wall = boost::make_shared<BoxObject>(
+                0, wall_section_half_extents,
+                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com - outside_wall_offset));
+    right_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+    // add the wall to the world
+    env->add(right_wall);
+    world_objects_["right_wall"] = right_wall;
+}
+
+
 
 void CustomScene::makeGenericRegionCoverPoints()
 {
