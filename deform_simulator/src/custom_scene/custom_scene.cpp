@@ -233,219 +233,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
 
 
-void CustomScene::makeTable()
-{
-    // table parameters
-    const btVector3 table_surface_position =
-            btVector3(GetTableSurfaceX(nh_),
-                      GetTableSurfaceY(nh_),
-                      GetTableSurfaceZ(nh_)) * METERS;
-    const btVector3 table_half_extents =
-            btVector3(GetTableHalfExtentsX(nh_),
-                      GetTableHalfExtentsY(nh_),
-                      GetTableThickness(nh_) / 2.0f ) * METERS;
-
-    const btVector3 table_com = table_surface_position - btVector3(0, 0, table_half_extents.z());
-
-    // create the table
-    BoxObject::Ptr table = boost::make_shared<BoxObject> (
-                0, table_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), table_com));
-    table->setColor(0.4f, 0.4f, 0.4f, 1.0f);
-    table->rigidBody->setFriction(1.0f);
-//    table->rigidBody->getCollisionShape()->setMargin(0.0001f * METERS); // default 0.04
-
-    env->add(table);
-    world_objects_["table"] = table;
-
-    // if we are doing a table coverage task, create the table coverage points
-    if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
-    {
-        #pragma message "Cloth table cover points step size magic number"
-        const float stepsize = 0.0125f * METERS;
-        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
-
-        const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
-        std::vector<btVector3> cloth_coverage_lines;
-        for(float y = -table->halfExtents.y(); y <= table->halfExtents.y(); y += stepsize)
-        {
-            // Add a coverage line to the visualization
-            cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (-table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
-
-            cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
-
-            // Add many coverage points along the coverage line
-            for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
-            {
-                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin));
-            }
-        }
-        ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
-
-        std::vector<btVector4> cloth_coverage_color(cloth_coverage_lines.size(), btVector4(1, 0, 0, 1));
-        plot_lines_->setPoints(cloth_coverage_lines, cloth_coverage_color);
-        env->add(plot_lines_);
-    }
-}
-
-void CustomScene::makeCylinder()
-{
-    // cylinder parameters
-    const btVector3 cylinder_com_origin =
-        btVector3(GetCylinderCenterOfMassX(nh_),
-                  GetCylinderCenterOfMassY(nh_),
-                  GetCylinderCenterOfMassZ(nh_)) * METERS;
-
-    const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
-    const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
-
-    // create a cylinder
-    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
-                0, cylinder_radius, cylinder_height,
-                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
-    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
-
-    // add the cylinder to the world
-    env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
-
-    if (deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::ROPE_CYLINDER_COVERAGE)
-    {
-        #pragma message "Magic numbers - discretization level of cover points"
-        // consider 21 points around the cylinder
-        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-        // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
-        {
-            // 31 points per theta
-            for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
-            {
-                cover_points_.push_back(
-                        cylinder_com_origin
-                        + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
-                                     (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
-                                     h));
-            }
-        }
-    }
-    else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE || task_type_ == TaskType::CLOTH_WAFR))
-    {
-        const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
-
-        #pragma message "Magic numbers - discretization level of cover points"
-        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
-        {
-            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
-            {
-                // Only accept those points that are within the bounding circle
-                if (x * x + y * y < cylinder_radius * cylinder_radius)
-                {
-                    cover_points_.push_back(
-                                cylinder_com_origin
-                                + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
-                }
-            }
-        }
-
-
-        ////////////////////////////////////////////////////////////////////////
-        // Horizontal Cylinder above first cylinder
-        ////////////////////////////////////////////////////////////////////////
-
-        const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                btVector3(-0.15f, 0.0f, 0.20f) * METERS;
-
-        CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                    0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
-                    btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
-        horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
-
-        // add the cylinder to the world
-        env->add(horizontal_cylinder);
-        world_objects_["horizontal_cylinder"] = horizontal_cylinder;
-
-        #pragma message "Magic numbers - discretization level of cover points"
-        for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
-        {
-            const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
-
-            for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
-            {
-                cover_points_.push_back(
-                            horizontal_cylinder_com_origin
-                            + btVector3(
-                                cover_points_radius * std::sin(theta),
-                                h,
-                                cover_points_radius * std::cos(theta)));
-            }
-        }
-    }
-
-    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
-    plot_points_->setPoints(cover_points_, coverage_color);
-    env->add(plot_points_);
-}
-
-void CustomScene::makeSinglePoleObstacles()
-{
-    // cylinder parameters
-    const btVector3 cylinder_com_origin =
-        btVector3(GetCylinderCenterOfMassX(nh_),
-                  GetCylinderCenterOfMassY(nh_),
-                  GetCylinderCenterOfMassZ(nh_)) * METERS;
-
-    const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
-    const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
-
-    // create a cylinder
-    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
-                0, cylinder_radius, cylinder_height,
-                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
-    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
-
-    // add the cylinder to the world
-    env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
-}
-
-void CustomScene::makeGenericRegionCoverPoints()
-{
-    const btScalar x_min = GetCoverRegionXMin(nh_) * METERS;
-    const size_t x_steps = GetCoverRegionXSteps(nh_);
-    const btScalar x_res = GetCoverRegionXRes(nh_) * METERS;
-
-    const btScalar y_min = GetCoverRegionYMin(nh_) * METERS;
-    const size_t y_steps = GetCoverRegionYSteps(nh_);
-    const btScalar y_res = GetCoverRegionYRes(nh_) * METERS;
-
-    const btScalar z_min = GetCoverRegionZMin(nh_) * METERS;
-    const size_t z_steps = GetCoverRegionZSteps(nh_);
-    const btScalar z_res = GetCoverRegionZRes(nh_) * METERS;
-
-    cover_points_.reserve(cover_points_.size() + x_steps * y_steps * z_steps);
-
-    for (size_t x_ind = 0; x_ind < x_steps; ++x_ind)
-    {
-        const btScalar x = x_min + (btScalar)x_steps * x_res;
-        for (size_t y_ind = 0; y_ind < y_steps; ++y_ind)
-        {
-            const btScalar y = y_min + (btScalar)y_steps * y_res;
-            for (size_t z_ind = 0; z_ind < z_steps; ++z_ind)
-            {
-                const btScalar z = z_min + (btScalar)z_steps * z_res;
-                cover_points_.push_back(btVector3(x, y, z));
-            }
-        }
-    }
-
-    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
-    plot_points_->setPoints(cover_points_, coverage_color);
-    env->add(plot_points_);
-}
-
-
-
 
 
 void CustomScene::makeBulletObjects()
@@ -471,6 +258,11 @@ void CustomScene::makeBulletObjects()
 
     switch (task_type_)
     {
+        case TaskType::ROPE_CYLINDER_COVERAGE:
+            makeTable();
+            makeCylinder();
+            break;
+
         case TaskType::CLOTH_CYLINDER_COVERAGE:
             makeCylinder();
             break;
@@ -850,6 +642,219 @@ void CustomScene::addGripperAxesToWorld()
 }
 
 
+
+
+
+void CustomScene::makeTable()
+{
+    // table parameters
+    const btVector3 table_surface_position =
+            btVector3(GetTableSurfaceX(nh_),
+                      GetTableSurfaceY(nh_),
+                      GetTableSurfaceZ(nh_)) * METERS;
+    const btVector3 table_half_extents =
+            btVector3(GetTableHalfExtentsX(nh_),
+                      GetTableHalfExtentsY(nh_),
+                      GetTableThickness(nh_) / 2.0f ) * METERS;
+
+    const btVector3 table_com = table_surface_position - btVector3(0, 0, table_half_extents.z());
+
+    // create the table
+    BoxObject::Ptr table = boost::make_shared<BoxObject> (
+                0, table_half_extents,
+                btTransform(btQuaternion(0, 0, 0, 1), table_com));
+    table->setColor(0.4f, 0.4f, 0.4f, 1.0f);
+    table->rigidBody->setFriction(1.0f);
+//    table->rigidBody->getCollisionShape()->setMargin(0.0001f * METERS); // default 0.04
+
+    env->add(table);
+    world_objects_["table"] = table;
+
+    // if we are doing a table coverage task, create the table coverage points
+    if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
+    {
+        #pragma message "Cloth table cover points step size magic number"
+        const float stepsize = 0.0125f * METERS;
+        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
+
+        const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
+        std::vector<btVector3> cloth_coverage_lines;
+        for(float y = -table->halfExtents.y(); y <= table->halfExtents.y(); y += stepsize)
+        {
+            // Add a coverage line to the visualization
+            cloth_coverage_lines.push_back(
+                    table_tf * btVector3 (-table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
+
+            cloth_coverage_lines.push_back(
+                    table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
+
+            // Add many coverage points along the coverage line
+            for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
+            {
+                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin));
+            }
+        }
+        ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
+
+        std::vector<btVector4> cloth_coverage_color(cloth_coverage_lines.size(), btVector4(1, 0, 0, 1));
+        plot_lines_->setPoints(cloth_coverage_lines, cloth_coverage_color);
+        env->add(plot_lines_);
+    }
+}
+
+void CustomScene::makeCylinder()
+{
+    // cylinder parameters
+    const btVector3 cylinder_com_origin =
+        btVector3(GetCylinderCenterOfMassX(nh_),
+                  GetCylinderCenterOfMassY(nh_),
+                  GetCylinderCenterOfMassZ(nh_)) * METERS;
+
+    const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
+    const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
+
+    // create a cylinder
+    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                0, cylinder_radius, cylinder_height,
+                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+    // add the cylinder to the world
+    env->add(cylinder);
+    world_objects_["cylinder"] = cylinder;
+
+    if (deformable_type_ == DeformableType::ROPE && task_type_ == TaskType::ROPE_CYLINDER_COVERAGE)
+    {
+        #pragma message "Magic numbers - discretization level of cover points"
+        // consider 21 points around the cylinder
+        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+        // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+        {
+            // 31 points per theta
+            for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
+            {
+                cover_points_.push_back(
+                        cylinder_com_origin
+                        + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                     (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                     h));
+            }
+        }
+    }
+    else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE || task_type_ == TaskType::CLOTH_WAFR))
+    {
+        const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
+
+        #pragma message "Magic numbers - discretization level of cover points"
+        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
+        {
+            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
+            {
+                // Only accept those points that are within the bounding circle
+                if (x * x + y * y < cylinder_radius * cylinder_radius)
+                {
+                    cover_points_.push_back(
+                                cylinder_com_origin
+                                + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+                }
+            }
+        }
+
+
+        ////////////////////////////////////////////////////////////////////////
+        // Horizontal Cylinder above first cylinder
+        ////////////////////////////////////////////////////////////////////////
+
+        const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
+                btVector3(-0.15f, 0.0f, 0.20f) * METERS;
+
+        CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
+                    btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
+        horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+        // add the cylinder to the world
+        env->add(horizontal_cylinder);
+        world_objects_["horizontal_cylinder"] = horizontal_cylinder;
+
+        #pragma message "Magic numbers - discretization level of cover points"
+        for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+        {
+            const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
+
+            for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+            {
+                cover_points_.push_back(
+                            horizontal_cylinder_com_origin
+                            + btVector3(
+                                cover_points_radius * std::sin(theta),
+                                h,
+                                cover_points_radius * std::cos(theta)));
+            }
+        }
+    }
+
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+}
+
+void CustomScene::makeSinglePoleObstacles()
+{
+    // cylinder parameters
+    const btVector3 cylinder_com_origin =
+        btVector3(GetCylinderCenterOfMassX(nh_),
+                  GetCylinderCenterOfMassY(nh_),
+                  GetCylinderCenterOfMassZ(nh_)) * METERS;
+
+    const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
+    const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
+
+    // create a cylinder
+    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                0, cylinder_radius, cylinder_height,
+                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+    // add the cylinder to the world
+    env->add(cylinder);
+    world_objects_["cylinder"] = cylinder;
+}
+
+void CustomScene::makeGenericRegionCoverPoints()
+{
+    const btScalar x_min = GetCoverRegionXMin(nh_) * METERS;
+    const size_t x_steps = GetCoverRegionXSteps(nh_);
+    const btScalar x_res = GetCoverRegionXRes(nh_) * METERS;
+
+    const btScalar y_min = GetCoverRegionYMin(nh_) * METERS;
+    const size_t y_steps = GetCoverRegionYSteps(nh_);
+    const btScalar y_res = GetCoverRegionYRes(nh_) * METERS;
+
+    const btScalar z_min = GetCoverRegionZMin(nh_) * METERS;
+    const size_t z_steps = GetCoverRegionZSteps(nh_);
+    const btScalar z_res = GetCoverRegionZRes(nh_) * METERS;
+
+    cover_points_.reserve(cover_points_.size() + x_steps * y_steps * z_steps);
+
+    for (size_t x_ind = 0; x_ind < x_steps; ++x_ind)
+    {
+        const btScalar x = x_min + (btScalar)x_steps * x_res;
+        for (size_t y_ind = 0; y_ind < y_steps; ++y_ind)
+        {
+            const btScalar y = y_min + (btScalar)y_steps * y_res;
+            for (size_t z_ind = 0; z_ind < z_steps; ++z_ind)
+            {
+                const btScalar z = z_min + (btScalar)z_steps * z_res;
+                cover_points_.push_back(btVector3(x, y, z));
+            }
+        }
+    }
+
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+}
 
 
 
