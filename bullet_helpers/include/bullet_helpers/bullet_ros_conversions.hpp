@@ -56,9 +56,9 @@ namespace BulletHelpers
         assert(-100.0f < vec.x() && vec.x() < 100.0f);
         assert(-100.0f < vec.y() && vec.y() < 100.0f);
         assert(-100.0f < vec.z() && vec.z() < 100.0f);
-        point.x = vec.x()/bt_scale;
-        point.y = vec.y()/bt_scale;
-        point.z = vec.z()/bt_scale;
+        point.x = vec.x() / bt_scale;
+        point.y = vec.y() / bt_scale;
+        point.z = vec.z() / bt_scale;
         return point;
     }
 
@@ -70,10 +70,10 @@ namespace BulletHelpers
         return pose;
     }
 
-    inline std::vector<geometry_msgs::Point> toRosPointVector(const std::vector< btVector3>& bt, const float bt_scale)
+    inline std::vector<geometry_msgs::Point> toRosPointVector(const std::vector<btVector3>& bt, const float bt_scale)
     {
         std::vector<geometry_msgs::Point> ros(bt.size());
-        for (size_t i = 0; i < bt.size() ; i++)
+        for (size_t i = 0; i < bt.size() ; ++i)
         {
             ros[i] = toRosPoint(bt[i], bt_scale);
         }
@@ -86,25 +86,25 @@ namespace BulletHelpers
     {
         const size_t num_lines = marker.points.size();
 
-        auto points = marker.points;
-        auto colors = marker.colors;
+        const auto points = marker.points;
+        const auto colors = marker.colors;
 
         assert(points.size() >= 2);
         assert(points.size() == colors.size());
 
         marker.points.resize(num_lines * 2 - 2);
         marker.colors.resize(num_lines * 2 - 2);
-        for (size_t ind = 1; ind < num_lines*2 - 2 ; ind++)
+        for (size_t ind = 1; ind < num_lines*2 - 2; ++ind)
         {
             marker.points[ind] = points[(ind+1)/2];
             marker.colors[ind] = colors[(ind+1)/2];
         }
     }
 
-    inline std::vector<btVector3> toBulletPointVector(const std::vector< geometry_msgs::Point>& ros, const float bt_scale)
+    inline std::vector<btVector3> toBulletPointVector(const std::vector<geometry_msgs::Point>& ros, const float bt_scale)
     {
         std::vector<btVector3> bt(ros.size());
-        for (size_t i = 0; i < ros.size() ; i++)
+        for (size_t i = 0; i < ros.size(); ++i)
         {
             bt[i] = toBulletVector3(ros[i], bt_scale);
         }
@@ -116,7 +116,7 @@ namespace BulletHelpers
         return btVector4(ros.r, ros.g, ros.b, ros.a);
     }
 
-    inline std::vector<btVector4> toBulletColorArray(const std::vector< std_msgs::ColorRGBA>& ros)
+    inline std::vector<btVector4> toBulletColorArray(const std::vector<std_msgs::ColorRGBA>& ros)
     {
         std::vector<btVector4> bt(ros.size());
         for (size_t i = 0; i < ros.size() ; i++)

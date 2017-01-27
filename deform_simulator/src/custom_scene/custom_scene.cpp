@@ -162,7 +162,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, smmap::GetScreenshotsEnabled(ph_), smmap::GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph and collision map while the object settles
-        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, true);
+        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, false);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
         // Let the object settle before anything else happens
         ROS_INFO("Waiting for the scene to settle");
@@ -1013,6 +1013,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         graph_corners_.reserve((8));
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wconversion"
+        #pragma GCC diagnostic ignored "-Wfloat-conversion"
         graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMin())), 1));
         graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMax())), 1));
         graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMax(), free_space_grid_.getZMin())), 1));
@@ -1454,7 +1455,7 @@ SimForkResult CustomScene::simulateInNewFork(
 void CustomScene::visualizationMarkerCallback(
         visualization_msgs::Marker marker)
 {
-    std::string id = marker.ns + std::to_string(marker.id);
+    const std::string id = marker.ns + std::to_string(marker.id);
 
     // TODO: make this mutex not quite so "global" around this switch
     std::lock_guard<std::mutex> lock(sim_mutex_);
@@ -1467,7 +1468,7 @@ void CustomScene::visualizationMarkerCallback(
             {
                 PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
                 points->setPoints(toOsgRefVec3Array(marker.points, METERS),
-                                   toOsgRefVec4Array(marker.colors));
+                                  toOsgRefVec4Array(marker.colors));
                 visualization_point_markers_[id] = points;
 
                 env->add(points);
@@ -1476,7 +1477,7 @@ void CustomScene::visualizationMarkerCallback(
             {
                 PlotPoints::Ptr points = visualization_point_markers_[id];
                 points->setPoints(toOsgRefVec3Array(marker.points, METERS),
-                                   toOsgRefVec4Array(marker.colors));
+                                  toOsgRefVec4Array(marker.colors));
             }
             break;
         }
@@ -1486,8 +1487,8 @@ void CustomScene::visualizationMarkerCallback(
             {
                 PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
                 spheres->plot(toOsgRefVec3Array(marker.points, METERS),
-                               toOsgRefVec4Array(marker.colors),
-                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                              toOsgRefVec4Array(marker.colors),
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
                 visualization_sphere_markers_[id] = spheres;
 
                 env->add(spheres);
@@ -1496,14 +1497,17 @@ void CustomScene::visualizationMarkerCallback(
             {
                 PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
                 spheres->plot(toOsgRefVec3Array(marker.points, METERS),
-                               toOsgRefVec4Array(marker.colors),
-                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                              toOsgRefVec4Array(marker.colors),
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
             }
             break;
         }
         case visualization_msgs::Marker::LINE_STRIP:
         {
-            convertLineStripToLineList(marker);
+            if (marker.points.size() > 0)
+            {
+                convertLineStripToLineList(marker);
+            }
         }
         case visualization_msgs::Marker::LINE_LIST:
         {
@@ -1512,7 +1516,7 @@ void CustomScene::visualizationMarkerCallback(
             {
                 PlotLines::Ptr line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
-                                       toBulletColorArray(marker.colors));
+                                      toBulletColorArray(marker.colors));
                 visualization_line_markers_[id] = line_strip;
 
                 env->add(line_strip);
@@ -1521,7 +1525,7 @@ void CustomScene::visualizationMarkerCallback(
             {
                 PlotLines::Ptr line_strip = visualization_line_markers_[id];
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
-                                       toBulletColorArray(marker.colors));
+                                      toBulletColorArray(marker.colors));
             }
             break;
         }
