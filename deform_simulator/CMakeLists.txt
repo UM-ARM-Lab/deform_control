@@ -52,7 +52,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Og -g -std=c++0x")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -g -std=c++0x")
 
 include_directories(include SYSTEM
     ${catkin_INCLUDE_DIRS}

@@ -159,7 +159,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         {
             startViewer();
         }
-        screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, smmap::GetScreenshotsEnabled(ph_), smmap::GetScreenshotFolder(nh_));
+        screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph and collision map while the object settles
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, false);
@@ -192,32 +192,59 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     std::thread spin_thread(&ROSHelpers::Spin, 100.0 / BulletConfig::dt);
     ROS_INFO("Simulation ready.");
 
-    ros::Publisher collision_map_pub = nh_.advertise<visualization_msgs::Marker>("collision_map", 1);
-    const visualization_msgs::Marker collision_map_marker = collision_map_for_export_.ExportForDisplay(
-                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
-                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 1, 0, 0),
-                arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 0.1f));
-    ros::Publisher sdf_pub = nh_.advertise<visualization_msgs::Marker>("sdf", 1);
-    const visualization_msgs::Marker sdf_marker = sdf_for_export_.ExportForDisplay();
+    ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
+    visualization_msgs::MarkerArray bullet_visualization_markers;
+    bullet_visualization_markers.markers.reserve(4);
+
+    // Build markers for regular publishing
+    {
+        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 1, 0, 0),
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 0.1f)));
+
+        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
+
+        visualization_msgs::Marker deformable_object_state_marker;
+        deformable_object_state_marker.header.frame_id = GetWorldFrameName();
+        deformable_object_state_marker.ns = "deformable_object";
+        deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
+        deformable_object_state_marker.scale.x = 0.01;
+        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 1, 0, 1);
+
+        bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
+
+        visualization_msgs::Marker cover_points_marker;
+        cover_points_marker.header.frame_id = GetWorldFrameName();
+        cover_points_marker.ns = "cover_points";
+        cover_points_marker.type = visualization_msgs::Marker::POINTS;
+        cover_points_marker.scale.x = 0.002;
+        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1, 0, 0, 1);
+        cover_points_marker.points = toRosPointVector(cover_points_, METERS);
+
+        bullet_visualization_markers.markers.push_back(cover_points_marker);
+    }
 
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
     while (ros::ok())
     {
+        smmap_msgs::SimulatorFeedback sim_fbk;
         {
             std::lock_guard<std::mutex> lock(sim_mutex_);
             step(0);
-            simulator_fbk_pub_.publish(createSimulatorFbk());
-
-            collision_map_pub.publish(collision_map_marker);
-            sdf_pub.publish(sdf_marker);
-
-//            osg::Vec3d eye, center, up;
-//            manip->getTransformation(eye, center, up);
-
-//            std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
-//                      << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
-//                      << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
+            sim_fbk = createSimulatorFbk();
         }
+
+        simulator_fbk_pub_.publish(sim_fbk);
+        bullet_visualization_markers.markers[2].points = sim_fbk.object_configuration;
+        bullet_visualization_pub.publish(bullet_visualization_markers);
+
+//        osg::Vec3d eye, center, up;
+//        manip->getTransformation(eye, center, up);
+
+//        std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
+//                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
+//                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
 
         std::this_thread::sleep_for(std::chrono::duration<double>(0.01));
     }
