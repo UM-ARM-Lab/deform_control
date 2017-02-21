@@ -538,7 +538,7 @@ void CustomScene::makeSingleRopeGrippper()
         const std::string gripper_name = "rope_gripper";
 
         // add a single auto gripper to the world
-        grippers_[gripper_name] = boost::make_shared< GripperKinematicObject>(gripper_name, GetRopeGripperApperture(nh_) * METERS, btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+        grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(gripper_name, GetGripperApperture(nh_) * METERS, btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
         grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
 
@@ -552,7 +552,7 @@ void CustomScene::makeSingleRopeGrippper()
     }
 
     // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
-    collision_check_gripper_ = boost::make_shared< GripperKinematicObject>("collision_check_gripper", GetRopeGripperApperture(nh_) * METERS, btVector4(0, 0, 0, 0));
+    collision_check_gripper_ = boost::make_shared<GripperKinematicObject>("collision_check_gripper", GetGripperApperture(nh_) * METERS, btVector4(0, 0, 0, 0));
     collision_check_gripper_->setWorldTransform(btTransform());
     env->add(collision_check_gripper_);
 }
@@ -562,9 +562,9 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     // auto gripper0
     {
         const std::string auto_gripper0_name = "auto_gripper0";
-        grippers_[auto_gripper0_name] = boost::make_shared< GripperKinematicObject>(
+        grippers_[auto_gripper0_name] = boost::make_shared<GripperKinematicObject>(
                     auto_gripper0_name,
-                    GetClothGripperApperture(nh_) * METERS,
+                    GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         const btVector3 gripper_half_extents = grippers_[auto_gripper0_name]->getHalfExtents();
         grippers_[auto_gripper0_name]->setWorldTransform(
@@ -587,9 +587,9 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     // auto gripper1
     {
         const std::string auto_gripper1_name = "auto_gripper1";
-        grippers_[auto_gripper1_name] = boost::make_shared< GripperKinematicObject>(
+        grippers_[auto_gripper1_name] = boost::make_shared<GripperKinematicObject>(
                     auto_gripper1_name,
-                    GetClothGripperApperture(nh_) * METERS,
+                    GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         const btVector3 gripper_half_extents = grippers_[auto_gripper1_name]->getHalfExtents();
         grippers_[auto_gripper1_name]->setWorldTransform(
@@ -611,9 +611,9 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
 
     // Add a collision check gripper that is in the same kinematic state as used for the cloth experiments
     {
-        collision_check_gripper_ = boost::make_shared< GripperKinematicObject>(
+        collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
                     "collision_check_gripper",
-                    GetClothGripperApperture(nh_) * METERS,
+                    GetGripperApperture(nh_) * METERS,
                     btVector4(0, 0, 0, 0));
         collision_check_gripper_->setWorldTransform(btTransform());
         collision_check_gripper_->toggleOpen();
@@ -626,9 +626,9 @@ void CustomScene::makeClothTwoHumanControlledGrippers()
     // manual gripper0
     {
         const std::string manual_gripper0_name = "manual_gripper0";
-        grippers_[manual_gripper0_name] = boost::make_shared< GripperKinematicObject>(
+        grippers_[manual_gripper0_name] = boost::make_shared<GripperKinematicObject>(
                     manual_gripper0_name,
-                    GetClothGripperApperture(nh_) * METERS,
+                    GetGripperApperture(nh_) * METERS,
                     btVector4(0.6f, 0.6f, 0.6f, 0.4f));
         const btVector3 gripper_half_extents = grippers_[manual_gripper0_name]->getHalfExtents();
         grippers_[manual_gripper0_name]->setWorldTransform(
@@ -648,9 +648,9 @@ void CustomScene::makeClothTwoHumanControlledGrippers()
     // manual gripper1
     {
         const std::string manual_gripper1_name = "manual_gripper1";
-        grippers_[manual_gripper1_name] = boost::make_shared< GripperKinematicObject>(
+        grippers_[manual_gripper1_name] = boost::make_shared<GripperKinematicObject>(
                     manual_gripper1_name,
-                    GetClothGripperApperture(nh_) * METERS,
+                    GetGripperApperture(nh_) * METERS,
                     btVector4(0.6f, 0.6f, 0.6f, 0.4f));
         const btVector3 gripper_half_extents = grippers_[manual_gripper1_name]->getHalfExtents();
         grippers_[manual_gripper1_name]->setWorldTransform(
