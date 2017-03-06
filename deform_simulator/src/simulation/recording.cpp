@@ -2,7 +2,7 @@
 #include <boost/filesystem.hpp>
 #include "utils/my_exceptions.h"
 #include "utils/my_assert.h"
-#include <smmap_experiment_params/ros_params.hpp>
+#include <deformable_manipulation_experiment_params/ros_params.hpp>
 
 using namespace std;
 

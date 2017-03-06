@@ -1,4 +1,4 @@
-#include <smmap_experiment_params/ros_params.hpp>
+#include <deformable_manipulation_experiment_params/ros_params.hpp>
 
 #include "custom_scene/custom_scene.h"
 

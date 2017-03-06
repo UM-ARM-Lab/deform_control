@@ -8,7 +8,7 @@
 #include <thread>
 #include <future>
 #include <ros/callback_queue.h>
-#include <smmap_experiment_params/ros_params.hpp>
+#include <deformable_manipulation_experiment_params/ros_params.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -68,7 +68,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
     ROS_INFO("Creating subscribers and publishers");
     // Publish to the feedback channel
-    simulator_fbk_pub_ = nh_.advertise<smmap_msgs::SimulatorFeedback>(
+    simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::SimulatorFeedback>(
             GetSimulatorFeedbackTopic(nh_), 20);
 
     ROS_INFO("Creating services");
@@ -229,7 +229,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
     while (ros::ok())
     {
-        smmap_msgs::SimulatorFeedback sim_fbk;
+        deformable_manipulation_msgs::SimulatorFeedback sim_fbk;
         {
             std::lock_guard<std::mutex> lock(sim_mutex_);
             step(0);
@@ -1189,11 +1189,11 @@ void CustomScene::SetGripperTransform(const std::map<std::string, GripperKinemat
 }
 
 
-smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
+deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
 {
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
 
-    smmap_msgs::SimulatorFeedback msg;
+    deformable_manipulation_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
@@ -1238,9 +1238,9 @@ smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
     return msg;
 }
 
-smmap_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(const SimForkResult& result) const
+deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(const SimForkResult& result) const
 {
-    smmap_msgs::SimulatorFeedback msg;
+    deformable_manipulation_msgs::SimulatorFeedback msg;
 
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
 
@@ -1593,8 +1593,8 @@ void CustomScene::visualizationMarkerArrayCallback(
 ////////////////////////////////////////////////////////////////////////////////
 
 bool CustomScene::getGripperNamesCallback(
-        smmap_msgs::GetGripperNames::Request& req,
-        smmap_msgs::GetGripperNames::Response& res)
+        deformable_manipulation_msgs::GetGripperNames::Request& req,
+        deformable_manipulation_msgs::GetGripperNames::Response& res)
 {
     (void)req;
     res.names = auto_grippers_;
@@ -1602,8 +1602,8 @@ bool CustomScene::getGripperNamesCallback(
 }
 
 bool CustomScene::getGripperAttachedNodeIndicesCallback(
-        smmap_msgs::GetGripperAttachedNodeIndices::Request& req,
-        smmap_msgs::GetGripperAttachedNodeIndices::Response& res)
+        deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Request& req,
+        deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Response& res)
 {
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
     res.indices = gripper->getAttachedNodeIndices();
@@ -1611,8 +1611,8 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
 }
 
 bool CustomScene::getGripperPoseCallback(
-        smmap_msgs::GetGripperPose::Request& req,
-        smmap_msgs::GetGripperPose::Response& res)
+        deformable_manipulation_msgs::GetGripperPose::Request& req,
+        deformable_manipulation_msgs::GetGripperPose::Response& res)
 {
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
     res.pose = toRosPose(gripper->getWorldTransform(), METERS);
@@ -1620,8 +1620,8 @@ bool CustomScene::getGripperPoseCallback(
 }
 
 bool CustomScene::gripperCollisionCheckCallback(
-        smmap_msgs::GetGripperCollisionReport::Request& req,
-        smmap_msgs::GetGripperCollisionReport::Response& res)
+        deformable_manipulation_msgs::GetGripperCollisionReport::Request& req,
+        deformable_manipulation_msgs::GetGripperCollisionReport::Response& res)
 {
     size_t num_checks = req.pose.size();
 
@@ -1653,8 +1653,8 @@ bool CustomScene::gripperCollisionCheckCallback(
 }
 
 bool CustomScene::getCoverPointsCallback(
-        smmap_msgs::GetPointSet::Request& req,
-        smmap_msgs::GetPointSet::Response& res)
+        deformable_manipulation_msgs::GetPointSet::Request& req,
+        deformable_manipulation_msgs::GetPointSet::Response& res)
 {
     (void)req;
     res.points = toRosPointVector(cover_points_, METERS);
@@ -1662,8 +1662,8 @@ bool CustomScene::getCoverPointsCallback(
 }
 
 bool CustomScene::getMirrorLineCallback(
-        smmap_msgs::GetMirrorLine::Request& req,
-        smmap_msgs::GetMirrorLine::Response& res)
+        deformable_manipulation_msgs::GetMirrorLine::Request& req,
+        deformable_manipulation_msgs::GetMirrorLine::Response& res)
 {
     (void)req;
     if (task_type_ == TaskType::CLOTH_COLAB_FOLDING &&
@@ -1684,8 +1684,8 @@ bool CustomScene::getMirrorLineCallback(
 
 
 bool CustomScene::getFreeSpaceGraphCallback(
-        smmap_msgs::GetFreeSpaceGraphRequest& req,
-        smmap_msgs::GetFreeSpaceGraphResponse& res)
+        deformable_manipulation_msgs::GetFreeSpaceGraphRequest& req,
+        deformable_manipulation_msgs::GetFreeSpaceGraphResponse& res)
 {
     (void)req;
 
@@ -1791,8 +1791,8 @@ bool CustomScene::getFreeSpaceGraphCallback(
 }
 
 bool CustomScene::getSignedDistanceFieldCallback(
-        smmap_msgs::GetSignedDistanceFieldRequest &req,
-        smmap_msgs::GetSignedDistanceFieldResponse &res)
+        deformable_manipulation_msgs::GetSignedDistanceFieldRequest &req,
+        deformable_manipulation_msgs::GetSignedDistanceFieldResponse &res)
 {
     (void)req;
     res.sdf = sdf_for_export_.GetMessageRepresentation();
@@ -1801,8 +1801,8 @@ bool CustomScene::getSignedDistanceFieldCallback(
 
 
 bool CustomScene::getObjectInitialConfigurationCallback(
-        smmap_msgs::GetPointSet::Request& req,
-        smmap_msgs::GetPointSet::Response& res)
+        deformable_manipulation_msgs::GetPointSet::Request& req,
+        deformable_manipulation_msgs::GetPointSet::Response& res)
 {
     (void)req;
     res.points = object_initial_configuration_;
@@ -1810,8 +1810,8 @@ bool CustomScene::getObjectInitialConfigurationCallback(
 }
 
 bool CustomScene::getObjectCurrentConfigurationCallback(
-        smmap_msgs::GetPointSet::Request& req,
-        smmap_msgs::GetPointSet::Response& res)
+        deformable_manipulation_msgs::GetPointSet::Request& req,
+        deformable_manipulation_msgs::GetPointSet::Response& res)
 {
     (void)req;
     res.points = toRosPointVector(getDeformableObjectNodes(), METERS);
@@ -1839,8 +1839,8 @@ bool CustomScene::terminateSimulationCallback(
 ////////////////////////////////////////////////////////////////////////////////
 
 bool CustomScene::executeGripperMovementCallback(
-        smmap_msgs::ExecuteGripperMovement::Request& req,
-        smmap_msgs::ExecuteGripperMovement::Response& res)
+        deformable_manipulation_msgs::ExecuteGripperMovement::Request& req,
+        deformable_manipulation_msgs::ExecuteGripperMovement::Response& res)
 {
     assert(req.grippers_names.size() == req.gripper_poses.size());
 
@@ -1863,7 +1863,7 @@ bool CustomScene::executeGripperMovementCallback(
 }
 
 void CustomScene::testGripperPosesExecuteCallback(
-        const smmap_msgs::TestGrippersPosesGoalConstPtr& goal)
+        const deformable_manipulation_msgs::TestGrippersPosesGoalConstPtr& goal)
 {
     const size_t num_tests = goal->poses_to_test.size();
 
@@ -1875,7 +1875,7 @@ void CustomScene::testGripperPosesExecuteCallback(
         const SimForkResult result = simulateInNewFork(goal->gripper_names, goal->poses_to_test[test_ind].pose);
 
         // Create a feedback message
-        smmap_msgs::TestGrippersPosesFeedback fbk;
+        deformable_manipulation_msgs::TestGrippersPosesFeedback fbk;
         fbk.sim_state = createSimulatorFbk(result);
         fbk.test_id = test_ind;
         // Send feedback

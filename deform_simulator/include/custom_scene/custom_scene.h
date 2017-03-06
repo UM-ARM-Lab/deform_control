@@ -26,9 +26,9 @@
 #include <arc_utilities/dijkstras.hpp>
 #include <sdf_tools/collision_map.hpp>
 #include <sdf_tools/sdf.hpp>
-#include <smmap_experiment_params/task_enums.h>
-#include <smmap_experiment_params/xyzgrid.h>
-#include <smmap_msgs/messages.h>
+#include <deformable_manipulation_experiment_params/task_enums.h>
+#include <deformable_manipulation_experiment_params/xyzgrid.h>
+#include <deformable_manipulation_msgs/messages.h>
 
 struct SimForkResult
 {
@@ -131,8 +131,8 @@ class CustomScene : public Scene
                 const std::string& name,
                 const geometry_msgs::Pose& pose);
 
-        smmap_msgs::SimulatorFeedback createSimulatorFbk() const;
-        smmap_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
+        deformable_manipulation_msgs::SimulatorFeedback createSimulatorFbk() const;
+        deformable_manipulation_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
 
         std::vector<btVector3> getDeformableObjectNodes() const;
         std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
@@ -168,47 +168,47 @@ class CustomScene : public Scene
         void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
 
         bool getGripperNamesCallback(
-                smmap_msgs::GetGripperNames::Request& req,
-                smmap_msgs::GetGripperNames::Response& res);
+                deformable_manipulation_msgs::GetGripperNames::Request& req,
+                deformable_manipulation_msgs::GetGripperNames::Response& res);
         bool getGripperAttachedNodeIndicesCallback(
-                smmap_msgs::GetGripperAttachedNodeIndices::Request& req,
-                smmap_msgs::GetGripperAttachedNodeIndices::Response& res);
+                deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Request& req,
+                deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Response& res);
         bool getGripperPoseCallback(
-                smmap_msgs::GetGripperPose::Request& req,
-                smmap_msgs::GetGripperPose::Response& res);
+                deformable_manipulation_msgs::GetGripperPose::Request& req,
+                deformable_manipulation_msgs::GetGripperPose::Response& res);
         bool gripperCollisionCheckCallback(
-                smmap_msgs::GetGripperCollisionReport::Request& req,
-                smmap_msgs::GetGripperCollisionReport::Response& res);
+                deformable_manipulation_msgs::GetGripperCollisionReport::Request& req,
+                deformable_manipulation_msgs::GetGripperCollisionReport::Response& res);
         bool getCoverPointsCallback(
-                smmap_msgs::GetPointSet::Request& req,
-                smmap_msgs::GetPointSet::Response& res);
+                deformable_manipulation_msgs::GetPointSet::Request& req,
+                deformable_manipulation_msgs::GetPointSet::Response& res);
         bool getMirrorLineCallback(
-                smmap_msgs::GetMirrorLine::Request& req,
-                smmap_msgs::GetMirrorLine::Response& res);
+                deformable_manipulation_msgs::GetMirrorLine::Request& req,
+                deformable_manipulation_msgs::GetMirrorLine::Response& res);
 
         bool getFreeSpaceGraphCallback(
-                smmap_msgs::GetFreeSpaceGraphRequest& req,
-                smmap_msgs::GetFreeSpaceGraphResponse& res);
+                deformable_manipulation_msgs::GetFreeSpaceGraphRequest& req,
+                deformable_manipulation_msgs::GetFreeSpaceGraphResponse& res);
         bool getSignedDistanceFieldCallback(
-                smmap_msgs::GetSignedDistanceFieldRequest& req,
-                smmap_msgs::GetSignedDistanceFieldResponse& res);
+                deformable_manipulation_msgs::GetSignedDistanceFieldRequest& req,
+                deformable_manipulation_msgs::GetSignedDistanceFieldResponse& res);
 
         bool getObjectInitialConfigurationCallback(
-                smmap_msgs::GetPointSet::Request& req,
-                smmap_msgs::GetPointSet::Response& res);
+                deformable_manipulation_msgs::GetPointSet::Request& req,
+                deformable_manipulation_msgs::GetPointSet::Response& res);
         bool getObjectCurrentConfigurationCallback(
-                smmap_msgs::GetPointSet::Request& req,
-                smmap_msgs::GetPointSet::Response& res);
+                deformable_manipulation_msgs::GetPointSet::Request& req,
+                deformable_manipulation_msgs::GetPointSet::Response& res);
         bool terminateSimulationCallback(
                 std_srvs::Empty::Request& req,
                 std_srvs::Empty::Response& res);
 
         bool executeGripperMovementCallback(
-                smmap_msgs::ExecuteGripperMovement::Request& req,
-                smmap_msgs::ExecuteGripperMovement::Response& res);
+                deformable_manipulation_msgs::ExecuteGripperMovement::Request& req,
+                deformable_manipulation_msgs::ExecuteGripperMovement::Response& res);
 
         void testGripperPosesExecuteCallback(
-                const smmap_msgs::TestGrippersPosesGoalConstPtr& goal);
+                const deformable_manipulation_msgs::TestGrippersPosesGoalConstPtr& goal);
 
         ////////////////////////////////////////////////////////////////////
         // Stuff, and things
@@ -294,7 +294,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         std::vector<btVector3> cover_points_;
-        smmap_msgs::GetMirrorLine::Response mirror_line_data_;
+        deformable_manipulation_msgs::GetMirrorLine::Response mirror_line_data_;
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Objects and Helpers
@@ -323,7 +323,7 @@ class CustomScene : public Scene
         ros::ServiceServer object_current_configuration_srv_;
 
         ros::ServiceServer execute_gripper_movement_srv_;
-        actionlib::SimpleActionServer<smmap_msgs::TestGrippersPosesAction> test_grippers_poses_as_;
+        actionlib::SimpleActionServer<deformable_manipulation_msgs::TestGrippersPosesAction> test_grippers_poses_as_;
 
         ////////////////////////////////////////////////////////////////////////
         // Low-pass filter / quasi static world data structures
