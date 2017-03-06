@@ -42,16 +42,16 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , deformable_type_(deformable_type)
     , task_type_(task_type)
     , advance_grippers_(true)
-    , free_space_grid_(GetWorldXMin(nh) * METERS, GetWorldXStep(nh) * METERS, GetWorldXNumSteps(nh),
+    , work_space_grid_(GetWorldXMin(nh) * METERS, GetWorldXStep(nh) * METERS, GetWorldXNumSteps(nh),
                        GetWorldYMin(nh) * METERS, GetWorldYStep(nh) * METERS, GetWorldYNumSteps(nh),
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
-    , free_space_graph_((size_t)free_space_grid_.getNumCells() + 1000)
+    , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
-    , collision_map_for_export_(Eigen::Affine3d(Eigen::Translation3d(free_space_grid_.getXMin() / METERS, free_space_grid_.getYMin() / METERS, free_space_grid_.getZMin() / METERS)),
-                                smmap::GetWorldFrameName(), free_space_grid_.minStepDimension() / METERS / 2.0,
-                                (free_space_grid_.getXMax() - free_space_grid_.getXMin()) / METERS,
-                                (free_space_grid_.getYMax() - free_space_grid_.getYMin()) / METERS,
-                                (free_space_grid_.getZMax() - free_space_grid_.getZMin()) / METERS,
+    , collision_map_for_export_(Eigen::Affine3d(Eigen::Translation3d(work_space_grid_.getXMin() / METERS, work_space_grid_.getYMin() / METERS, work_space_grid_.getZMin() / METERS)),
+                                smmap::GetWorldFrameName(), work_space_grid_.minStepDimension() / METERS / 2.0,
+                                (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
+                                (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
+                                (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
                                 sdf_tools::COLLISION_CELL(0.0))
     , nh_(nh)
     , ph_("~")
@@ -162,7 +162,8 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph and collision map while the object settles
-        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, false);
+        const bool draw_free_space_graph_corners = drawScene && false;
+        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
         // Let the object settle before anything else happens
         ROS_INFO("Waiting for the scene to settle");
@@ -980,35 +981,35 @@ void CustomScene::makeGenericRegionCoverPoints()
 
 void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind)
 {
-    const int64_t starting_ind = free_space_grid_.xyzIndexToGridIndex(x_starting_ind, y_starting_ind, z_starting_ind);
+    const int64_t starting_ind = work_space_grid_.xyzIndexToGridIndex(x_starting_ind, y_starting_ind, z_starting_ind);
     assert(starting_ind >= 0);
-    const double x = free_space_grid_.xIndToWorldX(x_starting_ind);
-    const double y = free_space_grid_.yIndToWorldY(y_starting_ind);
-    const double z = free_space_grid_.zIndToWorldZ(z_starting_ind);
+    const double x = work_space_grid_.xIndToWorldX(x_starting_ind);
+    const double y = work_space_grid_.yIndToWorldY(y_starting_ind);
+    const double z = work_space_grid_.zIndToWorldZ(z_starting_ind);
     const btVector3 starting_pos((btScalar)x, (btScalar)y, (btScalar)z);
 
     // Note that these are in [min, max) form - i.e. exclude the max
     const int64_t x_min_ind = std::max(0L, x_starting_ind - 1);
-    const int64_t x_max_ind = std::min(free_space_grid_.getXNumSteps(), x_starting_ind + 2);
+    const int64_t x_max_ind = std::min(work_space_grid_.getXNumSteps(), x_starting_ind + 2);
     const int64_t y_min_ind = std::max(0L, y_starting_ind - 1);
-    const int64_t y_max_ind = std::min(free_space_grid_.getYNumSteps(), y_starting_ind + 2);
+    const int64_t y_max_ind = std::min(work_space_grid_.getYNumSteps(), y_starting_ind + 2);
     const int64_t z_min_ind = std::max(0L, z_starting_ind - 1);
-    const int64_t z_max_ind = std::min(free_space_grid_.getZNumSteps(), z_starting_ind + 2);
+    const int64_t z_max_ind = std::min(work_space_grid_.getZNumSteps(), z_starting_ind + 2);
 
     SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001 * METERS, btTransform(), true);
 
     for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
     {
-        const double x_loop = free_space_grid_.xIndToWorldX(x_loop_ind);
+        const double x_loop = work_space_grid_.xIndToWorldX(x_loop_ind);
         for (int64_t y_loop_ind = y_min_ind; y_loop_ind < y_max_ind; y_loop_ind++)
         {
-            const double y_loop = free_space_grid_.yIndToWorldY(y_loop_ind);
+            const double y_loop = work_space_grid_.yIndToWorldY(y_loop_ind);
             for (int64_t z_loop_ind = z_min_ind; z_loop_ind < z_max_ind; z_loop_ind++)
             {
                 // Only count a neighbour if it's not the same as the starting position
                 if (x_starting_ind != x_loop_ind || y_starting_ind != y_loop_ind || z_starting_ind != z_loop_ind)
                 {
-                    const double z_loop = free_space_grid_.zIndToWorldZ(z_loop_ind);
+                    const double z_loop = work_space_grid_.zIndToWorldZ(z_loop_ind);
 
                     test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop)));
 
@@ -1018,7 +1019,7 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
                         const btVector3 loop_pos((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop);
                         const btScalar dist = (loop_pos - starting_pos).length();
 
-                        const int64_t loop_ind = free_space_grid_.xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
+                        const int64_t loop_ind = work_space_grid_.xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
                         assert(loop_ind >= 0);
                         free_space_graph_.AddEdgeBetweenNodes(starting_ind, loop_ind, dist);
                         num_graph_edges_ += 2;
@@ -1041,14 +1042,14 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wconversion"
         #pragma GCC diagnostic ignored "-Wfloat-conversion"
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMin(), free_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMax(), free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMin(), free_space_grid_.getYMax(), free_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMin(), free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMin(), free_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMax(), free_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(free_space_grid_.getXMax(), free_space_grid_.getYMax(), free_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMin(), work_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMin(), work_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMax(), work_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMax(), work_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMin(), work_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMin(), work_space_grid_.getZMax())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMax(), work_space_grid_.getZMin())), 1));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMax(), work_space_grid_.getZMax())), 1));
         #pragma GCC diagnostic pop
         for (auto& corner: graph_corners_)
         {
@@ -1057,28 +1058,28 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     }
 
     // First add all of the cells to the graph with no edges
-    for (int64_t x_ind = 0; x_ind < free_space_grid_.getXNumSteps(); x_ind++)
+    for (int64_t x_ind = 0; x_ind < work_space_grid_.getXNumSteps(); x_ind++)
     {
-        const double x = free_space_grid_.xIndToWorldX(x_ind);
-        for (int64_t y_ind = 0; y_ind < free_space_grid_.getYNumSteps(); y_ind++)
+        const double x = work_space_grid_.xIndToWorldX(x_ind);
+        for (int64_t y_ind = 0; y_ind < work_space_grid_.getYNumSteps(); y_ind++)
         {
-            const double y = free_space_grid_.yIndToWorldY(y_ind);
-            for (int64_t z_ind = 0; z_ind < free_space_grid_.getZNumSteps(); z_ind++)
+            const double y = work_space_grid_.yIndToWorldY(y_ind);
+            for (int64_t z_ind = 0; z_ind < work_space_grid_.getZNumSteps(); z_ind++)
             {
-                const double z = free_space_grid_.zIndToWorldZ(z_ind);
+                const double z = work_space_grid_.zIndToWorldZ(z_ind);
                 const int64_t node_ind = free_space_graph_.AddNode(btVector3((btScalar)x, (btScalar)y, (btScalar)z));
                 // Double checking my math here
-                assert(node_ind == free_space_grid_.worldPosToGridIndex(x, y, z));
+                assert(node_ind == work_space_grid_.worldPosToGridIndex(x, y, z));
             }
         }
     }
 
     // Next add edges between adjacent nodes that are not in collision
-    for (int64_t x_ind = 0; x_ind < free_space_grid_.getXNumSteps(); x_ind++)
+    for (int64_t x_ind = 0; x_ind < work_space_grid_.getXNumSteps(); x_ind++)
     {
-        for (int64_t y_ind = 0; y_ind < free_space_grid_.getYNumSteps(); y_ind++)
+        for (int64_t y_ind = 0; y_ind < work_space_grid_.getYNumSteps(); y_ind++)
         {
-            for (int64_t z_ind = 0; z_ind < free_space_grid_.getZNumSteps(); z_ind++)
+            for (int64_t z_ind = 0; z_ind < work_space_grid_.getZNumSteps(); z_ind++)
             {
                 createEdgesToNeighbours(x_ind, y_ind, z_ind);
             }
@@ -1091,12 +1092,26 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     {
         const btVector3& cover_point = cover_points_[cover_ind];
 
+        std::cout << PrettyPrint::PrettyPrint(cover_point) << std::endl << std::flush;
+        std::cout << "Workspace grid limits: "
+                  << work_space_grid_.getXMin() << " "
+                  << work_space_grid_.getXMax() << " "
+                  << work_space_grid_.getYMin() << " "
+                  << work_space_grid_.getYMax() << " "
+                  << work_space_grid_.getZMin() << " "
+                  << work_space_grid_.getZMax() << " "
+                  << std::endl << std::flush;
+
         // Find the nearest node in the graph due to the grid
         btVector3 nearest_node_point = cover_point;
-        int64_t graph_ind = free_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
-        assert(graph_ind >= 0);
+        int64_t graph_ind = work_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
 
-        const double step_size = free_space_grid_.minStepDimension() / 4.0;
+
+
+        assert(graph_ind >= 0);
+        assert(graph_ind < work_space_grid_.getNumCells());
+
+        const double step_size = work_space_grid_.minStepDimension() / 4.0;
         SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
 
         // If the node is in collision, find the nearest grid node that is not in collision
@@ -1109,9 +1124,9 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
             // Move a step out of collision
             nearest_node_point = nearest_node_point + collision_result.m_normalOnBInWorld * (btScalar)step_size;
 
-            graph_ind = free_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
+            graph_ind = work_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
             assert(graph_ind >= 0);
-            assert(graph_ind < free_space_grid_.getNumCells());
+            assert(graph_ind < work_space_grid_.getNumCells());
         }
 
         // Add an edge between the cover point and the nearest point on the grid

@@ -266,7 +266,7 @@ class CustomScene : public Scene
         std::map<std::string, BulletObject::Ptr> world_objects_;
 
         // Uses bullet (scaled) translational distances
-        const smmap::XYZGrid free_space_grid_;
+        const smmap::XYZGrid work_space_grid_;
         arc_dijkstras::Graph<btVector3> free_space_graph_;
         size_t num_graph_edges_;
         std::vector<int64_t> cover_ind_to_free_space_graph_ind_;
