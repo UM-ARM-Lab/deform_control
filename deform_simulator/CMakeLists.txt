@@ -11,8 +11,8 @@ set(CATKIN_PACKAGES
     haptics
     bullet_helpers
     sdf_tools
-    smmap_msgs
-    smmap_experiment_params
+    deformable_manipulation_msgs
+    deformable_manipulation_experiment_params
 )
 
 ## Find catkin macros and libraries
