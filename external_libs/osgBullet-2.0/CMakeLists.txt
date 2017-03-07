@@ -12,7 +12,6 @@ catkin_package(
     INCLUDE_DIRS    ${CMAKE_CURRENT_SOURCE_DIR}
     LIBRARIES       ${PROJECT_NAME}
     CATKIN_DEPENDS  ${CATKIN_PACKAGES}
-    DEPENDS         system_lib
 )
 
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -g -std=c++0x -march=native" )

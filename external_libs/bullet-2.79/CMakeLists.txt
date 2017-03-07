@@ -122,7 +122,6 @@ ENDIF(OPENGL_FOUND)
 
 
 
-
 OPTION(BUILD_DEMOS "Set when you want to build the demos" OFF)
 IF(BUILD_DEMOS)
     IF(EXISTS ${BULLET_PHYSICS_SOURCE_DIR}/Demos AND IS_DIRECTORY ${BULLET_PHYSICS_SOURCE_DIR}/Demos)
@@ -203,5 +202,4 @@ catkin_package(
                     BulletMultiThreaded
                     HACD
                     BulletFileLoader
-    DEPENDS         OpenGL
 )

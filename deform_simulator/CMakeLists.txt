@@ -28,6 +28,7 @@ find_package(Boost REQUIRED COMPONENTS
 )
 
 find_package(Eigen3 REQUIRED)
+set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
 ################################################
 ## Declare ROS messages, services and actions ##

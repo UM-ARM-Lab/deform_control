@@ -20,7 +20,6 @@ add_library( custom_scene
 )
 add_dependencies ( custom_scene
     ${catkin_EXPORTED_TARGETS}
-    ${PROJECT_NAME}_gencpp
 )
 target_link_libraries( custom_scene
     simulation
