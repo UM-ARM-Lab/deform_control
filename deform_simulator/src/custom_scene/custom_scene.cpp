@@ -1092,16 +1092,6 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     {
         const btVector3& cover_point = cover_points_[cover_ind];
 
-        std::cout << PrettyPrint::PrettyPrint(cover_point) << std::endl << std::flush;
-        std::cout << "Workspace grid limits: "
-                  << work_space_grid_.getXMin() << " "
-                  << work_space_grid_.getXMax() << " "
-                  << work_space_grid_.getYMin() << " "
-                  << work_space_grid_.getYMax() << " "
-                  << work_space_grid_.getZMin() << " "
-                  << work_space_grid_.getZMax() << " "
-                  << std::endl << std::flush;
-
         // Find the nearest node in the graph due to the grid
         btVector3 nearest_node_point = cover_point;
         int64_t graph_ind = work_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
