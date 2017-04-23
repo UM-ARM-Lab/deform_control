@@ -336,14 +336,14 @@ void CustomScene::makeRope()
                        GetRopeCenterOfMassZ(nh_)) * METERS;
 
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
-    const size_t num_links = (size_t)GetRopeNumLinks(nh_);
+    const size_t num_control_points = (size_t)GetRopeNumLinks(nh_) + 1;
 
     // make the rope
-    std::vector<btVector3> control_points(num_links);
-    for (size_t n = 0; n < num_links; n++)
+    std::vector<btVector3> control_points(num_control_points);
+    for (size_t n = 0; n < num_control_points; n++)
     {
         control_points[n] = rope_com
-                + btVector3(((btScalar)n - (btScalar)(num_links) / 2.0f) * rope_segment_length, 0, 0);
+                + btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0, 0);
 
     }
     rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
