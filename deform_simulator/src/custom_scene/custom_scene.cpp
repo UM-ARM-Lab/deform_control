@@ -1561,6 +1561,28 @@ void CustomScene::visualizationMarkerCallback(
             }
             break;
         }
+        case visualization_msgs::Marker::CUBE:
+        {
+            // For now, just treat this as a sphere
+            if (visualization_sphere_markers_.count(id) == 0)
+            {
+                PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
+                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
+                              toOsgRefVec4Array(marker.colors),
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                visualization_sphere_markers_[id] = spheres;
+
+                env->add(spheres);
+            }
+            else
+            {
+                PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
+                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
+                              toOsgRefVec4Array(marker.colors),
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+            }
+            break;
+        }
         default:
         {
             ROS_ERROR_STREAM_NAMED("visualization",
