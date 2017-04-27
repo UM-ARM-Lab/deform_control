@@ -198,6 +198,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     bullet_visualization_markers.markers.reserve(4);
 
     // Build markers for regular publishing
+    size_t first_gripper_marker_ind;
     {
         bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
                                                    arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
@@ -224,6 +225,26 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         cover_points_marker.points = toRosPointVector(cover_points_, METERS);
 
         bullet_visualization_markers.markers.push_back(cover_points_marker);
+
+        first_gripper_marker_ind = bullet_visualization_markers.markers.size();
+        for (size_t ind = 0; ind < auto_grippers_.size(); ++ind)
+        {
+            const auto& gripper_name = auto_grippers_[ind];
+            const auto& gripper = grippers_.at(gripper_name);
+
+            visualization_msgs::Marker gripper_marker;
+            gripper_marker.header.frame_id = GetWorldFrameName();
+            gripper_marker.ns = "grippers";
+            gripper_marker.id = (int)ind + 1;
+            gripper_marker.type = visualization_msgs::Marker::CUBE;
+            gripper_marker.scale.x = gripper->getHalfExtents().x() * 2.0 / METERS;
+            gripper_marker.scale.y = gripper->getHalfExtents().y() * 2.0 / METERS;
+            gripper_marker.scale.z = gripper->getHalfExtents().z() * 2.0 / METERS;
+            gripper_marker.pose = toRosPose(gripper->getWorldTransform(), METERS);
+            gripper_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 1);
+
+            bullet_visualization_markers.markers.push_back(gripper_marker);
+        }
     }
 
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
@@ -238,6 +259,10 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         simulator_fbk_pub_.publish(sim_fbk);
         bullet_visualization_markers.markers[2].points = sim_fbk.object_configuration;
+        for (size_t gripper_ind = 0; gripper_ind < sim_fbk.gripper_poses.size(); gripper_ind++)
+        {
+            bullet_visualization_markers.markers.at(first_gripper_marker_ind + gripper_ind).pose = sim_fbk.gripper_poses[gripper_ind];
+        }
         bullet_visualization_pub.publish(bullet_visualization_markers);
 
 //        osg::Vec3d eye, center, up;
