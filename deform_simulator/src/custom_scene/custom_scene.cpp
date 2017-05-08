@@ -922,7 +922,7 @@ void CustomScene::makeClothWallObstacles()
 void CustomScene::makeClothDoubleSlitObstacles()
 {
     const btVector3 wall_section_half_extents =
-            btVector3(0.04f, 0.12f, 0.5f) * METERS;
+            btVector3(0.04f, 0.115f, 0.5f) * METERS;
 
     const btVector3 center_wall_section_com =
             btVector3(0.0f, 0.0f, 0.8f) * METERS;
@@ -1182,7 +1182,9 @@ void CustomScene::createCollisionMapAndSDF()
         }
     }
 
-    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(BT_LARGE_FLOAT).first;
+    // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
+    // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
+    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT).first;
     sdf_for_export_.Lock();
 }
 
