@@ -350,15 +350,46 @@ void CustomScene::makeRope()
 
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
     const size_t num_control_points = (size_t)GetRopeNumLinks(nh_) + 1;
+    const size_t seg_1_ind = (size_t)3;
+    const size_t seg_2_ind = 8;
 
     // make the rope
     std::vector<btVector3> control_points(num_control_points);
+
+    // Make the change for drag rope in opposite direction
+
+    for (size_t n = 0; n < num_control_points; n++)
+    {
+        control_points[n] = rope_com
+                + btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length,
+                            0,
+                            0);
+    }
+    /*
+    if (task_type_ == TaskType::ROPE_DRAG_OPPOSITE_TABLE)
+    {
+        for (size_t n = 0; n < num_control_points/5.0f; n++)
+        {
+            control_points[n] = rope_com
+                    + btVector3((((btScalar)num_control_points/5.0f - (btScalar)n))
+                                * rope_segment_length,
+                                0,
+                                rope_segment_length);
+        }
+    }
+    */
+
+    // previous version
+    /*
     for (size_t n = 0; n < num_control_points; n++)
     {
         control_points[n] = rope_com
                 + btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0, 0);
 
     }
+    */
+
+
     rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
 
     // color the rope
