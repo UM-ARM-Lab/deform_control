@@ -999,7 +999,7 @@ void CustomScene::makeGenericRegionCoverPoints()
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
 
-    std::cout << "Num cover points: " << cover_points_.size() << std::endl;
+    ROS_INFO_STREAM_NAMED("deform_simulator", "Num cover points: " << cover_points_.size());
 }
 
 
