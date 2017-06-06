@@ -18,14 +18,21 @@ class PlotObject : public EnvironmentObject
         typedef boost::shared_ptr<PlotObject> Ptr;
 
         void clear();
-        EnvironmentObject::Ptr copy(Fork &f) const { (void)f; return Ptr(new PlotObject(*this)); }
+        EnvironmentObject::Ptr copy(Fork &f) const
+        {
+            (void)f;
+            return Ptr(new PlotObject(*this));
+        }
         virtual void init()
         {
             getEnvironment()->osg->root->addChild(m_geode.get());
         }
         void prePhysics(){}// no physics
         void preDraw(){}
-        void destroy(){}
+        void destroy()
+        {
+            getEnvironment()->osg->root->removeChild(m_geode.get());
+        }
         void setDefaultColor(float r, float g, float b, float a);
         void forceTransparency(float a);
 };

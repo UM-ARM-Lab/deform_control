@@ -228,9 +228,9 @@ class CustomScene : public Scene
         PlotPoints::Ptr plot_points_;
         PlotLines::Ptr plot_lines_;
 
-        std::map<std::string, PlotLines::Ptr> visualization_line_markers_;
-        std::map<std::string, PlotPoints::Ptr> visualization_point_markers_;
-        std::map<std::string, PlotSpheres::Ptr> visualization_sphere_markers_;
+        std::unordered_map<std::string, PlotLines::Ptr> visualization_line_markers_;
+        std::unordered_map<std::string, PlotPoints::Ptr> visualization_point_markers_;
+        std::unordered_map<std::string, PlotSpheres::Ptr> visualization_sphere_markers_;
 
         ////////////////////////////////////////////////////////////////////////
         // Post-step Callbacks

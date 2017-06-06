@@ -1519,11 +1519,58 @@ void CustomScene::visualizationMarkerCallback(
     // TODO: make this mutex not quite so "global" around this switch
     std::lock_guard<std::mutex> lock(sim_mutex_);
 
+    if (marker.action == visualization_msgs::Marker::DELETEALL)
+    {
+        ROS_ERROR_ONCE_NAMED(
+                    "visualization",
+                    "Delete all marker action not implemented, this message will only print once");
+        return;
+    }
+
+    if (marker.action == visualization_msgs::Marker::DELETE)
+    {
+        // Delete any matching marker from the points list
+        {
+            const auto points_marker_itr = visualization_point_markers_.find(id);
+            if (points_marker_itr != visualization_point_markers_.end())
+            {
+                PlotPoints::Ptr points = points_marker_itr->second;
+                visualization_point_markers_.erase(points_marker_itr);
+                env->remove(points);
+            }
+        }
+
+        // Delete any matching marker from the spheres list
+        {
+            const auto sphere_marker_itr = visualization_sphere_markers_.find(id);
+            if (sphere_marker_itr != visualization_sphere_markers_.end())
+            {
+                PlotSpheres::Ptr spheres = sphere_marker_itr->second;
+                visualization_sphere_markers_.erase(sphere_marker_itr);
+                env->remove(spheres);
+            }
+        }
+
+        // Delete any matching markers from the lines list
+        {
+            const auto line_marker_itr = visualization_line_markers_.find(id);
+            if (line_marker_itr != visualization_line_markers_.end())
+            {
+                PlotLines::Ptr plot_lines = line_marker_itr->second;
+                visualization_line_markers_.erase(line_marker_itr);
+                env->remove(plot_lines);
+            }
+        }
+
+        return;
+    }
+
     switch (marker.type)
     {
         case visualization_msgs::Marker::POINTS:
         {
-            if (visualization_point_markers_.count(id) == 0)
+            const auto marker_itr = visualization_point_markers_.find(id);
+            if (marker_itr == visualization_point_markers_.end())
             {
                 PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
                 points->setPoints(toOsgRefVec3Array(marker.points, METERS),
@@ -1534,15 +1581,20 @@ void CustomScene::visualizationMarkerCallback(
             }
             else
             {
-                PlotPoints::Ptr points = visualization_point_markers_[id];
+                PlotPoints::Ptr points = marker_itr->second;
                 points->setPoints(toOsgRefVec3Array(marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
             }
             break;
         }
+        case visualization_msgs::Marker::CUBE:
+        {
+            // For now, just treat this as a sphere
+        }
         case visualization_msgs::Marker::SPHERE:
         {
-            if (visualization_sphere_markers_.count(id) == 0)
+            const auto marker_itr = visualization_sphere_markers_.find(id);
+            if (marker_itr == visualization_sphere_markers_.end())
             {
                 PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
                 spheres->plot(toOsgRefVec3Array(marker.points, METERS),
@@ -1554,7 +1606,7 @@ void CustomScene::visualizationMarkerCallback(
             }
             else
             {
-                PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
+                PlotSpheres::Ptr spheres = marker_itr->second;
                 spheres->plot(toOsgRefVec3Array(marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
@@ -1570,8 +1622,8 @@ void CustomScene::visualizationMarkerCallback(
         }
         case visualization_msgs::Marker::LINE_LIST:
         {
-            // if the object is new, add it
-            if (visualization_line_markers_.count(id) == 0)
+            const auto marker_itr = visualization_line_markers_.find(id);
+            if (marker_itr == visualization_line_markers_.end())
             {
                 PlotLines::Ptr line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
@@ -1582,32 +1634,17 @@ void CustomScene::visualizationMarkerCallback(
             }
             else
             {
-                PlotLines::Ptr line_strip = visualization_line_markers_[id];
+                PlotLines::Ptr line_strip = marker_itr->second;
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
                                       toBulletColorArray(marker.colors));
             }
             break;
         }
-        case visualization_msgs::Marker::CUBE:
+        case visualization_msgs::Marker::CUBE_LIST:
         {
-            // For now, just treat this as a sphere
-            if (visualization_sphere_markers_.count(id) == 0)
-            {
-                PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
-                              toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
-                visualization_sphere_markers_[id] = spheres;
-
-                env->add(spheres);
-            }
-            else
-            {
-                PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
-                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
-                              toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
-            }
+            ROS_ERROR_ONCE_NAMED(
+                    "visualization",
+                    "CUBE_LIST marker not implemented, this message will only print once");
             break;
         }
         default:
