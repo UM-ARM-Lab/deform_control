@@ -13,7 +13,6 @@
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
 #include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
-#include <BulletCollision/NarrowPhaseCollision/btConvexPenetrationDepthSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h>
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
@@ -304,10 +303,11 @@ void CustomScene::makeBulletObjects()
             throw_arc_exception(std::invalid_argument, "Unknown deformable object type " + std::to_string(deformable_type_));
     };
 
+    #warning "Magic numbers - discretization level of cover points"
     switch (task_type_)
     {
         case TaskType::ROPE_CYLINDER_COVERAGE:
-            makeTable();
+            makeTableSurface(false);
             makeCylinder();
             break;
 
@@ -316,7 +316,7 @@ void CustomScene::makeBulletObjects()
             break;
 
         case TaskType::CLOTH_TABLE_COVERAGE:
-            makeTable();
+            makeTableSurface(true, 0.0125f * METERS);
             break;
 
         case TaskType::CLOTH_COLAB_FOLDING:
@@ -329,7 +329,7 @@ void CustomScene::makeBulletObjects()
 
         case TaskType::CLOTH_SINGLE_POLE:
             makeSinglePoleObstacles();
-            makeGenericRegionCoverPoints();
+            makeTableSurface(true, 0.025f * METERS);
             break;
 
         case TaskType::CLOTH_WALL:
@@ -339,7 +339,7 @@ void CustomScene::makeBulletObjects()
 
         case TaskType::CLOTH_DOUBLE_SLIT:
             makeClothDoubleSlitObstacles();
-            makeGenericRegionCoverPoints();
+            makeTableSurface(true, 0.025f * METERS);
             break;
 
         default:
@@ -401,7 +401,7 @@ void CustomScene::makeCloth()
         cloth_center + btVector3(+cloth_x_half_side_length, -cloth_y_half_side_length, 0),
         cloth_center + btVector3(-cloth_x_half_side_length, +cloth_y_half_side_length, 0),
         cloth_center + btVector3(+cloth_x_half_side_length, +cloth_y_half_side_length, 0),
-        GetClothNumDivsX(nh_), GetClothNumDivsY(nh_),
+        GetClothNumControlPointsX(nh_), GetClothNumControlPointsY(nh_),
         0, true);
     psb->setTotalMass(0.1f, true);
 
@@ -707,7 +707,7 @@ void CustomScene::addGripperAxesToWorld()
 
 
 
-void CustomScene::makeTable()
+void CustomScene::makeTableSurface(const bool create_cover_points, const float stepsize)
 {
     // table parameters
     const btVector3 table_surface_position =
@@ -733,10 +733,9 @@ void CustomScene::makeTable()
     world_objects_["table"] = table;
 
     // if we are doing a table coverage task, create the table coverage points
-    if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
+    if (create_cover_points)
     {
-        #pragma message "Cloth table cover points step size magic number"
-        const float stepsize = 0.0125f * METERS;
+        assert(stepsize > 0);
         btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
 
         const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
@@ -753,7 +752,7 @@ void CustomScene::makeTable()
             // Add many coverage points along the coverage line
             for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
             {
-                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin));
+                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin * 2.0f));
             }
         }
         ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
@@ -999,7 +998,7 @@ void CustomScene::makeGenericRegionCoverPoints()
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
 
-    ROS_INFO_STREAM_NAMED("deform_simulator", "Num cover points: " << cover_points_.size());
+    ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 }
 
 
@@ -1757,8 +1756,6 @@ bool CustomScene::getMirrorLineCallback(
     }
 }
 
-
-
 bool CustomScene::getFreeSpaceGraphCallback(
         deformable_manipulation_msgs::GetFreeSpaceGraphRequest& req,
         deformable_manipulation_msgs::GetFreeSpaceGraphResponse& res)
@@ -1875,7 +1872,6 @@ bool CustomScene::getSignedDistanceFieldCallback(
     return true;
 }
 
-
 bool CustomScene::getObjectInitialConfigurationCallback(
         deformable_manipulation_msgs::GetPointSet::Request& req,
         deformable_manipulation_msgs::GetPointSet::Response& res)
@@ -1921,10 +1917,18 @@ bool CustomScene::executeGripperMovementCallback(
     assert(req.grippers_names.size() == req.gripper_poses.size());
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
+
     ROS_INFO("Executing gripper command");
+//    std::cout << PrettyPrint::PrettyPrint(req.gripper_poses, true, "\n") << std::endl;
+
     for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
     {
         SetGripperTransform(grippers_, req.grippers_names[gripper_ind], req.gripper_poses[gripper_ind]);
+
+//        const auto test = collisionHelper(grippers_[req.grippers_names[gripper_ind]]);
+//        std::cout << PrettyPrint::PrettyPrint(req.gripper_poses[gripper_ind]);
+//        std::cout << "distance to object: " << test.m_distance << std::endl;
+//        std::cout << "gripper radius:     " << grippers_[req.grippers_names[gripper_ind]]->getGripperRadius() / 20.0 << std::endl << std::endl;
     }
 
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)

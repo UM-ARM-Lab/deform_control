@@ -108,7 +108,7 @@ class CustomScene : public Scene
         void addGripperAxesToWorld();
 
 
-        void makeTable();
+        void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f);
         void makeCylinder();
         void makeSinglePoleObstacles();
         void makeWallObstacles();
