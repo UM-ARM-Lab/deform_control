@@ -96,16 +96,18 @@ class CustomScene : public Scene
         void makeBulletObjects();
 
         void makeRope();
+        void makeRopeForMaze();
 
         void makeCloth();
         void findClothCornerNodes();
         void createClothMirrorLine();
 
 
-        void makeSingleRopeGrippper();
+        void makeRopeSingleRobotControlledGrippper();
+        void makeRopeTwoRobotControlledGrippers();
         void makeClothTwoRobotControlledGrippers();
         void makeClothTwoHumanControlledGrippers();
-        void addGripperAxesToWorld();
+        void addGrippersAndAxesToWorld();
 
 
         void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f);
@@ -114,6 +116,7 @@ class CustomScene : public Scene
         void makeWallObstacles();
         void makeClothWallObstacles();
         void makeClothDoubleSlitObstacles();
+        void makeRopeMazeObstacles();
 
         void makeGenericRegionCoverPoints();
 
