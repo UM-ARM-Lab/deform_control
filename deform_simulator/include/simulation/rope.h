@@ -23,16 +23,18 @@ class CapsuleRope : public CompoundObject<BulletObject>
         const btScalar radius;
         const int nLinks;
 
-        /* // The original value
+         // The original value
         CapsuleRope(
                 const std::vector<btVector3>& ctrlPoints,
                 float radius_, float angStiffness_=.1f,
                 float angDamping_=1, float linDamping_=.75f, float angLimit_=.4f);
-        */
+
+        /*
         CapsuleRope(
                 const std::vector<btVector3>& ctrlPoints,
                 float radius_, float angStiffness_=.5f,
                 float angDamping_=0.5f, float linDamping_=.9f, float angLimit_=.3f);
+        */
 
 
         std::vector<btVector3> getNodes() const;

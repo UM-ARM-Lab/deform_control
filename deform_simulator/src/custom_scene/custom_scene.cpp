@@ -580,6 +580,35 @@ void CustomScene::createClothMirrorLine()
 
 void CustomScene::makeSingleRopeGrippper()
 {
+// rope_gripper (the only)
+   {
+       const std::string gripper_name = "rope_gripper";
+
+       // add a single auto gripper to the world
+       grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
+                   gripper_name,
+                   GetGripperApperture(nh_) * METERS,
+                   btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+       grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
+       grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
+
+       auto_grippers_.push_back(gripper_name);
+   }
+
+     // uncomment later
+   // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
+   {
+       collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
+                   "collision_check_gripper",
+                   GetGripperApperture(nh_) * METERS,
+                   btVector4(1.0f, 0.0f, 0.0f, 0.0f));
+       collision_check_gripper_->setWorldTransform(btTransform());
+   //    env->add(collision_check_gripper_);
+   }
+
+
+
+    /* // Preious version, before Dale fix the virtual gripper
     // rope_gripper (the only)
     {
         const std::string gripper_name = "rope_gripper";
@@ -602,6 +631,7 @@ void CustomScene::makeSingleRopeGrippper()
     collision_check_gripper_ = boost::make_shared<GripperKinematicObject>("collision_check_gripper", GetGripperApperture(nh_) * METERS, btVector4(0, 0, 0, 0));
     collision_check_gripper_->setWorldTransform(btTransform());
     env->add(collision_check_gripper_);
+    */
 }
 
 /*
