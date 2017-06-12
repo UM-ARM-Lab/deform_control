@@ -404,7 +404,7 @@ void CustomScene::makeRopeForMaze()
 
     const btVector3 rope_com =
             world_center +
-            btVector3(-world_size.x() / 4.0f + 0.1f * METERS, world_size.y() / 4.0f, -world_center.z() / 4.0f);
+            btVector3(-0.6f * METERS, 0.85f * METERS, -world_size.z() / 4.0f);
 
     // make the rope
     std::vector<btVector3> control_points(num_control_points);
@@ -623,7 +623,7 @@ void CustomScene::makeRopeSingleRobotControlledGrippper()
                     GetGripperApperture(nh_) * METERS,
                     btVector4(1.0f, 0.0f, 0.0f, 0.0f));
         collision_check_gripper_->setWorldTransform(btTransform());
-        env->add(collision_check_gripper_);
+//        env->add(collision_check_gripper_);
     }
 }
 
@@ -666,7 +666,7 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
                     GetGripperApperture(nh_) * METERS,
                     btVector4(1.0f, 0.0f, 0.0f, 0.0f));
         collision_check_gripper_->setWorldTransform(btTransform());
-        env->add(collision_check_gripper_);
+//        env->add(collision_check_gripper_);
     }
 }
 
@@ -728,7 +728,7 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
                     btVector4(1.0f, 0.0f, 0.0f, 0.0f));
         collision_check_gripper_->setWorldTransform(btTransform());
         collision_check_gripper_->toggleOpen();
-        env->add(collision_check_gripper_);
+//        env->add(collision_check_gripper_);
     }
 }
 
@@ -814,7 +814,7 @@ void CustomScene::makeTableSurface(const bool create_cover_points, const float s
 //    table->rigidBody->getCollisionShape()->setMargin(0.0001f * METERS); // default 0.04
 
     env->add(table);
-    world_objects_["table"] = table;
+    world_obstacles_["table"] = table;
 
     // if we are doing a table coverage task, create the table coverage points
     if (create_cover_points)
@@ -866,7 +866,7 @@ void CustomScene::makeCylinder()
 
     // add the cylinder to the world
     env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
+    world_obstacles_["cylinder"] = cylinder;
 
     if (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE)
     {
@@ -920,7 +920,7 @@ void CustomScene::makeCylinder()
 
         // add the cylinder to the world
         env->add(horizontal_cylinder);
-        world_objects_["horizontal_cylinder"] = horizontal_cylinder;
+        world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
 
         #pragma message "Magic numbers - discretization level of cover points"
         for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
@@ -963,7 +963,7 @@ void CustomScene::makeSinglePoleObstacles()
 
     // add the cylinder to the world
     env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
+    world_obstacles_["cylinder"] = cylinder;
 }
 
 void CustomScene::makeClothWallObstacles()
@@ -985,7 +985,7 @@ void CustomScene::makeClothWallObstacles()
 
     // add the cylinder to the world
     env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
+    world_obstacles_["cylinder"] = cylinder;
 
 
     // Wall parameters
@@ -999,7 +999,7 @@ void CustomScene::makeClothWallObstacles()
 
     // add the wall to the world
     env->add(wall);
-    world_objects_["wall"] = wall;
+    world_obstacles_["wall"] = wall;
 }
 
 void CustomScene::makeClothDoubleSlitObstacles()
@@ -1021,7 +1021,7 @@ void CustomScene::makeClothDoubleSlitObstacles()
 
     // add the wall to the world
     env->add(center_wall);
-    world_objects_["center_wall"] = center_wall;
+    world_obstacles_["center_wall"] = center_wall;
 
 
     // Left wall
@@ -1032,7 +1032,7 @@ void CustomScene::makeClothDoubleSlitObstacles()
 
     // add the wall to the world
     env->add(left_wall);
-    world_objects_["left_wall"] = left_wall;
+    world_obstacles_["left_wall"] = left_wall;
 
 
     // Right wall
@@ -1043,7 +1043,7 @@ void CustomScene::makeClothDoubleSlitObstacles()
 
     // add the wall to the world
     env->add(right_wall);
-    world_objects_["right_wall"] = right_wall;
+    world_obstacles_["right_wall"] = right_wall;
 }
 
 void CustomScene::makeRopeMazeObstacles()
@@ -1058,17 +1058,18 @@ void CustomScene::makeRopeMazeObstacles()
                 (float)work_space_grid_.getYMax(),
                 (float)work_space_grid_.getZMax());
 
+    const float wall_thickness = 0.2f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
     const btVector3 world_size = world_max - world_min;
+    const btVector3 first_floor_center = world_center - btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
+    const btVector3 second_floor_center = world_center + btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
+    const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
 
-    std::cout << "World center: " << PrettyPrint::PrettyPrint(world_center) << std::endl;
-    std::cout << "World size:   " << PrettyPrint::PrettyPrint(world_size) << std::endl;
 
-    const float wall_thickness = 0.2f * METERS;
-
-    const float outer_wall_aplha = 0.0f;
+    const float outer_wall_aplha = 0.05f;
     const float floor_divider_alpha = 0.1f;
-    const float second_floor_aplha = 0.1f;
+    const float first_floor_aplha = 0.3f;
+    const float second_floor_aplha = 0.5f;
     // Make the outer walls
     {
         const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
@@ -1081,7 +1082,7 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["outer_wall0"] = wall;
+        world_obstacles_["outer_wall0"] = wall;
     }
     {
         const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
@@ -1094,7 +1095,7 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["outer_wall1"] = wall;
+        world_obstacles_["outer_wall1"] = wall;
     }
     {
         const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
@@ -1107,7 +1108,7 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["outer_wall2"] = wall;
+        world_obstacles_["outer_wall2"] = wall;
     }
     {
         const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
@@ -1120,23 +1121,127 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["outer_wall3"] = wall;
+        world_obstacles_["outer_wall3"] = wall;
     }
 
     // Make 1st floor obstacles
-//    {
-//        const btVector3 wall_half_extents = btVector3(world_size.x() / 2.0f + 0.1f * METERS, wall_thickness, world_size.z() / 2.0f) / 2.0f;
-//        const btVector3 wall_com = world_center + btVector3(0.2f * METERS, 0.0f, -world_size.z() / 4.0f);
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.6f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.7f * METERS, 0.3f * METERS, 0.0f);
 
-//        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-//                    0, wall_half_extents,
-//                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-//        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
 
-//        // add the wall to the world
-//        env->add(wall);
-//        world_objects_["first_floor_obstacle0"] = wall;
-//    }
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.5f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.35f * METERS, 0.1f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle1"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.3f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.3f * METERS, 0.55f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle2"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.3f * METERS, 0.5f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle3"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.6f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.8f * METERS, 0.4f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle4"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.9f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.75f * METERS, -0.2f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle5"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.7f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.0f * METERS, -0.55f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle6"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.7f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.85f * METERS, -0.4f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle7"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.1f * METERS, 0.1f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle8"] = wall;
+    }
 
     // Make the divider between floors
     {
@@ -1150,7 +1255,7 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(divider);
-        world_objects_["horizontal_divider0"] = divider;
+        world_obstacles_["horizontal_divider0"] = divider;
     }
     {
         const btVector3 divider_half_extents = btVector3(1.6f * METERS, 0.4f * METERS, wall_thickness) / 2.0f;
@@ -1163,13 +1268,13 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(divider);
-        world_objects_["horizontal_divider1"] = divider;
+        world_obstacles_["horizontal_divider1"] = divider;
     }
 
     // Make 2nd floor obstacles
     {
-        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(-0.2f * METERS, 0.3f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.2f * METERS, 0.3f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1178,11 +1283,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["second_floor_obstacle0"] = wall;
+        world_obstacles_["second_floor_obstacle0"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(-0.8f * METERS, 0.3f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.8f * METERS, 0.3f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1191,11 +1296,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["second_floor_obstacle1"] = wall;
+        world_obstacles_["second_floor_obstacle1"] = wall;
     }    
     {
-        const btVector3 wall_half_extents = btVector3(0.6f * METERS, wall_thickness, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(-0.5f * METERS, -0.1f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(0.6f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.5f * METERS, -0.1f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1204,11 +1309,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["second_floor_obstacle2"] = wall;
+        world_obstacles_["second_floor_obstacle2"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(0.7f * METERS, wall_thickness, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(0.45f * METERS, -0.5f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(0.7f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.45f * METERS, -0.5f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1217,11 +1322,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["second_floor_obstacle3"] = wall;
+        world_obstacles_["second_floor_obstacle3"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.5f * METERS, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(-0.7f * METERS, -0.45f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.5f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.7f * METERS, -0.45f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1230,11 +1335,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["second_floor_obstacle4"] = wall;
+        world_obstacles_["second_floor_obstacle4"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.4f * METERS, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(-0.2f * METERS, -0.7f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.4f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.2f * METERS, -0.7f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1243,13 +1348,13 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["second_floor_obstacle4"] = wall;
+        world_obstacles_["second_floor_obstacle5"] = wall;
     }
 
     // Make the goal region
     {
-        const btVector3 wall_half_extents = btVector3(world_size.x() / 2.0f - wall_thickness / 2.0f, wall_thickness, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(wall_half_extents.x(), 0.0f, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(0.8f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.8f * METERS, 0.0f, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1258,11 +1363,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["goal_border_wall0"] = wall;
+        world_obstacles_["goal_border_wall0"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() / 2.0f - wall_thickness - 0.2f * METERS, world_size.z() / 2.0f) / 2.0f;
-        const btVector3 wall_com = world_center + btVector3(wall_thickness / 2.0f, wall_half_extents.y() + wall_thickness / 2.0f, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1271,11 +1376,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["goal_border_wall1"] = wall;
+        world_obstacles_["goal_border_wall1"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(0.1f * METERS, 0.1f * METERS, world_size.z() / 4.0f);
-        const btVector3 wall_com = world_center + btVector3(0.85f * METERS, 0.6f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.85f * METERS, 0.6f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1284,11 +1389,11 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["goal_obstacle0"] = wall;
+        world_obstacles_["goal_obstacle0"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(0.1f * METERS, 0.1f * METERS, world_size.z() / 4.0f);
-        const btVector3 wall_com = world_center + btVector3(0.55f * METERS, 0.4f * METERS, world_size.z() / 4.0f);
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.55f * METERS, 0.4f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1297,7 +1402,7 @@ void CustomScene::makeRopeMazeObstacles()
 
         // add the wall to the world
         env->add(wall);
-        world_objects_["goal_obstacle1"] = wall;
+        world_obstacles_["goal_obstacle1"] = wall;
     }
 
     // Create the target points
@@ -1746,7 +1851,7 @@ btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr&
     btPointCollector gjkOutput_min;
 
     // find the distance to any objects in the world
-    for (auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr)
+    for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
     {
         BulletObject::Ptr obj = ittr->second;
         for (size_t gripper_child_ind = 0; gripper_child_ind < gripper->getChildren().size(); gripper_child_ind++)
@@ -1789,7 +1894,7 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
     btPointCollector gjkOutput_min;
 
     // find the distance to any objects in the world
-    for (auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr)
+    for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
     {
         BulletObject::Ptr obj = ittr->second;
 
@@ -2015,7 +2120,14 @@ void CustomScene::visualizationMarkerCallback(
         }
         case visualization_msgs::Marker::LINE_STRIP:
         {
-            if (marker.points.size() > 0)
+            if (marker.points.size() == 1)
+            {
+                std::cerr << "Only 1 point for line strip:\n"
+                          << "  NS: " << marker.ns << std::endl
+                          << "  ID: " << marker.id << std::endl
+                          << "  Point: " << marker.points[0].x << " " << marker.points[0].y << " " << marker.points[0].z << std::endl;
+            }
+            if (marker.points.size() > 1)
             {
                 convertLineStripToLineList(marker);
             }

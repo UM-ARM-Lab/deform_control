@@ -266,7 +266,7 @@ class CustomScene : public Scene
         // Shared world objects
         ////////////////////////////////////////////////////////////////////////
 
-        std::map<std::string, BulletObject::Ptr> world_objects_;
+        std::map<std::string, BulletObject::Ptr> world_obstacles_;
 
         // Uses bullet (scaled) translational distances
         const smmap::XYZGrid work_space_grid_;

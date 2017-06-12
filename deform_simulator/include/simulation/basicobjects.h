@@ -407,7 +407,9 @@ class BoxObject : public BulletObject
             : BulletObject(mass_, new btBoxShape(halfExtents_), initTrans, isKinematic)
             , mass(mass_)
             , halfExtents(halfExtents_)
-        {}
+        {
+            assert(halfExtents_.x() >= 0 && halfExtents_.y() >= 0 && halfExtents_.z() >= 0);
+        }
 
         EnvironmentObject::Ptr copy(Fork &f) const
         {
