@@ -610,8 +610,10 @@ void CustomScene::makeRopeSingleRobotControlledGrippper()
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
-        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
+
+        const size_t object_node_ind = 0;
+        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, env);
 
         auto_grippers_.push_back(gripper_name);
     }
@@ -638,8 +640,10 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-        grippers_[gripper_name]->setWorldTransform(rope_->getChildren().front()->rigidBody->getCenterOfMassTransform());
-        grippers_[gripper_name]->rigidGrab(rope_->getChildren().front()->rigidBody.get(), 0, env);
+
+        const size_t object_node_ind = 0;
+        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, env);
 
         auto_grippers_.push_back(gripper_name);
     }
@@ -653,8 +657,10 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-        grippers_[gripper_name]->setWorldTransform(rope_->getChildren().back()->rigidBody->getCenterOfMassTransform());
-        grippers_[gripper_name]->rigidGrab(rope_->getChildren().back()->rigidBody.get(), 0, env);
+
+        const size_t object_node_ind = rope_->getChildren().size() - 1;
+        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, env);
 
         auto_grippers_.push_back(gripper_name);
     }
@@ -2874,9 +2880,9 @@ GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper(size_t gri
     }
     else
     {
-        std::cerr << "Invalid gripper number: " << gripper_num << std::endl;
-        std::cerr << "Existing auto grippers:   " << PrettyPrint::PrettyPrint(scene_.auto_grippers_) << std::endl;
-        std::cerr << "Existing manual grippers: " << PrettyPrint::PrettyPrint(scene_.manual_grippers_) << std::endl;
+        ROS_ERROR_STREAM_NAMED("deform_simulator", "Invalid gripper number: " << gripper_num);
+        ROS_ERROR_STREAM_NAMED("deform_simulator", "Existing auto grippers:   " << PrettyPrint::PrettyPrint(scene_.auto_grippers_));
+        ROS_ERROR_STREAM_NAMED("deform_simulator", "Existing manual grippers: " << PrettyPrint::PrettyPrint(scene_.manual_grippers_));
         return nullptr;
     }
 }
