@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 
 #include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
 
@@ -17,6 +18,7 @@
 #include "simulation/recording.h"
 
 #include "gripper_kinematic_object.h"
+//#include "table_kinematic_object.h"
 #include "manual_gripper_path.h"
 
 #include <ros/ros.h>
@@ -110,7 +112,7 @@ class CustomScene : public Scene
         void addGrippersAndAxesToWorld();
 
 
-        void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f);
+        void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f, const bool add_legs = false);
         void makeCylinder();
         void makeSinglePoleObstacles();
         void makeWallObstacles();
@@ -266,7 +268,8 @@ class CustomScene : public Scene
         // Shared world objects
         ////////////////////////////////////////////////////////////////////////
 
-        std::map<std::string, BulletObject::Ptr> world_obstacles_;
+        std::unordered_map<std::string, BulletObject::Ptr> world_obstacles_;
+//        std::unordered_map<std::string, TableKinematicObject::Ptr> world_table_obstacles_;
 
         // Uses bullet (scaled) translational distances
         const smmap::XYZGrid work_space_grid_;

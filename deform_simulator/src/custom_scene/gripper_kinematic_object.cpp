@@ -7,7 +7,10 @@
 
 using namespace BulletHelpers;
 
-GripperKinematicObject::GripperKinematicObject(const std::string& name_input, float apperture_input, btVector4 color)
+GripperKinematicObject::GripperKinematicObject(
+        const std::string& name_input,
+        const float apperture_input,
+        const btVector4 color)
     : name(name_input)
     #warning "Gripper size magic number - move to params file"
     , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)

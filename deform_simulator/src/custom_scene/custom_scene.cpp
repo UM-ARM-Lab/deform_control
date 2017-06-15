@@ -24,6 +24,7 @@
 
 #include "utils/util.h"
 #include "custom_scene/internal_utils.hpp"
+#include "custom_scene/table_kinematic_object.h"
 
 using namespace BulletHelpers;
 using namespace smmap;
@@ -325,7 +326,6 @@ void CustomScene::makeBulletObjects()
             makeCloth();
             makeClothTwoRobotControlledGrippers();
             makeSinglePoleObstacles();
-            makeTableSurface(true, 0.025f * METERS);
             break;
 
         case TaskType::CLOTH_WALL:
@@ -339,7 +339,6 @@ void CustomScene::makeBulletObjects()
             makeCloth();
             makeClothTwoRobotControlledGrippers();
             makeClothDoubleSlitObstacles();
-            makeTableSurface(true, 0.025f * METERS);
             break;
 
         default:
@@ -797,52 +796,65 @@ void CustomScene::addGrippersAndAxesToWorld()
 
 
 
-void CustomScene::makeTableSurface(const bool create_cover_points, const float stepsize)
+void CustomScene::makeTableSurface(const bool create_cover_points, const float stepsize, const bool add_legs)
 {
     // table parameters
+    const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
+
     const btVector3 table_surface_position =
             btVector3(GetTableSurfaceX(nh_),
                       GetTableSurfaceY(nh_),
                       GetTableSurfaceZ(nh_)) * METERS;
+
     const btVector3 table_half_extents =
             btVector3(GetTableHalfExtentsX(nh_),
                       GetTableHalfExtentsY(nh_),
-                      GetTableThickness(nh_) / 2.0f ) * METERS;
-
-    const btVector3 table_com = table_surface_position - btVector3(0, 0, table_half_extents.z());
+                      GetTableHeight(nh_) / 2.0f) * METERS;
 
     // create the table
-    BoxObject::Ptr table = boost::make_shared<BoxObject> (
-                0, table_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), table_com));
-    table->setColor(0.4f, 0.4f, 0.4f, 1.0f);
-    table->rigidBody->setFriction(1.0f);
-//    table->rigidBody->getCollisionShape()->setMargin(0.0001f * METERS); // default 0.04
+    TableKinematicObject::Ptr table =
+            boost::make_shared<TableKinematicObject>(
+                "table",
+                btTransform(btQuaternion(0, 0, 0, 1), table_surface_position),
+                table_half_extents * 2.0f,
+                table_half_thickness * 2.0f,
+                btVector4(0.4f, 0.4f, 0.4f, 1.0f),
+                add_legs);
 
     env->add(table);
-    world_obstacles_["table"] = table;
+//    world_table_obstacles_["table"] = table;
+    world_obstacles_["table_surface"] = table->getChildren()[0];
+    if (add_legs)
+    {
+        world_obstacles_["table_leg1"] = table->getChildren()[1];
+        world_obstacles_["table_leg2"] = table->getChildren()[2];
+        world_obstacles_["table_leg3"] = table->getChildren()[3];
+        world_obstacles_["table_leg4"] = table->getChildren()[4];
+    }
+
 
     // if we are doing a table coverage task, create the table coverage points
     if (create_cover_points)
     {
         assert(stepsize > 0);
-        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
+//        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
 
         const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
         std::vector<btVector3> cloth_coverage_lines;
-        for(float y = -table->halfExtents.y(); y <= table->halfExtents.y(); y += stepsize)
+        for (float y = -table_half_extents.y(); y <= table_half_extents.y(); y += stepsize)
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (-table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
+                        table_surface_position + btVector3 (-table_half_extents.x(), y, cloth_collision_margin));
 
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
+                        table_surface_position + btVector3 (+table_half_extents.x(), y, cloth_collision_margin));
 
             // Add many coverage points along the coverage line
-            for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
+            for(float x = -table_half_extents.x(); x <= table_half_extents.x(); x += stepsize)
             {
-                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin * 2.0f));
+                cover_points_.push_back(
+                            table_surface_position + btVector3(x, y, cloth_collision_margin * 2.0f));
             }
         }
         ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
@@ -952,6 +964,21 @@ void CustomScene::makeCylinder()
 
 void CustomScene::makeSinglePoleObstacles()
 {
+    makeTableSurface(true, 0.025f * METERS, true);
+
+    const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
+
+    const btVector3 table_surface_position =
+            btVector3(GetTableSurfaceX(nh_),
+                      GetTableSurfaceY(nh_),
+                      GetTableSurfaceZ(nh_)) * METERS;
+
+    const btVector3 table_half_extents =
+            btVector3(GetTableHalfExtentsX(nh_),
+                      GetTableHalfExtentsY(nh_),
+                      GetTableHeight(nh_) / 2.0f) * METERS;
+
+
     // cylinder parameters
     const btVector3 cylinder_com_origin =
         btVector3(GetCylinderCenterOfMassX(nh_),
@@ -961,15 +988,77 @@ void CustomScene::makeSinglePoleObstacles()
     const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
     const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
 
-    // create a cylinder
-    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
-                0, cylinder_radius, cylinder_height,
-                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
-    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    // create a cylinder directly in front of the table
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
 
-    // add the cylinder to the world
-    env->add(cylinder);
-    world_obstacles_["cylinder"] = cylinder;
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["center_cylinder"] = cylinder;
+     }
+
+    // create a cylinder directly to the left of the table (left from cloth starting position)
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin + btVector3(0.0f, -0.6f * METERS, 0.0f)));
+        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["left_cylinder"] = cylinder;
+
+        // create the left table
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "left_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, -0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    btVector4(0.4f, 0.4f, 0.4f, 1.0f),
+                    true);
+
+        env->add(table);
+    //    world_table_obstacles_["left_table"] = table;
+        world_obstacles_["left_table_surface"] = table->getChildren()[0];
+        world_obstacles_["left_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["left_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["left_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["left_table_leg4"] = table->getChildren()[4];
+    }
+
+    // create a cylinder directly to the right of the table (right from cloth starting position)
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin + btVector3(0.0f, 0.6f * METERS, 0.0f)));
+        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["left_cylinder"] = cylinder;
+
+        // create the right table
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "right_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, 0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    btVector4(0.4f, 0.4f, 0.4f, 1.0f),
+                    true);
+
+        env->add(table);
+    //    world_table_obstacles_["right_table"] = table;
+        world_obstacles_["right_table_surface"] = table->getChildren()[0];
+        world_obstacles_["right_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["right_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["right_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["right_table_leg4"] = table->getChildren()[4];
+    }
 }
 
 void CustomScene::makeClothWallObstacles()
@@ -1010,6 +1099,8 @@ void CustomScene::makeClothWallObstacles()
 
 void CustomScene::makeClothDoubleSlitObstacles()
 {
+    makeTableSurface(true, 0.025f * METERS, true);
+
     const btVector3 wall_section_half_extents =
             btVector3(0.04f, 0.115f, 0.5f) * METERS;
 

@@ -9,7 +9,10 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     public:
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
-        GripperKinematicObject(const std::string& name_input, float apperture_input, btVector4 color = btVector4(0.6f, 0.6f, 0.6f, 0.9f));
+        GripperKinematicObject(
+                const std::string& name_input,
+                const float apperture_input,
+                const btVector4 color = btVector4(0.6f, 0.6f, 0.6f, 0.9f));
 
         void translate(btVector3 transvec);
         void applyTransform(btTransform tm);
@@ -40,11 +43,12 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         void step_openclose(btSoftBody * psb);
 
         EnvironmentObject::Ptr copy(Fork &f) const;
-        void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const;
 
         friend std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper);
 
     private:
+        void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const;
+
         std::string name;
         btVector3 halfextents;
 
