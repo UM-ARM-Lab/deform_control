@@ -212,6 +212,11 @@ BulletObject::MoveAction::Ptr BulletObject::createMoveAction(const btTransform &
     return MoveAction::Ptr(new MoveAction(this, start, end, time));
 }
 
+void BulletObject::setColor(const btVector4& color)
+{
+    setColor(color[0], color[1], color[2], color[3]);
+}
+
 void BulletObject::setColor(float r, float g, float b, float a)
 {
     m_color.reset(new osg::Vec4f(r,g,b,a));

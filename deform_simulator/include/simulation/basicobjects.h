@@ -240,6 +240,7 @@ class BulletObject : public EnvironmentObject
         MoveAction::Ptr createMoveAction();
         MoveAction::Ptr createMoveAction(const btTransform &start, const btTransform &end, float time);
 
+        void setColor(const btVector4& color);
         void setColor(float r, float g, float b, float a);
 
     protected:

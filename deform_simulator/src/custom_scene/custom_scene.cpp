@@ -37,7 +37,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                          const DeformableType deformable_type,
                          const TaskType task_type)
     : screen_recorder_(nullptr)
-    , plot_points_(boost::make_shared<PlotPoints>(0.1f * METERS))
+    , plot_points_(boost::make_shared<PlotPoints>(0.4f * METERS))
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
     , deformable_type_(deformable_type)
     , task_type_(task_type)
@@ -966,6 +966,9 @@ void CustomScene::makeSinglePoleObstacles()
 {
     makeTableSurface(true, 0.025f * METERS, true);
 
+    const btVector4 wall_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+    const btVector4 table_color(0.4f, 0.4f, 0.4f, 1.0f);
+
     const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
 
     const btVector3 table_surface_position =
@@ -993,7 +996,7 @@ void CustomScene::makeSinglePoleObstacles()
         CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
                     0, cylinder_radius, cylinder_height,
                     btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
-        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+        cylinder->setColor(wall_color);
 
         // add the cylinder to the world
         env->add(cylinder);
@@ -1005,29 +1008,11 @@ void CustomScene::makeSinglePoleObstacles()
         CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
                     0, cylinder_radius, cylinder_height,
                     btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin + btVector3(0.0f, -0.6f * METERS, 0.0f)));
-        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+        cylinder->setColor(wall_color);
 
         // add the cylinder to the world
         env->add(cylinder);
         world_obstacles_["left_cylinder"] = cylinder;
-
-        // create the left table
-        TableKinematicObject::Ptr table =
-                boost::make_shared<TableKinematicObject>(
-                    "left_table",
-                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, -0.6f * METERS, 0.0f)),
-                    table_half_extents * 2.0f,
-                    table_half_thickness * 2.0f,
-                    btVector4(0.4f, 0.4f, 0.4f, 1.0f),
-                    true);
-
-        env->add(table);
-    //    world_table_obstacles_["left_table"] = table;
-        world_obstacles_["left_table_surface"] = table->getChildren()[0];
-        world_obstacles_["left_table_leg1"] = table->getChildren()[1];
-        world_obstacles_["left_table_leg2"] = table->getChildren()[2];
-        world_obstacles_["left_table_leg3"] = table->getChildren()[3];
-        world_obstacles_["left_table_leg4"] = table->getChildren()[4];
     }
 
     // create a cylinder directly to the right of the table (right from cloth starting position)
@@ -1035,24 +1020,46 @@ void CustomScene::makeSinglePoleObstacles()
         CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
                     0, cylinder_radius, cylinder_height,
                     btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin + btVector3(0.0f, 0.6f * METERS, 0.0f)));
-        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+        cylinder->setColor(wall_color);
 
         // add the cylinder to the world
         env->add(cylinder);
         world_obstacles_["left_cylinder"] = cylinder;
+    }
 
-        // create the right table
+    // create the left table
+    {
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "left_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, -0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    table_color,
+                    true);
+
+        env->add(table);
+//        world_table_obstacles_["left_table"] = table;
+        world_obstacles_["left_table_surface"] = table->getChildren()[0];
+        world_obstacles_["left_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["left_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["left_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["left_table_leg4"] = table->getChildren()[4];
+    }
+
+    // create the right table
+    {
         TableKinematicObject::Ptr table =
                 boost::make_shared<TableKinematicObject>(
                     "right_table",
                     btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, 0.6f * METERS, 0.0f)),
                     table_half_extents * 2.0f,
                     table_half_thickness * 2.0f,
-                    btVector4(0.4f, 0.4f, 0.4f, 1.0f),
+                    table_color,
                     true);
 
         env->add(table);
-    //    world_table_obstacles_["right_table"] = table;
+//        world_table_obstacles_["right_table"] = table;
         world_obstacles_["right_table_surface"] = table->getChildren()[0];
         world_obstacles_["right_table_leg1"] = table->getChildren()[1];
         world_obstacles_["right_table_leg2"] = table->getChildren()[2];
@@ -1101,46 +1108,129 @@ void CustomScene::makeClothDoubleSlitObstacles()
 {
     makeTableSurface(true, 0.025f * METERS, true);
 
+    const btVector4 wall_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+    const btVector4 table_color(0.4f, 0.4f, 0.4f, 1.0f);
+
+    const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
+
+    const btVector3 table_surface_position =
+            btVector3(GetTableSurfaceX(nh_),
+                      GetTableSurfaceY(nh_),
+                      GetTableSurfaceZ(nh_)) * METERS;
+
+    const btVector3 table_half_extents =
+            btVector3(GetTableHalfExtentsX(nh_),
+                      GetTableHalfExtentsY(nh_),
+                      GetTableHeight(nh_) / 2.0f) * METERS;
+
     const btVector3 wall_section_half_extents =
             btVector3(0.04f, 0.115f, 0.5f) * METERS;
 
     const btVector3 center_wall_section_com =
-            btVector3(0.0f, 0.0f, 0.8f) * METERS;
+            btVector3(0.0f, 0.0f, 0.5f) * METERS;
 
     const btVector3 outside_wall_offset =
             btVector3(0.0f, 0.3f, 0.0f) * METERS;
 
     // Center wall
-    BoxObject::Ptr center_wall = boost::make_shared<BoxObject>(
-                0, wall_section_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com));
-    center_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        BoxObject::Ptr center_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com));
+        center_wall->setColor(wall_color);
 
-    // add the wall to the world
-    env->add(center_wall);
-    world_obstacles_["center_wall"] = center_wall;
-
+        // add the wall to the world
+        env->add(center_wall);
+        world_obstacles_["center_wall"] = center_wall;
+    }
 
     // Left wall
-    BoxObject::Ptr left_wall = boost::make_shared<BoxObject>(
-                0, wall_section_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com + outside_wall_offset));
-    left_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        BoxObject::Ptr left_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com + outside_wall_offset));
+        left_wall->setColor(wall_color);
 
-    // add the wall to the world
-    env->add(left_wall);
-    world_obstacles_["left_wall"] = left_wall;
-
+        // add the wall to the world
+        env->add(left_wall);
+        world_obstacles_["left_wall"] = left_wall;
+    }
 
     // Right wall
-    BoxObject::Ptr right_wall = boost::make_shared<BoxObject>(
-                0, wall_section_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com - outside_wall_offset));
-    right_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        BoxObject::Ptr right_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com - outside_wall_offset));
+        right_wall->setColor(wall_color);
 
-    // add the wall to the world
-    env->add(right_wall);
-    world_obstacles_["right_wall"] = right_wall;
+        // add the wall to the world
+        env->add(right_wall);
+        world_obstacles_["right_wall"] = right_wall;
+    }
+
+    // Far left wall
+    {
+        BoxObject::Ptr far_left_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com + 2.0f * outside_wall_offset));
+        far_left_wall->setColor(wall_color);
+
+        // add the wall to the world
+        env->add(far_left_wall);
+        world_obstacles_["far_left_wall"] = far_left_wall;
+    }
+
+    // Far right wall
+    {
+        BoxObject::Ptr far_right_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com - 2.0f * outside_wall_offset));
+        far_right_wall->setColor(wall_color);
+
+        // add the wall to the world
+        env->add(far_right_wall);
+        world_obstacles_["far_right_wall"] = far_right_wall;
+    }
+
+    // create the left table
+    {
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "left_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, -0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    table_color,
+                    true);
+
+        env->add(table);
+//        world_table_obstacles_["left_table"] = table;
+        world_obstacles_["left_table_surface"] = table->getChildren()[0];
+        world_obstacles_["left_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["left_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["left_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["left_table_leg4"] = table->getChildren()[4];
+    }
+
+    // create the right table
+    {
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "right_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, 0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    table_color,
+                    true);
+
+        env->add(table);
+//        world_table_obstacles_["right_table"] = table;
+        world_obstacles_["right_table_surface"] = table->getChildren()[0];
+        world_obstacles_["right_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["right_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["right_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["right_table_leg4"] = table->getChildren()[4];
+    }
 }
 
 void CustomScene::makeRopeMazeObstacles()
@@ -1163,10 +1253,11 @@ void CustomScene::makeRopeMazeObstacles()
     const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
 
 
-    const float outer_wall_aplha = 0.05f;
-    const float floor_divider_alpha = 0.1f;
-    const float first_floor_aplha = 0.3f;
-    const float second_floor_aplha = 0.5f;
+    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.2f);
+    const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, 0.2f); // brown
+    const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 0.5f); // purple
+    const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 0.5f); // teal
+
     // Make the outer walls
     {
         const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
@@ -1175,7 +1266,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_wall_aplha);
+        wall->setColor(outer_walls_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1188,7 +1279,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_wall_aplha);
+        wall->setColor(outer_walls_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1201,7 +1292,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_wall_aplha);
+        wall->setColor(outer_walls_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1214,7 +1305,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_wall_aplha);
+        wall->setColor(outer_walls_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1229,20 +1320,20 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
         world_obstacles_["first_floor_obstacle0"] = wall;
     }
     {
-        const btVector3 wall_half_extents = btVector3(0.5f * METERS, wall_thickness, internal_wall_height) / 2.0f;
-        const btVector3 wall_com = first_floor_center + btVector3(-0.35f * METERS, 0.1f * METERS, 0.0f);
+        const btVector3 wall_half_extents = btVector3(0.9f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.15f * METERS, 0.1f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1255,7 +1346,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1268,7 +1359,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1281,7 +1372,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1294,7 +1385,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1307,7 +1398,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1320,24 +1411,11 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
+        wall->setColor(first_floor_color);
 
         // add the wall to the world
         env->add(wall);
         world_obstacles_["first_floor_obstacle7"] = wall;
-    }
-    {
-        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
-        const btVector3 wall_com = first_floor_center + btVector3(0.1f * METERS, 0.1f * METERS, 0.0f);
-
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, first_floor_aplha);
-
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["first_floor_obstacle8"] = wall;
     }
 
     // Make the divider between floors
@@ -1348,7 +1426,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr divider = boost::make_shared<BoxObject>(
                     0, divider_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), divider_com));
-        divider->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, floor_divider_alpha);
+        divider->setColor(floor_divider_color);
 
         // add the wall to the world
         env->add(divider);
@@ -1361,7 +1439,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr divider = boost::make_shared<BoxObject>(
                     0, divider_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), divider_com));
-        divider->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, floor_divider_alpha);
+        divider->setColor(floor_divider_color);
 
         // add the wall to the world
         env->add(divider);
@@ -1376,7 +1454,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1389,7 +1467,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1402,7 +1480,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1415,7 +1493,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1428,7 +1506,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1441,7 +1519,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1456,7 +1534,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1469,7 +1547,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1482,7 +1560,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
@@ -1495,7 +1573,7 @@ void CustomScene::makeRopeMazeObstacles()
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, second_floor_aplha);
+        wall->setColor(second_floor_color);
 
         // add the wall to the world
         env->add(wall);
