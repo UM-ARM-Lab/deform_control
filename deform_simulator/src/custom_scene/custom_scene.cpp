@@ -99,6 +99,9 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     cover_points_srv_ = nh_.advertiseService(
             GetCoverPointsTopic(nh_), &CustomScene::getCoverPointsCallback, this);
 
+    cover_point_normals_srv_ = nh_.advertiseService(
+                GetCoverPointNormalsTopic(nh_), &CustomScene::getCoverPointNormalsCallback, this);
+
     // Create a service to let others know the mirror line data
     mirror_line_srv_ = nh_.advertiseService(
             GetMirrorLineTopic(nh_), &CustomScene::getMirrorLineCallback, this);
@@ -347,6 +350,8 @@ void CustomScene::makeBulletObjects()
     }
 
     addGrippersAndAxesToWorld();
+
+    assert(cover_points_.size() == cover_point_normals_.size());
 }
 
 
@@ -855,6 +860,8 @@ void CustomScene::makeTableSurface(const bool create_cover_points, const float s
             {
                 cover_points_.push_back(
                             table_surface_position + btVector3(x, y, cloth_collision_margin * 2.0f));
+
+                cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
             }
         }
         ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
@@ -901,10 +908,12 @@ void CustomScene::makeCylinder()
                         + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
                                      (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
                                      h));
+
+                cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
             }
         }
     }
-    else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE || task_type_ == TaskType::CLOTH_WAFR))
+    else if (task_type_ == TaskType::CLOTH_WAFR)
     {
         const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
 
@@ -919,6 +928,8 @@ void CustomScene::makeCylinder()
                     cover_points_.push_back(
                                 cylinder_com_origin
                                 + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+
+                    cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
                 }
             }
         }
@@ -953,6 +964,8 @@ void CustomScene::makeCylinder()
                                 cover_points_radius * std::sin(theta),
                                 h,
                                 cover_points_radius * std::cos(theta)));
+
+                cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
             }
         }
     }
@@ -1601,6 +1614,7 @@ void CustomScene::makeRopeMazeObstacles()
         {
             const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)cover_idx;
             cover_points_.push_back(target_point);
+            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
         }
     }
     // Create the part in y (middle visually on start)
@@ -1617,6 +1631,7 @@ void CustomScene::makeRopeMazeObstacles()
                     start_point -
                     btVector3(0.0f, rope_segment_length, 0.0f) * (float)cover_idx;
             cover_points_.push_back(target_point);
+            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
         }
     }
     // Create the second part in x (top right corner visually on start)
@@ -1632,6 +1647,7 @@ void CustomScene::makeRopeMazeObstacles()
         {
             const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)cover_idx;
             cover_points_.push_back(target_point);
+            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
         }
     }
 
@@ -1648,6 +1664,8 @@ void CustomScene::makeRopeMazeObstacles()
 
 void CustomScene::makeGenericRegionCoverPoints()
 {
+    ROS_WARN("Generic region cover points is using an arbitrary surface normal");
+
     const btScalar x_min = GetCoverRegionXMin(nh_) * METERS;
     const size_t x_steps = GetCoverRegionXSteps(nh_);
     const btScalar x_res = GetCoverRegionXRes(nh_) * METERS;
@@ -1672,6 +1690,7 @@ void CustomScene::makeGenericRegionCoverPoints()
             {
                 const btScalar z = z_min + (btScalar)z_ind * z_res;
                 cover_points_.push_back(btVector3(x, y, z));
+                cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
             }
         }
     }
@@ -2421,6 +2440,15 @@ bool CustomScene::getCoverPointsCallback(
 {
     (void)req;
     res.points = toRosPointVector(cover_points_, METERS);
+    return true;
+}
+
+bool CustomScene::getCoverPointNormalsCallback(
+        deformable_manipulation_msgs::GetPointSet::Request& req,
+        deformable_manipulation_msgs::GetPointSet::Response& res)
+{
+    (void)req;
+    res.points = toRosPointVector(cover_point_normals_, 1.0f);
     return true;
 }
 

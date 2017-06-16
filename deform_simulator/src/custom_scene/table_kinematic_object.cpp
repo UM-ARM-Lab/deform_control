@@ -109,10 +109,13 @@ TableKinematicObject::TableKinematicObject(
 
 EnvironmentObject::Ptr TableKinematicObject::copy(Fork &f) const
 {
+    (void)f;
     assert(false && "Table copy not implemented");
 }
 
 void TableKinematicObject::internalCopy(TableKinematicObject::Ptr o, Fork &f) const
 {
+    (void)o;
+    (void)f;
     assert(false && "Table copy not implemented");
 }

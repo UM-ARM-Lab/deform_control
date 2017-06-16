@@ -187,6 +187,9 @@ class CustomScene : public Scene
         bool getCoverPointsCallback(
                 deformable_manipulation_msgs::GetPointSet::Request& req,
                 deformable_manipulation_msgs::GetPointSet::Response& res);
+        bool getCoverPointNormalsCallback(
+                deformable_manipulation_msgs::GetPointSet::Request& req,
+                deformable_manipulation_msgs::GetPointSet::Response& res);
         bool getMirrorLineCallback(
                 deformable_manipulation_msgs::GetMirrorLine::Request& req,
                 deformable_manipulation_msgs::GetMirrorLine::Response& res);
@@ -300,6 +303,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         std::vector<btVector3> cover_points_;
+        std::vector<btVector3> cover_point_normals_;
         deformable_manipulation_msgs::GetMirrorLine::Response mirror_line_data_;
 
         ////////////////////////////////////////////////////////////////////////
@@ -320,6 +324,7 @@ class CustomScene : public Scene
         ros::ServiceServer gripper_pose_srv_;
         ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
+        ros::ServiceServer cover_point_normals_srv_;
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer free_space_graph_srv_;
         ros::ServiceServer signed_distance_field_srv_;
