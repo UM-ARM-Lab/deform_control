@@ -1601,7 +1601,7 @@ void CustomScene::makeRopeMazeObstacles()
 
     const int num_vertical_per_side = 11;
     const int num_horizontal_per_side = (num_rope_links - (num_vertical_per_side * 2) - 1) / 2;
-    // Create the first part in x (bottom left corner visually on start)
+    // Create the first part in x (top right corner visually on start)
     {
         const btVector3 start_point =
                 world_center +
@@ -1634,7 +1634,7 @@ void CustomScene::makeRopeMazeObstacles()
             cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
         }
     }
-    // Create the second part in x (top right corner visually on start)
+    // Create the second part in x (towards the middle of the maze visually on start)
     {
         const btVector3 start_point =
                 world_center +
@@ -1650,6 +1650,9 @@ void CustomScene::makeRopeMazeObstacles()
             cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
         }
     }
+    // Reverse the cover point order to beter line up with the starting rope direction
+    std::reverse(cover_points_.begin(), cover_points_.end());
+
 
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
     plot_points_->setPoints(cover_points_, coverage_color);
