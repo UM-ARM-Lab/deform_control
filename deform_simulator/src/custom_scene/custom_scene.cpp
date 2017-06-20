@@ -210,7 +210,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         deformable_object_state_marker.ns = "deformable_object";
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
-        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 1.0f);
+        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
 
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
@@ -219,7 +219,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         cover_points_marker.ns = "cover_points";
         cover_points_marker.type = visualization_msgs::Marker::POINTS;
         cover_points_marker.scale.x = 0.01;
-        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 1.0f);
+        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
         cover_points_marker.points = toRosPointVector(cover_points_, METERS);
 
         bullet_visualization_markers.markers.push_back(cover_points_marker);
@@ -1137,10 +1137,10 @@ void CustomScene::makeClothDoubleSlitObstacles()
                       GetTableHeight(nh_) / 2.0f) * METERS;
 
     const btVector3 wall_section_half_extents =
-            btVector3(0.04f, 0.115f, 0.5f) * METERS;
+            btVector3(0.04f, 0.115f, 0.7f) * METERS;
 
     const btVector3 center_wall_section_com =
-            btVector3(0.0f, 0.0f, 0.5f) * METERS;
+            btVector3(0.0f, 0.0f, 0.32f) * METERS;
 
     const btVector3 outside_wall_offset =
             btVector3(0.0f, 0.3f, 0.0f) * METERS;
@@ -1270,6 +1270,21 @@ void CustomScene::makeRopeMazeObstacles()
     const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, 0.2f); // brown
     const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 0.5f); // purple
     const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 0.5f); // teal
+
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(world_size.x() + wall_thickness, world_size.y() + wall_thickness, wall_thickness) / 2.0f;
+        const btVector3 floor_com = btVector3(world_center.x(), world_center.y(), world_min.z() - wall_thickness / 2.0f);
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
 
     // Make the outer walls
     {
