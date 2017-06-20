@@ -29,6 +29,8 @@
 using namespace BulletHelpers;
 using namespace smmap;
 
+static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
+
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor and Destructor
 ////////////////////////////////////////////////////////////////////////////////
@@ -285,7 +287,7 @@ void CustomScene::makeBulletObjects()
 {
     ROS_INFO("Building the world");
 
-    #warning "Magic numbers - discretization level of cover points"
+    #pragma message "Magic numbers - discretization level of cover points - inside functions called here too"
     switch (task_type_)
     {
         case TaskType::ROPE_CYLINDER_COVERAGE:
@@ -1004,6 +1006,21 @@ void CustomScene::makeSinglePoleObstacles()
     const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
     const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
 
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(75.0f, 75.0f, 5.0f);
+        const btVector3 floor_com = btVector3(0.0f, 0.0f, -floor_half_extents.z());
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(FLOOR_COLOR);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
+
     // create a cylinder directly in front of the table
     {
         CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
@@ -1092,29 +1109,47 @@ void CustomScene::makeClothWallObstacles()
     const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
     const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
 
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(75.0f, 75.0f, 5.0f);
+        const btVector3 floor_com = btVector3(0.0f, 0.0f, -floor_half_extents.z());
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(FLOOR_COLOR);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
+
     // create a cylinder
-    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
-                0, cylinder_radius, cylinder_height,
-                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
-    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
-    // add the cylinder to the world
-    env->add(cylinder);
-    world_obstacles_["cylinder"] = cylinder;
-
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["cylinder"] = cylinder;
+    }
 
     // Wall parameters
-    const btVector3 wall_half_extents(cylinder_radius, 0.5f * METERS, cylinder_height / 2.0f);
-    const btVector3 wall_com = cylinder_com_origin - btVector3(0, wall_half_extents.y(), 0);
+    {
+        const btVector3 wall_half_extents(cylinder_radius, 0.5f * METERS, cylinder_height / 2.0f);
+        const btVector3 wall_com = cylinder_com_origin - btVector3(0, wall_half_extents.y(), 0);
 
-    BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                0, wall_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-    wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
-    // add the wall to the world
-    env->add(wall);
-    world_obstacles_["wall"] = wall;
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["wall"] = wall;
+    }
 }
 
 void CustomScene::makeClothDoubleSlitObstacles()
@@ -1137,13 +1172,28 @@ void CustomScene::makeClothDoubleSlitObstacles()
                       GetTableHeight(nh_) / 2.0f) * METERS;
 
     const btVector3 wall_section_half_extents =
-            btVector3(0.04f, 0.115f, 0.7f) * METERS;
+            btVector3(0.04f, 0.115f, GetWallHeight(nh_) / 2.0f) * METERS;
 
     const btVector3 center_wall_section_com =
-            btVector3(0.0f, 0.0f, 0.32f) * METERS;
+            btVector3(0.0f, 0.0f, GetWallCenterOfMassZ(nh_)) * METERS;
 
     const btVector3 outside_wall_offset =
             btVector3(0.0f, 0.3f, 0.0f) * METERS;
+
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(75.0f, 75.0f, 5.0f);
+        const btVector3 floor_com = btVector3(0.0f, 0.0f, -floor_half_extents.z());
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(FLOOR_COLOR);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
 
     // Center wall
     {
@@ -1738,7 +1788,7 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     const int64_t z_min_ind = std::max(0L, z_starting_ind - 1);
     const int64_t z_max_ind = std::min(work_space_grid_.getZNumSteps(), z_starting_ind + 2);
 
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001 * METERS, btTransform(), true);
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.002 * METERS, btTransform(), true);
 
     for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
     {
