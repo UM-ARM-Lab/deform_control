@@ -14,7 +14,6 @@ TableKinematicObject::TableKinematicObject(
 {
     // Zero mass indicates a unmovable object
     const btScalar mass_zero = 0.0f;
-    #warning "I've set is kinematic true, but it was not set this way before, not sure why it wasn't before."
     const bool is_kinematic = true;
 
     const btVector3 table_surface_half_extents(extents.x() / 2.0f, extents.y() / 2.0f, thickness / 2.0f);
