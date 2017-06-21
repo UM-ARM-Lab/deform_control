@@ -298,7 +298,7 @@ void CustomScene::makeBulletObjects()
             break;
 
         case TaskType::ROPE_MAZE:
-            makeRopeForMaze();
+            makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeRopeMazeObstacles();
             break;
@@ -363,8 +363,8 @@ void CustomScene::makeRope()
     // find the needed table parameters
     const btVector3 rope_com =
             btVector3(GetRopeCenterOfMassX(nh_),
-                       GetRopeCenterOfMassY(nh_),
-                       GetRopeCenterOfMassZ(nh_)) * METERS;
+                      GetRopeCenterOfMassY(nh_),
+                      GetRopeCenterOfMassZ(nh_)) * METERS;
 
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
     const size_t num_control_points = (size_t)GetRopeNumLinks(nh_) + 1;
@@ -373,51 +373,8 @@ void CustomScene::makeRope()
     std::vector<btVector3> control_points(num_control_points);
     for (size_t n = 0; n < num_control_points; n++)
     {
-        control_points[n] = rope_com
-                + btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0, 0);
+        control_points[n] = rope_com + btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0.0f, 0.0f);
 
-    }
-    rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
-
-    // color the rope
-    std::vector<BulletObject::Ptr> children = rope_->getChildren();
-    for (size_t j = 0; j < children.size(); j++)
-    {
-        children[j]->setColor(0.15f, 0.65f, 0.15f, 1.0f);
-    }
-
-    // add the table and rope to the world
-    env->add(rope_);
-}
-
-void CustomScene::makeRopeForMaze()
-{
-    const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
-    const size_t num_control_points = (size_t)GetRopeNumLinks(nh_) + 1;
-
-    const btVector3 world_min = btVector3(
-                (float)work_space_grid_.getXMin(),
-                (float)work_space_grid_.getYMin(),
-                (float)work_space_grid_.getZMin());
-
-    const btVector3 world_max = btVector3(
-                (float)work_space_grid_.getXMax(),
-                (float)work_space_grid_.getYMax(),
-                (float)work_space_grid_.getZMax());
-
-    const btVector3 world_center = (world_max + world_min) / 2.0f;
-    const btVector3 world_size = world_max - world_min;
-
-    const btVector3 rope_com =
-            world_center +
-            btVector3(-0.6f * METERS, 0.85f * METERS, -world_size.z() / 4.0f);
-
-    // make the rope
-    std::vector<btVector3> control_points(num_control_points);
-    for (size_t n = 0; n < num_control_points; n++)
-    {
-
-        control_points[n] = rope_com + btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0.0f,  0.0f);
     }
     rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
 
@@ -1667,57 +1624,47 @@ void CustomScene::makeRopeMazeObstacles()
 
     const int num_vertical_per_side = 11;
     const int num_horizontal_per_side = (num_rope_links - (num_vertical_per_side * 2) - 1) / 2;
-    // Create the first part in x (top right corner visually on start)
-    {
-        const btVector3 start_point =
-                world_center +
-                btVector3(0.7f * METERS,        0.5f * METERS,          0.0f) +
-                btVector3(0.0f,                 0.0f,                   wall_thickness / 2.0f) +
-                btVector3(0.0f,                 0.0f,                   rope_radius) +
-                btVector3(0.0f,                 rope_segment_length,    0.0f) * (float)num_vertical_per_side +
-                btVector3(rope_segment_length,  0.0f,                   0.0f) * (float)num_horizontal_per_side;
-        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
-        {
-            const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)cover_idx;
-            cover_points_.push_back(target_point);
-            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
-        }
-    }
+
+    const btVector3 rope_center =
+            world_center +
+            btVector3(0.7f * METERS,        0.5f * METERS,          0.0f) +                                 // Center in the goal region (x,y)
+            btVector3(0.0f,                 0.0f,                   wall_thickness / 2.0f) +                // Move up out of the floor
+            btVector3(0.0f,                 0.0f,                   rope_radius);                           // Move up so that the target points are off the floor just enough
+
+    const btVector3 middle_unit_vector = btVector3(rope_segment_length, 0.1f * METERS, 0.0f).normalized();
+
     // Create the part in y (middle visually on start)
     {
-        const btVector3 start_point =
-                world_center +
-                btVector3(0.7f * METERS,        0.5f * METERS,          0.0f) +
-                btVector3(0.0f,                 0.0f,                   wall_thickness / 2.0f) +
-                btVector3(0.0f,                 0.0f,                   rope_radius) +
-                btVector3(0.0f,                 rope_segment_length,    0.0f) * (float)num_vertical_per_side;
+        const btVector3 start_point = rope_center - middle_unit_vector * (float)num_vertical_per_side * rope_segment_length;
         for (int cover_idx = 0; cover_idx < 2 * num_vertical_per_side + 1; ++cover_idx)
         {
-            const btVector3 target_point =
-                    start_point -
-                    btVector3(0.0f, rope_segment_length, 0.0f) * (float)cover_idx;
+            const btVector3 target_point = start_point + middle_unit_vector * (float)cover_idx * rope_segment_length;
             cover_points_.push_back(target_point);
-            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
         }
     }
-    // Create the second part in x (towards the middle of the maze visually on start)
+    // Create the first part in x (towards the middle of the maze visually on start)
     {
-        const btVector3 start_point =
-                world_center +
-                btVector3(0.7f * METERS,        0.5f * METERS,          0.0f) +
-                btVector3(0.0f,                 0.0f,                   wall_thickness / 2.0f) +
-                btVector3(0.0f,                 0.0f,                   rope_radius) -
-                btVector3(0.0f,                 rope_segment_length,    0.0f) * (float)num_vertical_per_side -
-                btVector3(rope_segment_length,  0.0f,                   0.0f) * (float)1;
+        const btVector3 start_point = cover_points_.back();
         for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
         {
-            const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)cover_idx;
+            const btVector3 target_point = start_point + btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
             cover_points_.push_back(target_point);
-            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
         }
     }
-    // Reverse the cover point order to beter line up with the starting rope direction
-    std::reverse(cover_points_.begin(), cover_points_.end());
+    // Create the second part in x (top right corner visually on start)
+    {
+        const btVector3 start_point = cover_points_.front();
+        std::cout << "Front: " << PrettyPrint::PrettyPrint(start_point) << std::endl;
+        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
+            std::cout << "Insert: " << PrettyPrint::PrettyPrint(target_point) << std::endl;
+            cover_points_.insert(cover_points_.begin(), target_point);
+        }
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
 
 
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));

@@ -98,7 +98,6 @@ class CustomScene : public Scene
         void makeBulletObjects();
 
         void makeRope();
-        void makeRopeForMaze();
 
         void makeCloth();
         void findClothCornerNodes();
