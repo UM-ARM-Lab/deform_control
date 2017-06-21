@@ -1316,7 +1316,8 @@ void CustomScene::makeRopeMazeObstacles()
     const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
 
 
-    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.2f);
+    const float outer_walls_alpha = GetOuterWallsAlpha(nh_);
+    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);
     const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, 0.2f); // brown
     const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 0.5f); // purple
     const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 0.5f); // teal
