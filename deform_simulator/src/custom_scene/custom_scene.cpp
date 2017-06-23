@@ -195,9 +195,10 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
-    bullet_visualization_markers.markers.reserve(4);
+    bullet_visualization_markers.markers.reserve(6);
 
     // Build markers for regular publishing
+    size_t deformable_object_marker_ind;
     size_t first_gripper_marker_ind;
     {
         bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
@@ -205,15 +206,15 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
                                                    arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
                                                    arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
 
-        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
+//        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
 
+        deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
         deformable_object_state_marker.header.frame_id = GetWorldFrameName();
         deformable_object_state_marker.ns = "deformable_object";
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
         deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
-
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
         visualization_msgs::Marker cover_points_marker;
@@ -223,7 +224,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         cover_points_marker.scale.x = 0.01;
         cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
         cover_points_marker.points = toRosPointVector(cover_points_, METERS);
-
         bullet_visualization_markers.markers.push_back(cover_points_marker);
 
         first_gripper_marker_ind = bullet_visualization_markers.markers.size();
@@ -258,7 +258,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         }
 
         simulator_fbk_pub_.publish(sim_fbk);
-        bullet_visualization_markers.markers[2].points = sim_fbk.object_configuration;
+        bullet_visualization_markers.markers[deformable_object_marker_ind].points = sim_fbk.object_configuration;
         for (size_t gripper_ind = 0; gripper_ind < sim_fbk.gripper_poses.size(); gripper_ind++)
         {
             bullet_visualization_markers.markers.at(first_gripper_marker_ind + gripper_ind).pose = sim_fbk.gripper_poses[gripper_ind];
@@ -272,7 +272,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 //                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
 //                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
 
-        std::this_thread::sleep_for(std::chrono::duration<double>(0.01));
+        std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
     }
 
     // clean up the extra thread we started
@@ -1591,7 +1591,7 @@ void CustomScene::makeRopeMazeObstacles()
     }
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
-        const btVector3 wall_com = second_floor_center + btVector3(0.85f * METERS, 0.6f * METERS, 0.0f);
+        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1604,7 +1604,7 @@ void CustomScene::makeRopeMazeObstacles()
     }
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
-        const btVector3 wall_com = second_floor_center + btVector3(0.55f * METERS, 0.4f * METERS, 0.0f);
+        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, 0.0f);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1622,23 +1622,22 @@ void CustomScene::makeRopeMazeObstacles()
     const int num_rope_links = GetRopeNumLinks(nh_);
     assert(num_rope_links % 2 == 1);
 
-    const int num_vertical_per_side = 11;
+    const int num_vertical_per_side = std::min<int>(14, (num_rope_links - 1) / 2);
     const int num_horizontal_per_side = (num_rope_links - (num_vertical_per_side * 2) - 1) / 2;
 
     const btVector3 rope_center =
             world_center +
-            btVector3(0.7f * METERS,        0.5f * METERS,          0.0f) +                                 // Center in the goal region (x,y)
-            btVector3(0.0f,                 0.0f,                   wall_thickness / 2.0f) +                // Move up out of the floor
-            btVector3(0.0f,                 0.0f,                   rope_radius);                           // Move up so that the target points are off the floor just enough
+            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                  // Center in the goal region (x,y)
+            btVector3(0.0f,          0.0f,          wall_thickness / 2.0f) + // Move up out of the floor
+            btVector3(0.0f,          0.0f,          rope_radius);            // Move up so that the target points are off the floor just enough
 
-    const btVector3 middle_unit_vector = btVector3(rope_segment_length, 0.1f * METERS, 0.0f).normalized();
+    const btVector3 middle_unit_vector = btVector3(0.1f * METERS, rope_segment_length * (float)(num_vertical_per_side - 1), 0.0f).normalized();
 
     // Create the part in y (middle visually on start)
     {
-        const btVector3 start_point = rope_center - middle_unit_vector * (float)num_vertical_per_side * rope_segment_length;
-        for (int cover_idx = 0; cover_idx < 2 * num_vertical_per_side + 1; ++cover_idx)
+        for (int cover_idx = -num_vertical_per_side; cover_idx <= num_vertical_per_side; ++cover_idx)
         {
-            const btVector3 target_point = start_point + middle_unit_vector * (float)cover_idx * rope_segment_length;
+            const btVector3 target_point = rope_center + middle_unit_vector * (float)cover_idx * rope_segment_length;
             cover_points_.push_back(target_point);
         }
     }
@@ -1654,11 +1653,9 @@ void CustomScene::makeRopeMazeObstacles()
     // Create the second part in x (top right corner visually on start)
     {
         const btVector3 start_point = cover_points_.front();
-        std::cout << "Front: " << PrettyPrint::PrettyPrint(start_point) << std::endl;
         for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
         {
             const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
-            std::cout << "Insert: " << PrettyPrint::PrettyPrint(target_point) << std::endl;
             cover_points_.insert(cover_points_.begin(), target_point);
         }
     }
@@ -1670,8 +1667,6 @@ void CustomScene::makeRopeMazeObstacles()
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
-
-//    std::cout << PrettyPrint::PrettyPrint(world_objects_, true, "\n") << std::endl;
 
     assert((int)cover_points_.size() == num_rope_links);
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
