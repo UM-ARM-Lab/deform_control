@@ -2297,9 +2297,14 @@ void CustomScene::visualizationMarkerCallback(
             }
             break;
         }
+        case visualization_msgs::Marker::CUBE_LIST:
+        {
+            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE_LIST as a set of cubes, this message will only print once");
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+        }
         case visualization_msgs::Marker::CUBE:
         {
-            // For now, just treat this as a sphere
+            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE as a set of spheres, this message will only print once");
         }
         case visualization_msgs::Marker::SPHERE:
         {
@@ -2307,8 +2312,7 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_sphere_markers_.end())
             {
                 PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
-                              toOsgRefVec4Array(marker.colors),
+                spheres->plot(toOsgRefVec3Array(marker.points, METERS), toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
                 visualization_sphere_markers_[id] = spheres;
 
@@ -2355,13 +2359,6 @@ void CustomScene::visualizationMarkerCallback(
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
                                       toBulletColorArray(marker.colors));
             }
-            break;
-        }
-        case visualization_msgs::Marker::CUBE_LIST:
-        {
-            ROS_ERROR_ONCE_NAMED(
-                    "visualization",
-                    "CUBE_LIST marker not implemented, this message will only print once");
             break;
         }
         default:
