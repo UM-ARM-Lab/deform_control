@@ -803,9 +803,17 @@ void CustomScene::makeTableSurface(const bool create_cover_points, const float s
         assert(stepsize > 0);
 //        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
 
+        const float num_x_steps = std::floor(table_half_extents.x() * 2.0f / stepsize);
+        const float total_x_coverage = num_x_steps * stepsize;
+        const float x_offset = table_half_extents.x() - (total_x_coverage / 2.0f);
+
+        const float num_y_steps = std::floor(table_half_extents.y() * 2.0f / stepsize);
+        const float total_y_coverage = num_y_steps * stepsize;
+        const float y_offset = table_half_extents.y() - (total_y_coverage / 2.0f);
+
         const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
         std::vector<btVector3> cloth_coverage_lines;
-        for (float y = -table_half_extents.y(); y <= table_half_extents.y(); y += stepsize)
+        for (float y = -table_half_extents.y() + y_offset; y <= table_half_extents.y(); y += stepsize)
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
@@ -815,7 +823,7 @@ void CustomScene::makeTableSurface(const bool create_cover_points, const float s
                         table_surface_position + btVector3 (+table_half_extents.x(), y, cloth_collision_margin));
 
             // Add many coverage points along the coverage line
-            for(float x = -table_half_extents.x(); x <= table_half_extents.x(); x += stepsize)
+            for(float x = x_offset - table_half_extents.x(); x <= table_half_extents.x(); x += stepsize)
             {
                 cover_points_.push_back(
                             table_surface_position + btVector3(x, y, cloth_collision_margin * 2.0f));
