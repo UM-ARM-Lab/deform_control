@@ -142,6 +142,9 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     // Run the startup code for the viewer and everything else
     if (ros::ok())
     {
+        ViewerConfig::windowWidth = GetViewerWidth(ph_);
+        ViewerConfig::windowHeight = GetViewerHeight(ph_);
+
         // Note that viewer cleans up this memory
         viewer.addEventHandler(new CustomKeyHandler(*this));
 
@@ -817,10 +820,10 @@ void CustomScene::makeTableSurface(const bool create_cover_points, const float s
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
-                        table_surface_position + btVector3 (-table_half_extents.x(), y, cloth_collision_margin));
+                        table_surface_position + btVector3 (-table_half_extents.x(), y, cloth_collision_margin * 2.0f));
 
             cloth_coverage_lines.push_back(
-                        table_surface_position + btVector3 (+table_half_extents.x(), y, cloth_collision_margin));
+                        table_surface_position + btVector3 (+table_half_extents.x(), y, cloth_collision_margin * 2.0f));
 
             // Add many coverage points along the coverage line
             for(float x = x_offset - table_half_extents.x(); x <= table_half_extents.x(); x += stepsize)
