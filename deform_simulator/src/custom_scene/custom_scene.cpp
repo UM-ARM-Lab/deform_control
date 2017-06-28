@@ -645,7 +645,7 @@ void CustomScene::makeTwoRopeGrippers()
                    GetGripperApperture(nh_) * METERS,
                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
        grippers_[gripper1_name]->setWorldTransform(rope_->getChildren().back()->rigidBody->getCenterOfMassTransform());
-       grippers_[gripper1_name]->rigidGrab(rope_->getChildren().back()->rigidBody.get(), rope_->nLinks, env);
+       grippers_[gripper1_name]->rigidGrab(rope_->getChildren().back()->rigidBody.get(), rope_->nLinks-1, env);
 
        auto_grippers_.push_back(gripper1_name);
    }
