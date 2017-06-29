@@ -724,7 +724,7 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
                     btVector4(0, 0, 0, 0));
         collision_check_gripper_->setWorldTransform(btTransform());
         collision_check_gripper_->toggleOpen();
-        env->add(collision_check_gripper_);
+//        env->add(collision_check_gripper_);
     }
 }
 
