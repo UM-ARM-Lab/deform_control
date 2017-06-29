@@ -2294,7 +2294,7 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_point_markers_.end())
             {
                 PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
-                points->setPoints(toOsgRefVec3Array(marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
                 visualization_point_markers_[id] = points;
 
@@ -2303,7 +2303,7 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 PlotPoints::Ptr points = marker_itr->second;
-                points->setPoints(toOsgRefVec3Array(marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
             }
             break;
@@ -2311,11 +2311,19 @@ void CustomScene::visualizationMarkerCallback(
         case visualization_msgs::Marker::CUBE_LIST:
         {
             ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE_LIST as a set of cubes, this message will only print once");
-            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
         }
         case visualization_msgs::Marker::CUBE:
         {
             ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE as a set of spheres, this message will only print once");
+            if (marker.points.size() == 0)
+            {
+                geometry_msgs::Point p;
+                p.x = 0.0;
+                p.y = 0.0;
+                p.z = 0.0;
+                marker.points.push_back(p);
+            }
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
         }
         case visualization_msgs::Marker::SPHERE:
         {
@@ -2323,7 +2331,8 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_sphere_markers_.end())
             {
                 PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(marker.points, METERS), toOsgRefVec4Array(marker.colors),
+                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                              toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
                 visualization_sphere_markers_[id] = spheres;
 
@@ -2332,7 +2341,7 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 PlotSpheres::Ptr spheres = marker_itr->second;
-                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
             }

@@ -8,6 +8,7 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Transform.h>
 #include <visualization_msgs/Marker.h>
+#include <arc_utilities/eigen_helpers_conversions.hpp>
 
 namespace BulletHelpers
 {
@@ -131,6 +132,19 @@ namespace BulletHelpers
         return std::vector<btVector4>(num_copies, toBulletColor(ros));
     }
 
+    inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array(const geometry_msgs::Pose& tf, const std::vector<geometry_msgs::Point>& ros, const float bt_scale)
+    {
+        const auto eigen_tf = EigenHelpersConversions::GeometryPoseToEigenAffine3d(tf);
+
+        osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
+        out->reserve(ros.size());
+        for(auto& point: ros)
+        {
+            const auto eigen_point = eigen_tf * EigenHelpersConversions::GeometryPointToEigenVector3d(point);
+            out->push_back(osg::Vec3(eigen_point.x(), eigen_point.y(), eigen_point.z()) * bt_scale);
+        }
+        return out;
+    }
 
     inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array(const std::vector<geometry_msgs::Point>& ros, const float bt_scale)
     {

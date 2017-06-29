@@ -79,7 +79,10 @@ class PlotSpheres : public EnvironmentObject
         }
         void prePhysics(){}// no physics
         void preDraw(){}
-        void destroy(){}
+        void destroy()
+        {
+            getEnvironment()->osg->root->removeChild(m_geode.get());
+        }
 
         PlotSpheres();
         // void setDefaultColor(float r, float g, float b, float a);
