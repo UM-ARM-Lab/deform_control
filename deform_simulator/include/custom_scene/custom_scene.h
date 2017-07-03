@@ -171,6 +171,10 @@ class CustomScene : public Scene
         void visualizationMarkerCallback(visualization_msgs::Marker marker);
         void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
 
+        bool clearVisualizationsCallback(
+                std_srvs::Empty::Request &req,
+                std_srvs::Empty::Response &res);
+
         bool getGripperNamesCallback(
                 deformable_manipulation_msgs::GetGripperNames::Request& req,
                 deformable_manipulation_msgs::GetGripperNames::Response& res);
@@ -317,6 +321,7 @@ class CustomScene : public Scene
 
         ros::Subscriber visualization_marker_sub_;
         ros::Subscriber visualization_marker_array_sub_;
+        ros::ServiceServer clear_visualizations_srv_;
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
@@ -328,6 +333,7 @@ class CustomScene : public Scene
         ros::ServiceServer free_space_graph_srv_;
         ros::ServiceServer signed_distance_field_srv_;
         ros::ServiceServer terminate_sim_srv_;
+
         std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;

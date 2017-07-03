@@ -131,6 +131,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     // Create a service to listen to in order to move the grippers and advance sim time
     execute_gripper_movement_srv_ = nh_.advertiseService(
                 GetExecuteGrippersMovementTopic(nh_), &CustomScene::executeGripperMovementCallback, this);
+
+
+    clear_visualizations_srv_ = nh_.advertiseService(
+                GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2646,6 +2650,48 @@ bool CustomScene::terminateSimulationCallback(
         screen_recorder_->zipScreenshots();
     }
     ros::shutdown();
+
+    return true;
+}
+
+bool CustomScene::clearVisualizationsCallback(
+        std_srvs::Empty::Request &req,
+        std_srvs::Empty::Response &res)
+{
+    (void)req;
+    (void)res;
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+
+    // Delete any matching marker from the points list
+    {
+        for (auto& points_marker_pair : visualization_point_markers_)
+        {
+            PlotPoints::Ptr points = points_marker_pair.second;
+            env->remove(points);
+        }
+        visualization_point_markers_.clear();
+    }
+
+    // Delete any matching marker from the spheres list
+    {
+        for (auto& sphere_marker_pair : visualization_sphere_markers_)
+        {
+            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
+            env->remove(spheres);
+        }
+        visualization_sphere_markers_.clear();
+    }
+
+    // Delete any matching markers from the lines list
+    {
+        for (auto& line_marker_pair : visualization_line_markers_)
+        {
+            PlotLines::Ptr plot_lines = line_marker_pair.second;
+            env->remove(plot_lines);
+        }
+        visualization_line_markers_.clear();
+    }
 
     return true;
 }
