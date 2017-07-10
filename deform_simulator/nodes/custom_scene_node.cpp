@@ -27,8 +27,16 @@ int main(int argc, char* argv[])
     }
     else if (smmap::GetDeformableType(nh) == smmap::DeformableType::ROPE)
     {
-        ViewerConfig::cameraHomePosition = btVector3(0.0f, 1.0f, 3.5f) * METERS;
-        ViewerConfig::pointCameraLooksAt = btVector3(0.0f, -0.25f, 0.0f) * METERS;
+        if (smmap::GetTaskType(nh) == smmap::ROPE_MAZE)
+        {
+            ViewerConfig::cameraHomePosition = btVector3(0.0f, 0.0f, 6.0f) * METERS;
+            ViewerConfig::pointCameraLooksAt = btVector3(0.0f, 0.0f, 0.0f) * METERS;
+        }
+        else
+        {
+            ViewerConfig::cameraHomePosition = btVector3(0.0f, 1.0f, 3.5f) * METERS;
+            ViewerConfig::pointCameraLooksAt = btVector3(0.0f, -0.25f, 0.0f) * METERS;
+        }
     }
 
     BulletConfig::dt = (float)smmap::GetRobotControlPeriod(nh);

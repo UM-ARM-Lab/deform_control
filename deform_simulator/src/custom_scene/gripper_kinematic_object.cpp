@@ -7,7 +7,10 @@
 
 using namespace BulletHelpers;
 
-GripperKinematicObject::GripperKinematicObject(const std::string& name_input, float apperture_input, btVector4 color)
+GripperKinematicObject::GripperKinematicObject(
+        const std::string& name_input,
+        const float apperture_input,
+        const btVector4 color)
     : name(name_input)
     #warning "Gripper size magic number - move to params file"
     , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
@@ -149,7 +152,7 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
             {
                 radius = 2 * halfextents[0];
             }
-            std::cout << "using radius contact: radius: " << radius << std::endl;
+//            std::cout << "using radius contact: radius: " << radius << std::endl;
 
             btTransform top_tm;
             children[0]->motionState->getWorldTransform(top_tm);
@@ -167,7 +170,7 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 
                     vattached_node_inds.push_back((size_t)j);
                     appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-                    std::cout << "\tappending anchor, closest ind: " << j << std::endl;
+//                    std::cout << "\tappending anchor, closest ind: " << j << std::endl;
 
                 }
             }

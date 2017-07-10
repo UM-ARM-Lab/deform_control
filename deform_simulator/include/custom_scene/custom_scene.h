@@ -3,6 +3,7 @@
 
 #include <atomic>
 #include <mutex>
+#include <unordered_map>
 
 #include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
 
@@ -102,19 +103,20 @@ class CustomScene : public Scene
         void createClothMirrorLine();
 
 
-        void makeSingleRopeGrippper();
-        void makeTwoRopeGrippers();
+        void makeRopeSingleRobotControlledGrippper();
+        void makeRopeTwoRobotControlledGrippers();
         void makeClothTwoRobotControlledGrippers();
         void makeClothTwoHumanControlledGrippers();
-        void addGripperAxesToWorld();
+        void addGrippersAndAxesToWorld();
 
 
-        void makeTable();
+        void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f, const bool add_legs = false);
         void makeCylinder();
         void makeSinglePoleObstacles();
         void makeWallObstacles();
         void makeClothWallObstacles();
         void makeClothDoubleSlitObstacles();
+        void makeRopeMazeObstacles();
 
         void makeGenericRegionCoverPoints();
 
@@ -168,6 +170,10 @@ class CustomScene : public Scene
         void visualizationMarkerCallback(visualization_msgs::Marker marker);
         void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
 
+        bool clearVisualizationsCallback(
+                std_srvs::Empty::Request &req,
+                std_srvs::Empty::Response &res);
+
         bool getGripperNamesCallback(
                 deformable_manipulation_msgs::GetGripperNames::Request& req,
                 deformable_manipulation_msgs::GetGripperNames::Response& res);
@@ -181,6 +187,9 @@ class CustomScene : public Scene
                 deformable_manipulation_msgs::GetGripperCollisionReport::Request& req,
                 deformable_manipulation_msgs::GetGripperCollisionReport::Response& res);
         bool getCoverPointsCallback(
+                deformable_manipulation_msgs::GetPointSet::Request& req,
+                deformable_manipulation_msgs::GetPointSet::Response& res);
+        bool getCoverPointNormalsCallback(
                 deformable_manipulation_msgs::GetPointSet::Request& req,
                 deformable_manipulation_msgs::GetPointSet::Response& res);
         bool getMirrorLineCallback(
@@ -229,9 +238,9 @@ class CustomScene : public Scene
         PlotPoints::Ptr plot_points_;
         PlotLines::Ptr plot_lines_;
 
-        std::map<std::string, PlotLines::Ptr> visualization_line_markers_;
-        std::map<std::string, PlotPoints::Ptr> visualization_point_markers_;
-        std::map<std::string, PlotSpheres::Ptr> visualization_sphere_markers_;
+        std::unordered_map<std::string, PlotLines::Ptr> visualization_line_markers_;
+        std::unordered_map<std::string, PlotPoints::Ptr> visualization_point_markers_;
+        std::unordered_map<std::string, PlotSpheres::Ptr> visualization_sphere_markers_;
 
         ////////////////////////////////////////////////////////////////////////
         // Post-step Callbacks
@@ -264,7 +273,7 @@ class CustomScene : public Scene
         // Shared world objects
         ////////////////////////////////////////////////////////////////////////
 
-        std::map<std::string, BulletObject::Ptr> world_objects_;
+        std::unordered_map<std::string, BulletObject::Ptr> world_obstacles_;
 
         // Uses bullet (scaled) translational distances
         const smmap::XYZGrid work_space_grid_;
@@ -295,6 +304,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         std::vector<btVector3> cover_points_;
+        std::vector<btVector3> cover_point_normals_;
         deformable_manipulation_msgs::GetMirrorLine::Response mirror_line_data_;
 
         ////////////////////////////////////////////////////////////////////////
@@ -309,16 +319,19 @@ class CustomScene : public Scene
 
         ros::Subscriber visualization_marker_sub_;
         ros::Subscriber visualization_marker_array_sub_;
+        ros::ServiceServer clear_visualizations_srv_;
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
         ros::ServiceServer gripper_pose_srv_;
         ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
+        ros::ServiceServer cover_point_normals_srv_;
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer free_space_graph_srv_;
         ros::ServiceServer signed_distance_field_srv_;
         ros::ServiceServer terminate_sim_srv_;
+
         std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;

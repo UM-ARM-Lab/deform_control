@@ -240,6 +240,7 @@ class BulletObject : public EnvironmentObject
         MoveAction::Ptr createMoveAction();
         MoveAction::Ptr createMoveAction(const btTransform &start, const btTransform &end, float time);
 
+        void setColor(const btVector4& color);
         void setColor(float r, float g, float b, float a);
 
     protected:
@@ -407,7 +408,9 @@ class BoxObject : public BulletObject
             : BulletObject(mass_, new btBoxShape(halfExtents_), initTrans, isKinematic)
             , mass(mass_)
             , halfExtents(halfExtents_)
-        {}
+        {
+            assert(halfExtents_.x() >= 0 && halfExtents_.y() >= 0 && halfExtents_.z() >= 0);
+        }
 
         EnvironmentObject::Ptr copy(Fork &f) const
         {

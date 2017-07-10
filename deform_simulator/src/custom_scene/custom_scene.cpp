@@ -13,7 +13,6 @@
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
 #include <BulletCollision/NarrowPhaseCollision/btPointCollector.h>
-#include <BulletCollision/NarrowPhaseCollision/btConvexPenetrationDepthSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkEpaPenetrationDepthSolver.h>
 
 #include <BulletSoftBody/btSoftBodyHelpers.h>
@@ -25,9 +24,12 @@
 
 #include "utils/util.h"
 #include "custom_scene/internal_utils.hpp"
+#include "custom_scene/table_kinematic_object.h"
 
 using namespace BulletHelpers;
 using namespace smmap;
+
+static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor and Destructor
@@ -37,7 +39,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                          const DeformableType deformable_type,
                          const TaskType task_type)
     : screen_recorder_(nullptr)
-    , plot_points_(boost::make_shared<PlotPoints>(0.1f * METERS))
+    , plot_points_(boost::make_shared<PlotPoints>(0.4f * METERS))
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
     , deformable_type_(deformable_type)
     , task_type_(task_type)
@@ -62,7 +64,6 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 {
     makeBulletObjects();
 
-
     // Store the initial configuration as it will be needed by other libraries
     // TODO: find a better way to do this that exposes less internals
     object_initial_configuration_ = toRosPointVector(getDeformableObjectNodes(), METERS);
@@ -71,6 +72,14 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     // Publish to the feedback channel
     simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::SimulatorFeedback>(
             GetSimulatorFeedbackTopic(nh_), 20);
+
+    // Create a subscriber to take visualization instructions
+    visualization_marker_sub_ = nh_.subscribe(
+            GetVisualizationMarkerTopic(nh_), 3000, &CustomScene::visualizationMarkerCallback, this);
+
+    // Create a subscriber to take visualization instructions
+    visualization_marker_array_sub_ = nh_.subscribe(
+            GetVisualizationMarkerArrayTopic(nh_), 3000, &CustomScene::visualizationMarkerArrayCallback, this);
 
     ROS_INFO("Creating services");
     // Create a service to let others know the internal gripper names
@@ -92,6 +101,9 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     // Create a service to let others know the cover points
     cover_points_srv_ = nh_.advertiseService(
             GetCoverPointsTopic(nh_), &CustomScene::getCoverPointsCallback, this);
+
+    cover_point_normals_srv_ = nh_.advertiseService(
+                GetCoverPointNormalsTopic(nh_), &CustomScene::getCoverPointNormalsCallback, this);
 
     // Create a service to let others know the mirror line data
     mirror_line_srv_ = nh_.advertiseService(
@@ -117,21 +129,13 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     terminate_sim_srv_ = nh_.advertiseService(
                 GetTerminateSimulationTopic(nh_), &CustomScene::terminateSimulationCallback, this);
 
-
-
     // Create a service to listen to in order to move the grippers and advance sim time
     execute_gripper_movement_srv_ = nh_.advertiseService(
                 GetExecuteGrippersMovementTopic(nh_), &CustomScene::executeGripperMovementCallback, this);
 
-
-
-    // Create a subscriber to take visualization instructions
-    visualization_marker_sub_ = nh_.subscribe(
-            GetVisualizationMarkerTopic(nh_), 3000, &CustomScene::visualizationMarkerCallback, this);
-
-    // Create a subscriber to take visualization instructions
-    visualization_marker_array_sub_ = nh_.subscribe(
-            GetVisualizationMarkerArrayTopic(nh_), 3000, &CustomScene::visualizationMarkerArrayCallback, this);
+    // Create a service to clear all visualizations that have been sent to us via ROS
+    clear_visualizations_srv_ = nh_.advertiseService(
+                GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -143,6 +147,9 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     // Run the startup code for the viewer and everything else
     if (ros::ok())
     {
+        ViewerConfig::windowWidth = GetViewerWidth(ph_);
+        ViewerConfig::windowHeight = GetViewerHeight(ph_);
+
         // Note that viewer cleans up this memory
         viewer.addEventHandler(new CustomKeyHandler(*this));
 
@@ -196,35 +203,56 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
-    bullet_visualization_markers.markers.reserve(4);
+    bullet_visualization_markers.markers.reserve(6);
 
     // Build markers for regular publishing
+    size_t deformable_object_marker_ind;
+    size_t first_gripper_marker_ind;
     {
         bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
                                                    arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 1, 0, 0),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 0.1f)));
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
 
-        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
+//        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
 
+        deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
         deformable_object_state_marker.header.frame_id = GetWorldFrameName();
         deformable_object_state_marker.ns = "deformable_object";
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
-        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 1, 0, 1);
-
+        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
         visualization_msgs::Marker cover_points_marker;
         cover_points_marker.header.frame_id = GetWorldFrameName();
         cover_points_marker.ns = "cover_points";
         cover_points_marker.type = visualization_msgs::Marker::POINTS;
-        cover_points_marker.scale.x = 0.002;
-        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1, 0, 0, 1);
+        cover_points_marker.scale.x = 0.01;
+        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
         cover_points_marker.points = toRosPointVector(cover_points_, METERS);
-
         bullet_visualization_markers.markers.push_back(cover_points_marker);
+
+        first_gripper_marker_ind = bullet_visualization_markers.markers.size();
+        for (size_t ind = 0; ind < auto_grippers_.size(); ++ind)
+        {
+            const auto& gripper_name = auto_grippers_[ind];
+            const auto& gripper = grippers_.at(gripper_name);
+
+            visualization_msgs::Marker gripper_marker;
+            gripper_marker.header.frame_id = GetWorldFrameName();
+            gripper_marker.ns = "grippers";
+            gripper_marker.id = (int)ind + 1;
+            gripper_marker.type = visualization_msgs::Marker::CUBE;
+            gripper_marker.scale.x = gripper->getHalfExtents().x() * 2.0 / METERS;
+            gripper_marker.scale.y = gripper->getHalfExtents().y() * 2.0 / METERS;
+            gripper_marker.scale.z = gripper->getHalfExtents().z() * 2.0 / METERS;
+            gripper_marker.pose = toRosPose(gripper->getWorldTransform(), METERS);
+            gripper_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 1);
+
+            bullet_visualization_markers.markers.push_back(gripper_marker);
+        }
     }
 
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
@@ -238,7 +266,11 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         }
 
         simulator_fbk_pub_.publish(sim_fbk);
-        bullet_visualization_markers.markers[2].points = sim_fbk.object_configuration;
+        bullet_visualization_markers.markers[deformable_object_marker_ind].points = sim_fbk.object_configuration;
+        for (size_t gripper_ind = 0; gripper_ind < sim_fbk.gripper_poses.size(); gripper_ind++)
+        {
+            bullet_visualization_markers.markers.at(first_gripper_marker_ind + gripper_ind).pose = sim_fbk.gripper_poses[gripper_ind];
+        }
         bullet_visualization_pub.publish(bullet_visualization_markers);
 
 //        osg::Vec3d eye, center, up;
@@ -248,7 +280,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 //                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
 //                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
 
-        std::this_thread::sleep_for(std::chrono::duration<double>(0.01));
+        std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
     }
 
     // clean up the extra thread we started
@@ -262,79 +294,89 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 void CustomScene::makeBulletObjects()
 {
     ROS_INFO("Building the world");
-    // Build the world
-    switch (deformable_type_)
-    {
-        case DeformableType::ROPE:
-            makeRope();
-            if (GetUseTwoGrippers(nh_))
-            {
-                makeTwoRopeGrippers();
-            }
-            else
-            {
-                makeSingleRopeGrippper();
-            }
-            break;
 
-        case DeformableType::CLOTH:
-            makeCloth();
-            makeClothTwoRobotControlledGrippers();
-            break;
-
-        default:
-            ROS_FATAL_STREAM("Unknown deformable object type " << deformable_type_);
-            throw_arc_exception(std::invalid_argument, "Unknown deformable object type " + std::to_string(deformable_type_));
-    };
-
+    #pragma message "Magic numbers - discretization level of cover points - inside functions called here too"
     switch (task_type_)
     {
         case TaskType::ROPE_CYLINDER_COVERAGE:
-            makeTable();
+            makeRope();
+            makeRopeSingleRobotControlledGrippper();
+            makeTableSurface(false);
             makeCylinder();
             break;
 
+        case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeTableSurface(false);
+            makeCylinder();
+            break;
+
+        case TaskType::ROPE_MAZE:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeRopeMazeObstacles();
+            break;
+
         case TaskType::CLOTH_CYLINDER_COVERAGE:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeCylinder();
             break;
 
         case TaskType::CLOTH_TABLE_COVERAGE:
-            makeTable();
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeTableSurface(true, 0.0125f * METERS);
             break;
 
         case TaskType::CLOTH_COLAB_FOLDING:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeClothTwoHumanControlledGrippers();
             break;
 
         case TaskType::CLOTH_WAFR:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeCylinder();
             break;
 
         case TaskType::CLOTH_SINGLE_POLE:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeSinglePoleObstacles();
-            makeGenericRegionCoverPoints();
             break;
 
         case TaskType::CLOTH_WALL:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeClothWallObstacles();
             makeGenericRegionCoverPoints();
             break;
 
         case TaskType::CLOTH_DOUBLE_SLIT:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeClothDoubleSlitObstacles();
-            makeGenericRegionCoverPoints();
             break;
 
         case TaskType::ROPE_DRAG_ALONG_TABLE:
-            makeTable();
+            makeRope();
+            makeRopeSingleRobotControlledGrippper();
+            makeTableSurface(false);
             break;
 
         case TaskType::ROPE_DRAG_OPPOSITE_TABLE:
-            makeTable();
+            makeRope();
+            makeRopeSingleRobotControlledGrippper();
+            makeTableSurface(false);
             break;
 
         case TaskType::ROPE_TOWARD_TABLE:
-            makeTable();
+            makeRope();
+            makeRopeSingleRobotControlledGrippper();
+            makeTableSurface(false);
             break;
 
 
@@ -343,7 +385,9 @@ void CustomScene::makeBulletObjects()
             throw_arc_exception(std::invalid_argument, "Unknown task type " + std::to_string(task_type_));
     }
 
-    addGripperAxesToWorld();
+    addGrippersAndAxesToWorld();
+
+    assert(cover_points_.size() == cover_point_normals_.size());
 }
 
 
@@ -353,20 +397,18 @@ void CustomScene::makeRope()
     // find the needed table parameters
     const btVector3 rope_com =
             btVector3(GetRopeCenterOfMassX(nh_),
-                       GetRopeCenterOfMassY(nh_),
-                       GetRopeCenterOfMassZ(nh_)) * METERS;
+                      GetRopeCenterOfMassY(nh_),
+                      GetRopeCenterOfMassZ(nh_)) * METERS;
 
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
     const size_t num_control_points = (size_t)GetRopeNumLinks(nh_) + 1;
-    const size_t seg_1_ind = (size_t)3;
-    const size_t seg_2_ind = 8;
 
     // make the rope
     std::vector<btVector3> control_points(num_control_points);
-
     for (size_t n = 0; n < num_control_points; n++)
     {
-        control_points[n] = rope_com + btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0.0f, 0.0f);
+        control_points[n] = rope_com +
+                btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0.0f, 0.0f);
     }
 
     rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
@@ -399,7 +441,7 @@ void CustomScene::makeCloth()
         cloth_center + btVector3(+cloth_x_half_side_length, -cloth_y_half_side_length, 0),
         cloth_center + btVector3(-cloth_x_half_side_length, +cloth_y_half_side_length, 0),
         cloth_center + btVector3(+cloth_x_half_side_length, +cloth_y_half_side_length, 0),
-        GetClothNumDivsX(nh_), GetClothNumDivsY(nh_),
+        GetClothNumControlPointsX(nh_), GetClothNumControlPointsY(nh_),
         0, true);
     psb->setTotalMass(0.1f, true);
 
@@ -555,82 +597,81 @@ void CustomScene::createClothMirrorLine()
 
 
 
-void CustomScene::makeSingleRopeGrippper()
+void CustomScene::makeRopeSingleRobotControlledGrippper()
 {
-// rope_gripper (the only)
-   {
-       const std::string gripper_name = "rope_gripper";
+    // rope_gripper (the only)
+    {
+        const std::string gripper_name = "rope_gripper";
 
-       // add a single auto gripper to the world
-       grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
+        // add a single auto gripper to the world
+        grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
                    gripper_name,
                    GetGripperApperture(nh_) * METERS,
                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-       grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
-       grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
+        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
 
-       auto_grippers_.push_back(gripper_name);
-   }
+        auto_grippers_.push_back(gripper_name);
+    }
 
-     // uncomment later
-   // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
-   {
-       collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
+    // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
+    {
+        collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
                    "collision_check_gripper",
                    GetGripperApperture(nh_) * METERS,
                    btVector4(1.0f, 0.0f, 0.0f, 0.0f));
-       collision_check_gripper_->setWorldTransform(btTransform());
-   //    env->add(collision_check_gripper_);
-   }
-
+        collision_check_gripper_->setWorldTransform(btTransform());
+        // We don't want to add this to the world, because then it shows up as a object to collide with
+//        env->add(collision_check_gripper_);
+    }
 }
 
-
-void CustomScene::makeTwoRopeGrippers()
+void CustomScene::makeRopeTwoRobotControlledGrippers()
 {
-
     // rope_gripper0
-   {
-       const std::string gripper0_name = "rope_gripper0";
+    {
+        const std::string gripper_name = "rope_gripper0";
 
-       // add a single auto gripper to the world
-       grippers_[gripper0_name] = boost::make_shared<GripperKinematicObject>(
-                   gripper0_name,
-                   GetGripperApperture(nh_) * METERS,
-                   btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-       grippers_[gripper0_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
-       grippers_[gripper0_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
+        // add a single auto gripper to the world
+        grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
+                    gripper_name,
+                    GetGripperApperture(nh_) * METERS,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
 
-       auto_grippers_.push_back(gripper0_name);
-   }
+        const size_t object_node_ind = 0;
+        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, env);
 
+        auto_grippers_.push_back(gripper_name);
+    }
 
     // rope_gripper1
-   {
-       const std::string gripper1_name = "rope_gripper1";
+    {
+        const std::string gripper_name = "rope_gripper1";
 
-       // add a single auto gripper to the world
-       grippers_[gripper1_name] = boost::make_shared<GripperKinematicObject>(
-                   gripper1_name,
-                   GetGripperApperture(nh_) * METERS,
-                   btVector4(0.0f, 0.0f, 0.6f, 1.0f));
-       grippers_[gripper1_name]->setWorldTransform(rope_->getChildren().back()->rigidBody->getCenterOfMassTransform());
-       grippers_[gripper1_name]->rigidGrab(rope_->getChildren().back()->rigidBody.get(), rope_->nLinks-1, env);
+        // add a single auto gripper to the world
+        grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
+                    gripper_name,
+                    GetGripperApperture(nh_) * METERS,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
 
-       auto_grippers_.push_back(gripper1_name);
-   }
+        const size_t object_node_ind = rope_->getChildren().size() - 1;
+        grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, env);
 
+        auto_grippers_.push_back(gripper_name);
+    }
 
-     // uncomment later
-   // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
-   {
-       collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
-                   "collision_check_gripper",
-                   GetGripperApperture(nh_) * METERS,
-                   btVector4(1.0f, 0.0f, 0.0f, 0.0f));
-       collision_check_gripper_->setWorldTransform(btTransform());
-   //    env->add(collision_check_gripper_);
-   }
+    // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
+    {
+        collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
+                    "collision_check_gripper",
+                    GetGripperApperture(nh_) * METERS,
+                    btVector4(1.0f, 0.0f, 0.0f, 0.0f));
+        collision_check_gripper_->setWorldTransform(btTransform());
+        // We don't want to add this to the world, because then it shows up as a object to collide with
+//        env->add(collision_check_gripper_);
+    }
 }
 
 
@@ -660,7 +701,6 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
         auto_grippers_.push_back(auto_gripper0_name);
     }
 
-
     // auto gripper1
     {
         const std::string auto_gripper1_name = "auto_gripper1";
@@ -685,15 +725,15 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
         auto_grippers_.push_back(auto_gripper1_name);
     }
 
-
     // Add a collision check gripper that is in the same kinematic state as used for the cloth experiments
     {
         collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
                     "collision_check_gripper",
                     GetGripperApperture(nh_) * METERS,
-                    btVector4(0, 0, 0, 0));
+                    btVector4(1.0f, 0.0f, 0.0f, 0.0f));
         collision_check_gripper_->setWorldTransform(btTransform());
         collision_check_gripper_->toggleOpen();
+        // We don't want to add this to the world, because then it shows up as a object to collide with
 //        env->add(collision_check_gripper_);
     }
 }
@@ -721,7 +761,6 @@ void CustomScene::makeClothTwoHumanControlledGrippers()
         manual_grippers_paths_.push_back(ManualGripperPath(grippers_[manual_gripper0_name], &gripperPath0));
     }
 
-
     // manual gripper1
     {
         const std::string manual_gripper1_name = "manual_gripper1";
@@ -744,7 +783,7 @@ void CustomScene::makeClothTwoHumanControlledGrippers()
     }
 }
 
-void CustomScene::addGripperAxesToWorld()
+void CustomScene::addGrippersAndAxesToWorld()
 {
     for (auto& gripper: grippers_)
     {
@@ -758,53 +797,75 @@ void CustomScene::addGripperAxesToWorld()
 
 
 
-void CustomScene::makeTable()
+void CustomScene::makeTableSurface(const bool create_cover_points, const float stepsize, const bool add_legs)
 {
     // table parameters
+    const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
+
     const btVector3 table_surface_position =
             btVector3(GetTableSurfaceX(nh_),
                       GetTableSurfaceY(nh_),
                       GetTableSurfaceZ(nh_)) * METERS;
+
     const btVector3 table_half_extents =
             btVector3(GetTableHalfExtentsX(nh_),
                       GetTableHalfExtentsY(nh_),
-                      GetTableThickness(nh_) / 2.0f ) * METERS;
-
-    const btVector3 table_com = table_surface_position - btVector3(0, 0, table_half_extents.z());
+                      GetTableHeight(nh_) / 2.0f) * METERS;
 
     // create the table
-    BoxObject::Ptr table = boost::make_shared<BoxObject> (
-                0, table_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), table_com));
-    table->setColor(0.4f, 0.4f, 0.4f, 1.0f);
-    table->rigidBody->setFriction(1.0f);
-//    table->rigidBody->getCollisionShape()->setMargin(0.0001f * METERS); // default 0.04
+    TableKinematicObject::Ptr table =
+            boost::make_shared<TableKinematicObject>(
+                "table",
+                btTransform(btQuaternion(0, 0, 0, 1), table_surface_position),
+                table_half_extents * 2.0f,
+                table_half_thickness * 2.0f,
+                btVector4(0.4f, 0.4f, 0.4f, 1.0f),
+                add_legs);
 
     env->add(table);
-    world_objects_["table"] = table;
+//    world_table_obstacles_["table"] = table;
+    world_obstacles_["table_surface"] = table->getChildren()[0];
+    if (add_legs)
+    {
+        world_obstacles_["table_leg1"] = table->getChildren()[1];
+        world_obstacles_["table_leg2"] = table->getChildren()[2];
+        world_obstacles_["table_leg3"] = table->getChildren()[3];
+        world_obstacles_["table_leg4"] = table->getChildren()[4];
+    }
+
 
     // if we are doing a table coverage task, create the table coverage points
-    if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
+    if (create_cover_points)
     {
-        #pragma message "Cloth table cover points step size magic number"
-        const float stepsize = 0.0125f * METERS;
-        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
+        assert(stepsize > 0);
+//        btTransform table_tf = table->rigidBody->getCenterOfMassTransform();
+
+        const float num_x_steps = std::floor(table_half_extents.x() * 2.0f / stepsize);
+        const float total_x_coverage = num_x_steps * stepsize;
+        const float x_offset = table_half_extents.x() - (total_x_coverage / 2.0f);
+
+        const float num_y_steps = std::floor(table_half_extents.y() * 2.0f / stepsize);
+        const float total_y_coverage = num_y_steps * stepsize;
+        const float y_offset = table_half_extents.y() - (total_y_coverage / 2.0f);
 
         const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
         std::vector<btVector3> cloth_coverage_lines;
-        for(float y = -table->halfExtents.y(); y <= table->halfExtents.y(); y += stepsize)
+        for (float y = -table_half_extents.y() + y_offset; y <= table_half_extents.y(); y += stepsize)
         {
             // Add a coverage line to the visualization
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (-table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
+                        table_surface_position + btVector3 (-table_half_extents.x(), y, cloth_collision_margin * 2.0f));
 
             cloth_coverage_lines.push_back(
-                    table_tf * btVector3 (+table->halfExtents.x(), y, table->halfExtents.z() + cloth_collision_margin));
+                        table_surface_position + btVector3 (+table_half_extents.x(), y, cloth_collision_margin * 2.0f));
 
             // Add many coverage points along the coverage line
-            for(float x = -table->halfExtents.x(); x <= table->halfExtents.x(); x += stepsize)
+            for(float x = x_offset - table_half_extents.x(); x <= table_half_extents.x(); x += stepsize)
             {
-                cover_points_.push_back(table_tf * btVector3(x, y, table->halfExtents.z() + cloth_collision_margin));
+                cover_points_.push_back(
+                            table_surface_position + btVector3(x, y, cloth_collision_margin * 2.0f));
+
+                cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
             }
         }
         ROS_INFO_STREAM("Number of cover points: " << cover_points_.size());
@@ -834,99 +895,114 @@ void CustomScene::makeCylinder()
 
     // add the cylinder to the world
     env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
+    world_obstacles_["cylinder"] = cylinder;
 
-    if (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE)
+    switch (task_type_)
     {
-        // Mengyao's Version of Coverage points Here
-        #pragma message "Magic numbers - discretization level of cover points"
-        // consider 21 points around the cylinder
-        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-        // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+        case TaskType::ROPE_CYLINDER_COVERAGE:
         {
-            // 31 points per theta
-            for (float h = -cylinder_height / 8.0f; h < cylinder_height / 8.0f; h += cylinder_height / 30.0f)
+            #pragma message "Magic numbers - discretization level of cover points"
+            // consider 21 points around the cylinder
+            for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
             {
-                cover_points_.push_back(
-                        cylinder_com_origin
-                        + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
-                                     (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
-                                     h));
-            }
-        }
-        // End of Mengyao's coverage points
-
-        /* // Dale's Version of Coverage points
-        #pragma message "Magic numbers - discretization level of cover points"
-        // consider 21 points around the cylinder
-        for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-        // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
-        {
-            // 31 points per theta
-            for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
-            {
-                cover_points_.push_back(
-                        cylinder_com_origin
-                        + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
-                                     (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
-                                     h));
-            }
-        }
-          // End of Dale's Version
-        */
-
-    }
-    else if (deformable_type_ == DeformableType::CLOTH && (task_type_ == TaskType::ROPE_CYLINDER_COVERAGE || task_type_ == TaskType::CLOTH_WAFR))
-    {
-        const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
-
-        #pragma message "Magic numbers - discretization level of cover points"
-        for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
-        {
-            for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
-            {
-                // Only accept those points that are within the bounding circle
-                if (x * x + y * y < cylinder_radius * cylinder_radius)
+                // 31 points per theta
+                for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
                 {
                     cover_points_.push_back(
-                                cylinder_com_origin
-                                + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+                            cylinder_com_origin
+                            + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                         (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                         h));
+
+                    cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
                 }
             }
+            break;
         }
 
-
-        ////////////////////////////////////////////////////////////////////////
-        // Horizontal Cylinder above first cylinder
-        ////////////////////////////////////////////////////////////////////////
-
-        const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                btVector3(-0.15f, 0.0f, 0.20f) * METERS;
-
-        CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                    0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
-                    btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
-        horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
-
-        // add the cylinder to the world
-        env->add(horizontal_cylinder);
-        world_objects_["horizontal_cylinder"] = horizontal_cylinder;
-
-        #pragma message "Magic numbers - discretization level of cover points"
-        for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+        case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
         {
-            const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
-
-            for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+            #pragma message "Magic numbers - discretization level of cover points"
+            // consider 21 points around the cylinder
+            for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
             {
-                cover_points_.push_back(
-                            horizontal_cylinder_com_origin
-                            + btVector3(
-                                cover_points_radius * std::sin(theta),
-                                h,
-                                cover_points_radius * std::cos(theta)));
+                // 31 points per theta
+                for (float h = -cylinder_height / 8.0f; h < cylinder_height / 8.0f; h += cylinder_height / 30.0f)
+                {
+                    cover_points_.push_back(
+                            cylinder_com_origin
+                            + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                         (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                         h));
+
+                    cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
+                }
             }
+            break;
         }
+
+        case TaskType::CLOTH_WAFR:
+        {
+            const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
+
+            #pragma message "Magic numbers - discretization level of cover points"
+            for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
+            {
+                for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
+                {
+                    // Only accept those points that are within the bounding circle
+                    if (x * x + y * y < cylinder_radius * cylinder_radius)
+                    {
+                        cover_points_.push_back(
+                                    cylinder_com_origin
+                                    + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+
+                        cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
+                    }
+                }
+            }
+
+            ////////////////////////////////////////////////////////////////////////
+            // Horizontal Cylinder above first cylinder
+            ////////////////////////////////////////////////////////////////////////
+
+            const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
+                    btVector3(-0.15f, 0.0f, 0.20f) * METERS;
+
+            CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
+                        0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
+                        btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
+            horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+            // add the cylinder to the world
+            env->add(horizontal_cylinder);
+            world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
+
+            #pragma message "Magic numbers - discretization level of cover points"
+            for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+            {
+                const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
+
+                for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+                {
+                    cover_points_.push_back(
+                                horizontal_cylinder_com_origin
+                                + btVector3(
+                                    cover_points_radius * std::sin(theta),
+                                    h,
+                                    cover_points_radius * std::cos(theta)));
+
+                    cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
+                }
+            }
+            break;
+        }
+
+        default:
+                ROS_FATAL_NAMED("deform_simulator", "Making cylinder for unknown task, this should not be possible");
+                assert(false);
     }
 
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
@@ -936,6 +1012,24 @@ void CustomScene::makeCylinder()
 
 void CustomScene::makeSinglePoleObstacles()
 {
+    makeTableSurface(true, 0.025f * METERS, true);
+
+    const btVector4 wall_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+    const btVector4 table_color(0.4f, 0.4f, 0.4f, 1.0f);
+
+    const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
+
+    const btVector3 table_surface_position =
+            btVector3(GetTableSurfaceX(nh_),
+                      GetTableSurfaceY(nh_),
+                      GetTableSurfaceZ(nh_)) * METERS;
+
+    const btVector3 table_half_extents =
+            btVector3(GetTableHalfExtentsX(nh_),
+                      GetTableHalfExtentsY(nh_),
+                      GetTableHeight(nh_) / 2.0f) * METERS;
+
+
     // cylinder parameters
     const btVector3 cylinder_com_origin =
         btVector3(GetCylinderCenterOfMassX(nh_),
@@ -945,15 +1039,96 @@ void CustomScene::makeSinglePoleObstacles()
     const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
     const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
 
-    // create a cylinder
-    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
-                0, cylinder_radius, cylinder_height,
-                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
-    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(75.0f, 75.0f, 5.0f);
+        const btVector3 floor_com = btVector3(0.0f, 0.0f, -floor_half_extents.z());
 
-    // add the cylinder to the world
-    env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(FLOOR_COLOR);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
+
+    // create a cylinder directly in front of the table
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+        cylinder->setColor(wall_color);
+
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["center_cylinder"] = cylinder;
+     }
+
+    // create a cylinder directly to the left of the table (left from cloth starting position)
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin + btVector3(0.0f, -0.6f * METERS, 0.0f)));
+        cylinder->setColor(wall_color);
+
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["left_cylinder"] = cylinder;
+    }
+
+    // create a cylinder directly to the right of the table (right from cloth starting position)
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin + btVector3(0.0f, 0.6f * METERS, 0.0f)));
+        cylinder->setColor(wall_color);
+
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["left_cylinder"] = cylinder;
+    }
+
+    // create the left table
+    {
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "left_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, -0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    table_color,
+                    true);
+
+        env->add(table);
+//        world_table_obstacles_["left_table"] = table;
+        world_obstacles_["left_table_surface"] = table->getChildren()[0];
+        world_obstacles_["left_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["left_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["left_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["left_table_leg4"] = table->getChildren()[4];
+    }
+
+    // create the right table
+    {
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "right_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, 0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    table_color,
+                    true);
+
+        env->add(table);
+//        world_table_obstacles_["right_table"] = table;
+        world_obstacles_["right_table_surface"] = table->getChildren()[0];
+        world_obstacles_["right_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["right_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["right_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["right_table_leg4"] = table->getChildren()[4];
+    }
 }
 
 void CustomScene::makeClothWallObstacles()
@@ -967,79 +1142,617 @@ void CustomScene::makeClothWallObstacles()
     const btScalar cylinder_radius = GetCylinderRadius(nh_) * METERS;
     const btScalar cylinder_height = GetCylinderHeight(nh_) * METERS;
 
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(75.0f, 75.0f, 5.0f);
+        const btVector3 floor_com = btVector3(0.0f, 0.0f, -floor_half_extents.z());
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(FLOOR_COLOR);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
+
     // create a cylinder
-    CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
-                0, cylinder_radius, cylinder_height,
-                btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
-    cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        CylinderStaticObject::Ptr cylinder = boost::make_shared<CylinderStaticObject>(
+                    0, cylinder_radius, cylinder_height,
+                    btTransform(btQuaternion(0, 0, 0, 1), cylinder_com_origin));
+        cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
-    // add the cylinder to the world
-    env->add(cylinder);
-    world_objects_["cylinder"] = cylinder;
-
+        // add the cylinder to the world
+        env->add(cylinder);
+        world_obstacles_["cylinder"] = cylinder;
+    }
 
     // Wall parameters
-    const btVector3 wall_half_extents(cylinder_radius, 0.5f * METERS, cylinder_height / 2.0f);
-    const btVector3 wall_com = cylinder_com_origin - btVector3(0, wall_half_extents.y(), 0);
+    {
+        const btVector3 wall_half_extents(cylinder_radius, 0.5f * METERS, cylinder_height / 2.0f);
+        const btVector3 wall_com = cylinder_com_origin - btVector3(0, wall_half_extents.y(), 0);
 
-    BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                0, wall_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-    wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
-    // add the wall to the world
-    env->add(wall);
-    world_objects_["wall"] = wall;
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["wall"] = wall;
+    }
 }
 
 void CustomScene::makeClothDoubleSlitObstacles()
 {
+    makeTableSurface(true, 0.025f * METERS, true);
+
+    const btVector4 wall_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+    const btVector4 table_color(0.4f, 0.4f, 0.4f, 1.0f);
+
+    const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
+
+    const btVector3 table_surface_position =
+            btVector3(GetTableSurfaceX(nh_),
+                      GetTableSurfaceY(nh_),
+                      GetTableSurfaceZ(nh_)) * METERS;
+
+    const btVector3 table_half_extents =
+            btVector3(GetTableHalfExtentsX(nh_),
+                      GetTableHalfExtentsY(nh_),
+                      GetTableHeight(nh_) / 2.0f) * METERS;
+
     const btVector3 wall_section_half_extents =
-            btVector3(0.04f, 0.12f, 0.5f) * METERS;
+            btVector3(0.04f, 0.115f, GetWallHeight(nh_) / 2.0f) * METERS;
 
     const btVector3 center_wall_section_com =
-            btVector3(0.0f, 0.0f, 0.8f) * METERS;
+            btVector3(0.0f, 0.0f, GetWallCenterOfMassZ(nh_)) * METERS;
 
     const btVector3 outside_wall_offset =
             btVector3(0.0f, 0.3f, 0.0f) * METERS;
 
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(75.0f, 75.0f, 5.0f);
+        const btVector3 floor_com = btVector3(0.0f, 0.0f, -floor_half_extents.z());
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(FLOOR_COLOR);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
+
     // Center wall
-    BoxObject::Ptr center_wall = boost::make_shared<BoxObject>(
-                0, wall_section_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com));
-    center_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        BoxObject::Ptr center_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com));
+        center_wall->setColor(wall_color);
 
-    // add the wall to the world
-    env->add(center_wall);
-    world_objects_["center_wall"] = center_wall;
-
+        // add the wall to the world
+        env->add(center_wall);
+        world_obstacles_["center_wall"] = center_wall;
+    }
 
     // Left wall
-    BoxObject::Ptr left_wall = boost::make_shared<BoxObject>(
-                0, wall_section_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com + outside_wall_offset));
-    left_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        BoxObject::Ptr left_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com + outside_wall_offset));
+        left_wall->setColor(wall_color);
 
-    // add the wall to the world
-    env->add(left_wall);
-    world_objects_["left_wall"] = left_wall;
-
+        // add the wall to the world
+        env->add(left_wall);
+        world_obstacles_["left_wall"] = left_wall;
+    }
 
     // Right wall
-    BoxObject::Ptr right_wall = boost::make_shared<BoxObject>(
-                0, wall_section_half_extents,
-                btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com - outside_wall_offset));
-    right_wall->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+    {
+        BoxObject::Ptr right_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com - outside_wall_offset));
+        right_wall->setColor(wall_color);
 
-    // add the wall to the world
-    env->add(right_wall);
-    world_objects_["right_wall"] = right_wall;
+        // add the wall to the world
+        env->add(right_wall);
+        world_obstacles_["right_wall"] = right_wall;
+    }
+
+    // Far left wall
+    {
+        BoxObject::Ptr far_left_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com + 2.0f * outside_wall_offset));
+        far_left_wall->setColor(wall_color);
+
+        // add the wall to the world
+        env->add(far_left_wall);
+        world_obstacles_["far_left_wall"] = far_left_wall;
+    }
+
+    // Far right wall
+    {
+        BoxObject::Ptr far_right_wall = boost::make_shared<BoxObject>(
+                    0, wall_section_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), center_wall_section_com - 2.0f * outside_wall_offset));
+        far_right_wall->setColor(wall_color);
+
+        // add the wall to the world
+        env->add(far_right_wall);
+        world_obstacles_["far_right_wall"] = far_right_wall;
+    }
+
+    // create the left table
+    {
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "left_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, -0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    table_color,
+                    true);
+
+        env->add(table);
+//        world_table_obstacles_["left_table"] = table;
+        world_obstacles_["left_table_surface"] = table->getChildren()[0];
+        world_obstacles_["left_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["left_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["left_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["left_table_leg4"] = table->getChildren()[4];
+    }
+
+    // create the right table
+    {
+        TableKinematicObject::Ptr table =
+                boost::make_shared<TableKinematicObject>(
+                    "right_table",
+                    btTransform(btQuaternion(0, 0, 0, 1), table_surface_position + btVector3(0.0f, 0.6f * METERS, 0.0f)),
+                    table_half_extents * 2.0f,
+                    table_half_thickness * 2.0f,
+                    table_color,
+                    true);
+
+        env->add(table);
+//        world_table_obstacles_["right_table"] = table;
+        world_obstacles_["right_table_surface"] = table->getChildren()[0];
+        world_obstacles_["right_table_leg1"] = table->getChildren()[1];
+        world_obstacles_["right_table_leg2"] = table->getChildren()[2];
+        world_obstacles_["right_table_leg3"] = table->getChildren()[3];
+        world_obstacles_["right_table_leg4"] = table->getChildren()[4];
+    }
 }
 
+void CustomScene::makeRopeMazeObstacles()
+{
+    const btVector3 world_min = btVector3(
+                (float)work_space_grid_.getXMin(),
+                (float)work_space_grid_.getYMin(),
+                (float)work_space_grid_.getZMin());
+
+    const btVector3 world_max = btVector3(
+                (float)work_space_grid_.getXMax(),
+                (float)work_space_grid_.getYMax(),
+                (float)work_space_grid_.getZMax());
+
+    const float wall_thickness = 0.2f * METERS;
+    const btVector3 world_center = (world_max + world_min) / 2.0f;
+    const btVector3 world_size = world_max - world_min;
+    const btVector3 first_floor_center = world_center - btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
+    const btVector3 second_floor_center = world_center + btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
+    const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
+
+
+    const float outer_walls_alpha = GetOuterWallsAlpha(nh_);
+    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);
+    const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, 0.2f); // brown
+    const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 0.5f); // purple
+    const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 0.5f); // teal
+
+    // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(world_size.x() + wall_thickness, world_size.y() + wall_thickness, wall_thickness) / 2.0f;
+        const btVector3 floor_com = btVector3(world_center.x(), world_center.y(), world_min.z() - wall_thickness / 2.0f);
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["bottom_floor"] = floor;
+    }
+
+    // Make the outer walls
+    {
+        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_center.x(), world_min.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_center.x(), world_max.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall1"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_min.x(), world_center.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall2"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_max.x(), world_center.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall3"] = wall;
+    }
+
+    // Make 1st floor obstacles
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.6f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.7f * METERS, 0.3f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.9f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.15f * METERS, 0.1f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle1"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.3f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.3f * METERS, 0.55f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle2"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.3f * METERS, 0.5f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle3"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.6f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.8f * METERS, 0.4f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle4"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.9f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.75f * METERS, -0.2f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle5"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.7f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(0.0f * METERS, -0.55f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle6"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.7f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = first_floor_center + btVector3(-0.85f * METERS, -0.4f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(first_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["first_floor_obstacle7"] = wall;
+    }
+
+    // Make the divider between floors
+    {
+        const btVector3 divider_half_extents = btVector3(world_size.x() - wall_thickness, world_size.y() - wall_thickness - 0.4f * METERS, wall_thickness) / 2.0f;
+        const btVector3 divider_com = world_center + btVector3(0.0f, 0.2f * METERS, 0.0f);
+
+        BoxObject::Ptr divider = boost::make_shared<BoxObject>(
+                    0, divider_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), divider_com));
+        divider->setColor(floor_divider_color);
+
+        // add the wall to the world
+        env->add(divider);
+        world_obstacles_["horizontal_divider0"] = divider;
+    }
+    {
+        const btVector3 divider_half_extents = btVector3(1.6f * METERS, 0.4f * METERS, wall_thickness) / 2.0f;
+        const btVector3 divider_com = world_center + btVector3(0.0f, -0.7f * METERS, 0.0f);
+
+        BoxObject::Ptr divider = boost::make_shared<BoxObject>(
+                    0, divider_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), divider_com));
+        divider->setColor(floor_divider_color);
+
+        // add the wall to the world
+        env->add(divider);
+        world_obstacles_["horizontal_divider1"] = divider;
+    }
+
+    // Make 2nd floor obstacles
+    {
+        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.2f * METERS, 0.3f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["second_floor_obstacle0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.4f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.8f * METERS, 0.3f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["second_floor_obstacle1"] = wall;
+    }    
+    {
+        const btVector3 wall_half_extents = btVector3(0.6f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.5f * METERS, -0.1f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["second_floor_obstacle2"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.7f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.45f * METERS, -0.5f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["second_floor_obstacle3"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.5f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.7f * METERS, -0.45f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["second_floor_obstacle4"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.4f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(-0.2f * METERS, -0.7f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["second_floor_obstacle5"] = wall;
+    }
+
+    // Make the goal region
+    {
+        const btVector3 wall_half_extents = btVector3(0.8f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.8f * METERS, 0.0f, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_border_wall0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_border_wall1"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_obstacle0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_obstacle1"] = wall;
+    }
+
+    // Create the target points
+    const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
+    const float rope_radius = GetRopeRadius(nh_) * METERS;
+    const int num_rope_links = GetRopeNumLinks(nh_);
+    assert(num_rope_links % 2 == 1);
+
+    const int num_vertical_per_side = std::min<int>(14, (num_rope_links - 1) / 2);
+    const int num_horizontal_per_side = (num_rope_links - (num_vertical_per_side * 2) - 1) / 2;
+
+    const btVector3 rope_center =
+            world_center +
+            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                  // Center in the goal region (x,y)
+            btVector3(0.0f,          0.0f,          wall_thickness / 2.0f) + // Move up out of the floor
+            btVector3(0.0f,          0.0f,          rope_radius);            // Move up so that the target points are off the floor just enough
+
+    const btVector3 middle_unit_vector = btVector3(0.1f * METERS, rope_segment_length * (float)(num_vertical_per_side - 1), 0.0f).normalized();
+
+    // Create the part in y (middle visually on start)
+    {
+        for (int cover_idx = -num_vertical_per_side; cover_idx <= num_vertical_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = rope_center + middle_unit_vector * (float)cover_idx * rope_segment_length;
+            cover_points_.push_back(target_point);
+        }
+    }
+    // Create the first part in x (towards the middle of the maze visually on start)
+    {
+        const btVector3 start_point = cover_points_.back();
+        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = start_point + btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
+            cover_points_.push_back(target_point);
+        }
+    }
+    // Create the second part in x (top right corner visually on start)
+    {
+        const btVector3 start_point = cover_points_.front();
+        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
+            cover_points_.insert(cover_points_.begin(), target_point);
+        }
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
+
+
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+
+    assert((int)cover_points_.size() == num_rope_links);
+    ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+}
 
 
 void CustomScene::makeGenericRegionCoverPoints()
 {
+    ROS_WARN("Generic region cover points is using an arbitrary surface normal");
+
     const btScalar x_min = GetCoverRegionXMin(nh_) * METERS;
     const size_t x_steps = GetCoverRegionXSteps(nh_);
     const btScalar x_res = GetCoverRegionXRes(nh_) * METERS;
@@ -1064,6 +1777,7 @@ void CustomScene::makeGenericRegionCoverPoints()
             {
                 const btScalar z = z_min + (btScalar)z_ind * z_res;
                 cover_points_.push_back(btVector3(x, y, z));
+                cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
             }
         }
     }
@@ -1072,9 +1786,8 @@ void CustomScene::makeGenericRegionCoverPoints()
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
 
-    std::cout << "Num cover points: " << cover_points_.size() << std::endl;
+    ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 }
-
 
 
 void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind)
@@ -1094,7 +1807,7 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     const int64_t z_min_ind = std::max(0L, z_starting_ind - 1);
     const int64_t z_max_ind = std::min(work_space_grid_.getZNumSteps(), z_starting_ind + 2);
 
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001 * METERS, btTransform(), true);
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.002 * METERS, btTransform(), true);
 
     for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
     {
@@ -1230,6 +1943,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 
 void CustomScene::createCollisionMapAndSDF()
 {
+    #pragma message "Magic number: SDF min object distance"
     SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.005 * METERS, btTransform(), true);
 
     // Itterate through the collision map, checking for collision
@@ -1255,7 +1969,9 @@ void CustomScene::createCollisionMapAndSDF()
         }
     }
 
-    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(BT_LARGE_FLOAT).first;
+    // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
+    // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
+    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT).first;
     sdf_for_export_.Lock();
 }
 
@@ -1263,7 +1979,10 @@ void CustomScene::createCollisionMapAndSDF()
 // Internal helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::SetGripperTransform(const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map, const std::string& name, const geometry_msgs::Pose& pose)
+void CustomScene::SetGripperTransform(
+        const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
+        const std::string& name,
+        const geometry_msgs::Pose& pose)
 {
     GripperKinematicObject::Ptr gripper = grippers_map.at(name);
 
@@ -1417,7 +2136,7 @@ btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr&
     btPointCollector gjkOutput_min;
 
     // find the distance to any objects in the world
-    for (auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr)
+    for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
     {
         BulletObject::Ptr obj = ittr->second;
         for (size_t gripper_child_ind = 0; gripper_child_ind < gripper->getChildren().size(); gripper_child_ind++)
@@ -1460,7 +2179,7 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
     btPointCollector gjkOutput_min;
 
     // find the distance to any objects in the world
-    for (auto ittr = world_objects_.begin(); ittr != world_objects_.end(); ++ittr)
+    for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
     {
         BulletObject::Ptr obj = ittr->second;
 
@@ -1590,14 +2309,61 @@ void CustomScene::visualizationMarkerCallback(
     // TODO: make this mutex not quite so "global" around this switch
     std::lock_guard<std::mutex> lock(sim_mutex_);
 
+    if (marker.action == visualization_msgs::Marker::DELETEALL)
+    {
+        ROS_ERROR_ONCE_NAMED(
+                    "visualization",
+                    "Delete all marker action not implemented, this message will only print once");
+        return;
+    }
+
+    if (marker.action == visualization_msgs::Marker::DELETE)
+    {
+        // Delete any matching marker from the points list
+        {
+            const auto points_marker_itr = visualization_point_markers_.find(id);
+            if (points_marker_itr != visualization_point_markers_.end())
+            {
+                PlotPoints::Ptr points = points_marker_itr->second;
+                visualization_point_markers_.erase(points_marker_itr);
+                env->remove(points);
+            }
+        }
+
+        // Delete any matching marker from the spheres list
+        {
+            const auto sphere_marker_itr = visualization_sphere_markers_.find(id);
+            if (sphere_marker_itr != visualization_sphere_markers_.end())
+            {
+                PlotSpheres::Ptr spheres = sphere_marker_itr->second;
+                visualization_sphere_markers_.erase(sphere_marker_itr);
+                env->remove(spheres);
+            }
+        }
+
+        // Delete any matching markers from the lines list
+        {
+            const auto line_marker_itr = visualization_line_markers_.find(id);
+            if (line_marker_itr != visualization_line_markers_.end())
+            {
+                PlotLines::Ptr plot_lines = line_marker_itr->second;
+                visualization_line_markers_.erase(line_marker_itr);
+                env->remove(plot_lines);
+            }
+        }
+
+        return;
+    }
+
     switch (marker.type)
     {
         case visualization_msgs::Marker::POINTS:
         {
-            if (visualization_point_markers_.count(id) == 0)
+            const auto marker_itr = visualization_point_markers_.find(id);
+            if (marker_itr == visualization_point_markers_.end())
             {
                 PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
-                points->setPoints(toOsgRefVec3Array(marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
                 visualization_point_markers_[id] = points;
 
@@ -1605,18 +2371,36 @@ void CustomScene::visualizationMarkerCallback(
             }
             else
             {
-                PlotPoints::Ptr points = visualization_point_markers_[id];
-                points->setPoints(toOsgRefVec3Array(marker.points, METERS),
+                PlotPoints::Ptr points = marker_itr->second;
+                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
             }
             break;
         }
+        case visualization_msgs::Marker::CUBE_LIST:
+        {
+            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE_LIST as a set of cubes, this message will only print once");
+        }
+        case visualization_msgs::Marker::CUBE:
+        {
+            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE as a set of spheres, this message will only print once");
+            if (marker.points.size() == 0)
+            {
+                geometry_msgs::Point p;
+                p.x = 0.0;
+                p.y = 0.0;
+                p.z = 0.0;
+                marker.points.push_back(p);
+            }
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+        }
         case visualization_msgs::Marker::SPHERE:
         {
-            if (visualization_sphere_markers_.count(id) == 0)
+            const auto marker_itr = visualization_sphere_markers_.find(id);
+            if (marker_itr == visualization_sphere_markers_.end())
             {
                 PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
                 visualization_sphere_markers_[id] = spheres;
@@ -1625,8 +2409,8 @@ void CustomScene::visualizationMarkerCallback(
             }
             else
             {
-                PlotSpheres::Ptr spheres = visualization_sphere_markers_[id];
-                spheres->plot(toOsgRefVec3Array(marker.points, METERS),
+                PlotSpheres::Ptr spheres = marker_itr->second;
+                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
             }
@@ -1634,15 +2418,22 @@ void CustomScene::visualizationMarkerCallback(
         }
         case visualization_msgs::Marker::LINE_STRIP:
         {
-            if (marker.points.size() > 0)
+            if (marker.points.size() == 1)
+            {
+                std::cerr << "Only 1 point for line strip:\n"
+                          << "  NS: " << marker.ns << std::endl
+                          << "  ID: " << marker.id << std::endl
+                          << "  Point: " << marker.points[0].x << " " << marker.points[0].y << " " << marker.points[0].z << std::endl;
+            }
+            if (marker.points.size() > 1)
             {
                 convertLineStripToLineList(marker);
             }
         }
         case visualization_msgs::Marker::LINE_LIST:
         {
-            // if the object is new, add it
-            if (visualization_line_markers_.count(id) == 0)
+            const auto marker_itr = visualization_line_markers_.find(id);
+            if (marker_itr == visualization_line_markers_.end())
             {
                 PlotLines::Ptr line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
@@ -1653,7 +2444,7 @@ void CustomScene::visualizationMarkerCallback(
             }
             else
             {
-                PlotLines::Ptr line_strip = visualization_line_markers_[id];
+                PlotLines::Ptr line_strip = marker_itr->second;
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
                                       toBulletColorArray(marker.colors));
             }
@@ -1749,6 +2540,15 @@ bool CustomScene::getCoverPointsCallback(
     return true;
 }
 
+bool CustomScene::getCoverPointNormalsCallback(
+        deformable_manipulation_msgs::GetPointSet::Request& req,
+        deformable_manipulation_msgs::GetPointSet::Response& res)
+{
+    (void)req;
+    res.points = toRosPointVector(cover_point_normals_, 1.0f);
+    return true;
+}
+
 bool CustomScene::getMirrorLineCallback(
         deformable_manipulation_msgs::GetMirrorLine::Request& req,
         deformable_manipulation_msgs::GetMirrorLine::Response& res)
@@ -1768,8 +2568,6 @@ bool CustomScene::getMirrorLineCallback(
         return false;
     }
 }
-
-
 
 bool CustomScene::getFreeSpaceGraphCallback(
         deformable_manipulation_msgs::GetFreeSpaceGraphRequest& req,
@@ -1887,7 +2685,6 @@ bool CustomScene::getSignedDistanceFieldCallback(
     return true;
 }
 
-
 bool CustomScene::getObjectInitialConfigurationCallback(
         deformable_manipulation_msgs::GetPointSet::Request& req,
         deformable_manipulation_msgs::GetPointSet::Response& res)
@@ -1922,6 +2719,48 @@ bool CustomScene::terminateSimulationCallback(
     return true;
 }
 
+bool CustomScene::clearVisualizationsCallback(
+        std_srvs::Empty::Request &req,
+        std_srvs::Empty::Response &res)
+{
+    (void)req;
+    (void)res;
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+
+    // Delete any matching marker from the points list
+    {
+        for (auto& points_marker_pair : visualization_point_markers_)
+        {
+            PlotPoints::Ptr points = points_marker_pair.second;
+            env->remove(points);
+        }
+        visualization_point_markers_.clear();
+    }
+
+    // Delete any matching marker from the spheres list
+    {
+        for (auto& sphere_marker_pair : visualization_sphere_markers_)
+        {
+            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
+            env->remove(spheres);
+        }
+        visualization_sphere_markers_.clear();
+    }
+
+    // Delete any matching markers from the lines list
+    {
+        for (auto& line_marker_pair : visualization_line_markers_)
+        {
+            PlotLines::Ptr plot_lines = line_marker_pair.second;
+            env->remove(plot_lines);
+        }
+        visualization_line_markers_.clear();
+    }
+
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // ROS Callbacks - Simulation actions
 ////////////////////////////////////////////////////////////////////////////////
@@ -1933,10 +2772,18 @@ bool CustomScene::executeGripperMovementCallback(
     assert(req.grippers_names.size() == req.gripper_poses.size());
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
+
     ROS_INFO("Executing gripper command");
+//    std::cout << PrettyPrint::PrettyPrint(req.gripper_poses, true, "\n") << std::endl;
+
     for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
     {
         SetGripperTransform(grippers_, req.grippers_names[gripper_ind], req.gripper_poses[gripper_ind]);
+
+//        const auto test = collisionHelper(grippers_[req.grippers_names[gripper_ind]]);
+//        std::cout << PrettyPrint::PrettyPrint(req.gripper_poses[gripper_ind]);
+//        std::cout << "distance to object: " << test.m_distance << std::endl;
+//        std::cout << "gripper radius:     " << grippers_[req.grippers_names[gripper_ind]]->getGripperRadius() / 20.0 << std::endl << std::endl;
     }
 
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
@@ -2369,9 +3216,9 @@ GripperKinematicObject::Ptr CustomScene::CustomKeyHandler::getGripper(size_t gri
     }
     else
     {
-        std::cerr << "Invalid gripper number: " << gripper_num << std::endl;
-        std::cerr << "Existing auto grippers:   " << PrettyPrint::PrettyPrint(scene_.auto_grippers_) << std::endl;
-        std::cerr << "Existing manual grippers: " << PrettyPrint::PrettyPrint(scene_.manual_grippers_) << std::endl;
+        ROS_ERROR_STREAM_NAMED("deform_simulator", "Invalid gripper number: " << gripper_num);
+        ROS_ERROR_STREAM_NAMED("deform_simulator", "Existing auto grippers:   " << PrettyPrint::PrettyPrint(scene_.auto_grippers_));
+        ROS_ERROR_STREAM_NAMED("deform_simulator", "Existing manual grippers: " << PrettyPrint::PrettyPrint(scene_.manual_grippers_));
         return nullptr;
     }
 }
