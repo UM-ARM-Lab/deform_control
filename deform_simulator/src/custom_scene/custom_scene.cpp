@@ -465,7 +465,7 @@ void CustomScene::makeCloth()
 
 
     btSoftBody::Material *pm = psb->m_materials[0];
-    pm->m_kLST = GetClothLinearStiffness(nh_);     // Linear stiffness coefficient [0,1]       - default is 1 - 0.2 makes it rubbery (handles self collisions better)
+    pm->m_kLST = GetClothLinearStiffness(ph_);     // Linear stiffness coefficient [0,1]       - default is 1 - 0.2 makes it rubbery (handles self collisions better)
 //    pm->m_kAST = 0.90f;     // Area/Angular stiffness coefficient [0,1] - default is 1
 //    pm->m_kVST = 1;        // Volume stiffness coefficient [0,1]       - default is 1
     const int distance = 2; // node radius for creating constraints
@@ -983,7 +983,7 @@ void CustomScene::makeCylinder()
             #pragma message "Magic numbers - discretization level of cover points"
             for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
             {
-                const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistance() * METERS;
+                const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
                 for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
                 {
@@ -1349,11 +1349,14 @@ void CustomScene::makeRopeMazeObstacles()
     const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
 
 
-    const float outer_walls_alpha = GetOuterWallsAlpha(nh_);
-    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);
-    const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, 0.2f); // brown
-    const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 0.5f); // purple
-    const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 0.5f); // teal
+    const float outer_walls_alpha = GetOuterWallsAlpha(ph_);
+    const float floor_divider_alpha = GetFloorDividerAlpha(ph_);
+    const float first_floor_alpha = GetFirstFloorAlpha(ph_);
+    const float second_floor_alpha = GetSecondFloorAlpha(ph_);
+    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);      // grayish
+    const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, floor_divider_alpha);    // brown
+    const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, first_floor_alpha);        // purple
+    const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, second_floor_alpha);      // teal
 
     // Make the bottom floor to ensure that the free space graph doesn't go down through the floor due to rounding
     {
@@ -1943,8 +1946,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 
 void CustomScene::createCollisionMapAndSDF()
 {
-    #pragma message "Magic number: SDF min object distance"
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.005 * METERS, btTransform(), true);
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, GetRobotMinGripperDistanceToObstacles() * METERS, btTransform(), true);
 
     // Itterate through the collision map, checking for collision
     for (int64_t x_ind = 0; x_ind < collision_map_for_export_.GetNumXCells(); x_ind++)
