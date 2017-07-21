@@ -2023,6 +2023,11 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
         msg.gripper_names.push_back(gripper_name);
         msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
 
+        // fill the force and torque data, the size of gripper_wrenches is 2*size of gripper, even for children[0], odd for children[1]
+        // --- Added by Mengyao
+        msg.gripper_wrenches.push_back(toRosWrench(gripper->getGripperTotalForce().at(0), gripper->getGripperTotalTorque().at(0)));
+        msg.gripper_wrenches.push_back(toRosWrench(gripper->getGripperTotalForce().at(1), gripper->getGripperTotalTorque().at(1)));
+
         btPointCollector collision_result = collisionHelper(gripper);
 
         if (collision_result.m_hasResult)

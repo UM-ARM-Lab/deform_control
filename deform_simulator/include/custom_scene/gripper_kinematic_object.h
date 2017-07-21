@@ -39,8 +39,9 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         const btVector3& getHalfExtents() const;
         float getGripperRadius() const;
 
-        // Get force data
+        // Get force data and torque data
         const std::vector<btVector3> getGripperTotalForce() const;
+        const std::vector<btVector3> getGripperTotalTorque() const;
 
         // Used by the manual grippers for cloth
         void step_openclose(btSoftBody * psb);

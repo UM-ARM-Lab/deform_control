@@ -413,17 +413,34 @@ float GripperKinematicObject::getGripperRadius() const
             std::max(halfextents.x(), std::max(halfextents.y(), halfextents.z()));
 }
 
-// Get force data
+// Get force and torque data for one gripper, size of data vector is two
+// --- Added by Mengyao
 const std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() const
 {
     std::vector<btVector3> forceData;
-    for (int child_ind = 0; child_ind < children.size(); child_ind++)
+    // top and bottom box
+    int num_boxes_for_gripper = 2;
+    for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
     {
         // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
         forceData.push_back(children[child_ind]->rigidBody->getTotalForce());
     }
     return forceData;
 }
+
+const std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
+{
+    std::vector<btVector3> torqueData;
+    // top and bottom box
+    int num_boxes_for_gripper = 2;
+    for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
+    {
+        // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
+        torqueData.push_back(children[child_ind]->rigidBody->getTotalTorque());
+    }
+    return torqueData;
+}
+
 
 std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)
 {

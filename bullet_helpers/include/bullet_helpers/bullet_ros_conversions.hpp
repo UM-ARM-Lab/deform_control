@@ -81,6 +81,21 @@ namespace BulletHelpers
         return ros;
     }
 
+    // Convert bt force and torque to ros (for rigidbody central force, HOW ABOUT PRESSURE OR FRICTION, should I add bt_scale?)
+    // --- Added by Mengyao
+    inline geometry_msgs::Wrench toRosWrench(const btVector3& force, const btVector3& torque)
+    {
+        geometry_msgs::Wrench ros_wrench;
+        ros_wrench.force.x = force.x();
+        ros_wrench.force.y = force.y();
+        ros_wrench.force.z = force.z();
+        ros_wrench.torque.x = torque.x();
+        ros_wrench.torque.y = torque.y();
+        ros_wrench.torque.z = torque.z();
+        return ros_wrench;
+    }
+
+
     // We have to essentially double the entries for every internal point
     // of marker.points and marker.colors
     inline void convertLineStripToLineList(visualization_msgs::Marker& marker)
