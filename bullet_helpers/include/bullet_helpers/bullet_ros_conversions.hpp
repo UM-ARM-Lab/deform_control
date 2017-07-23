@@ -95,6 +95,16 @@ namespace BulletHelpers
         return ros_wrench;
     }
 
+    inline std::vector<geometry_msgs::Wrench> toRosWrenchVector(const std::vector<btVector3>& forces, const std::vector<btVector3>& torques)
+    {
+        std::vector<geometry_msgs::Wrench> ros_wrenches(forces.size());
+        for (size_t i = 0; i < forces.size(); i++)
+        {
+            ros_wrenches[i] = toRosWrench(forces[i], torques[i]);
+        }
+        return ros_wrenches;
+    }
+
 
     // We have to essentially double the entries for every internal point
     // of marker.points and marker.colors

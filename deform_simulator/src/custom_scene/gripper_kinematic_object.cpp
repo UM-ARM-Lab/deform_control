@@ -20,6 +20,7 @@ GripperKinematicObject::GripperKinematicObject(
     , closed_gap(0.006f*METERS)
     , bAttached(false)
 {
+    // The Mass of BoxObject was 0, --- Edited by Mengyao
     BoxObject::Ptr top_jaw(new BoxObject(0, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)), true));
     top_jaw->setColor(color[0],color[1],color[2],color[3]);
