@@ -416,7 +416,7 @@ float GripperKinematicObject::getGripperRadius() const
 
 // Get force and torque data for one gripper, size of data vector is two
 // --- Added by Mengyao
-const std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() const
+std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() const
 {
     std::vector<btVector3> forceData;
     // top and bottom box
@@ -429,7 +429,7 @@ const std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() cons
     return forceData;
 }
 
-const std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
+std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
 {
     std::vector<btVector3> torqueData;
     // top and bottom box

@@ -2006,6 +2006,13 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
+
+    // Read object wrenches from rope, --- Added by Menyao
+    if (deformable_type_ == ROPE)
+    {
+        msg.object_wrenches = toRosWrenchVector(getRopeElementalTotalForce(), getRopeElementalTotalTorque());
+    }
+
     if (feedback_covariance_ > 0)
     {
         for (auto& point: msg.object_configuration)
@@ -2057,6 +2064,13 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
+
+    // Read object wrenches from rope, --- Added by Menyao
+    if (deformable_type_ == ROPE)
+    {
+        msg.object_wrenches = toRosWrenchVector(getRopeElementalTotalForce(), getRopeElementalTotalTorque());
+    }
+
 
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
@@ -2218,6 +2232,31 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
     gjkOutput_min.m_normalOnBInWorld.normalize();
     return gjkOutput_min;
 }
+
+// Get force and torque data for capsule on the rope_
+// --- Added by Mengyao
+std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
+{
+    std::vector<btVector3> forceData;
+    for (int capsule_ind = 0; capsule_ind < rope_->nLinks; capsule_ind++)
+    {
+        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
+    }
+
+    return forceData;
+}
+
+std::vector<btVector3> CustomScene::getRopeElementalTotalTorque() const
+{
+    std::vector<btVector3> torqueData;
+    for (int capsule_ind = 0; capsule_ind < rope_->nLinks; capsule_ind++)
+    {
+        torqueData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalTorque());
+    }
+
+    return torqueData;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Fork and Fork-visualization management
