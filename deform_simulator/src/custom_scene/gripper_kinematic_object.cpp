@@ -424,7 +424,10 @@ std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() const
     for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
     {
         // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
-        forceData.push_back(children[child_ind]->rigidBody->getAnisotropicFriction());
+    //    forceData.push_back(children[child_ind]->rigidBody->getAnisotropicFriction());
+        forceData.push_back(
+                    children[child_ind]->rigidBody->getAnisotropicFriction()
+                    + children[child_ind]->rigidBody->getGravity());
     }
     return forceData;
 }
