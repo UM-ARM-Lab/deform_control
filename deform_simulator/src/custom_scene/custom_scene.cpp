@@ -2007,7 +2007,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
 
-    // Read object wrenches from rope, --- Added by Menyao
+    // Read object wrenches from rope, --- Added by Mengyao
     if (deformable_type_ == ROPE)
     {
         msg.object_wrenches = toRosWrenchVector(getRopeElementalTotalForce(), getRopeElementalTotalTorque());
@@ -2065,7 +2065,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
 
-    // Read object wrenches from rope, --- Added by Menyao
+    // Read object wrenches from rope, --- Added by Mengyao
     if (deformable_type_ == ROPE)
     {
         msg.object_wrenches = toRosWrenchVector(getRopeElementalTotalForce(), getRopeElementalTotalTorque());
@@ -2240,7 +2240,9 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
     std::vector<btVector3> forceData;
     for (int capsule_ind = 0; capsule_ind < rope_->nLinks; capsule_ind++)
     {
-        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
+//        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
+        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getPushVelocity());
+
     }
 
     return forceData;

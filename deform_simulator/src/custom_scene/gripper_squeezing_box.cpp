@@ -1,4 +1,4 @@
-#include "custom_scene/gripper_kinematic_object.h"
+#include "custom_scene/gripper_squeezing_box.h"
 
 #include <bullet_helpers/bullet_internal_conversions.hpp>
 #include <bullet_helpers/bullet_pretty_print.hpp>
@@ -7,7 +7,12 @@
 
 using namespace BulletHelpers;
 
-GripperKinematicObject::GripperKinematicObject(
+GripperSqueezingBox::GripperSqueezingBox()
+{
+
+}
+
+GripperSqueezingBox::GripperSqueezingBox(
         const std::string& name_input,
         const float apperture_input,
         const btVector4 color)
@@ -15,18 +20,18 @@ GripperKinematicObject::GripperKinematicObject(
     #warning "Gripper size magic number - move to params file"
     , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
     , state(GripperState_DONE)
-    , bOpen (true)
+    , bOpen (false)
     , apperture(apperture_input)
     , closed_gap(0.006f*METERS)
     , bAttached(false)
 {
     // The Mass of BoxObject was 0, --- Edited by Mengyao
-    BoxObject::Ptr top_jaw(new BoxObject(0, halfextents,
+    BoxObject::Ptr top_jaw(new BoxObject(1, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)), true));
     top_jaw->setColor(color[0],color[1],color[2],color[3]);
     top_jaw->collisionShape->setMargin(0.004f*METERS);
 
-    BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents,
+    BoxObject::Ptr bottom_jaw(new BoxObject(1, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, -apperture/2)), true));
     bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
     bottom_jaw->collisionShape->setMargin(0.004f*METERS);
@@ -39,19 +44,19 @@ GripperKinematicObject::GripperKinematicObject(
     children.push_back(bottom_jaw);
 }
 
-void GripperKinematicObject::translate(btVector3 transvec)
+void GripperSqueezingBox::translate(btVector3 transvec)
 {
     btTransform tm = getWorldTransform();
     tm.setOrigin(tm.getOrigin() + transvec);
     setWorldTransform(tm);
 }
 
-void GripperKinematicObject::applyTransform(btTransform tm)
+void GripperSqueezingBox::applyTransform(btTransform tm)
 {
     setWorldTransform(getWorldTransform()*tm);
 }
 
-void GripperKinematicObject::setWorldTransform(btTransform tm)
+void GripperSqueezingBox::setWorldTransform(btTransform tm)
 {
     btTransform top_tm = tm;
     btTransform bottom_tm = tm;
@@ -70,18 +75,18 @@ void GripperKinematicObject::setWorldTransform(btTransform tm)
     cur_tm = tm;
 }
 
-btTransform GripperKinematicObject::getWorldTransform()
+btTransform GripperSqueezingBox::getWorldTransform()
 {
     return cur_tm;
 }
 
-void GripperKinematicObject::getWorldTransform(btTransform& in)
+void GripperSqueezingBox::getWorldTransform(btTransform& in)
 {
     in = cur_tm;
 }
 
 
-void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr)
+void GripperSqueezingBox::rigidGrab(btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr)
 {
     btTransform top_tm;
     children[0]->motionState->getWorldTransform(top_tm);
@@ -99,7 +104,7 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
     vattached_node_inds.push_back(objectnodeind);
 }
 
-void GripperKinematicObject::toggleOpen()
+void GripperSqueezingBox::toggleOpen()
 {
     btTransform top_tm;    btTransform bottom_tm;
     children[0]->motionState->getWorldTransform(top_tm);
@@ -127,7 +132,7 @@ void GripperKinematicObject::toggleOpen()
     bOpen = !bOpen;
 }
 
-void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
+void GripperSqueezingBox::toggleAttach(btSoftBody * psb, double radius)
 {
     //std::cout << name << " toggleAttach ";
     if(bAttached)
@@ -226,7 +231,7 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 
 
 // Fills in the rcontacs array with contact information between psb and pco
-void GripperKinematicObject::getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts)
+void GripperSqueezingBox::getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts)
 {
     // custom contact checking adapted from btSoftBody.cpp and btSoftBodyInternals.h
     struct Custom_CollideSDF_RS : btDbvt::ICollide {
@@ -287,7 +292,7 @@ void GripperKinematicObject::getContactPointsWith(btSoftBody *psb, btCollisionOb
 }
 
 // adapted from btSoftBody.cpp (btSoftBody::appendAnchor)
-void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence)
+void GripperSqueezingBox::appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence)
 {
     btSoftBody::Anchor a;
     a.m_node = node;
@@ -298,19 +303,19 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
     psb->m_anchors.push_back(a);
 }
 
-void GripperKinematicObject::releaseAllAnchors(btSoftBody * psb)
+void GripperSqueezingBox::releaseAllAnchors(btSoftBody * psb)
 {
     psb->m_anchors.clear();
 }
 
-const std::vector<size_t>& GripperKinematicObject::getAttachedNodeIndices() const
+const std::vector<size_t>& GripperSqueezingBox::getAttachedNodeIndices() const
 {
     return vattached_node_inds;
 }
 
 // state is only changed by the 'b' and 'n' commands in the original software
 // I think this opens and closes one gripper; was used on one auto and one manual gripper
-void GripperKinematicObject::step_openclose(btSoftBody * psb)
+void GripperSqueezingBox::step_openclose(btSoftBody * psb)
 {
     if (state == GripperState_DONE) return;
 
@@ -369,14 +374,14 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
 }
 
 
-EnvironmentObject::Ptr GripperKinematicObject::copy(Fork &f) const
+EnvironmentObject::Ptr GripperSqueezingBox::copy(Fork &f) const
 {
     Ptr o(new GripperKinematicObject(name, apperture));
     internalCopy(o, f);
     return o;
 }
 
-void GripperKinematicObject::internalCopy(GripperKinematicObject::Ptr o, Fork &f) const
+void GripperSqueezingBox::internalCopy(GripperSqueezingBox::Ptr o, Fork &f) const
 {
     o->apperture = apperture;
     o->cur_tm = cur_tm;
@@ -399,12 +404,12 @@ void GripperKinematicObject::internalCopy(GripperKinematicObject::Ptr o, Fork &f
     }
 }
 
-const btVector3& GripperKinematicObject::getHalfExtents() const
+const btVector3& GripperSqueezingBox::getHalfExtents() const
 {
     return halfextents;
 }
 
-float GripperKinematicObject::getGripperRadius() const
+float GripperSqueezingBox::getGripperRadius() const
 {
     btTransform top_tf, bottom_tf;
     children[0]->motionState->getWorldTransform(top_tf);
@@ -416,7 +421,7 @@ float GripperKinematicObject::getGripperRadius() const
 
 // Get force and torque data for one gripper, size of data vector is two
 // --- Added by Mengyao
-std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() const
+std::vector<btVector3> GripperSqueezingBox::getGripperTotalForce() const
 {
     std::vector<btVector3> forceData;
     // top and bottom box
@@ -424,12 +429,12 @@ std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() const
     for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
     {
         // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
-        forceData.push_back(children[child_ind]->rigidBody->getAnisotropicFriction());
+        forceData.push_back(children[child_ind]->rigidBody->getTotalForce());
     }
     return forceData;
 }
 
-std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
+std::vector<btVector3> GripperSqueezingBox::getGripperTotalTorque() const
 {
     std::vector<btVector3> torqueData;
     // top and bottom box
@@ -443,7 +448,7 @@ std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
 }
 
 
-std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)
+std::ostream& operator<< (std::ostream& stream, const GripperSqueezingBox& gripper)
 {
     stream << "Gripper:" << gripper.name << std::endl
             << PrettyPrint::PrettyPrint(gripper.cur_tm) << std::endl
@@ -465,3 +470,6 @@ std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gr
 
     return stream;
 }
+
+
+
