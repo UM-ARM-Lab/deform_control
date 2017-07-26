@@ -2015,7 +2015,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
             break;
         case CLOTH:
             // True torque function not yet written
-            msg.object_wrenches = toRosWrenchVector(getClothElementalTotalForce(), getRopeElementalTotalTorque());
+        //    msg.object_wrenches = toRosWrenchVector(getClothElementalTotalForce(), getRopeElementalTotalTorque());
             break;
         default:
             assert(false && "deformable_type is neither rope nor cloth, failed to get wrenches, in custom_scene.cpp");
