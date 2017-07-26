@@ -146,7 +146,15 @@ class CustomScene : public Scene
         // Get force and torque data for capsule on the rope_
         // --- Added by Mengyao
         std::vector<btVector3> getRopeElementalTotalForce() const;
+        std::vector<btVector3> getRopeElementalTotalForce(const SimForkResult& result) const;
+
         std::vector<btVector3> getRopeElementalTotalTorque() const;
+        std::vector<btVector3> getRopeElementalTotalTorque(const SimForkResult& result) const;
+
+        std::vector<btVector3> getClothElementalTotalForce() const;
+        std::vector<btVector3> getClothElementalTotalForce(const SimForkResult& result) const;
+        std::vector<btVector3> getClothElementalTotalTorque() const;
+        std::vector<btVector3> getClothElementalTotalTorque(const SimForkResult& result) const;
 
 
         ////////////////////////////////////////////////////////////////////////////////

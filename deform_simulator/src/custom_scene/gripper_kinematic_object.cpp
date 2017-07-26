@@ -416,18 +416,17 @@ float GripperKinematicObject::getGripperRadius() const
 
 // Get force and torque data for one gripper, size of data vector is two
 // --- Added by Mengyao
-std::vector<btVector3> GripperKinematicObject::getGripperTotalForce() const
+std::vector<btVector3> GripperKinematicObject::getRopeGripperAnisotropicFriction() const
 {
     std::vector<btVector3> forceData;
     // top and bottom box
-    int num_boxes_for_gripper = 2;
+    int num_boxes_for_gripper = children.size();
     for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
     {
         // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
     //    forceData.push_back(children[child_ind]->rigidBody->getAnisotropicFriction());
         forceData.push_back(
-                    children[child_ind]->rigidBody->getAnisotropicFriction()
-                    + children[child_ind]->rigidBody->getGravity());
+                    children[child_ind]->rigidBody->getAnisotropicFriction());
     }
     return forceData;
 }
