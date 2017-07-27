@@ -19,21 +19,29 @@ GripperKinematicObject::GripperKinematicObject(
     , apperture(apperture_input)
     , closed_gap(0.006f*METERS)
     , bAttached(false)
+    , boxhalfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
 {
+
     // The Mass of BoxObject was 0, --- Edited by Mengyao
     BoxObject::Ptr top_jaw(new BoxObject(0, halfextents,
-                btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)), true));
+                btTransform(btQuaternion(0, 0, 0, 1),
+                            btVector3(0, 0, apperture/2 + boxhalfextents[2] * 2)), true));
     top_jaw->setColor(color[0],color[1],color[2],color[3]);
     top_jaw->collisionShape->setMargin(0.004f*METERS);
 
     BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents,
-                btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, -apperture/2)), true));
+                btTransform(btQuaternion(0, 0, 0, 1),
+                            btVector3(0, 0, -apperture/2 - boxhalfextents[2] * 2)), true));
     bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
     bottom_jaw->collisionShape->setMargin(0.004f*METERS);
 
     // Find the center of the gripper composite object
-    top_jaw->motionState->getWorldTransform(cur_tm);
-    cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2));
+    top_jaw->motionState->getWorldTransform(cur_top_tm);
+    cur_top_tm.setOrigin(cur_top_tm.getOrigin() - btVector3(0,0,-apperture/2 - boxhalfextents[2] * 2));
+
+    // Added by Mengyao
+    bottom_jaw->motionState->getWorldTransform(cur_bottom_tm);
+    cur_bottom_tm.setOrigin(cur_bottom_tm.getOrigin() - btVector3(0,0, apperture/2 + boxhalfextents[2] * 2));
 
     children.push_back(top_jaw);
     children.push_back(bottom_jaw);
@@ -59,7 +67,7 @@ void GripperKinematicObject::setWorldTransform(btTransform tm)
     btTransform top_offset;
 
     children[0]->motionState->getWorldTransform(top_offset);
-    top_offset = cur_tm.inverse()*top_offset;
+    top_offset = cur_top_tm.inverse()*top_offset;
 
     top_tm.setOrigin(top_tm.getOrigin() + top_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
     bottom_tm.setOrigin(bottom_tm.getOrigin() - bottom_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
@@ -67,33 +75,124 @@ void GripperKinematicObject::setWorldTransform(btTransform tm)
     children[0]->motionState->setKinematicPos(top_tm);
     children[1]->motionState->setKinematicPos(bottom_tm);
 
-    cur_tm = tm;
+    cur_top_tm = tm;
 }
 
 btTransform GripperKinematicObject::getWorldTransform()
 {
-    return cur_tm;
+    return cur_top_tm;
 }
 
 void GripperKinematicObject::getWorldTransform(btTransform& in)
 {
-    in = cur_tm;
+    in = cur_top_tm;
 }
 
 
 void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr)
 {
-    btTransform top_tm;
-    children[0]->motionState->getWorldTransform(top_tm);
+    // Add dynamics squeezing boxes, --- Added by Mengyao
+    // The Mass of BoxObject was 0, --- Edited by Mengyao
 
-    rope_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
-                                            *prb, top_tm.inverse()*cur_tm,
-                                            btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
-    rope_cnt->setLinearLowerLimit(btVector3(0,0,0));
-    rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
-    rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
-    rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
-    env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
+    const btVector4 color(0.95f, 0.6f, 0.6f, 1.0f);
+
+    BoxObject::Ptr top_squeezing_jaw(new BoxObject(1, boxhalfextents,
+                btTransform(prb->getOrientation(),
+                            prb->getCenterOfMassPosition() + btVector3(0, 0, apperture/2)), false));
+    top_squeezing_jaw->setColor(color[0],color[1],color[2],color[3]);
+    top_squeezing_jaw->collisionShape->setMargin(0.004f*METERS);
+
+    BoxObject::Ptr bottom_squeezing_jaw(new BoxObject(1, boxhalfextents,
+                btTransform(prb->getOrientation(),
+                            prb->getCenterOfMassPosition() + btVector3(0, 0, -apperture/2)), false));
+    bottom_squeezing_jaw->setColor(color[0],color[1],color[2],color[3]);
+    bottom_squeezing_jaw->collisionShape->setMargin(0.004f*METERS);
+
+    top_squeezing_jaw->motionState->getWorldTransform(box_cur_top_tm);
+    box_cur_top_tm.setOrigin(box_cur_top_tm.getOrigin() - btVector3(0, 0, apperture/2));
+
+    bottom_squeezing_jaw->motionState->getWorldTransform(box_cur_bottom_tm);
+    box_cur_bottom_tm.setOrigin(box_cur_bottom_tm.getOrigin() - btVector3(0, 0, -apperture/2));
+
+    boxes_children.push_back(top_squeezing_jaw);
+    boxes_children.push_back(bottom_squeezing_jaw);
+
+    env_ptr->add(top_squeezing_jaw);
+    env_ptr->add(bottom_squeezing_jaw);
+
+    // End Mengyao Added
+
+    // Edited by Mengyao
+
+    // Add Ros Parameters for #switch# or move the code into a new class
+    // Add Constraint   ---- Revised by Mengyao
+    bool use_squeezing_boxes = true;
+    if (use_squeezing_boxes)
+    {
+        btTransform top_tm;
+        children[0]->motionState->getWorldTransform(top_tm);
+
+        btTransform box_top_tm;
+        boxes_children[0]->motionState->getWorldTransform(box_top_tm);
+
+        top_jaw_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
+                          *(boxes_children[0]->rigidBody.get()),
+                          top_tm.inverse()*cur_top_tm,
+                          box_top_tm.inverse()*box_cur_top_tm,
+                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,-apperture/2)),
+                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
+                          true));
+
+        top_jaw_cnt->setLinearLowerLimit(btVector3(0,0,0));
+        top_jaw_cnt->setLinearUpperLimit(btVector3(0,0,0));
+        top_jaw_cnt->setAngularLowerLimit(btVector3(0,0,0));
+        top_jaw_cnt->setAngularUpperLimit(btVector3(0,0,0));
+        env_ptr->bullet->dynamicsWorld->addConstraint(top_jaw_cnt.get());
+
+        // set constraint for bottom one
+
+
+        btTransform bottom_tm;
+        children[1]->motionState->getWorldTransform(bottom_tm);
+
+        btTransform box_bottom_tm;
+        boxes_children[1]->motionState->getWorldTransform(box_bottom_tm);
+
+        bottom_jaw_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
+                          *(boxes_children[1]->rigidBody.get()),
+                          top_tm.inverse()*cur_top_tm,
+                          box_bottom_tm.inverse()*box_cur_bottom_tm,
+                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,-apperture/2)),
+                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
+                          true));
+
+        bottom_jaw_cnt->setLinearLowerLimit(btVector3(0,0,0));
+        bottom_jaw_cnt->setLinearUpperLimit(btVector3(0,0,0));
+        bottom_jaw_cnt->setAngularLowerLimit(btVector3(0,0,0));
+        bottom_jaw_cnt->setAngularUpperLimit(btVector3(0,0,0));
+        env_ptr->bullet->dynamicsWorld->addConstraint(bottom_jaw_cnt.get());
+
+
+    }
+    else
+    {
+        btTransform top_tm;
+        children[0]->motionState->getWorldTransform(top_tm);
+
+        rope_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
+                       *prb,
+                       top_tm.inverse()*cur_top_tm,
+                       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
+                       true));
+
+        rope_cnt->setLinearLowerLimit(btVector3(0,0,0));
+        rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
+        rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
+        rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
+        env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
+
+    }
+
 
     vattached_node_inds.clear();
     vattached_node_inds.push_back(objectnodeind);
@@ -111,14 +210,14 @@ void GripperKinematicObject::toggleOpen()
         //btTransform top_offset = cur_tm.inverse()*top_tm;
         //float close_length = (1+closed_gap)*top_offset.getOrigin()[2] - children[0]->halfExtents[2];
         //float close_length = (apperture/2 - children[0]->halfExtents[2] + closed_gap/2);
-        top_tm.setOrigin(cur_tm.getOrigin() + cur_tm.getBasis().getColumn(2)*(children[0]->halfExtents[2] + closed_gap/2));
-        bottom_tm.setOrigin(cur_tm.getOrigin() - cur_tm.getBasis().getColumn(2)*(children[1]->halfExtents[2] + closed_gap/2));
+        top_tm.setOrigin(cur_top_tm.getOrigin() + cur_top_tm.getBasis().getColumn(2)*(children[0]->halfExtents[2] + closed_gap/2));
+        bottom_tm.setOrigin(cur_top_tm.getOrigin() - cur_top_tm.getBasis().getColumn(2)*(children[1]->halfExtents[2] + closed_gap/2));
     }
     else
     {
         //std::cout << "Opening gripper\n";
-        top_tm.setOrigin(cur_tm.getOrigin() - cur_tm.getBasis().getColumn(2)*(apperture/2));
-        bottom_tm.setOrigin(cur_tm.getOrigin() + cur_tm.getBasis().getColumn(2)*(apperture/2));
+        top_tm.setOrigin(cur_top_tm.getOrigin() - cur_top_tm.getBasis().getColumn(2)*(apperture/2));
+        bottom_tm.setOrigin(cur_top_tm.getOrigin() + cur_top_tm.getBasis().getColumn(2)*(apperture/2));
     }
 
     children[0]->motionState->setKinematicPos(top_tm);
@@ -162,7 +261,7 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
             size_t closest_body;
             for(int j = 0; j < psb->m_nodes.size(); j++)
             {
-                if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
+                if((psb->m_nodes[j].m_x - cur_top_tm.getOrigin()).length() < radius)
                 {
                     if((psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length())
                         closest_body = 0;
@@ -379,7 +478,7 @@ EnvironmentObject::Ptr GripperKinematicObject::copy(Fork &f) const
 void GripperKinematicObject::internalCopy(GripperKinematicObject::Ptr o, Fork &f) const
 {
     o->apperture = apperture;
-    o->cur_tm = cur_tm;
+    o->cur_top_tm = cur_top_tm;
     o->bOpen = bOpen;
     o->state = state;
     o->closed_gap = closed_gap;
@@ -423,6 +522,9 @@ std::vector<btVector3> GripperKinematicObject::getRopeGripperAnisotropicFriction
     int num_boxes_for_gripper = children.size();
     for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
     {
+//        assert(children[child_ind]->rigidBody->hasAnisotropicFriction()
+//               && "Grippers don't have anisotropic friction, in custom_scene.cpp, get elemental force" );
+
         // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
     //    forceData.push_back(children[child_ind]->rigidBody->getAnisotropicFriction());
         forceData.push_back(
@@ -448,7 +550,7 @@ std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
 std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)
 {
     stream << "Gripper:" << gripper.name << std::endl
-            << PrettyPrint::PrettyPrint(gripper.cur_tm) << std::endl
+            << PrettyPrint::PrettyPrint(gripper.cur_top_tm) << std::endl
             << "apperture: " << gripper.apperture
             << " open: " << gripper.bOpen
             << " attached: " << gripper.bAttached

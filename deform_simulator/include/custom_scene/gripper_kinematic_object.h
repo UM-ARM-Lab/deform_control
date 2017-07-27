@@ -56,7 +56,10 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         std::string name;
         btVector3 halfextents;
 
-        btTransform cur_tm;
+        // Revised by Mengyao
+        // btTransform cur_tm;
+        btTransform cur_top_tm;
+        btTransform cur_bottom_tm;
 
         enum GripperState { GripperState_DONE, GripperState_CLOSING, GripperState_OPENING };
 
@@ -68,7 +71,18 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         bool bAttached;
         std::vector<size_t> vattached_node_inds;
 
+        // Edited by Mengyao
         boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
+        boost::shared_ptr<btGeneric6DofConstraint> top_jaw_cnt;
+        boost::shared_ptr<btGeneric6DofConstraint> bottom_jaw_cnt;
+
+        // --- Added by Mengyao
+    public:
+        btVector3 boxhalfextents;
+        CompoundObject::ChildVector boxes_children;
+        btTransform box_cur_top_tm;
+        btTransform box_cur_bottom_tm;
+
 };
 
 #endif

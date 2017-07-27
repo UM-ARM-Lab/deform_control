@@ -82,7 +82,8 @@ CapsuleRope::CapsuleRope(
     {
         btTransform trans = transforms[i];
         btScalar len = lengths[i];
-        float mass = 1;
+    //    float mass = 1;
+        float mass = 0.05;
         CapsuleObject::Ptr child(new CapsuleObject(1,radius,len,trans));
         child->rigidBody->setDamping(linDamping,angDamping);
         child->rigidBody->setFriction(1);

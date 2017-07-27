@@ -2267,13 +2267,19 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
     return gjkOutput_min;
 }
 
+////////////////////////////////////////////////////////////////////////////////
 // Get force and torque data for capsule on the rope_
 // --- Added by Mengyao
+////////////////////////////////////////////////////////////////////////////////
+
 std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
-{
+{    
     std::vector<btVector3> forceData;
     for (int capsule_ind = 0; capsule_ind < rope_->nLinks; capsule_ind++)
     {
+//        assert(rope_->getChildren()[capsule_ind]->rigidBody->hasAnisotropicFriction()
+//               && "Rope don't have anisotropic friction, in custom_scene.cpp, get elemental force" );
+
 //        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
         forceData.push_back(
                     rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
