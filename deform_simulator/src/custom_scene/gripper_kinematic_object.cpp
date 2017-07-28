@@ -117,16 +117,16 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
     box_cur_bottom_tm.setOrigin(box_cur_bottom_tm.getOrigin() - btVector3(0, 0, -apperture/2));
 
     // Set best friction
-    top_squeezing_jaw->rigidBody->setFriction(1000.0);
-    bottom_squeezing_jaw->rigidBody->setFriction(1000.0);
+    top_squeezing_jaw->rigidBody->setFriction(10000.0);
+    bottom_squeezing_jaw->rigidBody->setFriction(10000.0);
     // Set restitution
-    top_squeezing_jaw->rigidBody->setRestitution(0.1);
-    bottom_squeezing_jaw->rigidBody->setRestitution(0.1);
+    top_squeezing_jaw->rigidBody->setRestitution(0.2);
+    bottom_squeezing_jaw->rigidBody->setRestitution(0.2);
 
 //    top_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
 //    bottom_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
-//    top_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_top_tm.getOrigin())*100, box_cur_top_tm.getOrigin());
-//    bottom_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_bottom_tm.getOrigin())*100, box_cur_bottom_tm.getOrigin());
+    top_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_top_tm.getOrigin())*1000, box_cur_top_tm.getOrigin());
+    bottom_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_bottom_tm.getOrigin())*1000, box_cur_bottom_tm.getOrigin());
 
     boxes_children.push_back(top_squeezing_jaw);
     boxes_children.push_back(bottom_squeezing_jaw);
