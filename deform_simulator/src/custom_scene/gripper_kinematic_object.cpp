@@ -16,7 +16,9 @@ GripperKinematicObject::GripperKinematicObject(
     , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
     , state(GripperState_DONE)
     , bOpen (true)
-    , apperture(apperture_input)
+    // TODO:: move this to RosParam
+//    , apperture(apperture_input)
+    , apperture(0.0285f * METERS)
     , closed_gap(0.006f*METERS)
     , bAttached(false)
     , boxhalfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
@@ -39,7 +41,7 @@ GripperKinematicObject::GripperKinematicObject(
     top_jaw->motionState->getWorldTransform(cur_top_tm);
     cur_top_tm.setOrigin(cur_top_tm.getOrigin() - btVector3(0,0,-apperture/2 - boxhalfextents[2] * 2));
 
-    // Added by Mengyao
+    // TODO:: Added by Mengyao, probably should delete this one
     bottom_jaw->motionState->getWorldTransform(cur_bottom_tm);
     cur_bottom_tm.setOrigin(cur_bottom_tm.getOrigin() - btVector3(0,0, apperture/2 + boxhalfextents[2] * 2));
 
@@ -114,11 +116,25 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
     bottom_squeezing_jaw->motionState->getWorldTransform(box_cur_bottom_tm);
     box_cur_bottom_tm.setOrigin(box_cur_bottom_tm.getOrigin() - btVector3(0, 0, -apperture/2));
 
+    // Set best friction
+    top_squeezing_jaw->rigidBody->setFriction(1000.0);
+    bottom_squeezing_jaw->rigidBody->setFriction(1000.0);
+    // Set restitution
+    top_squeezing_jaw->rigidBody->setRestitution(0.1);
+    bottom_squeezing_jaw->rigidBody->setRestitution(0.1);
+
+//    top_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
+//    bottom_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
+//    top_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_top_tm.getOrigin())*100, box_cur_top_tm.getOrigin());
+//    bottom_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_bottom_tm.getOrigin())*100, box_cur_bottom_tm.getOrigin());
+
     boxes_children.push_back(top_squeezing_jaw);
     boxes_children.push_back(bottom_squeezing_jaw);
 
     env_ptr->add(top_squeezing_jaw);
     env_ptr->add(bottom_squeezing_jaw);
+
+    env_ptr->bullet->dynamicsWorld->getSolverInfo().m_solverMode |= SOLVER_USE_2_FRICTION_DIRECTIONS;
 
     // End Mengyao Added
 
@@ -519,7 +535,7 @@ std::vector<btVector3> GripperKinematicObject::getRopeGripperAnisotropicFriction
 {
     std::vector<btVector3> forceData;
     // top and bottom box
-    int num_boxes_for_gripper = children.size();
+    int num_boxes_for_gripper = boxes_children.size();
     for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
     {
 //        assert(children[child_ind]->rigidBody->hasAnisotropicFriction()
@@ -528,7 +544,7 @@ std::vector<btVector3> GripperKinematicObject::getRopeGripperAnisotropicFriction
         // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
     //    forceData.push_back(children[child_ind]->rigidBody->getAnisotropicFriction());
         forceData.push_back(
-                    children[child_ind]->rigidBody->getAnisotropicFriction());
+                    boxes_children[child_ind]->rigidBody->getTotalForce());
     }
     return forceData;
 }

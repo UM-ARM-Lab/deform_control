@@ -82,11 +82,16 @@ CapsuleRope::CapsuleRope(
     {
         btTransform trans = transforms[i];
         btScalar len = lengths[i];
+        // TODO:: Might need to change it back
     //    float mass = 1;
-        float mass = 0.05;
+        float mass = 0.1;
         CapsuleObject::Ptr child(new CapsuleObject(1,radius,len,trans));
         child->rigidBody->setDamping(linDamping,angDamping);
-        child->rigidBody->setFriction(1);
+    //    child->rigidBody->setFriction(1);
+        child->rigidBody->setFriction(1000.0);
+        // TODO:: restitution added by Mengyao
+        child->rigidBody->setRestitution(0.1);
+        child->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
 
         children.push_back(child);
 
