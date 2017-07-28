@@ -2281,9 +2281,13 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
 //               && "Rope don't have anisotropic friction, in custom_scene.cpp, get elemental force" );
 
 //        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
+//        forceData.push_back(
+//                    rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
+//                    + rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
+
         forceData.push_back(
-                    rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
-                    + rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
+                    rope_->getChildren()[capsule_ind]->rigidBody->getInterpolationLinearVelocity());
+
 
     }
 
