@@ -241,6 +241,28 @@ void BulletObject::setColorAfterInit()
     }
 }
 
+// Access recorded m_totalForce and m_totalTorque being cleared in
+// btDiscreteDynamicsWorld.cpp, Ln. 237.     --- Added by Mengyao
+btVector3 BulletObject::getTotalForce()
+{
+    return rigidBody_totalForce;
+}
+
+btVector3 BulletObject::getTotalTorque()
+{
+    return rigidBody_totalTorque;
+}
+
+void BulletObject::setTotalForce(btVector3 m_totalForce)
+{
+    rigidBody_totalForce.setValue(m_totalForce[0], m_totalForce[1], m_totalForce[2]);
+}
+
+void BulletObject::setTotalTorque(btVector3 m_totalTorque)
+{
+    rigidBody_totalTorque.setValue(m_totalTorque[0], m_totalTorque[1], m_totalTorque[2]);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Constraint Object                                                          //
 ////////////////////////////////////////////////////////////////////////////////

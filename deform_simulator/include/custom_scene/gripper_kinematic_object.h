@@ -40,7 +40,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         float getGripperRadius() const;
 
         // Get force data and torque data
-        std::vector<btVector3> getRopeGripperAnisotropicFriction() const;
+        std::vector<btVector3> getRopeGripperForce() const;
         std::vector<btVector3> getGripperTotalTorque() const;
 
         // Used by the manual grippers for cloth

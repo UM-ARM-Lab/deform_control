@@ -88,7 +88,7 @@ CapsuleRope::CapsuleRope(
         CapsuleObject::Ptr child(new CapsuleObject(1,radius,len,trans));
         child->rigidBody->setDamping(linDamping,angDamping);
     //    child->rigidBody->setFriction(1);
-        child->rigidBody->setFriction(10000.0);
+        child->rigidBody->setFriction(100.0);
         // TODO:: restitution added by Mengyao
         child->rigidBody->setRestitution(0.8);
         child->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));

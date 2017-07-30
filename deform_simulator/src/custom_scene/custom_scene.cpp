@@ -2045,12 +2045,12 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
         switch (deformable_type_)
         {
             case ROPE:
-                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperAnisotropicFriction().at(0), gripper->getGripperTotalTorque().at(0)));
-                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperAnisotropicFriction().at(1), gripper->getGripperTotalTorque().at(1)));
+                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(0), gripper->getGripperTotalTorque().at(0)));
+                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(1), gripper->getGripperTotalTorque().at(1)));
                 break;
             case CLOTH:
-                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperAnisotropicFriction().at(0), btVector3(0.0f, 0.0f, 0.0f)));
-                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperAnisotropicFriction().at(1), btVector3(0.0f, 0.0f, 0.0f)));
+                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(0), btVector3(0.0f, 0.0f, 0.0f)));
+                msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(1), btVector3(0.0f, 0.0f, 0.0f)));
                 break;
             default:
                 assert(false && "deformable type is neither ROPE or CLOTH, failed to read force data from bullet");
@@ -2115,8 +2115,8 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 
         // fill the force and torque data, the size of gripper_wrenches is 2*size of gripper, even for children[0], odd for children[1]
         // --- Added by Mengyao
-        msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperAnisotropicFriction().at(0), gripper->getGripperTotalTorque().at(0)));
-        msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperAnisotropicFriction().at(1), gripper->getGripperTotalTorque().at(1)));
+        msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(0), gripper->getGripperTotalTorque().at(0)));
+        msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(1), gripper->getGripperTotalTorque().at(1)));
 
         btPointCollector collision_result = collisionHelper(gripper);
 
@@ -2280,13 +2280,13 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
 //        assert(rope_->getChildren()[capsule_ind]->rigidBody->hasAnisotropicFriction()
 //               && "Rope don't have anisotropic friction, in custom_scene.cpp, get elemental force" );
 
-//        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
+        forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
 //        forceData.push_back(
 //                    rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
 //                    + rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
 
-        forceData.push_back(
-                    rope_->getChildren()[capsule_ind]->rigidBody->getInterpolationLinearVelocity());
+//        forceData.push_back(
+//                    rope_->getChildren()[capsule_ind]->rigidBody->getInterpolationLinearVelocity());
 
 
     }
@@ -2299,10 +2299,10 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce(const SimForkResu
     std::vector<btVector3> forceData;
     for (int capsule_ind = 0; capsule_ind < result.rope_->nLinks; capsule_ind++)
     {
-//        forceData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
-        forceData.push_back(
-                    result.rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
-                    + result.rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
+        forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
+//        forceData.push_back(
+//                    result.rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
+//                    + result.rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
 
     }
 
@@ -2314,7 +2314,7 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalTorque() const
     std::vector<btVector3> torqueData;
     for (int capsule_ind = 0; capsule_ind < rope_->nLinks; capsule_ind++)
     {
-        torqueData.push_back(rope_->getChildren()[capsule_ind]->rigidBody->getTotalTorque());
+        torqueData.push_back(rope_->getChildren()[capsule_ind]->getTotalTorque());
     }
 
     return torqueData;
@@ -2325,7 +2325,7 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalTorque(const SimForkRes
     std::vector<btVector3> torqueData;
     for (int capsule_ind = 0; capsule_ind < result.rope_->nLinks; capsule_ind++)
     {
-        torqueData.push_back(result.rope_->getChildren()[capsule_ind]->rigidBody->getTotalTorque());
+        torqueData.push_back(result.rope_->getChildren()[capsule_ind]->getTotalTorque());
     }
 
     return torqueData;
