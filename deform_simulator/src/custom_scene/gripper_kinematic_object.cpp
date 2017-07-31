@@ -43,8 +43,8 @@ GripperKinematicObject::GripperKinematicObject(
     cur_top_tm.setOrigin(cur_top_tm.getOrigin() - btVector3(0,0,-apperture/2 - boxhalfextents[2] * 2));
 
     // TODO:: Added by Mengyao, probably should delete this one
-    bottom_jaw->motionState->getWorldTransform(cur_bottom_tm);
-    cur_bottom_tm.setOrigin(cur_bottom_tm.getOrigin() - btVector3(0,0, apperture/2 + boxhalfextents[2] * 2));
+//    bottom_jaw->motionState->getWorldTransform(cur_bottom_tm);
+//    cur_bottom_tm.setOrigin(cur_bottom_tm.getOrigin() - btVector3(0,0, apperture/2 + boxhalfextents[2] * 2));
 
     children.push_back(top_jaw);
     children.push_back(bottom_jaw);
@@ -103,7 +103,7 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
 
     // Add Ros Parameters for #switch# or move the code into a new class
     // Add Constraint   ---- Revised by Mengyao
-    bool use_squeezing_boxes = true;
+    const bool use_squeezing_boxes = true;
     if (use_squeezing_boxes)
     {
 
@@ -553,17 +553,10 @@ std::vector<btVector3> GripperKinematicObject::getRopeGripperForce() const
     return forceData;
 }
 
+// To be rewritten later
 std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
 {
-    std::vector<btVector3> torqueData;
-    // top and bottom box
-    int num_boxes_for_gripper = 2;
-    for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
-    {
-        // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
-        torqueData.push_back(children[child_ind]->getTotalTorque());
-    }
-    return torqueData;
+    return getRopeGripperForce();
 }
 
 

@@ -120,11 +120,11 @@ class BulletObject : public EnvironmentObject
                 if (!obj.isKinematic)
                 {
                     btDefaultMotionState::setWorldTransform(t);
-                }
-                // Record force and torque information before being cleared
-                obj.setTotalForce(obj.rigidBody->getTotalForce());
-                obj.setTotalTorque(obj.rigidBody->getTotalTorque());
+                    // Record force and torque information before being cleared
+                    obj.setTotalForce(obj.rigidBody->getTotalForce());
+                    obj.setTotalTorque(obj.rigidBody->getTotalTorque());
 
+                }
             }
 
             void setKinematicPos(const btTransform &pos)

@@ -176,6 +176,11 @@ void BulletObject::init()
     osg::StateSet *ss = node->getOrCreateStateSet();
     ss->setAttributeAndModes(blendFunc);
     setColorAfterInit();
+
+    // initialize the newly created force and torque data --- Added by Mengyao
+    rigidBody_totalForce = btVector3(0,0,0);
+    rigidBody_totalTorque = btVector3(0,0,0);
+
 }
 
 void BulletObject::preDraw()
@@ -245,12 +250,27 @@ void BulletObject::setColorAfterInit()
 // btDiscreteDynamicsWorld.cpp, Ln. 237.     --- Added by Mengyao
 btVector3 BulletObject::getTotalForce()
 {
-    return rigidBody_totalForce;
+    if (!isKinematic)
+    {
+        return rigidBody_totalForce;
+    }
+    else
+    {
+        return rigidBody->getTotalForce();
+    }
 }
 
 btVector3 BulletObject::getTotalTorque()
 {
-    return rigidBody_totalTorque;
+    if (!isKinematic)
+    {
+        return rigidBody_totalTorque;
+    }
+    else
+    {
+        return rigidBody->getTotalTorque();
+    }
+
 }
 
 void BulletObject::setTotalForce(btVector3 m_totalForce)

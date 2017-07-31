@@ -2282,7 +2282,7 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
 
         forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
 //        forceData.push_back(
-//                    rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
+//                    rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
 //                    + rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
 
 //        forceData.push_back(
@@ -2301,9 +2301,8 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce(const SimForkResu
     {
         forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
 //        forceData.push_back(
-//                    result.rope_->getChildren()[capsule_ind]->rigidBody->getAnisotropicFriction()
-//                    + result.rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
-
+//                    rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
+//                    + rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
     }
 
     return forceData;
