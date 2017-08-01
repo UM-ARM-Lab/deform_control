@@ -66,7 +66,7 @@ class btTypedConstraint : public btTypedObject
 	bool		m_isEnabled;
 
 
-	bool m_needsFeedback;
+    bool m_needsFeedback;
 
 	btTypedConstraint&	operator=(btTypedConstraint&	other)
 	{

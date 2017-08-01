@@ -19,7 +19,7 @@ subject to the following restrictions:
 
 
 btGeneric6DofSpringConstraint::btGeneric6DofSpringConstraint(btRigidBody& rbA, btRigidBody& rbB, const btTransform& frameInA, const btTransform& frameInB ,bool useLinearReferenceFrameA)
-	: btGeneric6DofConstraint(rbA, rbB, frameInA, frameInB, useLinearReferenceFrameA)
+    : btGeneric6DofConstraint(rbA, rbB, frameInA, frameInB, useLinearReferenceFrameA)
 {
 	m_objectType = D6_SPRING_CONSTRAINT_TYPE;
 
@@ -118,7 +118,7 @@ void btGeneric6DofSpringConstraint::internalUpdateSprings(btConstraintInfo2* inf
 			btScalar force = delta * m_springStiffness[i];
 			btScalar velFactor = info->fps * m_springDamping[i] / btScalar(info->m_numIterations);
 			m_linearLimits.m_targetVelocity[i] =  velFactor * force;
-			m_linearLimits.m_maxMotorForce[i] =  btFabs(force) / info->fps;
+            m_linearLimits.m_maxMotorForce[i] =  btFabs(force) / info->fps;
 		}
 	}
 	for(i = 0; i < 3; i++)
@@ -133,7 +133,7 @@ void btGeneric6DofSpringConstraint::internalUpdateSprings(btConstraintInfo2* inf
 			btScalar force = -delta * m_springStiffness[i+3];
 			btScalar velFactor = info->fps * m_springDamping[i+3] / btScalar(info->m_numIterations);
 			m_angularLimits[i].m_targetVelocity = velFactor * force;
-			m_angularLimits[i].m_maxMotorForce = btFabs(force) / info->fps;
+            m_angularLimits[i].m_maxMotorForce = btFabs(force) / info->fps;
 		}
 	}
 }

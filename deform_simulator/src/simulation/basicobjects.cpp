@@ -22,6 +22,8 @@ using namespace std;
 
 BulletObject::BulletObject(CI ci, const btTransform &initTrans, bool isKinematic_)
     : isKinematic(isKinematic_)
+    , rigidBody_totalForce(0.0, 0.0, 0.0)
+    , rigidBody_totalTorque(0.0, 0.0, 0.0)
 {
     assert(ci.m_motionState == nullptr);
     if (isKinematic)
@@ -42,6 +44,8 @@ BulletObject::BulletObject(CI ci, const btTransform &initTrans, bool isKinematic
 
 BulletObject::BulletObject(btScalar mass, btCollisionShape *cs, const btTransform &initTrans, bool isKinematic_)
     : isKinematic(isKinematic_)
+    , rigidBody_totalForce(0.0, 0.0, 0.0)
+    , rigidBody_totalTorque(0.0, 0.0, 0.0)
 {
     motionState.reset(new MotionState(*this, initTrans));
     collisionShape.reset(cs);
@@ -70,6 +74,10 @@ BulletObject::BulletObject(const BulletObject &o)
 
     // then copy the motionstate
     motionState = o.motionState->clone(*this);
+
+    // Copy the recorded force data
+    rigidBody_totalForce = o.rigidBody_totalForce;
+    rigidBody_totalTorque = o.rigidBody_totalTorque;
 
     // then serialize the rigid body
     boost::shared_ptr<btDefaultSerializer> serializer(new btDefaultSerializer());
@@ -176,11 +184,6 @@ void BulletObject::init()
     osg::StateSet *ss = node->getOrCreateStateSet();
     ss->setAttributeAndModes(blendFunc);
     setColorAfterInit();
-
-    // initialize the newly created force and torque data --- Added by Mengyao
-    rigidBody_totalForce = btVector3(0,0,0);
-    rigidBody_totalTorque = btVector3(0,0,0);
-
 }
 
 void BulletObject::preDraw()
@@ -273,14 +276,14 @@ btVector3 BulletObject::getTotalTorque()
 
 }
 
-void BulletObject::setTotalForce(btVector3 m_totalForce)
+void BulletObject::setTotalForce(const btVector3& m_totalForce)
 {
-    rigidBody_totalForce.setValue(m_totalForce[0], m_totalForce[1], m_totalForce[2]);
+    rigidBody_totalForce = m_totalForce;
 }
 
-void BulletObject::setTotalTorque(btVector3 m_totalTorque)
+void BulletObject::setTotalTorque(const btVector3& m_totalTorque)
 {
-    rigidBody_totalTorque.setValue(m_totalTorque[0], m_totalTorque[1], m_totalTorque[2]);
+    rigidBody_totalTorque = m_totalTorque;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

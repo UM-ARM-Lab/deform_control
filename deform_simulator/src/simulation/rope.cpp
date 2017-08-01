@@ -90,8 +90,8 @@ CapsuleRope::CapsuleRope(
     //    child->rigidBody->setFriction(1);
         child->rigidBody->setFriction(100.0);
         // TODO:: restitution added by Mengyao
-        child->rigidBody->setRestitution(0.8);
-        child->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
+        child->rigidBody->setRestitution(0.1);
+    //    child->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
 
         children.push_back(child);
 

@@ -72,7 +72,8 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         std::vector<size_t> vattached_node_inds;
 
         // Edited by Mengyao
-        boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
+      //  boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
+        boost::shared_ptr<btGeneric6DofSpringConstraint> rope_cnt;
         boost::shared_ptr<btGeneric6DofConstraint> top_jaw_cnt;
         boost::shared_ptr<btGeneric6DofConstraint> bottom_jaw_cnt;
 

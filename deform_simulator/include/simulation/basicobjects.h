@@ -123,7 +123,6 @@ class BulletObject : public EnvironmentObject
                     // Record force and torque information before being cleared
                     obj.setTotalForce(obj.rigidBody->getTotalForce());
                     obj.setTotalTorque(obj.rigidBody->getTotalTorque());
-
                 }
             }
 
@@ -251,8 +250,8 @@ class BulletObject : public EnvironmentObject
         // btDiscreteDynamicsWorld.cpp, Ln. 237.     --- Added by Mengyao
         btVector3 getTotalForce();
         btVector3 getTotalTorque();
-        void setTotalForce(btVector3 m_totalForce);
-        void setTotalTorque(btVector3 m_totalTorque);
+        void setTotalForce(const btVector3& m_totalForce);
+        void setTotalTorque(const btVector3& m_totalTorque);
 
 
     protected:

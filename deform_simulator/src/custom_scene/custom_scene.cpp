@@ -2279,8 +2279,17 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
     {
 //        assert(rope_->getChildren()[capsule_ind]->rigidBody->hasAnisotropicFriction()
 //               && "Rope don't have anisotropic friction, in custom_scene.cpp, get elemental force" );
+        if (capsule_ind > 0)
+        {
+            forceData.push_back(rope_->joints.at(capsule_ind-1)->cnt->m_springForce);
+        }
+        else
+        {
+            forceData.push_back(btVector3(0.0, 0.0, 0.0));
+        }
 
-        forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
+
+//        forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
 //        forceData.push_back(
 //                    rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
 //                    + rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
