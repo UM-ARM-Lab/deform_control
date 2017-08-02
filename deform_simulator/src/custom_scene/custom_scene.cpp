@@ -2015,7 +2015,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
             break;
         case CLOTH:
             // True torque function not yet written
-        //    msg.object_wrenches = toRosWrenchVector(getClothElementalTotalForce(), getRopeElementalTotalTorque());
+            msg.object_wrenches = toRosWrenchVector(getClothElementalTotalForce(), getClothElementalTotalTorque());
             break;
         default:
             assert(false && "deformable_type is neither rope nor cloth, failed to get wrenches, in custom_scene.cpp");
@@ -2099,7 +2099,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
             // True torque function not yet written
             msg.object_wrenches = toRosWrenchVector(
                         getClothElementalTotalForce(result),
-                        getRopeElementalTotalTorque(result));
+                        getClothElementalTotalTorque(result));
             break;
         default:
             assert(false && "deformable_type is neither rope nor cloth, failed to get wrenches, in custom_scene.cpp");
@@ -2279,17 +2279,8 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalForce() const
     {
 //        assert(rope_->getChildren()[capsule_ind]->rigidBody->hasAnisotropicFriction()
 //               && "Rope don't have anisotropic friction, in custom_scene.cpp, get elemental force" );
-        if (capsule_ind > 0)
-        {
-            forceData.push_back(rope_->joints.at(capsule_ind-1)->cnt->m_springForce);
-        }
-        else
-        {
-            forceData.push_back(btVector3(0.0, 0.0, 0.0));
-        }
 
-
-//        forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
+        forceData.push_back(rope_->getChildren()[capsule_ind]->getTotalForce());
 //        forceData.push_back(
 //                    rope_->getChildren()[capsule_ind]->rigidBody->getTotalForce());
 //                    + rope_->getChildren()[capsule_ind]->rigidBody->getGravity() / 9.8);
@@ -2342,7 +2333,12 @@ std::vector<btVector3> CustomScene::getRopeElementalTotalTorque(const SimForkRes
 std::vector<btVector3> CustomScene::getClothElementalTotalForce() const
 {
     std::vector<btVector3> forces;
-    forces = tRContactArrayToNodePosVector(cloth_->softBody->m_rcontacts);
+    forces = nodeArrayToNodeForceAccumulatorVector(cloth_->softBody->m_nodes);
+
+    if(forces.size()<1)
+    {
+        assert(false && "size of forces data for cloth from custom.cpp is zero");
+    }
 
     return forces;
 }
@@ -2350,7 +2346,11 @@ std::vector<btVector3> CustomScene::getClothElementalTotalForce() const
 std::vector<btVector3> CustomScene::getClothElementalTotalForce(const SimForkResult& result) const
 {
     std::vector<btVector3> forces;
-    forces = tRContactArrayToNodePosVector(result.cloth_->softBody->m_rcontacts);
+    forces = nodeArrayToNodeForceAccumulatorVector(result.cloth_->softBody->m_nodes);
+    if(forces.size()<1)
+    {
+        assert(false && "size of forces data for cloth from custom.cpp is zero");
+    }
 
     return forces;
 }
@@ -2360,7 +2360,7 @@ std::vector<btVector3> CustomScene::getClothElementalTotalTorque() const
     // The torque value should be set up later, it is currently not used, thus I simply return forces
     // SHOULD BE CHANGED IF TORQUE IS REQUIRED
     std::vector<btVector3> forces;
-    forces = tRContactArrayToNodePosVector(cloth_->softBody->m_rcontacts);
+    forces = nodeArrayToNodeForceAccumulatorVector(cloth_->softBody->m_nodes);
 
     return forces;
 }
@@ -2370,7 +2370,7 @@ std::vector<btVector3> CustomScene::getClothElementalTotalTorque(const SimForkRe
     // The torque value should be set up later, it is currently not used, thus I simply return forces
     // SHOULD BE CHANGED IF TORQUE IS REQUIRED
     std::vector<btVector3> forces;
-    forces = tRContactArrayToNodePosVector(result.cloth_->softBody->m_rcontacts);
+    forces = nodeArrayToNodeForceAccumulatorVector(result.cloth_->softBody->m_nodes);
 
     return forces;
 }
