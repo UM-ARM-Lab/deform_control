@@ -596,6 +596,13 @@ std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
     return getRopeGripperForce();
 }
 
+// Set the stretching vector information --- Added by Mengyao
+void GripperKinematicObject::setGeoInfoToAnotherGripper(const GripperKinematicObject& to_gripper, const btSoftBody* cloth)
+{
+
+}
+
+
 
 std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)
 {

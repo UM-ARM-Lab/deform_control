@@ -10,7 +10,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
         // Defined stretching detection nodes helper structure. --- Added by Mengyao
-        struct AttatchingToOneGripper
+        struct GeoInfoToAnotherGripper
         {
             // First element is an indices attached to the gripper,
             // second one define the stretching detection vector from the first node.
@@ -60,6 +60,9 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         EnvironmentObject::Ptr copy(Fork &f) const;
 
+        // Set the stretching vector information --- Added by Mengyao
+        void setGeoInfoToAnotherGripper(const GripperKinematicObject& to_gripper, const btSoftBody* cloth);
+
         friend std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper);
 
     private:
@@ -91,7 +94,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         // Defined stretching detection nodes helper structure. --- Added by Mengyao
         // if more than two grippers in the future, should change it to vector
-        AttatchingToOneGripper to_another_gripper_info;
+        GeoInfoToAnotherGripper to_another_gripper_info;
 
         // --- Added by Mengyao
     public:
