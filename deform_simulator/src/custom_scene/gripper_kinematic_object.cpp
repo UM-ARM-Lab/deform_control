@@ -613,7 +613,8 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
     btVector3 cur_origin = cur_tm.getOrigin();
     std::string to_gripper_name = to_gripper->getGripperName();
 
-    to_another_gripper_info.all_closest_vector.clear();
+    to_another_gripper_info.from_nodes.clear();
+    to_another_gripper_info.to_nodes.clear();
     to_another_gripper_info.node_contribution.clear();
     to_another_gripper_info.to_gripper_name = to_gripper_name;
 
@@ -677,16 +678,16 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
     // If the center of the gripper is on the line inbetween two origins.
     if(total_distance == btDistance(cur_origin, to_gripper_origin))
     {
-        to_another_gripper_info.all_closest_vector.push_back(
-                    std::pair<size_t, size_t>(min_ind, min_ind + position_factor * num_x));
+        to_another_gripper_info.from_nodes.push_back(min_ind);
+        to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
         assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
         double full_contribution = 1.0;
         to_another_gripper_info.node_contribution.push_back(full_contribution);
     }
     else
     {
-        to_another_gripper_info.all_closest_vector.push_back(
-                    std::pair<size_t, size_t>(min_ind, min_ind + position_factor * num_x));
+        to_another_gripper_info.from_nodes.push_back(min_ind);
+        to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
 
         /*
         std::cout << "min_ind: " << min_ind << std::endl;
@@ -695,8 +696,8 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         */
         assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) || "stretching info nodes outside bound");
 
-        to_another_gripper_info.all_closest_vector.push_back(
-                    std::pair<size_t, size_t>(second_min_ind, second_min_ind + position_factor * num_x));
+        to_another_gripper_info.from_nodes.push_back(second_min_ind);
+        to_another_gripper_info.to_nodes.push_back(second_min_ind + position_factor * num_x);
         assert(((second_min_ind + position_factor * num_x) < cloth->m_nodes.size()) || "stretching info nodes outside bound");
 
         double min_con = btDistance(cur_origin, cloth->m_nodes[min_ind].m_x);

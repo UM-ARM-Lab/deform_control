@@ -90,6 +90,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     gripper_attached_node_indices_srv_ = nh_.advertiseService(
             GetGripperAttachedNodeIndicesTopic(nh_), &CustomScene::getGripperAttachedNodeIndicesCallback, this);
 
+    // Create a service to let others know stretching vector information --- Added by Mengyao
+    gripper_attached_node_indices_srv_ = nh_.advertiseService(
+                GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
+
     // Create a service to let others know the current gripper pose
     gripper_pose_srv_ = nh_.advertiseService(
             GetGripperPoseTopic(nh_), &CustomScene::getGripperPoseCallback, this);
@@ -2672,7 +2676,16 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
 }
 
 // Stretching vector information client --- Added by Mengyao
-
+bool CustomScene::getGripperStretchingVectorInfoCallback(
+        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
+        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
+{
+    GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
+    res.to_gripper_name = gripper->to_another_gripper_info.to_gripper_name;
+    res.attatched_indices = gripper->to_another_gripper_info.from_nodes;
+    res.neighbor_indices = gripper->to_another_gripper_info.to_nodes;
+    res.contributions = gripper->to_another_gripper_info.node_contribution;
+}
 
 bool CustomScene::getGripperPoseCallback(
         deformable_manipulation_msgs::GetGripperPose::Request& req,

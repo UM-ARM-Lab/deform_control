@@ -194,6 +194,12 @@ class CustomScene : public Scene
         bool getGripperAttachedNodeIndicesCallback(
                 deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Request& req,
                 deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Response& res);
+
+        // Stretching vector information client --- Added by Mengyao
+        bool getGripperStretchingVectorInfoCallback(
+                deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
+                deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res);
+
         bool getGripperPoseCallback(
                 deformable_manipulation_msgs::GetGripperPose::Request& req,
                 deformable_manipulation_msgs::GetGripperPose::Response& res);

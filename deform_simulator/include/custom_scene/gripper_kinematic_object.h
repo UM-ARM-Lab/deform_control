@@ -11,13 +11,10 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         // Defined stretching detection nodes helper structure. --- Added by Mengyao
 
-        // First element is an indices attached to the gripper,
-        // second one define the stretching detection vector from the first node.
-        typedef std::vector<std::pair<size_t, size_t>> AttatchingInfo;
-
         struct GeoInfoToAnotherGripper
         {
-            AttatchingInfo all_closest_vector;
+            std::vector<size_t> from_nodes;
+            std::vector<size_t> to_nodes;
             std::vector<double> node_contribution;
             std::string to_gripper_name;
         };
@@ -100,16 +97,16 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         boost::shared_ptr<btGeneric6DofConstraint> top_jaw_cnt;
         boost::shared_ptr<btGeneric6DofConstraint> bottom_jaw_cnt;
 
-        // Defined stretching detection nodes helper structure. --- Added by Mengyao
-        // if more than two grippers in the future, should change it to vector
-        GeoInfoToAnotherGripper to_another_gripper_info;
-
         // --- Added by Mengyao
     public:
         btVector3 boxhalfextents;
         CompoundObject::ChildVector boxes_children;
         btTransform box_cur_top_tm;
         btTransform box_cur_bottom_tm;
+
+        // Defined stretching detection nodes helper structure. --- Added by Mengyao
+        // if more than two grippers in the future, should change it to vector
+        GeoInfoToAnotherGripper to_another_gripper_info;
 
 };
 
