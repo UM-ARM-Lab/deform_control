@@ -91,7 +91,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
             GetGripperAttachedNodeIndicesTopic(nh_), &CustomScene::getGripperAttachedNodeIndicesCallback, this);
 
     // Create a service to let others know stretching vector information --- Added by Mengyao
-    gripper_attached_node_indices_srv_ = nh_.advertiseService(
+    gripper_stretching_vector_info_srv_ = nh_.advertiseService(
                 GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
 
     // Create a service to let others know the current gripper pose
@@ -2685,6 +2685,7 @@ bool CustomScene::getGripperStretchingVectorInfoCallback(
     res.attatched_indices = gripper->to_another_gripper_info.from_nodes;
     res.neighbor_indices = gripper->to_another_gripper_info.to_nodes;
     res.contributions = gripper->to_another_gripper_info.node_contribution;
+    return true;
 }
 
 bool CustomScene::getGripperPoseCallback(
