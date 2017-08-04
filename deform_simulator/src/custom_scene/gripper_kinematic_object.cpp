@@ -39,8 +39,8 @@ GripperKinematicObject::GripperKinematicObject(
     bottom_jaw->collisionShape->setMargin(0.004f*METERS);
 
     // Find the center of the gripper composite object
-    top_jaw->motionState->getWorldTransform(cur_top_tm);
-    cur_top_tm.setOrigin(cur_top_tm.getOrigin() - btVector3(0,0,-apperture/2 - boxhalfextents[2] * 2));
+    top_jaw->motionState->getWorldTransform(cur_tm);
+    cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2 - boxhalfextents[2] * 2));
 
     // TODO:: Added by Mengyao, probably should delete this one
 //    bottom_jaw->motionState->getWorldTransform(cur_bottom_tm);
@@ -70,7 +70,7 @@ void GripperKinematicObject::setWorldTransform(btTransform tm)
     btTransform top_offset;
 
     children[0]->motionState->getWorldTransform(top_offset);
-    top_offset = cur_top_tm.inverse()*top_offset;
+    top_offset = cur_tm.inverse()*top_offset;
 
     top_tm.setOrigin(top_tm.getOrigin() + top_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
     bottom_tm.setOrigin(bottom_tm.getOrigin() - bottom_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
@@ -78,17 +78,17 @@ void GripperKinematicObject::setWorldTransform(btTransform tm)
     children[0]->motionState->setKinematicPos(top_tm);
     children[1]->motionState->setKinematicPos(bottom_tm);
 
-    cur_top_tm = tm;
+    cur_tm = tm;
 }
 
 btTransform GripperKinematicObject::getWorldTransform()
 {
-    return cur_top_tm;
+    return cur_tm;
 }
 
 void GripperKinematicObject::getWorldTransform(btTransform& in)
 {
-    in = cur_top_tm;
+    in = cur_tm;
 }
 
 
@@ -136,8 +136,8 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
 
     //    top_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
     //    bottom_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
-    //    top_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_top_tm.getOrigin())*10000, box_cur_top_tm.getOrigin());
-    //    bottom_squeezing_jaw->rigidBody->applyForce((cur_top_tm.getOrigin() - box_cur_bottom_tm.getOrigin())*10000, box_cur_bottom_tm.getOrigin());
+    //    top_squeezing_jaw->rigidBody->applyForce((cur_tm.getOrigin() - box_cur_top_tm.getOrigin())*10000, box_cur_top_tm.getOrigin());
+    //    bottom_squeezing_jaw->rigidBody->applyForce((cur_tm.getOrigin() - box_cur_bottom_tm.getOrigin())*10000, box_cur_bottom_tm.getOrigin());
 
         boxes_children.push_back(top_squeezing_jaw);
         boxes_children.push_back(bottom_squeezing_jaw);
@@ -165,7 +165,7 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
         // Set constraint for top one
         top_jaw_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
                           *(boxes_children[0]->rigidBody.get()),
-                          top_tm.inverse()*cur_top_tm,
+                          top_tm.inverse()*cur_tm,
                           box_top_tm.inverse()*box_cur_top_tm,
                    //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,-apperture/2)),
                    //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
@@ -180,7 +180,7 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
         // **************** set constraint for bottom one **********************
         bottom_jaw_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
                           *(boxes_children[1]->rigidBody.get()),
-                          top_tm.inverse()*cur_top_tm,
+                          top_tm.inverse()*cur_tm,
                           box_bottom_tm.inverse()*box_cur_bottom_tm,
                    //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,-apperture/2)),
                    //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
@@ -231,7 +231,7 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
         rope_cnt.reset(new btGeneric6DofSpringConstraint(*(children[0]->rigidBody.get()),
      //   rope_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
                        *prb,
-                       top_tm.inverse()*cur_top_tm,
+                       top_tm.inverse()*cur_tm,
                        btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
                        true));
 
@@ -265,14 +265,14 @@ void GripperKinematicObject::toggleOpen()
         //btTransform top_offset = cur_tm.inverse()*top_tm;
         //float close_length = (1+closed_gap)*top_offset.getOrigin()[2] - children[0]->halfExtents[2];
         //float close_length = (apperture/2 - children[0]->halfExtents[2] + closed_gap/2);
-        top_tm.setOrigin(cur_top_tm.getOrigin() + cur_top_tm.getBasis().getColumn(2)*(children[0]->halfExtents[2] + closed_gap/2));
-        bottom_tm.setOrigin(cur_top_tm.getOrigin() - cur_top_tm.getBasis().getColumn(2)*(children[1]->halfExtents[2] + closed_gap/2));
+        top_tm.setOrigin(cur_tm.getOrigin() + cur_tm.getBasis().getColumn(2)*(children[0]->halfExtents[2] + closed_gap/2));
+        bottom_tm.setOrigin(cur_tm.getOrigin() - cur_tm.getBasis().getColumn(2)*(children[1]->halfExtents[2] + closed_gap/2));
     }
     else
     {
         //std::cout << "Opening gripper\n";
-        top_tm.setOrigin(cur_top_tm.getOrigin() - cur_top_tm.getBasis().getColumn(2)*(apperture/2));
-        bottom_tm.setOrigin(cur_top_tm.getOrigin() + cur_top_tm.getBasis().getColumn(2)*(apperture/2));
+        top_tm.setOrigin(cur_tm.getOrigin() - cur_tm.getBasis().getColumn(2)*(apperture/2));
+        bottom_tm.setOrigin(cur_tm.getOrigin() + cur_tm.getBasis().getColumn(2)*(apperture/2));
     }
 
     children[0]->motionState->setKinematicPos(top_tm);
@@ -316,7 +316,7 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
             size_t closest_body;
             for(int j = 0; j < psb->m_nodes.size(); j++)
             {
-                if((psb->m_nodes[j].m_x - cur_top_tm.getOrigin()).length() < radius)
+                if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
                 {
                     if((psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length())
                         closest_body = 0;
@@ -533,7 +533,7 @@ EnvironmentObject::Ptr GripperKinematicObject::copy(Fork &f) const
 void GripperKinematicObject::internalCopy(GripperKinematicObject::Ptr o, Fork &f) const
 {
     o->apperture = apperture;
-    o->cur_top_tm = cur_top_tm;
+    o->cur_tm = cur_tm;
     o->bOpen = bOpen;
     o->state = state;
     o->closed_gap = closed_gap;
@@ -597,8 +597,114 @@ std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
 }
 
 // Set the stretching vector information --- Added by Mengyao
-void GripperKinematicObject::setGeoInfoToAnotherGripper(const GripperKinematicObject& to_gripper, const btSoftBody* cloth)
+const std::string GripperKinematicObject::getGripperName()
 {
+    return name;
+}
+
+void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
+        Ptr to_gripper,
+        const btSoftBody* cloth,
+        const int num_x,
+        const int num_y)
+{
+    const std::vector<size_t>& to_gripper_attached_node_inds = to_gripper->getAttachedNodeIndices();
+    btVector3 to_gripper_origin = to_gripper->getWorldTransform().getOrigin();
+    btVector3 cur_origin = cur_tm.getOrigin();
+    std::string to_gripper_name = to_gripper->getGripperName();
+
+    to_another_gripper_info.all_closest_vector.clear();
+    to_another_gripper_info.node_contribution.clear();
+    to_another_gripper_info.to_gripper_name = to_gripper_name;
+
+    btScalar min_dis = INFINITY;
+    btScalar second_min_dis = INFINITY;
+    size_t min_ind = 0;
+    size_t second_min_ind = 0;
+
+    if(vattached_node_inds.size()<2)
+    {
+        assert(false && "number of attached nodes less than 2, no need calling this function. gripper_kinematic_object.cpp");
+    }
+
+    // Find the two nearest attached nodes to the center of the "to gripper"
+    for (size_t node_ind = 0; node_ind < vattached_node_inds.size(); node_ind++)
+    {
+        btScalar dis_to_origin = btDistance(cloth->m_nodes[node_ind].m_x, to_gripper_origin);
+        if (dis_to_origin < min_dis)
+        {
+            second_min_dis = min_dis;
+            min_dis = dis_to_origin;
+            second_min_ind = min_ind;
+            min_ind = node_ind;
+        }
+        else if (dis_to_origin < second_min_dis)
+        {
+            second_min_dis = dis_to_origin;
+            second_min_ind = node_ind;
+        }
+    }
+
+    // Find the relative position of grippers, highly depends on how the
+    // #makeClothTwoGrippers# works
+    int position_factor = 0;
+
+    if ((name.compare("auto_gripper0") == 0) || (name.compare("manual_gripper0") == 0))
+    {
+        if ((to_gripper_name.compare("auto_gripper0") == 0) || (to_gripper_name.compare("manual_gripper0") == 0))
+        {
+            assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
+        }
+        position_factor = 1;
+    }
+    else if ((name.compare("auto_gripper1") == 0) || (name.compare("manual_gripper1") == 0))
+    {
+        if ((to_gripper_name.compare("auto_gripper1") == 0) || (to_gripper_name.compare("manual_gripper1") == 0))
+        {
+            assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
+        }
+        position_factor = -1;
+    }
+    else
+    {
+        assert(false && "failed to set stretching detection vector for the cloth, in gripper_kinematic_object.cpp");
+    }
+
+    // Set the tracking nodes pair for stretching detection vector
+    double total_distance = btDistance(cloth->m_nodes[min_ind].m_x, to_gripper_origin)
+            + btDistance(cloth->m_nodes[min_ind].m_x, cur_origin);
+
+    // If the center of the gripper is on the line inbetween two origins.
+    if(total_distance == btDistance(cur_origin, to_gripper_origin))
+    {
+        to_another_gripper_info.all_closest_vector.push_back(
+                    std::pair<size_t, size_t>(min_ind, min_ind + position_factor * num_x));
+        assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
+        double full_contribution = 1.0;
+        to_another_gripper_info.node_contribution.push_back(full_contribution);
+    }
+    else
+    {
+        to_another_gripper_info.all_closest_vector.push_back(
+                    std::pair<size_t, size_t>(min_ind, min_ind + position_factor * num_x));
+
+        /*
+        std::cout << "min_ind: " << min_ind << std::endl;
+        std::cout << "num_x: " << num_x << std::endl;
+        std::cout << "nodes on the cloth: " << cloth->m_nodes.size() << std::endl;
+        */
+        assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) || "stretching info nodes outside bound");
+
+        to_another_gripper_info.all_closest_vector.push_back(
+                    std::pair<size_t, size_t>(second_min_ind, second_min_ind + position_factor * num_x));
+        assert(((second_min_ind + position_factor * num_x) < cloth->m_nodes.size()) || "stretching info nodes outside bound");
+
+        double min_con = btDistance(cur_origin, cloth->m_nodes[min_ind].m_x);
+        double second_min_con = btDistance(cur_origin, cloth->m_nodes[second_min_ind].m_x);
+        double sum_con = min_con + second_min_con;
+        to_another_gripper_info.node_contribution.push_back(min_con/sum_con);
+        to_another_gripper_info.node_contribution.push_back(second_min_con/sum_con);
+    }
 
 }
 
@@ -607,7 +713,7 @@ void GripperKinematicObject::setGeoInfoToAnotherGripper(const GripperKinematicOb
 std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)
 {
     stream << "Gripper:" << gripper.name << std::endl
-            << PrettyPrint::PrettyPrint(gripper.cur_top_tm) << std::endl
+            << PrettyPrint::PrettyPrint(gripper.cur_tm) << std::endl
             << "apperture: " << gripper.apperture
             << " open: " << gripper.bOpen
             << " attached: " << gripper.bAttached

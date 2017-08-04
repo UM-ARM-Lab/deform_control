@@ -10,14 +10,16 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
         // Defined stretching detection nodes helper structure. --- Added by Mengyao
+
+        // First element is an indices attached to the gripper,
+        // second one define the stretching detection vector from the first node.
+        typedef std::vector<std::pair<size_t, size_t>> AttatchingInfo;
+
         struct GeoInfoToAnotherGripper
         {
-            // First element is an indices attached to the gripper,
-            // second one define the stretching detection vector from the first node.
-            typedef std::vector<std::pair<ssize_t, ssize_t>> AttatchingInfo;
-
             AttatchingInfo all_closest_vector;
-            ssize_t to_gripper_ind;
+            std::vector<double> node_contribution;
+            std::string to_gripper_name;
         };
 
 
@@ -61,7 +63,13 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         EnvironmentObject::Ptr copy(Fork &f) const;
 
         // Set the stretching vector information --- Added by Mengyao
-        void setGeoInfoToAnotherGripper(const GripperKinematicObject& to_gripper, const btSoftBody* cloth);
+        const std::string getGripperName();
+
+        void setClothGeoInfoToAnotherGripper(
+                Ptr to_gripper,
+                const btSoftBody* cloth,
+                const int num_x,
+                const int num_y);
 
         friend std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper);
 
@@ -73,7 +81,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         // Revised by Mengyao
         // btTransform cur_tm;
-        btTransform cur_top_tm;
+        btTransform cur_tm;
         btTransform cur_bottom_tm;
 
         enum GripperState { GripperState_DONE, GripperState_CLOSING, GripperState_OPENING };

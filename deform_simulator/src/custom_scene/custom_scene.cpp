@@ -736,6 +736,19 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
         // We don't want to add this to the world, because then it shows up as a object to collide with
 //        env->add(collision_check_gripper_);
     }
+
+    // Set stretching detection vector infomation
+    grippers_["auto_gripper0"]->setClothGeoInfoToAnotherGripper(
+                grippers_["auto_gripper1"],
+                cloth_->softBody.get(),
+                GetClothNumControlPointsX(nh_),
+                GetClothNumControlPointsY(nh_));
+
+    grippers_["auto_gripper1"]->setClothGeoInfoToAnotherGripper(
+                grippers_["auto_gripper0"],
+                cloth_->softBody.get(),
+                GetClothNumControlPointsX(nh_),
+                GetClothNumControlPointsY(nh_));
 }
 
 void CustomScene::makeClothTwoHumanControlledGrippers()
@@ -2657,6 +2670,9 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     res.indices = gripper->getAttachedNodeIndices();
     return true;
 }
+
+// Stretching vector information client --- Added by Mengyao
+
 
 bool CustomScene::getGripperPoseCallback(
         deformable_manipulation_msgs::GetGripperPose::Request& req,
