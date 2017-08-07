@@ -1014,6 +1014,8 @@ void CustomScene::makeCylinder()
                     cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
                 }
             }
+
+        //    ROS_INFO_STREAM_NAMED("custom scene", "WAFR cover points set. SIZE : " << cover_points_.size() << " counts ");
             break;
         }
 
@@ -1917,6 +1919,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         }
     }
 
+    ROS_INFO_STREAM_NAMED("custom scene", "Custon Scene, Cover points set. SIZE : " << cover_points_.size() << " counts ");
     // Last connect the cover points to the graph
     cover_ind_to_free_space_graph_ind_.resize(cover_points_.size());
     for (size_t cover_ind = 0; cover_ind < cover_points_.size(); cover_ind++)
@@ -1927,7 +1930,10 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         btVector3 nearest_node_point = cover_point;
         int64_t graph_ind = work_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
 
-
+        ROS_INFO_STREAM_NAMED("custom scene", "Graph ind from work space grid is: " << graph_ind << " counts ");
+        ROS_INFO_STREAM_NAMED("custom scene", "nearest noe point X:: " << nearest_node_point.x() << " counts ");
+        ROS_INFO_STREAM_NAMED("custom scene", "nearest noe point Y:: " << nearest_node_point.y() << " counts ");
+        ROS_INFO_STREAM_NAMED("custom scene", "nearest noe point Z:: " << nearest_node_point.z() << " counts ");
 
         assert(graph_ind >= 0);
         assert(graph_ind < work_space_grid_.getNumCells());
