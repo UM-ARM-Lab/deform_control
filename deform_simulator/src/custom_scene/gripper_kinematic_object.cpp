@@ -646,6 +646,9 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         }
     }
 
+    min_ind = vattached_node_inds.at(min_ind);
+    second_min_ind = vattached_node_inds.at(second_min_ind);
+
     // Find the relative position of grippers, highly depends on how the
     // #makeClothTwoGrippers# works
     int position_factor = 0;
