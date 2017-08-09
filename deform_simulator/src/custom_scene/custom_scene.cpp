@@ -343,6 +343,8 @@ void CustomScene::makeBulletObjects()
         case TaskType::CLOTH_WAFR:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
+            // Table ----- Added by Mengyao
+        //    makeTableSurface(false);
             makeCylinder();
             break;
 
@@ -989,7 +991,7 @@ void CustomScene::makeCylinder()
                     btVector3(-0.15f, 0.0f, 0.20f) * METERS;
 
             CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                        0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
+                        0, cylinder_radius / 4.0f, cylinder_height * 2.9f,
                         btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
             horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
@@ -1930,10 +1932,12 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         btVector3 nearest_node_point = cover_point;
         int64_t graph_ind = work_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
 
+        /* // For Debugging use.  --- Added by Mengyao
         ROS_INFO_STREAM_NAMED("custom scene", "Graph ind from work space grid is: " << graph_ind << " counts ");
-        ROS_INFO_STREAM_NAMED("custom scene", "nearest noe point X:: " << nearest_node_point.x() << " counts ");
-        ROS_INFO_STREAM_NAMED("custom scene", "nearest noe point Y:: " << nearest_node_point.y() << " counts ");
-        ROS_INFO_STREAM_NAMED("custom scene", "nearest noe point Z:: " << nearest_node_point.z() << " counts ");
+        ROS_INFO_STREAM_NAMED("custom scene", "nearest node point X:: " << nearest_node_point.x() << " counts ");
+        ROS_INFO_STREAM_NAMED("custom scene", "nearest node point Y:: " << nearest_node_point.y() << " counts ");
+        ROS_INFO_STREAM_NAMED("custom scene", "nearest node point Z:: " << nearest_node_point.z() << " counts ");
+        */
 
         assert(graph_ind >= 0);
         assert(graph_ind < work_space_grid_.getNumCells());
