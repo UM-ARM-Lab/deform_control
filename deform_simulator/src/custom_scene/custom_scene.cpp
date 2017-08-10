@@ -991,7 +991,7 @@ void CustomScene::makeCylinder()
                     btVector3(-0.15f, 0.0f, 0.20f) * METERS;
 
             CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                        0, cylinder_radius / 4.0f, cylinder_height * 2.9f,
+                        0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
                         btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
             horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
