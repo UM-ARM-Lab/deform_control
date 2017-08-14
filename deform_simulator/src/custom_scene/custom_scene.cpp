@@ -976,7 +976,8 @@ void CustomScene::makeCylinder()
                     {
                         cover_points_.push_back(
                                     cylinder_com_origin
-                                    + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+                               //     + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+                                    + btVector3(x, y, cylinder_height / 2.0f + 0.001f * METERS));
 
                         cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
                     }
@@ -987,11 +988,13 @@ void CustomScene::makeCylinder()
             // Horizontal Cylinder above first cylinder
             ////////////////////////////////////////////////////////////////////////
 
+        //    const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
+        //            btVector3(-0.15f, 0.0f, 0.20f) * METERS;
             const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                    btVector3(-0.15f, 0.0f, 0.20f) * METERS;
+                    btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_), 0.0f, GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
 
             CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                        0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
+                        0, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
                     //    0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
                         btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
             horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
@@ -1001,7 +1004,9 @@ void CustomScene::makeCylinder()
             world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
 
             #pragma message "Magic numbers - discretization level of cover points"
-            for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+
+         //   for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+            for (float theta = 1.0f * (float)M_PI - 0.124f; theta <= 2.0f * M_PI; theta += 0.523f)
             {
                 const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
