@@ -1008,7 +1008,7 @@ void CustomScene::makeCylinder()
             #pragma message "Magic numbers - discretization level of cover points"
 
          //   for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
-            for (float theta = 1.0f * (float)M_PI - 0.45f; theta <= 2.0f * M_PI; theta += 0.0125f / GetWafrCylinderRadius(nh_))
+            for (float theta = 1.0f * (float)M_PI - 0.15f; theta <= 2.0f * M_PI; theta += 0.0125f / GetWafrCylinderRadius(nh_))
             {
                 const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 

@@ -107,6 +107,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         // Defined stretching detection nodes helper structure. --- Added by Mengyao
         // if more than two grippers in the future, should change it to vector
         GeoInfoToAnotherGripper to_another_gripper_info;
+        std::vector<std::pair<std::string, btVector3>> stretching_to_center_offset;
 
 };
 

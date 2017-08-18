@@ -711,6 +711,16 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         to_another_gripper_info.node_contribution.push_back(second_min_con/sum_con);
     }
 
+    // Set stretching offset from gripper center
+    btVector3 origins_relative_position = to_gripper_origin - cur_origin;
+    const btVector3 stretching_point_to_gripper_center = origins_relative_position.normalized() * halfextents.x();
+
+    stretching_to_center_offset.clear();
+    stretching_to_center_offset.push_back(
+                std::make_pair(
+                    to_gripper_name,
+                    stretching_point_to_gripper_center));
+
 }
 
 
