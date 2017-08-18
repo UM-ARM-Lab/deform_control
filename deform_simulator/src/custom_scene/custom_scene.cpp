@@ -1010,10 +1010,11 @@ void CustomScene::makeCylinder()
          //   for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
             for (float theta = 1.0f * (float)M_PI - 0.15f; theta <= 2.0f * M_PI; theta += 0.0125f / GetWafrCylinderRadius(nh_))
             {
+         //       const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
                 const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
          //       for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
-                for (float h = -0.4f * METERS; h <= 0.2f * METERS; h += 0.01f * METERS)
+                for (float h = -0.4f * METERS; h <= 0.3f * METERS; h += 0.01f * METERS)
                 {
                     cover_points_.push_back(
                                 horizontal_cylinder_com_origin
