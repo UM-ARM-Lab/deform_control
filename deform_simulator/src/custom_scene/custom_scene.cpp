@@ -968,10 +968,10 @@ void CustomScene::makeCylinder()
 
             #pragma message "Magic numbers - discretization level of cover points"
          //   for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
-            for (float x = -cylinder_radius; x <= cylinder_radius; x += 0.01 * METERS)
+            for (float x = -cylinder_radius; x <= cylinder_radius; x += 0.02 * METERS)
             {
             //    for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
-                for (float y = -cylinder_radius; y <= cylinder_radius; y += 0.01 * METERS)
+                for (float y = -cylinder_radius; y <= cylinder_radius; y += 0.02 * METERS)
                 {
                     // Only accept those points that are within the bounding circle
                     if (x * x + y * y < cylinder_radius * cylinder_radius)
@@ -1008,13 +1008,13 @@ void CustomScene::makeCylinder()
             #pragma message "Magic numbers - discretization level of cover points"
 
          //   for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
-            for (float theta = 1.0f * (float)M_PI - 0.15f; theta <= 2.0f * M_PI; theta += 0.0125f / GetWafrCylinderRadius(nh_))
+            for (float theta = 1.0f * (float)M_PI - 0.15f; theta <= 2.0f * M_PI; theta += 0.015f * METERS / (horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS))
             {
          //       const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
                 const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
          //       for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
-                for (float h = -0.4f * METERS; h <= 0.3f * METERS; h += 0.01f * METERS)
+                for (float h = -0.3f * METERS; h <= 0.3f * METERS; h += 0.02f * METERS)
                 {
                     cover_points_.push_back(
                                 horizontal_cylinder_com_origin
