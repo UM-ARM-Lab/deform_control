@@ -49,7 +49,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
-    , collision_map_for_export_(Eigen::Affine3d(Eigen::Translation3d(work_space_grid_.getXMin() / METERS, work_space_grid_.getYMin() / METERS, work_space_grid_.getZMin() / METERS)),
+    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(work_space_grid_.getXMin() / METERS, work_space_grid_.getYMin() / METERS, work_space_grid_.getZMin() / METERS)),
                                 smmap::GetWorldFrameName(),
                                 work_space_grid_.minStepDimension() / METERS / 2.0,
                                 (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,

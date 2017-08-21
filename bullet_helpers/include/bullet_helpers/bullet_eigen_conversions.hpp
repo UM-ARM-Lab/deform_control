@@ -6,7 +6,7 @@
 
 namespace BulletHelpers
 {
-    inline Eigen::Affine3d toEigenAffine3d(btTransform&& bt)
+    inline Eigen::Isometry3d toEigenIsometry3d(btTransform&& bt)
     {
         const btVector3& bt_origin = bt.getOrigin();
         const btQuaternion& bt_rot = bt.getRotation();
@@ -16,7 +16,7 @@ namespace BulletHelpers
         return trans*rot;
     }
 
-    inline Eigen::Affine3d toEigenAffine3d(const btTransform& bt)
+    inline Eigen::Isometry3d toEigenIsometry3d(const btTransform& bt)
     {
         const btVector3& bt_origin = bt.getOrigin();
         const btQuaternion& bt_rot = bt.getRotation();

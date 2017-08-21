@@ -134,7 +134,7 @@ namespace BulletHelpers
 
     inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array(const geometry_msgs::Pose& tf, const std::vector<geometry_msgs::Point>& ros, const float bt_scale)
     {
-        const auto eigen_tf = EigenHelpersConversions::GeometryPoseToEigenAffine3d(tf);
+        const auto eigen_tf = EigenHelpersConversions::GeometryPoseToEigenIsometry3d(tf);
 
         osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
         out->reserve(ros.size());
