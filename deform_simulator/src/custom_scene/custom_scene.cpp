@@ -199,6 +199,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
     ros::AsyncSpinner spinner(1);
     spinner.start();
+    ROS_INFO("Simulation ready");
 
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
