@@ -197,9 +197,8 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         test_grippers_poses_as_.start();
     }
 
-    // TODO: remove this hardcoded spin rate
-    std::thread spin_thread(&ROSHelpers::Spin, 100.0 / BulletConfig::dt);
-    ROS_INFO("Simulation ready.");
+    ros::AsyncSpinner spinner(1);
+    spinner.start();
 
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
@@ -282,9 +281,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
     }
-
-    // clean up the extra thread we started
-    spin_thread.join();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
