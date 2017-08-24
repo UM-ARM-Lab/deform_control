@@ -322,6 +322,13 @@ void CustomScene::makeBulletObjects()
             makeRopeMazeObstacles();
             break;
 
+            // Fixed Correspondency Task. --- Added by Mengyao
+        case TaskType::ROPE_ZIG_MATCH:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeRopeZigMatchObstacles();
+            break;
+
         case TaskType::CLOTH_CYLINDER_COVERAGE:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
@@ -1780,6 +1787,154 @@ void CustomScene::makeRopeMazeObstacles()
 
     assert((int)cover_points_.size() == num_rope_links);
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+}
+
+// Fixed Correspondency Task for controller. --- Added by Mengyao
+void CustomScene::makeRopeZigMatchObstacles()
+{
+    const btVector3 world_min = btVector3(
+                (float)work_space_grid_.getXMin(),
+                (float)work_space_grid_.getYMin(),
+                (float)work_space_grid_.getZMin());
+
+    const btVector3 world_max = btVector3(
+                (float)work_space_grid_.getXMax(),
+                (float)work_space_grid_.getYMax(),
+                (float)work_space_grid_.getZMax());
+
+    const float wall_thickness = 0.2f * METERS;
+    const btVector3 world_center = (world_max + world_min) / 2.0f;
+    const btVector3 world_size = world_max - world_min;
+    const btVector3 first_floor_center = world_center - btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
+    const btVector3 second_floor_center = world_center + btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
+    const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
+
+
+    const float outer_walls_alpha = GetOuterWallsAlpha(ph_);
+    const float floor_divider_alpha = GetFloorDividerAlpha(ph_);
+    const float first_floor_alpha = GetFirstFloorAlpha(ph_);
+    const float second_floor_alpha = GetSecondFloorAlpha(ph_);
+    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);      // grayish
+    const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, floor_divider_alpha);    // brown
+    const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, first_floor_alpha);        // purple
+    const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, second_floor_alpha);      // teal
+
+    // Make the goal region
+    /*
+    {
+        const btVector3 wall_half_extents = btVector3(0.8f * METERS, wall_thickness, internal_wall_height) / 2.0f;
+    //    const btVector3 wall_com = second_floor_center + btVector3(0.8f * METERS, 0.0f, 0.0f);
+        const btVector3 wall_com = second_floor_center + btVector3(0.8f * METERS, 0.0f, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_border_wall0"] = wall;
+    }
+    */
+    /*
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_border_wall1"] = wall;
+    }
+    */
+    {
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+    //    const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f);
+        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, -0.1f * METERS);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_obstacle0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+    //    const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, 0.0f);
+        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, -0.1f * METERS);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_obstacle1"] = wall;
+    }
+
+    // Create the target points
+    const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
+    const float rope_radius = GetRopeRadius(nh_) * METERS;
+    const int num_rope_links = GetRopeNumLinks(nh_);
+    assert(num_rope_links % 2 == 1);
+
+    const int num_vertical_per_side = std::min<int>(14, (num_rope_links - 1) / 2);
+    const int num_horizontal_per_side = (num_rope_links - (num_vertical_per_side * 2) - 1) / 2;
+
+    const btVector3 rope_center =
+            world_center +
+            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                  // Center in the goal region (x,y)
+            btVector3(0.0f,          0.0f,          wall_thickness / 2.0f) + // Move up out of the floor
+            btVector3(0.0f,          0.0f,          rope_radius);            // Move up so that the target points are off the floor just enough
+
+    const btVector3 middle_unit_vector = btVector3(0.1f * METERS, rope_segment_length * (float)(num_vertical_per_side - 1), 0.0f).normalized();
+
+    // Create the part in y (middle visually on start)
+    {
+        for (int cover_idx = -num_vertical_per_side; cover_idx <= num_vertical_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = rope_center + middle_unit_vector * (float)cover_idx * rope_segment_length;
+            cover_points_.push_back(target_point);
+        }
+    }
+    // Create the first part in x (towards the middle of the maze visually on start)
+    {
+        const btVector3 start_point = cover_points_.back();
+        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = start_point + btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
+            cover_points_.push_back(target_point);
+        }
+    }
+    // Create the second part in x (top right corner visually on start)
+    {
+        const btVector3 start_point = cover_points_.front();
+        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
+            cover_points_.insert(cover_points_.begin(), target_point);
+        }
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
+
+
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+
+    assert((int)cover_points_.size() == num_rope_links);
+    ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+
 }
 
 
