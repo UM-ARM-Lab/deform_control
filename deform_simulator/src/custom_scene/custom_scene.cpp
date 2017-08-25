@@ -1836,7 +1836,7 @@ void CustomScene::makeRopeZigMatchObstacles()
         world_obstacles_["goal_border_wall0"] = wall;
     }
     */
-    /*
+
     {
         const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
         const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
@@ -1850,11 +1850,11 @@ void CustomScene::makeRopeZigMatchObstacles()
         env->add(wall);
         world_obstacles_["goal_border_wall1"] = wall;
     }
-    */
+
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
     //    const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f);
-        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, -0.1f * METERS);
+        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, -0.0f * METERS);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1868,7 +1868,7 @@ void CustomScene::makeRopeZigMatchObstacles()
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
     //    const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, 0.0f);
-        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, -0.1f * METERS);
+        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, -0.0f * METERS);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1936,6 +1936,7 @@ void CustomScene::makeRopeZigMatchObstacles()
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 
 }
+
 
 
 void CustomScene::makeGenericRegionCoverPoints()
