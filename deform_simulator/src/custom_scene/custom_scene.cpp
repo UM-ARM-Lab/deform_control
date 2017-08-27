@@ -2618,12 +2618,27 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
         result.grippers_[gripper.first] = gripper_copy;
     }
 
+    /*
     // If we have a rope, regrasp with the gripper
     if (result.rope_)
     {
-        assert(result.grippers_.size() == 1);
-        result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
+    //    assert(result.grippers_.size() == 1);
+        if (result.grippers_.size() == 1)
+        {
+            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
+        }
+        else if (result.grippers_.size() == 2)
+        {
+            const size_t object_node_ind = result.rope_->getChildren().size() - 1;
+            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
+            result.grippers_[auto_grippers_[1]]->rigidGrab(result.rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, result.fork_->env);
+        }
+        else
+        {
+            assert(false && "grippers size is neither 1 nor 2 ");
+        }
     }
+    */
 
     return result;
 }

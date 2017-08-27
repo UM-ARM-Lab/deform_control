@@ -2,6 +2,8 @@
 
 #include <boost/make_shared.hpp>
 
+
+
 TableKinematicObject::TableKinematicObject(
         const std::string& name,
         const btTransform& surface_transform,
@@ -109,12 +111,14 @@ TableKinematicObject::TableKinematicObject(
 EnvironmentObject::Ptr TableKinematicObject::copy(Fork &f) const
 {
     (void)f;
-    assert(false && "Table copy not implemented");
+    #pragma message "Table copy not implemented in table_kinematic_object.cpp"
+ //   assert(false && "Table copy not implemented");
 }
 
 void TableKinematicObject::internalCopy(TableKinematicObject::Ptr o, Fork &f) const
 {
     (void)o;
     (void)f;
-    assert(false && "Table copy not implemented");
+    #pragma message "Table copy not implemented in table_kinematic_object.cpp"
+//    assert(false && "Table copy not implemented");
 }
