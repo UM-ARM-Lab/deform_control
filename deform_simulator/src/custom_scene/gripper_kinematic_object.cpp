@@ -186,7 +186,7 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 
                 btRigidBody* rigidBody = part->rigidBody.get();
                 btSoftBody::tRContactArray rcontacts;
-                getContactPointsWith(psb, rigidBody, rcontacts);
+                // getContactPointsWith(psb, rigidBody, rcontacts);
                 //std::cout << "got " << rcontacts.size() << " contacts\n";
 
                 //if no contacts, return without toggling bAttached
@@ -225,65 +225,65 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 
 
 // Fills in the rcontacs array with contact information between psb and pco
-void GripperKinematicObject::getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts)
-{
-    // custom contact checking adapted from btSoftBody.cpp and btSoftBodyInternals.h
-    struct Custom_CollideSDF_RS : btDbvt::ICollide {
-        Custom_CollideSDF_RS(btSoftBody::tRContactArray &rcontacts_) : rcontacts(rcontacts_) { }
+// void GripperKinematicObject::getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts)
+// {
+//     // custom contact checking adapted from btSoftBody.cpp and btSoftBodyInternals.h
+//     struct Custom_CollideSDF_RS : btDbvt::ICollide {
+//         Custom_CollideSDF_RS(btSoftBody::tRContactArray &rcontacts_) : rcontacts(rcontacts_) { }
 
-        void Process(const btDbvtNode* leaf) {
-            btSoftBody::Node* node=(btSoftBody::Node*)leaf->data;
-            DoNode(*node);
-        }
+//         void Process(const btDbvtNode* leaf) {
+//             btSoftBody::Node* node=(btSoftBody::Node*)leaf->data;
+//             DoNode(*node);
+//         }
 
-        void DoNode(btSoftBody::Node& n) {
-            const btScalar m=n.m_im>0?dynmargin:stamargin;
-            btSoftBody::RContact c;
-            if (!n.m_battach && psb->checkContact(m_colObj1,n.m_x,m,c.m_cti)) {
-                const btScalar  ima=n.m_im;
-                const btScalar  imb= m_rigidBody? m_rigidBody->getInvMass() : 0.f;
-                const btScalar  ms=ima+imb;
-                if(ms>0) {
-                    // there's a lot of extra information we don't need to compute
-                    // since we just want to find the contact points
-                    c.m_node        =       &n;
+//         void DoNode(btSoftBody::Node& n) {
+//             const btScalar m=n.m_im>0?dynmargin:stamargin;
+//             btSoftBody::RContact c;
+//             if (!n.m_battach && psb->checkContact(m_colObj1,n.m_x,m,c.m_cti)) {
+//                 const btScalar  ima=n.m_im;
+//                 const btScalar  imb= m_rigidBody? m_rigidBody->getInvMass() : 0.f;
+//                 const btScalar  ms=ima+imb;
+//                 if(ms>0) {
+//                     // there's a lot of extra information we don't need to compute
+//                     // since we just want to find the contact points
+//                     c.m_node        =       &n;
 
-                    rcontacts.push_back(c);
+//                     rcontacts.push_back(c);
 
-                }
-            }
-        }
-        btSoftBody*             psb;
-        btCollisionObject*      m_colObj1;
-        btRigidBody*    m_rigidBody;
-        btScalar                dynmargin;
-        btScalar                stamargin;
-        btSoftBody::tRContactArray &rcontacts;
-    };
+//                 }
+//             }
+//         }
+//         btSoftBody*             psb;
+//         btCollisionObject*      m_colObj1;
+//         btRigidBody*    m_rigidBody;
+//         btScalar                dynmargin;
+//         btScalar                stamargin;
+//         btSoftBody::tRContactArray &rcontacts;
+//     };
 
-    Custom_CollideSDF_RS  docollide(rcontacts);
-    btRigidBody*            prb1=btRigidBody::upcast(pco);
-    btTransform     wtr=pco->getWorldTransform();
+//     Custom_CollideSDF_RS  docollide(rcontacts);
+//     btRigidBody*            prb1=btRigidBody::upcast(pco);
+//     btTransform     wtr=pco->getWorldTransform();
 
-    const btTransform       ctr=pco->getWorldTransform();
-    const btScalar          timemargin=(wtr.getOrigin()-ctr.getOrigin()).length();
-    const btScalar          basemargin=psb->getCollisionShape()->getMargin();
-    btVector3                       mins;
-    btVector3                       maxs;
-    ATTRIBUTE_ALIGNED16(btDbvtVolume)               volume;
-    pco->getCollisionShape()->getAabb(     pco->getWorldTransform(),
-            mins,
-            maxs);
-    volume=btDbvtVolume::FromMM(mins,maxs);
-    volume.Expand(btVector3(basemargin,basemargin,basemargin));
-    docollide.psb           =       psb;
-    docollide.m_colObj1 = pco;
-    docollide.m_rigidBody = prb1;
+//     const btTransform       ctr=pco->getWorldTransform();
+//     const btScalar          timemargin=(wtr.getOrigin()-ctr.getOrigin()).length();
+//     const btScalar          basemargin=psb->getCollisionShape()->getMargin();
+//     btVector3                       mins;
+//     btVector3                       maxs;
+//     ATTRIBUTE_ALIGNED16(btDbvtVolume)               volume;
+//     pco->getCollisionShape()->getAabb(     pco->getWorldTransform(),
+//             mins,
+//             maxs);
+//     volume=btDbvtVolume::FromMM(mins,maxs);
+//     volume.Expand(btVector3(basemargin,basemargin,basemargin));
+//     docollide.psb           =       psb;
+//     docollide.m_colObj1 = pco;
+//     docollide.m_rigidBody = prb1;
 
-    docollide.dynmargin     =       basemargin+timemargin;
-    docollide.stamargin     =       basemargin;
-    psb->m_ndbvt.collideTV(psb->m_ndbvt.m_root,volume,docollide);
-}
+//     docollide.dynmargin     =       basemargin+timemargin;
+//     docollide.stamargin     =       basemargin;
+//     psb->m_ndbvt.collideTV(psb->m_ndbvt.m_root,volume,docollide);
+// }
 
 // adapted from btSoftBody.cpp (btSoftBody::appendAnchor)
 void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence)

@@ -57,9 +57,10 @@ void BulletInstance::contactTest(btCollisionObject *obj,
         {}
 
         btScalar addSingleResult(btManifoldPoint &,
-                                 const btCollisionObject *colObj0, int, int,
-                                 const btCollisionObject *colObj1, int, int)
+                                 const btCollisionObjectWrapper *colWrap0, int, int,
+                                 const btCollisionObjectWrapper *colWrap1, int, int)
         {
+            const btCollisionObject* colObj1 = colWrap1->getCollisionObject();
             if (ignore && ignore->find(colObj1) == ignore->end())
                 out.insert(colObj1);
             return 0;
