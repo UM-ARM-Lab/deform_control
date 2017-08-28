@@ -173,9 +173,15 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         const bool draw_free_space_graph_corners = drawScene && false;
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
+
         // Let the object settle before anything else happens
-        ROS_INFO("Waiting for the scene to settle");
-        stepFor(BulletConfig::dt, 4.0);
+        {
+            double settle_time = GetSettlingTime(ph_);
+            ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
+            stepFor(BulletConfig::dt, settle_time);
+        }
+        
+
         // Wait for the graph to be finished being made
         {
             while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
