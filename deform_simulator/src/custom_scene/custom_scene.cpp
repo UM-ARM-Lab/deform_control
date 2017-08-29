@@ -2281,6 +2281,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
 
     // Read object wrenches from rope, --- Added by Mengyao
+    /*
     switch (deformable_type_)
     {
         case ROPE:
@@ -2298,6 +2299,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
             assert(false && "deformable_type is neither rope nor cloth, failed to get wrenches, in custom_scene.cpp");
             break;
     }
+    */
 
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
@@ -2308,8 +2310,10 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 
         // fill the force and torque data, the size of gripper_wrenches is 2*size of gripper, even for children[0], odd for children[1]
         // --- Added by Mengyao
+        /*
         msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(0), gripper->getGripperTotalTorque().at(0)));
         msg.gripper_wrenches.push_back(toRosWrench(gripper->getRopeGripperForce().at(1), gripper->getGripperTotalTorque().at(1)));
+        */
 
         btPointCollector collision_result = collisionHelper(gripper);
 
