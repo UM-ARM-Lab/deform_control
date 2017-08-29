@@ -176,7 +176,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         // Let the object settle before anything else happens
         {
-            double settle_time = GetSettlingTime(ph_);
+            const float settle_time = GetSettlingTime(ph_);
             ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
             stepFor(BulletConfig::dt, settle_time);
         }
