@@ -682,7 +682,9 @@ struct btSoftColliders
 				joint.m_normal		=	norm;
 //				printf("normal=%f,%f,%f\n",res.normal.getX(),res.normal.getY(),res.normal.getZ());
 				joint.m_delete		=	false;
-				joint.m_friction	=	fv.length2()<(rvac*friction*rvac*friction)?1:friction;
+                                joint.m_friction = fv.length2()<(-rvac*friction)?1:friction;
+				/* joint.m_friction	=	fv.length2()<(rvac*friction*rvac*friction)?1:friction; */
+                                /* std::cerr << "friction: " << friction << "\n"; */
 				joint.m_massmatrix	=	ImpulseMatrix(	ba.invMass(),ba.invWorldInertia(),joint.m_rpos[0],
 					bb.invMass(),bb.invWorldInertia(),joint.m_rpos[1]);
 
@@ -701,11 +703,17 @@ struct btSoftColliders
 
 		void		Process(const btDbvtNode* leaf)
 		{
+                    /* std::cerr << "CollideCL_RS Process\n"; */
 			btSoftBody::Cluster*		cluster=(btSoftBody::Cluster*)leaf->data;
 			btSoftClusterCollisionShape	cshape(cluster);
 			
 			const btConvexShape*		rshape=(const btConvexShape*)m_colObjWrap->getCollisionShape();
 
+                        if(cluster->m_containsAnchor){
+                            std::cerr << "\n";
+                            std::cerr << "Contains Anchor\n";
+                            std::cerr << "\n";
+                        }
 			///don't collide an anchored cluster with a static/kinematic object
 			if(m_colObjWrap->getCollisionObject()->isStaticOrKinematicObject() && cluster->m_containsAnchor)
 				return;
@@ -720,6 +728,7 @@ struct btSoftColliders
 				{
 					btSoftBody::CJoint*	pj=new(btAlignedAlloc(sizeof(btSoftBody::CJoint),16)) btSoftBody::CJoint();
 					*pj=joint;psb->m_joints.push_back(pj);
+
 					if(m_colObjWrap->getCollisionObject()->isStaticOrKinematicObject())
 					{
 						pj->m_erp	*=	psb->m_cfg.kSKHR_CL;
@@ -730,11 +739,13 @@ struct btSoftColliders
 						pj->m_erp	*=	psb->m_cfg.kSRHR_CL;
 						pj->m_split	*=	psb->m_cfg.kSR_SPLT_CL;
 					}
+
 				}
 			}
 		}
 		void		ProcessColObj(btSoftBody* ps,const btCollisionObjectWrapper* colObWrap)
 		{
+                    /* std::cerr << "CollideCL_RS ProcessColObj\n"; */
 			psb			=	ps;
 			m_colObjWrap			=	colObWrap;
 			idt			=	ps->m_sst.isdt;
@@ -843,7 +854,7 @@ struct btSoftColliders
 					c.m_c0		=	ImpulseMatrix(psb->m_sst.sdt,ima,imb,iwi,ra);
 					c.m_c1		=	ra;
 					c.m_c2		=	ima*psb->m_sst.sdt;
-			        c.m_c3		=	fv.length2()<(dn*fc*dn*fc)?0:1-fc;
+			        c.m_c3		=	fv.length2()<(btFabs(dn)*fc)?0:1-fc;
 					c.m_c4		=	m_colObj1Wrap->getCollisionObject()->isStaticOrKinematicObject()?psb->m_cfg.kKHR:psb->m_cfg.kCHR;
 					psb->m_rcontacts.push_back(c);
 					if (m_rigidBody)

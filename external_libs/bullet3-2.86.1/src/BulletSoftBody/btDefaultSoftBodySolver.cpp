@@ -20,6 +20,7 @@ subject to the following restrictions:
 #include "btDefaultSoftBodySolver.h"
 #include "BulletCollision/CollisionShapes/btCapsuleShape.h"
 #include "BulletSoftBody/btSoftBody.h"
+#include <iostream>
 
 
 btDefaultSoftBodySolver::btDefaultSoftBodySolver()
@@ -126,13 +127,17 @@ void btDefaultSoftBodySolver::copySoftBodyToVertexBuffer( const btSoftBody *cons
 
 void btDefaultSoftBodySolver::processCollision( btSoftBody* softBody, btSoftBody* otherSoftBody)
 {
+    std::cerr << "H 3\n";
 	softBody->defaultCollisionHandler( otherSoftBody);
+        std::cerr << "End H 3\n";
 }
 
 // For the default solver just leave the soft body to do its collision processing
 void btDefaultSoftBodySolver::processCollision( btSoftBody *softBody, const btCollisionObjectWrapper* collisionObjectWrap )
 {
+    std::cerr << "H 2\n";
 	softBody->defaultCollisionHandler( collisionObjectWrap );
+        std::cerr << "End H 2\n";
 } // btDefaultSoftBodySolver::processCollision
 
 

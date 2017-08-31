@@ -1,5 +1,6 @@
 #include "simulation/environment.h"
 #include "utils/config.h"
+#include <iostream>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Struct used to create and interact with an OpenSceneGraph.                 //
@@ -42,33 +43,6 @@ void BulletInstance::setGravity(const btVector3 &gravity)
 {
     dynamicsWorld->setGravity(gravity);
     softBodyWorldInfo.m_gravity = gravity;
-}
-
-void BulletInstance::contactTest(btCollisionObject *obj,
-                                 CollisionObjectSet &out,
-                                 const CollisionObjectSet *ignore)
-{
-    struct ContactCallback : public btCollisionWorld::ContactResultCallback
-    {
-        const CollisionObjectSet *ignore;
-        CollisionObjectSet &out;
-        ContactCallback(const CollisionObjectSet *ignore_, CollisionObjectSet &out_)
-            : ignore(ignore_), out(out_)
-        {}
-
-        btScalar addSingleResult(btManifoldPoint &,
-                                 const btCollisionObjectWrapper *colWrap0, int, int,
-                                 const btCollisionObjectWrapper *colWrap1, int, int)
-        {
-            const btCollisionObject* colObj1 = colWrap1->getCollisionObject();
-            if (ignore && ignore->find(colObj1) == ignore->end())
-                out.insert(colObj1);
-            return 0;
-        }
-
-    } cb(ignore, out);
-
-    dynamicsWorld->contactTest(obj, cb);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -143,13 +117,17 @@ double Environment::step(btScalar dt, int maxSubSteps, btScalar fixedTimeStep)
         (*i)->prePhysics();
     }
 
+    // std::cerr << "Start bullet step\n";
     int numFixedSteps = bullet->dynamicsWorld->stepSimulation(dt, maxSubSteps, fixedTimeStep);
+    // std::cerr << "End bullet step\n";
 
     for (i = objects.begin(); i != objects.end(); ++i)
     {
         (*i)->preDraw();
     }
     bullet->softBodyWorldInfo.m_sparsesdf.GarbageCollect();
+
+    
 
     return numFixedSteps*fixedTimeStep;
 }

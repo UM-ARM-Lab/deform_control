@@ -17,7 +17,7 @@ subject to the following restrictions:
 
 #include "btDbvtBroadphase.h"
 #include "LinearMath/btThreads.h"
-
+#include <iostream>
 //
 // Profiling
 //
@@ -105,6 +105,7 @@ struct	btDbvtTreeCollider : btDbvt::ICollide
 			if(pa->m_uniqueId>pb->m_uniqueId) 
 				btSwap(pa,pb);
 #endif
+                        // std::cerr << "btDbvtBroadphase add overlapping pair\n";
 			pbp->m_paircache->addOverlappingPair(pa,pb);
 			++pbp->m_newpairs;
 		}

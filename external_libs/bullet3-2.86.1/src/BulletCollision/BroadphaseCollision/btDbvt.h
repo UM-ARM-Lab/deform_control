@@ -21,6 +21,7 @@ subject to the following restrictions:
 #include "LinearMath/btVector3.h"
 #include "LinearMath/btTransform.h"
 #include "LinearMath/btAabbUtil2.h"
+#include <iostream>
 
 //
 // Compile time configuration
@@ -936,6 +937,7 @@ inline void		btDbvt::collideTV(	const btDbvtNode* root,
 								  const btDbvtVolume& vol,
 								  DBVT_IPOLICY) const
 {
+    /* std::cerr << "bulletcollision collideTV\n"; */
 	DBVT_CHECKTYPE
 	if(root)
 	{

@@ -48,6 +48,7 @@ subject to the following restrictions:
 #include "LinearMath/btMotionState.h"
 
 #include "LinearMath/btSerializer.h"
+#include <iostream>
 
 #if 0
 btAlignedObjectArray<btVector3> debugContacts;
@@ -439,6 +440,8 @@ int	btDiscreteDynamicsWorld::stepSimulation( btScalar timeStep,int maxSubSteps, 
 		btIDebugDraw* debugDrawer = getDebugDrawer ();
 		gDisableDeactivation = (debugDrawer->getDebugMode() & btIDebugDraw::DBG_NoDeactivation) != 0;
 	}
+
+        // std::cerr << "simulation substeps: " << numSimulationSubSteps << "\n";
 	if (numSimulationSubSteps)
 	{
 
@@ -492,8 +495,10 @@ void	btDiscreteDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 
     createPredictiveContacts(timeStep);
 
+    std::cerr << "Start H5\n";
 	///perform collision detection
 	performDiscreteCollisionDetection();
+        std::cerr << "End H5\n";
 
 	calculateSimulationIslands();
 
@@ -504,6 +509,7 @@ void	btDiscreteDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 
 	///solve contact and other joint constraints
 	solveConstraints(getSolverInfo());
+
 
 	///CallbackTriggers();
 
@@ -519,6 +525,7 @@ void	btDiscreteDynamicsWorld::internalSingleStepSimulation(btScalar timeStep)
 	if(0 != m_internalTickCallback) {
 		(*m_internalTickCallback)(this, timeStep);
 	}
+
 }
 
 void	btDiscreteDynamicsWorld::setGravity(const btVector3& gravity)
@@ -733,6 +740,7 @@ void	btDiscreteDynamicsWorld::solveConstraints(btContactSolverInfo& solverInfo)
 	/// solve all the constraints for this island
 	m_islandManager->buildAndProcessIslands(getCollisionWorld()->getDispatcher(),getCollisionWorld(),m_solverIslandCallback);
 
+        
 	m_solverIslandCallback->processConstraints();
 
 	m_constraintSolver->allSolved(solverInfo, m_debugDrawer);

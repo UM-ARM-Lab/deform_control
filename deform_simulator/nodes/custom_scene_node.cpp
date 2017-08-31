@@ -14,8 +14,8 @@ int main(int argc, char* argv[])
 
     if (smmap::GetDeformableType(nh) == smmap::DeformableType::CLOTH)
     {
-        ViewerConfig::cameraHomePosition = btVector3(0.65f, 0.7f, 1.8f) * METERS;
-        ViewerConfig::pointCameraLooksAt = btVector3(-0.35f, -0.30f, -0.1f) * METERS;
+        ViewerConfig::cameraHomePosition = btVector3(2.0f, 0.0f, 0.2f) * METERS;
+        ViewerConfig::pointCameraLooksAt = btVector3(0.0f, 0.0f, 0.2f) * METERS;
 
         if (smmap::GetTaskType(nh) == smmap::TaskType::CLOTH_WAFR)
         {

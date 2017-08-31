@@ -23,6 +23,7 @@ subject to the following restrictions:
 #include "btSoftBodySolvers.h"
 #include "btDefaultSoftBodySolver.h"
 #include "LinearMath/btSerializer.h"
+#include <iostream>
 
 
 btSoftRigidDynamicsWorld::btSoftRigidDynamicsWorld(
@@ -83,6 +84,7 @@ void	btSoftRigidDynamicsWorld::predictUnconstraintMotion(btScalar timeStep)
 void	btSoftRigidDynamicsWorld::internalSingleStepSimulation( btScalar timeStep )
 {
 
+    std::cerr << "Start intneral single simulation step\n";
 	// Let the solver grab the soft bodies and if necessary optimize for it
 	m_softBodySolver->optimize( getSoftBodyArray() );
 
@@ -100,11 +102,15 @@ void	btSoftRigidDynamicsWorld::internalSingleStepSimulation( btScalar timeStep )
 	for ( int i=0;i<m_softBodies.size();i++)
 	{
 		btSoftBody*	psb=(btSoftBody*)m_softBodies[i];
+                std::cerr << "H 1\n";
 		psb->defaultCollisionHandler(psb);
+                              
+                std::cerr << "End H 1\n";
 	}
 
 	///update soft bodies
 	m_softBodySolver->updateSoftBodies( );
+        std::cerr << "End interal single simulation step\n";
 	
 	// End solver-wise simulation step
 	// ///////////////////////////////

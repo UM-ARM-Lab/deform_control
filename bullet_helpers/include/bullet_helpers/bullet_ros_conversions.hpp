@@ -54,9 +54,18 @@ namespace BulletHelpers
     inline geometry_msgs::Point toRosPoint(const btVector3& vec, const float bt_scale)
     {
         geometry_msgs::Point point;
-        assert(-100.0f < vec.x() && vec.x() < 100.0f);
-        assert(-100.0f < vec.y() && vec.y() < 100.0f);
-        assert(-100.0f < vec.z() && vec.z() < 100.0f);
+        auto checkInput = [](float v, float lower, float upper){
+            if(v < lower  || v > upper){
+                throw std::invalid_argument("btVector too large or small");
+            }
+        };
+        // assert(-100.0f < vec.x() && vec.x() < 100.0f);
+        // assert(-100.0f < vec.y() && vec.y() < 100.0f);
+        // assert(-100.0f < vec.z() && vec.z() < 100.0f);
+        checkInput(vec.x(), -100.0f, 100.0f);
+        checkInput(vec.y(), -100.0f, 100.0f);
+        checkInput(vec.z(), -100.0f, 100.0f);
+        
         point.x = vec.x() / bt_scale;
         point.y = vec.y() / bt_scale;
         point.z = vec.z() / bt_scale;

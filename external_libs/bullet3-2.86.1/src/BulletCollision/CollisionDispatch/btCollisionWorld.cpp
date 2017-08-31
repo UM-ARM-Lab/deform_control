@@ -34,6 +34,7 @@ subject to the following restrictions:
 #include "LinearMath/btSerializer.h"
 #include "BulletCollision/CollisionShapes/btConvexPolyhedron.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
+#include <iostream>
 
 //#define DISABLE_DBVT_COMPOUNDSHAPE_RAYCAST_ACCELERATION
 
@@ -221,12 +222,14 @@ void	btCollisionWorld::performDiscreteCollisionDetection()
 
 	updateAabbs();
 
+        // std::cerr<<"computeOverlappingPairs\n";
 	computeOverlappingPairs();
-
+        // std::cerr<<"getDispatcher\n";
 	btDispatcher* dispatcher = getDispatcher();
 	{
 		BT_PROFILE("dispatchAllCollisionPairs");
 		if (dispatcher)
+                    // std::cerr<<"dispatchAllCollisionPairs\n";
 			dispatcher->dispatchAllCollisionPairs(m_broadphasePairCache->getOverlappingPairCache(),dispatchInfo,m_dispatcher1);
 	}
 

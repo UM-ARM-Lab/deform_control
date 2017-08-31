@@ -111,7 +111,7 @@ void btSoftBodyTriangleCallback::processTriangle(btVector3* triangle,int partId,
 	btTriIndex* shapeIndex = m_shapeCache[triKey];
 	if (shapeIndex)
 	{
-		btCollisionShape* tm = shapeIndex->m_childShape;
+ 		btCollisionShape* tm = shapeIndex->m_childShape;
 		btAssert(tm);
 
 		//copy over user pointers to temporary shape

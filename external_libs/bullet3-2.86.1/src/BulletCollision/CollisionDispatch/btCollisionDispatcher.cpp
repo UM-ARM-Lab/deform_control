@@ -26,6 +26,7 @@ subject to the following restrictions:
 #include "LinearMath/btPoolAllocator.h"
 #include "BulletCollision/CollisionDispatch/btCollisionConfiguration.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
+#include <iostream>
 
 int gNumManifold = 0;
 
@@ -254,6 +255,8 @@ void	btCollisionDispatcher::dispatchAllCollisionPairs(btOverlappingPairCache* pa
 
 	pairCache->processAllOverlappingPairs(&collisionCallback,dispatcher);
 
+        std::cerr<<"all overlapping pairs processed\n";
+
 	//m_blockedForChanges = false;
 
 }
@@ -281,14 +284,18 @@ void btCollisionDispatcher::defaultNearCallback(btBroadphasePair& collisionPair,
 			if (collisionPair.m_algorithm)
 			{
 				btManifoldResult contactPointResult(&obj0Wrap,&obj1Wrap);
-				
+
+                                // std::cerr << "Dispatching to collision algorithm\n";
 				if (dispatchInfo.m_dispatchFunc == 		btDispatcherInfo::DISPATCH_DISCRETE)
 				{
+                                    // std::cerr << "discrete\n";
 					//discrete collision detection query
 					
 					collisionPair.m_algorithm->processCollision(&obj0Wrap,&obj1Wrap,dispatchInfo,&contactPointResult);
 				} else
 				{
+                                    assert(false && "I dont think we should ever have a continuous callback");
+                                    std::cerr << "continuous\n;";
 					//continuous collision detection query, time of impact (toi)
 					btScalar toi = collisionPair.m_algorithm->calculateTimeOfImpact(colObj0,colObj1,dispatchInfo,&contactPointResult);
 					if (dispatchInfo.m_timeOfImpact > toi)

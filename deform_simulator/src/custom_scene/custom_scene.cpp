@@ -31,6 +31,7 @@ using namespace smmap;
 
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
 
+
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor and Destructor
 ////////////////////////////////////////////////////////////////////////////////
@@ -63,6 +64,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
 {
     makeBulletObjects();
+    
 
     // Store the initial configuration as it will be needed by other libraries
     // TODO: find a better way to do this that exposes less internals
@@ -178,9 +180,16 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         {
             double settle_time = GetSettlingTime(ph_);
             ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
-            stepFor(BulletConfig::dt, settle_time);
+            double dt = BulletConfig::dt;
+            while (settle_time > 0) {
+                step(dt);
+                settle_time -= dt;
+                createSimulatorFbk();
+            }
+
+            
+            // stepFor(BulletConfig::dt, settle_time);
         }
-        
 
         // Wait for the graph to be finished being made
         {
@@ -446,17 +455,21 @@ void CustomScene::makeCloth()
         cloth_center + btVector3(+cloth_x_half_side_length, +cloth_y_half_side_length, 0),
         GetClothNumControlPointsX(nh_), GetClothNumControlPointsY(nh_),
         0, true);
-    psb->setTotalMass(0.1f, true);
+    psb->setTotalMass(.10f, true);
 
 //    psb->m_cfg.viterations = 10;     // Velocity solver iterations   - default 0 - changing this to 10 causes the cloth to just pass through objects it seems
     psb->m_cfg.piterations = 10;     // Positions solver iterations  - default 1 - DmitrySim 10
-//    psb->m_cfg.diterations = 10;     // Drift solver iterations      - default 0 - changing this to 10 or 100 doesn't seem to cause any meaningful change
+    //   psb->m_cfg.diterations = 10;     // Drift solver iterations      - default 0 - changing this to 10 or 100 doesn't seem to cause any meaningful change
     psb->m_cfg.citerations = 10;     // Cluster solver iterations    - default 4
 
+    // psb->m_cfg.collisions   =
+    //         btSoftBody::fCollision::CL_SS |         // Cluster collisions, soft vs. soft
+    //         btSoftBody::fCollision::CL_RS |         // Cluster collisions, soft vs. rigid
+    //         btSoftBody::fCollision::CL_SELF;        // Cluster collisions, self - requires CL_SS
+
     psb->m_cfg.collisions   =
-            btSoftBody::fCollision::CL_SS |         // Cluster collisions, soft vs. soft
-            btSoftBody::fCollision::CL_RS |         // Cluster collisions, soft vs. rigid
-            btSoftBody::fCollision::CL_SELF;        // Cluster collisions, self - requires CL_SS
+        btSoftBody::fCollision::CL_RS;         // Cluster collisions, soft vs. rigid
+
 
     psb->getCollisionShape()->setMargin(0.0025f * METERS); // default 0.25 - DmitrySim 0.05
 
@@ -490,7 +503,7 @@ void CustomScene::makeCloth()
         for (int i = 0; i < psb->m_clusters.size(); ++i)
         {
             psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
-//            psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
+            psb->m_clusters[i]->m_maxSelfCollisionImpulse = 1.0f; // maximum self impulse that is *ignored (I think)* - default 100
         }
     }
 
@@ -2003,12 +2016,30 @@ void CustomScene::SetGripperTransform(
 
 deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
 {
+    ROS_INFO("stepping time");
+
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
 
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
+    // ROS_INFO("test1.1");
+    std::vector<btVector3> bts = getDeformableObjectNodes();
+    // ROS_INFO("test1.2");
+    try{
+        msg.object_configuration = toRosPointVector(bts, METERS);
+    } catch (const std::exception& e) {
+        ROS_INFO("toRosPointVector failed. x_values printed below");
+        // for(auto bt: bts){
+        //     ROS_INFO_STREAM("x: " << bt.x());
+        // }
+        assert(false);
+    }
+
+
+
+    // ROS_INFO("test2");
+    
     if (feedback_covariance_ > 0)
     {
         for (auto& point: msg.object_configuration)
@@ -2019,6 +2050,8 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
         }
     }
 
+    // ROS_INFO("test3");
+
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
     {
@@ -2028,8 +2061,10 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 
         btPointCollector collision_result = collisionHelper(gripper);
 
+        // ROS_INFO("test4");
         if (collision_result.m_hasResult)
         {
+            // ROS_INFO("test5.1");
             msg.gripper_distance_to_obstacle.push_back(collision_result.m_distance / METERS);
             msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1));
             msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(
@@ -2038,11 +2073,14 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
         }
         else
         {
+            // ROS_INFO("test5.2");
             msg.gripper_distance_to_obstacle.push_back(std::numeric_limits<double>::infinity());
             msg.obstacle_surface_normal.push_back(toRosVector3(btVector3(1.0f, 0.0f, 0.0f), 1));
             msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(btVector3(0.0f, 0.0f, 0.0f), 1));
         }
+        // ROS_INFO("test6");
     }
+    // ROS_INFO("test7");
 
     // update the sim_time
     msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;

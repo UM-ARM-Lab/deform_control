@@ -21,6 +21,7 @@ subject to the following restrictions:
 #include "Bullet3Common/b3Vector3.h"
 #include "Bullet3Common/b3Transform.h"
 #include "Bullet3Geometry/b3AabbUtil.h"
+#include <iostream>
 
 //
 // Compile time configuration
@@ -923,6 +924,7 @@ inline void		b3DynamicBvh::collideTV(	const b3DbvtNode* root,
 								  const b3DbvtVolume& vol,
 								  B3_DBVT_IPOLICY) const
 {
+    std::cerr << "b3 collideTV\n";
 	B3_DBVT_CHECKTYPE
 		if(root)
 		{

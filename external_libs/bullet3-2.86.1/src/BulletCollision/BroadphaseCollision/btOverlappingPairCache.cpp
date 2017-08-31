@@ -22,6 +22,7 @@ subject to the following restrictions:
 #include "LinearMath/btAabbUtil2.h"
 
 #include <stdio.h>
+#include <iostream>
 
 int	gOverlappingPairs = 0;
 
@@ -212,6 +213,12 @@ void	btHashedOverlappingPairCache::growTables()
 
 btBroadphasePair* btHashedOverlappingPairCache::internalAddPair(btBroadphaseProxy* proxy0, btBroadphaseProxy* proxy1)
 {
+    // std::cerr << "Adding pair\n";
+    // std::cerr << "!!!!!!!!!!!\n";
+    // std::cerr << "!!!!!!!!!!!\n";
+    // std::cerr << "!!!!!!!!!!!\n";
+    // std::cerr << "!!!!!!!!!!!\n";
+    // std::cerr << "!!!!!!!!!!!\n";
 	if(proxy0->m_uniqueId>proxy1->m_uniqueId) 
 		btSwap(proxy0,proxy1);
 	int proxyId1 = proxy0->getUid();
@@ -379,17 +386,21 @@ void	btHashedOverlappingPairCache::processAllOverlappingPairs(btOverlapCallback*
 	int i;
 
 //	printf("m_overlappingPairArray.size()=%d\n",m_overlappingPairArray.size());
+        // std::cerr <<" there are " << m_overlappingPairArray.size() << " pairs to process\n";
 	for (i=0;i<m_overlappingPairArray.size();)
 	{
-	
+            // std::cerr << "Processing overlap\n";	
 		btBroadphasePair* pair = &m_overlappingPairArray[i];
 		if (callback->processOverlap(*pair))
 		{
+                    assert(false && "It looks like processOverlap always returns false");
+                    std::cerr << "Callback is true\n";
 			removeOverlappingPair(pair->m_pProxy0,pair->m_pProxy1,dispatcher);
 
 			gOverlappingPairs--;
 		} else
 		{
+                    // std::cerr << "Callback is false\n";
 			i++;
 		}
 	}
@@ -463,6 +474,7 @@ btBroadphasePair*	btSortedOverlappingPairCache::addOverlappingPair(btBroadphaseP
 	//don't add overlap with own
 	btAssert(proxy0 != proxy1);
 
+        
 	if (!needsBroadphaseCollision(proxy0,proxy1))
 		return 0;
 	

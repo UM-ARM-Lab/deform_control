@@ -128,6 +128,17 @@ void GripperKinematicObject::toggleOpen()
 
 void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 {
+    for(int i=0; i<10; i++){
+        std::cerr << "\n";
+    }
+    std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!";
+    std::cerr << "toggleAttach";
+    std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!";
+    for(int i=0; i<10; i++){
+        std::cerr << "\n";
+    }
+
+
     //std::cout << name << " toggleAttach ";
     if(bAttached)
     {
@@ -186,6 +197,18 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 
                 btRigidBody* rigidBody = part->rigidBody.get();
                 btSoftBody::tRContactArray rcontacts;
+
+                for(int i=0; i<10; i++){
+                    std::cerr << "\n";
+                }
+                std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!";
+                std::cerr << "toggleAttach: getContactPointsWith";
+                std::cerr << "!!!!!!!!!!!!!!!!!!!!!!!!!";
+                for(int i=0; i<10; i++){
+                    std::cerr << "\n";
+                }
+
+
                 // getContactPointsWith(psb, rigidBody, rcontacts);
                 //std::cout << "got " << rcontacts.size() << " contacts\n";
 

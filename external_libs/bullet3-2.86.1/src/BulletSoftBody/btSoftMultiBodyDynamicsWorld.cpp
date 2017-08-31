@@ -93,6 +93,7 @@ void	btSoftMultiBodyDynamicsWorld::internalSingleStepSimulation( btScalar timeSt
 
 	btDiscreteDynamicsWorld::internalSingleStepSimulation( timeStep );
 
+        std::cerr << "Starting to process Soft Body Constraints\n";
 	///solve soft bodies constraints
 	solveSoftBodiesConstraints( timeStep );
 
@@ -100,11 +101,14 @@ void	btSoftMultiBodyDynamicsWorld::internalSingleStepSimulation( btScalar timeSt
 	for ( int i=0;i<m_softBodies.size();i++)
 	{
 		btSoftBody*	psb=(btSoftBody*)m_softBodies[i];
+                // std::cerr << "H 4\n";
 		psb->defaultCollisionHandler(psb);
+                // std::cerr << "End H 4\n";
 	}
 
 	///update soft bodies
 	m_softBodySolver->updateSoftBodies( );
+        std::cerr << "Ending btSoftMultiBodyDynamicsWorld.internalSingleStepSimulation\n";
 	
 	// End solver-wise simulation step
 	// ///////////////////////////////

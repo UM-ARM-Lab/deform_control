@@ -18,8 +18,7 @@ subject to the following restrictions:
 #include "BulletSoftBody/btSoftBodySolvers.h"
 #include "btSoftBodyData.h"
 #include "LinearMath/btSerializer.h"
-#include "BulletDynamics/Featherstone/btMultiBodyLinkCollider.h"
-#include "BulletDynamics/Featherstone/btMultiBodyConstraint.h"
+#include <iostream>
 
 
 //
@@ -107,12 +106,12 @@ void	btSoftBody::initDefaults()
 	/* Collision shape	*/ 
 	///for now, create a collision shape internally
 	m_collisionShape = new btSoftBodyCollisionShape(this);
-	m_collisionShape->setMargin(0.25f);
+	m_collisionShape->setMargin(0.25);
 	
 	m_initialWorldTransform.setIdentity();
 
 	m_windVelocity = btVector3(0,0,0);
-	m_restLengthScale = btScalar(1.0);
+
 }
 
 //
@@ -455,191 +454,6 @@ void			btSoftBody::addForce(const btVector3& force,int node)
 	}
 }
 
-void			btSoftBody::addAeroForceToNode(const btVector3& windVelocity,int nodeIndex)
-{
-	btAssert(nodeIndex >= 0 && nodeIndex < m_nodes.size());
-
-	const btScalar dt = m_sst.sdt;
-	const btScalar kLF = m_cfg.kLF;
-	const btScalar kDG = m_cfg.kDG;
-	//const btScalar kPR = m_cfg.kPR;
-	//const btScalar kVC = m_cfg.kVC;
-	const bool as_lift = kLF>0;
-	const bool as_drag = kDG>0;
-	const bool as_aero = as_lift || as_drag;
-	const bool as_vaero = as_aero && (m_cfg.aeromodel < btSoftBody::eAeroModel::F_TwoSided);
-
-	Node& n = m_nodes[nodeIndex];
-
-	if( n.m_im>0 )
-	{
-		btSoftBody::sMedium	medium;
-
-		EvaluateMedium(m_worldInfo, n.m_x, medium);
-		medium.m_velocity = windVelocity;
-		medium.m_density = m_worldInfo->air_density;
-
-		/* Aerodynamics			*/ 
-		if(as_vaero)
-		{				
-			const btVector3	rel_v = n.m_v - medium.m_velocity;					
-			const btScalar rel_v_len = rel_v.length();
-			const btScalar	rel_v2 = rel_v.length2();
-
-			if(rel_v2>SIMD_EPSILON)
-			{
-				const btVector3 rel_v_nrm = rel_v.normalized();
-				btVector3	nrm = n.m_n;						
-
-				if (m_cfg.aeromodel == btSoftBody::eAeroModel::V_TwoSidedLiftDrag)
-				{
-					nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
-					btVector3 fDrag(0, 0, 0);
-					btVector3 fLift(0, 0, 0);
-
-					btScalar n_dot_v = nrm.dot(rel_v_nrm);
-					btScalar tri_area = 0.5f * n.m_area;
-							
-					fDrag = 0.5f * kDG * medium.m_density * rel_v2 * tri_area * n_dot_v * (-rel_v_nrm);
-							
-					// Check angle of attack
-					// cos(10º) = 0.98480
-					if ( 0 < n_dot_v && n_dot_v < 0.98480f)
-						fLift = 0.5f * kLF * medium.m_density * rel_v_len * tri_area * btSqrt(1.0f-n_dot_v*n_dot_v) * (nrm.cross(rel_v_nrm).cross(rel_v_nrm));
-
-					// Check if the velocity change resulted by aero drag force exceeds the current velocity of the node.
-					btVector3 del_v_by_fDrag = fDrag*n.m_im*m_sst.sdt;										
-					btScalar del_v_by_fDrag_len2 = del_v_by_fDrag.length2();
-					btScalar v_len2 = n.m_v.length2();
-
-					if (del_v_by_fDrag_len2 >= v_len2 && del_v_by_fDrag_len2 > 0)
-					{
-						btScalar del_v_by_fDrag_len = del_v_by_fDrag.length();
-						btScalar v_len = n.m_v.length();
-						fDrag *= btScalar(0.8)*(v_len / del_v_by_fDrag_len);
-					}
-
-					n.m_f += fDrag;
-					n.m_f += fLift;
-				}
-				else if (m_cfg.aeromodel == btSoftBody::eAeroModel::V_Point || m_cfg.aeromodel == btSoftBody::eAeroModel::V_OneSided || m_cfg.aeromodel == btSoftBody::eAeroModel::V_TwoSided)
-				{
-					if (btSoftBody::eAeroModel::V_TwoSided)
-						nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
-
-					const btScalar dvn = btDot(rel_v,nrm);
-					/* Compute forces	*/ 
-					if(dvn>0)
-					{
-						btVector3		force(0,0,0);
-						const btScalar	c0	=	n.m_area * dvn * rel_v2/2;
-						const btScalar	c1	=	c0 * medium.m_density;
-						force	+=	nrm*(-c1*kLF);
-						force	+=	rel_v.normalized() * (-c1 * kDG);
-						ApplyClampedForce(n, force, dt);
-					}
-				}	
-			}
-		}
-	}
-}
-
-void			btSoftBody::addAeroForceToFace(const btVector3& windVelocity,int faceIndex)
-{
-	const btScalar dt = m_sst.sdt;
-	const btScalar kLF = m_cfg.kLF;
-	const btScalar kDG = m_cfg.kDG;
-//	const btScalar kPR = m_cfg.kPR;
-//	const btScalar kVC = m_cfg.kVC;
-	const bool as_lift = kLF>0;
-	const bool as_drag = kDG>0;
-	const bool as_aero = as_lift || as_drag;
-	const bool as_faero = as_aero && (m_cfg.aeromodel >= btSoftBody::eAeroModel::F_TwoSided);
-
-	if(as_faero)
-	{
-		btSoftBody::Face&	f=m_faces[faceIndex];
-
-		btSoftBody::sMedium	medium;
-		
-		const btVector3	v=(f.m_n[0]->m_v+f.m_n[1]->m_v+f.m_n[2]->m_v)/3;
-		const btVector3	x=(f.m_n[0]->m_x+f.m_n[1]->m_x+f.m_n[2]->m_x)/3;
-		EvaluateMedium(m_worldInfo,x,medium);
-		medium.m_velocity = windVelocity;
-		medium.m_density = m_worldInfo->air_density;
-		const btVector3	rel_v=v-medium.m_velocity;
-		const btScalar rel_v_len = rel_v.length();
-		const btScalar	rel_v2=rel_v.length2();
-
-		if(rel_v2>SIMD_EPSILON)
-		{
-			const btVector3 rel_v_nrm = rel_v.normalized();
-			btVector3	nrm = f.m_normal;
-
-			if (m_cfg.aeromodel == btSoftBody::eAeroModel::F_TwoSidedLiftDrag)
-			{
-				nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
-
-				btVector3 fDrag(0, 0, 0);
-				btVector3 fLift(0, 0, 0);
-
-				btScalar n_dot_v = nrm.dot(rel_v_nrm);
-				btScalar tri_area = 0.5f * f.m_ra;
-					
-				fDrag = 0.5f * kDG * medium.m_density * rel_v2 * tri_area * n_dot_v * (-rel_v_nrm);
-
-				// Check angle of attack
-				// cos(10º) = 0.98480
-				if ( 0 < n_dot_v && n_dot_v < 0.98480f)
-					fLift = 0.5f * kLF * medium.m_density * rel_v_len * tri_area * btSqrt(1.0f-n_dot_v*n_dot_v) * (nrm.cross(rel_v_nrm).cross(rel_v_nrm));
-
-				fDrag /= 3;
-				fLift /= 3;
-
-				for(int j=0;j<3;++j) 
-				{
-					if (f.m_n[j]->m_im>0)
-					{
-						// Check if the velocity change resulted by aero drag force exceeds the current velocity of the node.
-						btVector3 del_v_by_fDrag = fDrag*f.m_n[j]->m_im*m_sst.sdt;										
-						btScalar del_v_by_fDrag_len2 = del_v_by_fDrag.length2();
-						btScalar v_len2 = f.m_n[j]->m_v.length2();
-
-						if (del_v_by_fDrag_len2 >= v_len2 && del_v_by_fDrag_len2 > 0)
-						{
-							btScalar del_v_by_fDrag_len = del_v_by_fDrag.length();
-							btScalar v_len = f.m_n[j]->m_v.length();
-							fDrag *= btScalar(0.8)*(v_len / del_v_by_fDrag_len);
-						}
-
-						f.m_n[j]->m_f += fDrag; 
-						f.m_n[j]->m_f += fLift;
-					}
-				}
-			}
-			else if (m_cfg.aeromodel == btSoftBody::eAeroModel::F_OneSided || m_cfg.aeromodel == btSoftBody::eAeroModel::F_TwoSided)
-			{
-				if (btSoftBody::eAeroModel::F_TwoSided)
-					nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
-
-				const btScalar	dvn=btDot(rel_v,nrm);
-				/* Compute forces	*/ 
-				if(dvn>0)
-				{
-					btVector3		force(0,0,0);
-					const btScalar	c0	=	f.m_ra*dvn*rel_v2;
-					const btScalar	c1	=	c0*medium.m_density;
-					force	+=	nrm*(-c1*kLF);
-					force	+=	rel_v.normalized()*(-c1*kDG);
-					force	/=	3;
-					for(int j=0;j<3;++j) ApplyClampedForce(*f.m_n[j],force,dt);
-				}
-			}
-		}
-	}
-
-}
-
 //
 void			btSoftBody::addVelocity(const btVector3& velocity)
 {
@@ -843,27 +657,6 @@ void			btSoftBody::scale(const btVector3& scl)
 }
 
 //
-btScalar btSoftBody::getRestLengthScale()
-{
-	return m_restLengthScale;
-}
-
-//
-void btSoftBody::setRestLengthScale(btScalar restLengthScale)
-{
-	for(int i=0, ni=m_links.size(); i<ni; ++i)
-	{
-		Link&		l=m_links[i];
-		l.m_rl	=	l.m_rl / m_restLengthScale * restLengthScale;
-		l.m_c1	=	l.m_rl*l.m_rl;
-	}
-	m_restLengthScale = restLengthScale;
-	
-	if (getActivationState() == ISLAND_SLEEPING)
-		activate();
-}
-
-//
 void			btSoftBody::setPose(bool bvolume,bool bframe)
 {
 	m_pose.m_bvolume	=	bvolume;
@@ -910,18 +703,7 @@ void			btSoftBody::setPose(bool bvolume,bool bframe)
 		m_pose.m_aqq[2]+=mq.z()*q;
 	}
 	m_pose.m_aqq=m_pose.m_aqq.inverse();
-	
 	updateConstants();
-}
-
-void				btSoftBody::resetLinkRestLengths()
-{
-	for(int i=0, ni=m_links.size();i<ni;++i)
-	{
-		Link& l =	m_links[i];
-		l.m_rl	=	(l.m_n[0]->m_x-l.m_n[1]->m_x).length();
-		l.m_c1	=	l.m_rl*l.m_rl;
-	}
 }
 
 //
@@ -1446,12 +1228,12 @@ void			btSoftBody::refine(ImplicitFn* ifn,btScalar accurary,bool cut)
 							m=mc*f;
 						}
 						else
-						{ a.m_im/=0.5f;m=1/a.m_im; }
+						{ a.m_im/=0.5;m=1/a.m_im; }
 					}
 					else
 					{
 						if(b.m_im>0)
-						{ b.m_im/=0.5f;m=1/b.m_im; }
+						{ b.m_im/=0.5;m=1/b.m_im; }
 						else
 							m=0;
 					}
@@ -1531,7 +1313,7 @@ void			btSoftBody::refine(ImplicitFn* ifn,btScalar accurary,bool cut)
 			{
 				const btVector3	v=m_nodes[i].m_v;
 				btScalar		m=getMass(i);
-				if(m>0) { m*=0.5f;m_nodes[i].m_im/=0.5f; }
+				if(m>0) { m*=0.5;m_nodes[i].m_im/=0.5; }
 				appendNode(x,m);
 				cnodes[i]=m_nodes.size()-1;
 				m_nodes[cnodes[i]].m_v=v;
@@ -1720,6 +1502,7 @@ void			btSoftBody::setSolver(eSolverPresets::_ preset)
 	switch(preset)
 	{
 	case	eSolverPresets::Positions:
+            
 		m_cfg.m_psequence.push_back(ePSolver::Anchors);
 		m_cfg.m_psequence.push_back(ePSolver::RContacts);
 		m_cfg.m_psequence.push_back(ePSolver::SContacts);
@@ -1769,23 +1552,7 @@ void			btSoftBody::predictMotion(btScalar dt)
 	{
 		Node&	n=m_nodes[i];
 		n.m_q	=	n.m_x;
-		btVector3 deltaV = n.m_f*n.m_im*m_sst.sdt;
-		{
-			btScalar maxDisplacement = m_worldInfo->m_maxDisplacement;
-			btScalar clampDeltaV = maxDisplacement/m_sst.sdt;
-			for (int c=0;c<3;c++)
-			{
-				if (deltaV[c]>clampDeltaV)
-				{
-					deltaV[c] = clampDeltaV;
-				}
-				if (deltaV[c]<-clampDeltaV)
-				{
-					deltaV[c]=-clampDeltaV;
-				}
-			}
-		}
-		n.m_v	+=	deltaV;
+		n.m_v	+=	n.m_f*n.m_im*m_sst.sdt;
 		n.m_x	+=	n.m_v*m_sst.sdt;
 		n.m_f	=	btVector3(0,0,0);
 	}
@@ -1901,6 +1668,15 @@ void			btSoftBody::solveConstraints()
 			const btScalar ti=isolve/(btScalar)m_cfg.piterations;
 			for(int iseq=0;iseq<m_cfg.m_psequence.size();++iseq)
 			{
+                            if(iseq == 1 ||
+                               iseq == 2){
+                                continue;
+                            }
+                            // if(iseq == 0){
+                            //     continue;
+                            // }
+                                
+                            // std::cerr << "iter " << isolve << ". iseq " << iseq << "\n";
 				getSolver(m_cfg.m_psequence[iseq])(this,1,ti);
 			}
 		}
@@ -1913,27 +1689,27 @@ void			btSoftBody::solveConstraints()
 		}
 	}
 	/* Solve drift			*/ 
-	if(m_cfg.diterations>0)
-	{
-		const btScalar	vcf=m_cfg.kVCF*m_sst.isdt;
-		for(i=0,ni=m_nodes.size();i<ni;++i)
-		{
-			Node&	n=m_nodes[i];
-			n.m_q	=	n.m_x;
-		}
-		for(int idrift=0;idrift<m_cfg.diterations;++idrift)
-		{
-			for(int iseq=0;iseq<m_cfg.m_dsequence.size();++iseq)
-			{
-				getSolver(m_cfg.m_dsequence[iseq])(this,1,0);
-			}
-		}
-		for(int i=0,ni=m_nodes.size();i<ni;++i)
-		{
-			Node&	n=m_nodes[i];
-			n.m_v	+=	(n.m_x-n.m_q)*vcf;
-		}
-	}
+	// if(m_cfg.diterations>0)
+	// {
+	// 	const btScalar	vcf=m_cfg.kVCF*m_sst.isdt;
+	// 	for(i=0,ni=m_nodes.size();i<ni;++i)
+	// 	{
+	// 		Node&	n=m_nodes[i];
+	// 		n.m_q	=	n.m_x;
+	// 	}
+	// 	for(int idrift=0;idrift<m_cfg.diterations;++idrift)
+	// 	{
+	// 		for(int iseq=0;iseq<m_cfg.m_dsequence.size();++iseq)
+	// 		{
+	// 			getSolver(m_cfg.m_dsequence[iseq])(this,1,0);
+	// 		}
+	// 	}
+	// 	for(int i=0,ni=m_nodes.size();i<ni;++i)
+	// 	{
+	// 		Node&	n=m_nodes[i];
+	// 		n.m_v	+=	(n.m_x-n.m_q)*vcf;
+	// 	}
+	// }
 	/* Apply clusters		*/ 
 	dampClusters();
 	applyClusters(true);
@@ -2381,73 +2157,8 @@ void					btSoftBody::updatePose()
 }
 
 //
-void				btSoftBody::updateArea(bool averageArea)
+void				btSoftBody::updateConstants()
 {
-	int i,ni;
-
-	/* Face area		*/ 
-	for(i=0,ni=m_faces.size();i<ni;++i)
-	{
-		Face&		f=m_faces[i];
-		f.m_ra	=	AreaOf(f.m_n[0]->m_x,f.m_n[1]->m_x,f.m_n[2]->m_x);
-	}
-	
-	/* Node area		*/ 
-
-	if (averageArea)
-	{
-		btAlignedObjectArray<int>	counts;
-		counts.resize(m_nodes.size(),0);
-		for(i=0,ni=m_nodes.size();i<ni;++i)
-		{
-			m_nodes[i].m_area	=	0;
-		}
-		for(i=0,ni=m_faces.size();i<ni;++i)
-		{
-			btSoftBody::Face&	f=m_faces[i];
-			for(int j=0;j<3;++j)
-			{
-				const int index=(int)(f.m_n[j]-&m_nodes[0]);
-				counts[index]++;
-				f.m_n[j]->m_area+=btFabs(f.m_ra);
-			}
-		}
-		for(i=0,ni=m_nodes.size();i<ni;++i)
-		{
-			if(counts[i]>0)
-				m_nodes[i].m_area/=(btScalar)counts[i];
-			else
-				m_nodes[i].m_area=0;
-		}
-	}
-	else
-	{
-		// initialize node area as zero
-		for(i=0,ni=m_nodes.size();i<ni;++i)
-		{
-			m_nodes[i].m_area=0;	
-		}
-
-		for(i=0,ni=m_faces.size();i<ni;++i)
-		{
-			btSoftBody::Face&	f=m_faces[i];
-
-			for(int j=0;j<3;++j)
-			{
-				f.m_n[j]->m_area += f.m_ra;
-			}
-		}
-
-		for(i=0,ni=m_nodes.size();i<ni;++i)
-		{
-			m_nodes[i].m_area *= 0.3333333f;
-		}
-	}
-}
-
-
-void				btSoftBody::updateLinkConstants()
-{	
 	int i,ni;
 
 	/* Links		*/ 
@@ -2455,18 +2166,41 @@ void				btSoftBody::updateLinkConstants()
 	{
 		Link&		l=m_links[i];
 		Material&	m=*l.m_material;
+		l.m_rl	=	(l.m_n[0]->m_x-l.m_n[1]->m_x).length();
 		l.m_c0	=	(l.m_n[0]->m_im+l.m_n[1]->m_im)/m.m_kLST;
+		l.m_c1	=	l.m_rl*l.m_rl;
+	}
+	/* Faces		*/ 
+	for(i=0,ni=m_faces.size();i<ni;++i)
+	{
+		Face&		f=m_faces[i];
+		f.m_ra	=	AreaOf(f.m_n[0]->m_x,f.m_n[1]->m_x,f.m_n[2]->m_x);
+	}
+	/* Area's		*/ 
+	btAlignedObjectArray<int>	counts;
+	counts.resize(m_nodes.size(),0);
+	for(i=0,ni=m_nodes.size();i<ni;++i)
+	{
+		m_nodes[i].m_area	=	0;
+	}
+	for(i=0,ni=m_faces.size();i<ni;++i)
+	{
+		btSoftBody::Face&	f=m_faces[i];
+		for(int j=0;j<3;++j)
+		{
+			const int index=(int)(f.m_n[j]-&m_nodes[0]);
+			counts[index]++;
+			f.m_n[j]->m_area+=btFabs(f.m_ra);
+		}
+	}
+	for(i=0,ni=m_nodes.size();i<ni;++i)
+	{
+		if(counts[i]>0)
+			m_nodes[i].m_area/=(btScalar)counts[i];
+		else
+			m_nodes[i].m_area=0;
 	}
 }
-
-void				btSoftBody::updateConstants()
-{
-	resetLinkRestLengths();
-	updateLinkConstants();
-	updateArea();
-}
-
-
 
 //
 void					btSoftBody::initializeClusters()
@@ -2936,7 +2670,7 @@ void				btSoftBody::applyForces()
 {
 
 	BT_PROFILE("SoftBody applyForces");
-//	const btScalar					dt =			m_sst.sdt;
+	const btScalar					dt =			m_sst.sdt;
 	const btScalar					kLF =			m_cfg.kLF;
 	const btScalar					kDG =			m_cfg.kDG;
 	const btScalar					kPR =			m_cfg.kPR;
@@ -2947,10 +2681,10 @@ void				btSoftBody::applyForces()
 	const bool						as_volume =		kVC>0;
 	const bool						as_aero =		as_lift	||
 													as_drag		;
-	//const bool						as_vaero =		as_aero	&&
-	//												(m_cfg.aeromodel < btSoftBody::eAeroModel::F_TwoSided);
-	//const bool						as_faero =		as_aero	&&
-	//												(m_cfg.aeromodel >= btSoftBody::eAeroModel::F_TwoSided);
+	const bool						as_vaero =		as_aero	&&
+													(m_cfg.aeromodel < btSoftBody::eAeroModel::F_TwoSided);
+	const bool						as_faero =		as_aero	&&
+													(m_cfg.aeromodel >= btSoftBody::eAeroModel::F_TwoSided);
 	const bool						use_medium =	as_aero;
 	const bool						use_volume =	as_pressure	||
 		as_volume	;
@@ -2974,8 +2708,60 @@ void				btSoftBody::applyForces()
 		{
 			if(use_medium)
 			{
+				EvaluateMedium(m_worldInfo, n.m_x, medium);
+				medium.m_velocity = m_windVelocity;
+				medium.m_density = m_worldInfo->air_density;
+
 				/* Aerodynamics			*/ 
-				addAeroForceToNode(m_windVelocity, i);
+				if(as_vaero)
+				{				
+					const btVector3	rel_v = n.m_v - medium.m_velocity;					
+					const btScalar rel_v_len = rel_v.length();
+					const btScalar	rel_v2 = rel_v.length2();
+
+					if(rel_v2>SIMD_EPSILON)
+					{
+						const btVector3 rel_v_nrm = rel_v.normalized();
+						btVector3	nrm = n.m_n;						
+
+						if (m_cfg.aeromodel == btSoftBody::eAeroModel::V_TwoSidedLiftDrag)
+						{
+							nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
+							btVector3 fDrag(0, 0, 0);
+							btVector3 fLift(0, 0, 0);
+
+							btScalar n_dot_v = nrm.dot(rel_v_nrm);
+							btScalar tri_area = 0.5f * n.m_area;
+							
+							fDrag = 0.5f * kDG * medium.m_density * rel_v2 * tri_area * n_dot_v * (-rel_v_nrm);
+							
+							// Check angle of attack
+							// cos(10º) = 0.98480
+							if ( 0 < n_dot_v && n_dot_v < 0.98480f)
+								fLift = 0.5f * kLF * medium.m_density * rel_v_len * tri_area * btSqrt(1.0f-n_dot_v*n_dot_v) * (nrm.cross(rel_v_nrm).cross(rel_v_nrm));
+
+							n.m_f += fDrag;
+							n.m_f += fLift;
+						}
+						else if (m_cfg.aeromodel == btSoftBody::eAeroModel::V_Point || m_cfg.aeromodel == btSoftBody::eAeroModel::V_OneSided || m_cfg.aeromodel == btSoftBody::eAeroModel::V_TwoSided)
+						{
+							if (btSoftBody::eAeroModel::V_TwoSided)
+								nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
+
+							const btScalar dvn = btDot(rel_v,nrm);
+							/* Compute forces	*/ 
+							if(dvn>0)
+							{
+								btVector3		force(0,0,0);
+								const btScalar	c0	=	n.m_area * dvn * rel_v2/2;
+								const btScalar	c1	=	c0 * medium.m_density;
+								force	+=	nrm*(-c1*kLF);
+								force	+=	rel_v.normalized() * (-c1 * kDG);
+								ApplyClampedForce(n, force, dt);
+							}
+						}	
+					}
+				}
 			}
 			/* Pressure				*/ 
 			if(as_pressure)
@@ -2989,14 +2775,75 @@ void				btSoftBody::applyForces()
 			}
 		}
 	}
-
 	/* Per face forces				*/ 
 	for(i=0,ni=m_faces.size();i<ni;++i)
 	{
-	//	btSoftBody::Face&	f=m_faces[i];
+		btSoftBody::Face&	f=m_faces[i];
+		if(as_faero)
+		{
+			const btVector3	v=(f.m_n[0]->m_v+f.m_n[1]->m_v+f.m_n[2]->m_v)/3;
+			const btVector3	x=(f.m_n[0]->m_x+f.m_n[1]->m_x+f.m_n[2]->m_x)/3;
+			EvaluateMedium(m_worldInfo,x,medium);
+			medium.m_velocity = m_windVelocity;
+			medium.m_density = m_worldInfo->air_density;
+			const btVector3	rel_v=v-medium.m_velocity;
+			const btScalar rel_v_len = rel_v.length();
+			const btScalar	rel_v2=rel_v.length2();
 
-		/* Aerodynamics			*/ 
-		addAeroForceToFace(m_windVelocity, i);	
+			if(rel_v2>SIMD_EPSILON)
+			{
+				const btVector3 rel_v_nrm = rel_v.normalized();
+				btVector3	nrm = f.m_normal;
+
+				if (m_cfg.aeromodel == btSoftBody::eAeroModel::F_TwoSidedLiftDrag)
+				{
+					nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
+
+					btVector3 fDrag(0, 0, 0);
+					btVector3 fLift(0, 0, 0);
+
+					btScalar n_dot_v = nrm.dot(rel_v_nrm);
+					btScalar tri_area = 0.5f * f.m_ra;
+					
+					fDrag = 0.5f * kDG * medium.m_density * rel_v2 * tri_area * n_dot_v * (-rel_v_nrm);
+
+					// Check angle of attack
+					// cos(10º) = 0.98480
+					if ( 0 < n_dot_v && n_dot_v < 0.98480f)
+						fLift = 0.5f * kLF * medium.m_density * rel_v_len * tri_area * btSqrt(1.0f-n_dot_v*n_dot_v) * (nrm.cross(rel_v_nrm).cross(rel_v_nrm));
+
+					fDrag /= 3;
+					fLift /= 3;
+
+					for(int j=0;j<3;++j) 
+					{
+						if (f.m_n[j]->m_im>0)
+						{
+							f.m_n[j]->m_f += fDrag; 
+							f.m_n[j]->m_f += fLift;
+						}
+					}
+				}
+				else if (m_cfg.aeromodel == btSoftBody::eAeroModel::F_OneSided || m_cfg.aeromodel == btSoftBody::eAeroModel::F_TwoSided)
+				{
+					if (btSoftBody::eAeroModel::F_TwoSided)
+						nrm *= (btScalar)( (btDot(nrm,rel_v) < 0) ? -1 : +1);
+
+					const btScalar	dvn=btDot(rel_v,nrm);
+					/* Compute forces	*/ 
+					if(dvn>0)
+					{
+						btVector3		force(0,0,0);
+						const btScalar	c0	=	f.m_ra*dvn*rel_v2;
+						const btScalar	c1	=	c0*medium.m_density;
+						force	+=	nrm*(-c1*kLF);
+						force	+=	rel_v.normalized()*(-c1*kDG);
+						force	/=	3;
+						for(int j=0;j<3;++j) ApplyClampedForce(*f.m_n[j],force,dt);
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -3009,86 +2856,78 @@ void				btSoftBody::PSolve_Anchors(btSoftBody* psb,btScalar kst,btScalar ti)
 	{
 		const Anchor&		a=psb->m_anchors[i];
 		const btTransform&	t=a.m_body->getWorldTransform();
-		Node&				n=*a.m_node;
+		Node&			n=*a.m_node;
 		const btVector3		wa=t*a.m_local;
 		const btVector3		va=a.m_body->getVelocityInLocalPoint(a.m_c1)*dt;
 		const btVector3		vb=n.m_x-n.m_q;
 		const btVector3		vr=(va-vb)+(wa-n.m_x)*kAHR;
 		const btVector3		impulse=a.m_c0*vr*a.m_influence;
-		n.m_x+=impulse*a.m_c2;
-		a.m_body->applyImpulse(-impulse,a.m_c1);
+
+                // if(i==20)
+                if(false)
+                {
+                    std::cerr << "PSolve Anchors " << i;
+                    // // std::cerr << " a.m_c0 " << a.m_c0;
+                    // // std::cerr << " vr " << vr.x();
+                    // // std::cerr << ", va " << va.x();
+                    // std::cerr << ", vb " << vb.x();
+                    // std::cerr << ", wa " << wa.x();
+                    // std::cerr << ", n.m_q " << n.m_q.x();
+                    std::cerr << ", n.m_x " << n.m_x.x();
+
+                    // std::cerr << ", kAHR " << kAHR;
+                    // // std::cerr << " a.m_influence " << a.m_influence;
+                    std::cerr << " impulse: " << impulse.x() << "\n";
+
+                }
+                n.m_x+=impulse*a.m_c2;
+                a.m_body->applyImpulse(-impulse,a.m_c1);
+
+
 	}
 }
-
 
 //
 void btSoftBody::PSolve_RContacts(btSoftBody* psb, btScalar kst, btScalar ti)
 {
+    std::cerr << "PSolve_RContacts\n";
+    if(psb->m_rcontacts.size() > 0){
+        std::cerr << "m_rcontacts > 0\n";
+    }
 	const btScalar	dt = psb->m_sst.sdt;
 	const btScalar	mrg = psb->getCollisionShape()->getMargin();
 	for(int i=0,ni=psb->m_rcontacts.size();i<ni;++i)
 	{
 		const RContact&		c = psb->m_rcontacts[i];
 		const sCti&			cti = c.m_cti;	
-		if (cti.m_colObj->hasContactResponse()) 
+		btRigidBody* tmpRigid = (btRigidBody*)btRigidBody::upcast(cti.m_colObj);
+
+		const btVector3		va = tmpRigid ? tmpRigid->getVelocityInLocalPoint(c.m_c1)*dt : btVector3(0,0,0);
+		const btVector3		vb = c.m_node->m_x-c.m_node->m_q;	
+		const btVector3		vr = vb-va;
+		const btScalar		dn = btDot(vr, cti.m_normal);		
+		if(dn<=SIMD_EPSILON)
 		{
-            btVector3 va(0,0,0);
-            btRigidBody* rigidCol;
-            btMultiBodyLinkCollider* multibodyLinkCol;
-            btScalar* deltaV;
-            btMultiBodyJacobianData jacobianData;
-            if (cti.m_colObj->getInternalType() == btCollisionObject::CO_RIGID_BODY)
-            {
-                rigidCol = (btRigidBody*)btRigidBody::upcast(cti.m_colObj);
-                va = rigidCol ? rigidCol->getVelocityInLocalPoint(c.m_c1)*dt : btVector3(0,0,0);
-            }
-			else if (cti.m_colObj->getInternalType() == btCollisionObject::CO_FEATHERSTONE_LINK)
-            {
-                multibodyLinkCol = (btMultiBodyLinkCollider*)btMultiBodyLinkCollider::upcast(cti.m_colObj);
-                if (multibodyLinkCol)
-                {
-                    const int ndof  = multibodyLinkCol->m_multiBody->getNumDofs() + 6;
-                    jacobianData.m_jacobians.resize(ndof);
-                    jacobianData.m_deltaVelocitiesUnitImpulse.resize(ndof);
-                    btScalar* jac=&jacobianData.m_jacobians[0];
-                    
-                    multibodyLinkCol->m_multiBody->fillContactJacobianMultiDof(multibodyLinkCol->m_link, c.m_node->m_x, cti.m_normal, jac, jacobianData.scratch_r, jacobianData.scratch_v, jacobianData.scratch_m);
-                    deltaV = &jacobianData.m_deltaVelocitiesUnitImpulse[0];
-                    multibodyLinkCol->m_multiBody->calcAccelerationDeltasMultiDof(&jacobianData.m_jacobians[0],deltaV,jacobianData.scratch_r, jacobianData.scratch_v);
-                    
-                    btScalar vel = 0.0;
-                    for (int j = 0; j < ndof ; ++j) {
-                        vel += multibodyLinkCol->m_multiBody->getVelocityVector()[j] * jac[j];
-                    }
-                    va = cti.m_normal*vel*dt;
-                }
-            }
-            
-			const btVector3		vb = c.m_node->m_x-c.m_node->m_q;
-			const btVector3		vr = vb-va;
-			const btScalar		dn = btDot(vr, cti.m_normal);		
-			if(dn<=SIMD_EPSILON)
-			{
-				const btScalar		dp = btMin( (btDot(c.m_node->m_x, cti.m_normal) + cti.m_offset), mrg );
-				const btVector3		fv = vr - (cti.m_normal * dn);
-				// c0 is the impulse matrix, c3 is 1 - the friction coefficient or 0, c4 is the contact hardness coefficient
-				const btVector3		impulse = c.m_c0 * ( (vr - (fv * c.m_c3) + (cti.m_normal * (dp * c.m_c4))) * kst );
-				c.m_node->m_x -= impulse * c.m_c2;
-                
-                if (cti.m_colObj->getInternalType() == btCollisionObject::CO_RIGID_BODY)
-                {
-                    if (rigidCol)
-                        rigidCol->applyImpulse(impulse,c.m_c1);
-                }
-                else if (cti.m_colObj->getInternalType() == btCollisionObject::CO_FEATHERSTONE_LINK)
-                {
-                    if (multibodyLinkCol)
-                    {
-                        double multiplier = 0.5;
-                        multibodyLinkCol->m_multiBody->applyDeltaVeeMultiDof(deltaV,-impulse.length()*multiplier);
-                    }
-                }
-			}
+			const btScalar		dp = btMin( (btDot(c.m_node->m_x, cti.m_normal) + cti.m_offset), mrg );
+			const btVector3		fv = vr - (cti.m_normal * dn);
+			// c0 is the impulse matrix, c3 is 1 - the friction coefficient or 0, c4 is the contact hardness coefficient
+			const btVector3		impulse = c.m_c0 * ( (vr - (fv * c.m_c3) + (cti.m_normal * (dp * c.m_c4))) * kst );
+			c.m_node->m_x -= impulse * c.m_c2;
+			if (tmpRigid)
+				tmpRigid->applyImpulse(impulse,c.m_c1);
+                        std::cerr << "Rcontact " << i;
+                        // std::cerr << " a.m_c0 " << a.m_c0;
+                        // std::cerr << " vr " << vr.x();
+                        std::cerr << ", va " << va.x();
+                        std::cerr << ", vb " << vb.x();
+                        // std::cerr << ", wa " << wa.x();
+                        // std::cerr << ", n.m_q " << n.m_q.x();
+                        // std::cerr << ", n.m_x " << n.m_x.x();
+
+                        // std::cerr << ", kAHR " << kAHR;
+                        // std::cerr << " a.m_influence " << a.m_influence;
+                        std::cerr << " impulse: " << impulse.x() << "\n";
+
 		}
 	}
 }
@@ -3096,6 +2935,11 @@ void btSoftBody::PSolve_RContacts(btSoftBody* psb, btScalar kst, btScalar ti)
 //
 void				btSoftBody::PSolve_SContacts(btSoftBody* psb,btScalar,btScalar ti)
 {
+    if(psb->m_scontacts.size() > 0){
+        std::cerr << "m_scontacts > 0\n";
+    }
+
+        std::cerr << "PSolve_SContacts\n";
 	for(int i=0,ni=psb->m_scontacts.size();i<ni;++i)
 	{
 		const SContact&		c=psb->m_scontacts[i];
@@ -3123,12 +2967,28 @@ void				btSoftBody::PSolve_SContacts(btSoftBody* psb,btScalar,btScalar ti)
 		f.m_n[0]->m_x	-=	corr*(c.m_cfm[1]*c.m_weights.x());
 		f.m_n[1]->m_x	-=	corr*(c.m_cfm[1]*c.m_weights.y());
 		f.m_n[2]->m_x	-=	corr*(c.m_cfm[1]*c.m_weights.z());
+                
+                std::cerr << "Scontact " << i;
+                // std::cerr << " a.m_c0 " << a.m_c0;
+                // std::cerr << " vr " << vr.x();
+                std::cerr << ", nmx " << corr*c.m_cfm[0];
+                std::cerr << ", fmn " << corr*(c.m_cfm[1]*c.m_weights.x());
+                // std::cerr << ", wa " << wa.x();
+                // std::cerr << ", n.m_q " << n.m_q.x();
+                // std::cerr << ", n.m_x " << n.m_x.x();
+
+                // std::cerr << ", kAHR " << kAHR;
+                // std::cerr << " a.m_influence " << a.m_influence;
+                // std::cerr << " impulse: " << impulse.x();
+                std::cerr << "\n";
+
 	}
 }
 
 //
 void				btSoftBody::PSolve_Links(btSoftBody* psb,btScalar kst,btScalar ti)
 {
+    std::cerr << "PSolve_Links "<< psb->m_links.size()<< "\n";
 	for(int i=0,ni=psb->m_links.size();i<ni;++i)
 	{			
 		Link&	l=psb->m_links[i];
@@ -3143,16 +3003,52 @@ void				btSoftBody::PSolve_Links(btSoftBody* psb,btScalar kst,btScalar ti)
 				const btScalar	k=((l.m_c1-len)/(l.m_c0*(l.m_c1+len)))*kst;
 				a.m_x-=del*(k*a.m_im);
 				b.m_x+=del*(k*b.m_im);
+
+                                
+
+                                const Node&		anchor20=*(psb->m_anchors[20]).m_node;
+                                if(anchor20.m_x != a.m_x){
+                                    continue;
+                                }
+
+
+
+
+                                // if(fabs((del*(k*a.m_im)).x()) > 1||
+                                //    fabs((del*(k*b.m_im)).x()) > 1)
+                                {
+                                    std::cerr << "Link " << i << "\n";
+                                    std::cerr << "len " << len;
+                                    std::cerr << ", m_c1 " << l.m_c1;
+                                    std::cerr << ", m_c0 " << l.m_c0;
+                                    std::cerr << ", k " << k;
+                                    std::cerr << ", kst " << kst;
+                                    std::cerr << "\n";
+
+                                
+                                    // std::cerr << "Large Link collision";
+
+                                    // std::cerr << " k " << k;
+                                    std::cerr << " amx " << (del*(k*a.m_im)).x();
+                                    std::cerr << " bmx " << (del*(k*b.m_im)).x();
+                                    // LOOK AT DEL NEXT!!!!
+                                    std::cerr << " del " << del.x();
+                                    std::cerr << " aim " << a.m_im;
+                                    std::cerr << "\n";
+                                }
+
 			}
 		}
 	}
+        throw "something";
 }
 
 //
 void				btSoftBody::VSolve_Links(btSoftBody* psb,btScalar kst)
 {
+
 	for(int i=0,ni=psb->m_links.size();i<ni;++i)
-	{			
+	{
 		Link&			l=psb->m_links[i];
 		Node**			n=l.m_n;
 		const btScalar	j=-btDot(l.m_c3,n[0]->m_v-n[1]->m_v)*l.m_c2*kst;
@@ -3228,6 +3124,20 @@ void			btSoftBody::defaultCollisionHandler(const btCollisionObjectWrapper* pcoWr
 		break;
 	case	fCollision::CL_RS:
 		{
+                    // // return;
+                    // std::cerr << pcoWrap->m_index;
+                    // std::cerr << " Rigid object collision\n";
+                    std::cerr << "Process soft-rigid Collision\n";
+                    // return;
+                    
+                    // if(pcoWrap->m_index == 0 ||
+                    //    pcoWrap->m_index == 1){
+                    //     return;
+                    // }
+                    // if(pcoWrap->m_index == -1){
+                    //     return;
+                    // }
+
 			btSoftColliders::CollideCL_RS	collider;
 			collider.ProcessColObj(this,pcoWrap);
 		}
@@ -3239,22 +3149,28 @@ void			btSoftBody::defaultCollisionHandler(const btCollisionObjectWrapper* pcoWr
 void			btSoftBody::defaultCollisionHandler(btSoftBody* psb)
 {
 	const int cf=m_cfg.collisions&psb->m_cfg.collisions;
+
 	switch(cf&fCollision::SVSmask)
 	{
 	case	fCollision::CL_SS:
 		{
-			
+                    std::cerr << "Process soft-soft Collision\n";
 			//support self-collision if CL_SELF flag set
 			if (this!=psb || psb->m_cfg.collisions&fCollision::CL_SELF)
 			{
+
+                            // return;
+                            //ALTERED
 				btSoftColliders::CollideCL_SS	docollide;
 				docollide.ProcessSoftSoft(this,psb);
 			}
+                        std::cerr << "Finished Process soft-soft Collision\n";
 			
 		}
 		break;
 	case	fCollision::VF_SS:
 		{
+                    std::cerr << "Process VF_SS Collision\n";
 			//only self-collision for Cluster, not Vertex-Face yet
 			if (this!=psb)
 			{
@@ -3488,7 +3404,7 @@ const char*	btSoftBody::serialize(void* dataBuffer, class btSerializer* serializ
 	sbd->m_config.m_softRigidClusterImpulseSplit = m_cfg.kSR_SPLT_CL;
 	sbd->m_config.m_softKineticClusterImpulseSplit = m_cfg.kSK_SPLT_CL;
 	sbd->m_config.m_softSoftClusterImpulseSplit = m_cfg.kSS_SPLT_CL;
-
+		
 	//pose for shape matching
 	{
 		sbd->m_pose = (SoftBodyPoseData*)serializer->getUniquePointer((void*)&m_pose);
@@ -3650,8 +3566,8 @@ const char*	btSoftBody::serialize(void* dataBuffer, class btSerializer* serializ
 			m_joints[i]->m_refs[0].serializeFloat(memPtr->m_refs[0]);
 			m_joints[i]->m_refs[1].serializeFloat(memPtr->m_refs[1]);
 			memPtr->m_cfm = m_joints[i]->m_cfm;
-			memPtr->m_erp = float(m_joints[i]->m_erp);
-			memPtr->m_split = float(m_joints[i]->m_split);
+			memPtr->m_erp = m_joints[i]->m_erp;
+			memPtr->m_split = m_joints[i]->m_split;
 			memPtr->m_delete = m_joints[i]->m_delete;
 			
 			for (int j=0;j<4;j++)
