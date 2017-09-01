@@ -21,6 +21,7 @@ subject to the following restrictions:
 #include "btSoftBody.h"
 #include "BulletSoftBody/btSoftBodySolvers.h"
 #include "BulletCollision/CollisionDispatch/btCollisionObjectWrapper.h"
+#include <iostream>
 
 ///TODO: include all the shapes that the softbody can collide with
 ///alternatively, implement special case collision algorithms (just like for rigid collision shapes)
@@ -55,6 +56,7 @@ btSoftRigidCollisionAlgorithm::~btSoftRigidCollisionAlgorithm()
 
 void btSoftRigidCollisionAlgorithm::processCollision (const btCollisionObjectWrapper* body0Wrap,const btCollisionObjectWrapper* body1Wrap,const btDispatcherInfo& dispatchInfo,btManifoldResult* resultOut)
 {
+    std::cerr << "btSoftRigidCollisionAlgorithm\n";
 	(void)dispatchInfo;
 	(void)resultOut;
 	//printf("btSoftRigidCollisionAlgorithm\n");

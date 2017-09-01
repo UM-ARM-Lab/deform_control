@@ -288,7 +288,7 @@ void btCollisionDispatcher::defaultNearCallback(btBroadphasePair& collisionPair,
                                 // std::cerr << "Dispatching to collision algorithm\n";
 				if (dispatchInfo.m_dispatchFunc == 		btDispatcherInfo::DISPATCH_DISCRETE)
 				{
-                                    // std::cerr << "discrete\n";
+                                    std::cerr << "discrete\n";
 					//discrete collision detection query
 					
 					collisionPair.m_algorithm->processCollision(&obj0Wrap,&obj1Wrap,dispatchInfo,&contactPointResult);

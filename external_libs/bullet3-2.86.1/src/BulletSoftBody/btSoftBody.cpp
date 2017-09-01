@@ -21,6 +21,8 @@ subject to the following restrictions:
 #include <iostream>
 
 
+
+
 //
 btSoftBody::btSoftBody(btSoftBodyWorldInfo*	worldInfo,int node_count,  const btVector3* x,  const btScalar* m)
 :m_softBodySolver(0),m_worldInfo(worldInfo)
@@ -2532,6 +2534,7 @@ void				btSoftBody::LJoint::Solve(btScalar dt,btScalar sor)
 	btSoftBody::Impulse	impulse;
 	impulse.m_asVelocity	=	1;
 	impulse.m_velocity		=	m_massmatrix*(m_drift+vr*m_cfm)*sor;
+        std::cerr << "LJoint impulse " << impulse.m_velocity.x() << "\n";
 	m_bodies[0].applyImpulse(-impulse,m_rpos[0]);
 	m_bodies[1].applyImpulse( impulse,m_rpos[1]);
 }
@@ -2577,6 +2580,7 @@ void				btSoftBody::AJoint::Solve(btScalar dt,btScalar sor)
 	btSoftBody::Impulse	impulse;
 	impulse.m_asVelocity	=	1;
 	impulse.m_velocity		=	m_massmatrix*(m_drift+vc*m_cfm)*sor;
+        std::cerr << "AJoint impulse " << impulse.m_velocity.x() << "\n";
 	m_bodies[0].applyAImpulse(-impulse);
 	m_bodies[1].applyAImpulse( impulse);
 }
@@ -2627,12 +2631,24 @@ void				btSoftBody::CJoint::Solve(btScalar dt,btScalar sor)
 	{
 		const btVector3	iv=m_normal*rvac;
 		const btVector3	fv=vrel-iv;
-		impulse.m_velocity	+=	iv+fv*m_friction;
+		impulse.m_velocity	+=	iv;
+                impulse.m_velocity	+=	fv*m_friction;
+                
 	}
+        std::cerr << "vrel; " << vrel.x() << "\n";
 	impulse.m_velocity=m_massmatrix*impulse.m_velocity*sor;
+        // const btScalar mag = fabs(impulse.m_velocity.length2());
+        // if(mag>.0001){
+        //     impulse.m_velocity *= .0001/mag;
+        // }
+        // impulse.m_velocity *= 0;
+
+        
 	
 	if (m_bodies[0].m_soft==m_bodies[1].m_soft)
 	{
+            std::cerr << "m_bodies equal     ";
+            assert(false && "There is only one soft body, so this should never happen");
 		if ((impulse.m_velocity.getX() ==impulse.m_velocity.getX())&&(impulse.m_velocity.getY() ==impulse.m_velocity.getY())&&
 			(impulse.m_velocity.getZ() ==impulse.m_velocity.getZ()))
 		{
@@ -2650,6 +2666,13 @@ void				btSoftBody::CJoint::Solve(btScalar dt,btScalar sor)
 		}
 	} else
 	{
+            if(fabs(impulse.m_velocity.x()) > 1){
+                std::cerr << "\n!!!!!!!!!!!\n";
+            }
+            std::cerr << "CJoint impulse " << impulse.m_velocity.x() << "\n";
+
+            // std::cerr << "m_bodies not     ";
+            
 		m_bodies[0].applyImpulse(-impulse,m_rpos[0]);
 		m_bodies[1].applyImpulse( impulse,m_rpos[1]);
 	}
@@ -3001,8 +3024,9 @@ void				btSoftBody::PSolve_Links(btSoftBody* psb,btScalar kst,btScalar ti)
 			if (l.m_c1+len > SIMD_EPSILON)
 			{
 				const btScalar	k=((l.m_c1-len)/(l.m_c0*(l.m_c1+len)))*kst;
-				a.m_x-=del*(k*a.m_im);
-				b.m_x+=del*(k*b.m_im);
+                                
+				a.m_x-=del*Clamp(len*(k*a.m_im), -0.01f, 0.01f)/len;
+				b.m_x+=del*Clamp(len*(k*b.m_im), -0.01f, 0.01f)/len;
 
                                 
 
@@ -3040,7 +3064,7 @@ void				btSoftBody::PSolve_Links(btSoftBody* psb,btScalar kst,btScalar ti)
 			}
 		}
 	}
-        throw "something";
+        // throw "something";
 }
 
 //
@@ -3124,6 +3148,7 @@ void			btSoftBody::defaultCollisionHandler(const btCollisionObjectWrapper* pcoWr
 		break;
 	case	fCollision::CL_RS:
 		{
+                    // return;
                     // // return;
                     // std::cerr << pcoWrap->m_index;
                     // std::cerr << " Rigid object collision\n";

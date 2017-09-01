@@ -181,7 +181,11 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             double settle_time = GetSettlingTime(ph_);
             ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
             double dt = BulletConfig::dt;
+            int i= 0;
             while (settle_time > 0) {
+                // if(i++>10){
+                //     throw "something else";
+                // }
                 step(dt);
                 settle_time -= dt;
                 createSimulatorFbk();

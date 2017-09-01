@@ -714,6 +714,14 @@ struct btSoftColliders
                             std::cerr << "Contains Anchor\n";
                             std::cerr << "\n";
                         }
+                        /* return; */
+                        else
+                        {
+                            std::cerr << "\n";
+                            std::cerr << " No Anchor\n";
+                            std::cerr << "\n";
+                        }
+                                
 			///don't collide an anchored cluster with a static/kinematic object
 			if(m_colObjWrap->getCollisionObject()->isStaticOrKinematicObject() && cluster->m_containsAnchor)
 				return;

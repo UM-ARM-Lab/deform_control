@@ -953,11 +953,13 @@ inline void		btDbvt::collideTV(	const btDbvtNode* root,
 			{
 				if(n->isinternal())
 				{
+                                    std::cerr << "INternal collision\n";
 					stack.push_back(n->childs[0]);
 					stack.push_back(n->childs[1]);
 				}
 				else
 				{
+                                    std::cerr << "Not internal collision\n";
 					policy.Process(n);
 				}
 			}
