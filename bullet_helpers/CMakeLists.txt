@@ -80,6 +80,8 @@ add_library( ${PROJECT_NAME}
     src/bullet_math_helpers.cpp
     include/${PROJECT_NAME}/bullet_pretty_print.hpp
     src/bullet_pretty_print.cpp
+    include/${PROJECT_NAME}/bullet_cloth_helpers.hpp
+    src/bullet_cloth_helpers.cpp
 )
 add_dependencies( ${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 target_link_libraries( ${PROJECT_NAME} ${catkin_LIBRARIES} )

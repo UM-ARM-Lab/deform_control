@@ -101,6 +101,9 @@ class CustomScene : public Scene
         void makeCloth();
         void findClothCornerNodes();
         void createClothMirrorLine();
+        void makeClothLines();
+        void updateClothLines();
+
 
 
         void makeRopeSingleRobotControlledGrippper();
@@ -298,6 +301,7 @@ class CustomScene : public Scene
 
         BulletSoftObject::Ptr cloth_;
         std::vector<int> cloth_corner_node_indices_;
+        PlotLines::Ptr cloth_lines_;
 
         ////////////////////////////////////////////////////////////////////////
         // Task specific objects

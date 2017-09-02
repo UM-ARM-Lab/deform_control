@@ -21,6 +21,7 @@
 #include <bullet_helpers/bullet_ros_conversions.hpp>
 #include <bullet_helpers/bullet_math_helpers.hpp>
 #include <bullet_helpers/bullet_pretty_print.hpp>
+#include <bullet_helpers/bullet_cloth_helpers.hpp>
 
 #include "utils/util.h"
 #include "custom_scene/internal_utils.hpp"
@@ -176,9 +177,14 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         // Let the object settle before anything else happens
         {
-            const float settle_time = GetSettlingTime(ph_);
+            float settle_time = GetSettlingTime(ph_);
             ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
-            stepFor(BulletConfig::dt, settle_time);
+            float dt = BulletConfig::dt;
+            while (settle_time > 0) {
+                step(dt);
+                settle_time -= dt;
+                createSimulatorFbk();
+            }
         }
         
 
@@ -394,7 +400,6 @@ void CustomScene::makeBulletObjects()
 }
 
 
-
 void CustomScene::makeRope()
 {
     // find the needed table parameters
@@ -501,6 +506,7 @@ void CustomScene::makeCloth()
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
     findClothCornerNodes();
+    makeClothLines();
 }
 
 /**
@@ -572,6 +578,47 @@ void CustomScene::findClothCornerNodes()
         }
     }
 }
+
+/*
+ *  Creates a line for each link of a cloth
+ */
+void CustomScene::makeClothLines()
+{
+    cloth_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
+    
+    addPreStepCallback(boost::bind(&CustomScene::updateClothLines,this));
+    env->add(cloth_lines_);
+}
+
+/*
+ *  Updates all cloth strain lines with new positions and opacities
+ */
+void CustomScene::updateClothLines(){
+    const btSoftBody* psb = cloth_->softBody.get();
+    int num_links = psb->m_links.size();
+    std::vector<btVector3> cloth_lines_endpoints;
+    cloth_lines_endpoints.reserve(num_links*2);
+    std::vector<btVector4> cloth_strain_color;
+    cloth_strain_color.reserve(num_links);
+    std::vector<btScalar> strains = getStrain(psb);
+
+    for(int i=0; i<num_links; i++)
+    {
+        const btSoftBody::Link& l = psb->m_links[i];
+        cloth_lines_endpoints.push_back(l.m_n[0]->m_x);
+        cloth_lines_endpoints.push_back(l.m_n[1]->m_x);
+
+        btScalar& strain = strains[i];
+        btScalar alpha = std::min(std::max(strain,0.0f), 1.0f);
+        btVector4 color(1.0f, 0.0f, 0.0f, alpha);
+        cloth_strain_color.push_back(color);
+    }
+    
+    
+    
+    cloth_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
+}
+
 
 void CustomScene::createClothMirrorLine()
 {
@@ -2004,6 +2051,8 @@ void CustomScene::SetGripperTransform(
 deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
 {
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
+
+    ROS_INFO("Cloth maximum strain is %f", getMaximumStrain(cloth_->softBody.get()));
 
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
