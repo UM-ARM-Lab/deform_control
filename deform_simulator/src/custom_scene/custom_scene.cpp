@@ -502,6 +502,7 @@ void CustomScene::makeCloth()
     findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
     if (VisualizeStrainLines(ph_)){
         makeClothLines();
+        makeGripperForceLines();
     }
 }
 
@@ -544,6 +545,32 @@ void CustomScene::updateClothLinesCallback(){
     }
     
     strain_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
+}
+
+void CustomScene::makeGripperForceLines()
+{
+    gripper_force_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
+    
+    addPreStepCallback(boost::bind(&CustomScene::updateGripperForceLinesCallback, this));
+    env->add(gripper_force_lines_);
+}
+
+void CustomScene::updateGripperForceLinesCallback(){
+    std::vector<btVector3> force_lines_endpoints;
+    force_lines_endpoints.reserve(auto_grippers_.size()*2);
+
+    
+    for (const std::string &gripper_name: auto_grippers_)
+    {
+        const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
+        btVector3 force = gripper->calculateSoftBodyForce();
+        btVector3 gripper_pos = gripper->getWorldTransform().getOrigin();
+        force_lines_endpoints.push_back(gripper_pos);
+        force_lines_endpoints.push_back(gripper_pos + 1000*force/BulletConfig::dt);
+    }
+    std::vector<btVector4> gripper_force_color(auto_grippers_.size(), btVector4(0, 0, 1, 1));
+
+    gripper_force_lines_->setPoints(force_lines_endpoints, gripper_force_color);
 }
 
 
