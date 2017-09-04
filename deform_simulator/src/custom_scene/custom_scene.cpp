@@ -177,14 +177,9 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         // Let the object settle before anything else happens
         {
-            float settle_time = GetSettlingTime(ph_);
+            const float settle_time = GetSettlingTime(ph_);
             ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
-            float dt = BulletConfig::dt;
-            while (settle_time > 0) {
-                step(dt);
-                settle_time -= dt;
-                createSimulatorFbk();
-            }
+            stepFor(BulletConfig::dt, settle_time);
         }
         
 
@@ -399,7 +394,6 @@ void CustomScene::makeBulletObjects()
     assert(cover_points_.size() == cover_point_normals_.size());
 }
 
-
 void CustomScene::makeRope()
 {
     // find the needed table parameters
@@ -505,95 +499,30 @@ void CustomScene::makeCloth()
     env->add(cloth_);
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
-    findClothCornerNodes();
-    makeClothLines();
-}
-
-/**
- * Sets cloth_corner_node_indices_ to the extremal points of the mesh
- *
- * cloth_corner_node_indices_[0] = minx_miny
- * cloth_corner_node_indices_[1] = minx_maxy
- * cloth_corner_node_indices_[2] = maxx_miny
- * cloth_corner_node_indices_[3] = maxx_maxy
- */
-void CustomScene::findClothCornerNodes()
-{
-    cloth_corner_node_indices_.resize(4, 0);
-    // Setup defaults for doing the max and min operations inside of the loop
-    std::vector<btVector3> corner_node_positions(4);
-
-    // min_x, min_y
-    corner_node_positions[0] = btVector3(
-            std::numeric_limits<btScalar>::infinity(),
-            std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    // min_x, max_y
-    corner_node_positions[1] = btVector3(
-            std::numeric_limits<btScalar>::infinity(),
-            -std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    // max_x, min_y
-    corner_node_positions[2] = btVector3(
-            -std::numeric_limits<btScalar>::infinity(),
-            std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    // max_x, max_y
-    corner_node_positions[3] = btVector3(
-            -std::numeric_limits<btScalar>::infinity(),
-            -std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    btSoftBody::tNodeArray cloth_nodes = cloth_->softBody->m_nodes;
-
-    // Itterate through the nodes in the cloth, finding the extremal points
-    for (int ind = 0; ind < cloth_nodes.size(); ind++)
-    {
-        if (cloth_nodes[ind].m_x.x() <= corner_node_positions[0].x() &&
-                cloth_nodes[ind].m_x.y() <= corner_node_positions[0].y())
-        {
-            cloth_corner_node_indices_[0] = ind;
-            corner_node_positions[0] = cloth_nodes[ind].m_x;
-        }
-        else if (cloth_nodes[ind].m_x.x() <= corner_node_positions[1].x() &&
-                cloth_nodes[ind].m_x.y() >= corner_node_positions[1].y())
-        {
-            cloth_corner_node_indices_[1] = ind;
-            corner_node_positions[1] = cloth_nodes[ind].m_x;
-        }
-        else if (cloth_nodes[ind].m_x.x() >= corner_node_positions[2].x() &&
-                cloth_nodes[ind].m_x.y() <= corner_node_positions[2].y())
-        {
-            cloth_corner_node_indices_[2] = ind;
-            corner_node_positions[2] = cloth_nodes[ind].m_x;
-        }
-        else if (cloth_nodes[ind].m_x.x() >= corner_node_positions[3].x() &&
-                cloth_nodes[ind].m_x.y() >= corner_node_positions[3].y())
-        {
-            cloth_corner_node_indices_[3] = ind;
-            corner_node_positions[3] = cloth_nodes[ind].m_x;
-        }
+    findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
+    if(VisualizeStrainLines(ph_)){
+        makeClothLines();
     }
 }
+
+
 
 /*
  *  Creates a line for each link of a cloth
  */
 void CustomScene::makeClothLines()
 {
-    cloth_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
+    strain_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
+    max_strain_ = GetMaxStrain(ph_);
     
-    addPreStepCallback(boost::bind(&CustomScene::updateClothLines,this));
-    env->add(cloth_lines_);
+    addPreStepCallback(boost::bind(&CustomScene::updateClothLinesCallback, this));
+    env->add(strain_lines_);
 }
 
 /*
  *  Updates all cloth strain lines with new positions and opacities
  */
-void CustomScene::updateClothLines(){
+void CustomScene::updateClothLinesCallback(){
     const btSoftBody* psb = cloth_->softBody.get();
     int num_links = psb->m_links.size();
     std::vector<btVector3> cloth_lines_endpoints;
@@ -608,15 +537,13 @@ void CustomScene::updateClothLines(){
         cloth_lines_endpoints.push_back(l.m_n[0]->m_x);
         cloth_lines_endpoints.push_back(l.m_n[1]->m_x);
 
-        btScalar& strain = strains[i];
-        btScalar alpha = std::min(std::max(strain,0.0f), 1.0f);
+        btScalar relative_strain = strains[i]/max_strain_;
+        btScalar alpha = std::min(std::max(relative_strain, 0.0f), 1.0f);
         btVector4 color(1.0f, 0.0f, 0.0f, alpha);
         cloth_strain_color.push_back(color);
     }
     
-    
-    
-    cloth_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
+    strain_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
 }
 
 
@@ -2051,8 +1978,6 @@ void CustomScene::SetGripperTransform(
 deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
 {
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
-
-    ROS_INFO("Cloth maximum strain is %f", getMaximumStrain(cloth_->softBody.get()));
 
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
