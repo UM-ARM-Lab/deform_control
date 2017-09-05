@@ -128,10 +128,6 @@ void GripperKinematicObject::toggleOpen()
 
 void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 {
-    std::cerr << name << " toggleAttach \n";
-    std::cerr << "isKinematic: " << children[0]->isKinematic << "\n";
-    std::cerr << "mass: " << children[0]->mass << "\n";
-    std::cerr << "inv_mass: " << children[0]->rigidBody->getInvMass() << "\n";
     if(bAttached)
     {
         btAlignedObjectArray<btSoftBody::Anchor> newanchors;
@@ -146,6 +142,7 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
             psb->m_anchors.push_back(newanchors[i]);
         }
         vattached_node_inds.clear();
+        m_psb = NULL;
     }
     else
     {
@@ -173,15 +170,13 @@ void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 
                     vattached_node_inds.push_back((size_t)j);
                     appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-                    appendAnchorLinks(psb, &psb->m_nodes[j]);
-                   // std::cout << "\tappending anchor, closest ind: " << j << std::endl;
+                    // std::cout << "\tappending anchor, closest ind: " << j << std::endl;
 
                 }
             }
         }
         else
         {
-            assert(false && "Negative radius, it should never reach here");
             std::vector<btVector3> nodeposvec;
             nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
 
@@ -300,60 +295,48 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
     a.m_node->m_battach = true;
     a.m_influence = influence;
     psb->m_anchors.push_back(a);
+    m_psb = psb;
 }
 
-void GripperKinematicObject::appendAnchorLinks(btSoftBody* psb, btSoftBody::Node *node){
-    int ni = psb->m_links.size();
-    for(int i=0; i<ni; i++){
-        btSoftBody::Link& l =  psb->m_links[i];
-        if(node == l.m_n[0]){
-            attached_links.push_back(&l);
-            attached_links_direction_reversed.push_back(false);
-        }
-        if(node == l.m_n[1]){
-            attached_links.push_back(&l);
-            attached_links_direction_reversed.push_back(true);
-        }
-        
-    }
-}
-
+/**
+ *  Calculated the forces on the gripper from the soft body anchor points.
+ *  This code is largely copied from btSoftBody::PSolve_Anchors, which runs
+ *  every simulation step. However, the duplication is necessary because the 
+ *  applied force fizzles since the gripper is a kinematic object.
+ *
+ */
 btVector3 GripperKinematicObject::calculateSoftBodyForce(){
     btVector3 force = btVector3(0.0f, 0.0f, 0.0f);
-    int ni = (int)attached_links.size();
-    for(int i=0;i<ni;++i)
-    {			
-        btSoftBody::Link&	l=*attached_links[i];
-        btSoftBody::Node&			a=*l.m_n[0];
-        btSoftBody::Node&			b=*l.m_n[1];
-        const btVector3	del=b.m_x-a.m_x;
-        const btScalar	len=del.length2();
-
-        const btScalar	k=((l.m_c1-len)/(l.m_c0*(l.m_c1+len)));
-        int dir = attached_links_direction_reversed[i] ? -1 : 1;
-        force += dir * del * k;
-        
-        // a.m_x-=del*(k*a.m_im);
-        // b.m_x+=del*(k*b.m_im);
-
-
-        // if(l.m_c0>0)
-        // {
-        //     Node&			a=*l.m_n[0];
-        //     Node&			b=*l.m_n[1];
-        //     const btVector3	del=b.m_x-a.m_x;
-        //     const btScalar	len=del.length2();
-        //     if (l.m_c1+len > SIMD_EPSILON)
-        //     {
-        //         const btScalar	k=((l.m_c1-len)/(l.m_c0*(l.m_c1+len)))*kst;
-        //         a.m_x-=del*(k*a.m_im);
-        //         b.m_x+=del*(k*b.m_im);
-        //     }
-        // }
-        
+    
+    if(!m_psb)
+    {
+        return force;
     }
-    return force;
+        
+    int ni = (int)m_psb->m_anchors.size();
+    const btScalar	kAHR=m_psb->m_cfg.kAHR*1;
+    const btScalar	dt=m_psb->m_sst.sdt;
 
+    for(int i=0; i<ni; ++i)
+    {
+        const btSoftBody::Anchor&		a=m_psb->m_anchors[i];
+        if (a.m_body != children[0]->rigidBody.get() &&
+            a.m_body != children[1]->rigidBody.get())
+        {
+            continue;
+        }
+        
+        const btTransform&	t=a.m_body->getWorldTransform();
+        btSoftBody::Node&	n=*a.m_node;
+        const btVector3		wa=t*a.m_local;
+        const btVector3		va=a.m_body->getVelocityInLocalPoint(a.m_c1)*dt;
+        const btVector3		vb=n.m_x-n.m_q;
+        const btVector3		vr=(va-vb)+(wa-n.m_x)*kAHR;
+        const btVector3		impulse=a.m_c0*vr*a.m_influence;
+        force += -impulse/dt;
+    }
+
+    return force;
 }
 
 void GripperKinematicObject::releaseAllAnchors(btSoftBody * psb)

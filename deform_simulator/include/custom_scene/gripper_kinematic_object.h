@@ -32,10 +32,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         void getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts);
         void appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence = 1);
-        void appendAnchorLinks(btSoftBody* psb, btSoftBody::Node *node);
-
         btVector3 calculateSoftBodyForce();
-            
         void releaseAllAnchors(btSoftBody * psb);
 
         const std::vector<size_t>& getAttachedNodeIndices() const;
@@ -67,8 +64,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         bool bAttached;
         std::vector<size_t> vattached_node_inds;
-        std::vector<btSoftBody::Link*> attached_links;
-        std::vector<bool> attached_links_direction_reversed;
+        btSoftBody* m_psb = NULL;   // grabbed soft body
 
         boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
 };
