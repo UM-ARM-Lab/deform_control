@@ -50,6 +50,10 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     private:
         void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const;
 
+        void attach(btSoftBody* psb, double radius);
+        void detach();
+
+
         std::string name;
         btVector3 halfextents;
 
@@ -62,9 +66,9 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         float apperture;
         float closed_gap;  // used only for cloth (I think)
 
-        bool bAttached;
+        bool b_attached;
         std::vector<size_t> vattached_node_inds;
-        btSoftBody* m_psb = NULL;   // grabbed soft body
+        btSoftBody* m_psb = NULL;   // soft body attached to this gripper
 
         boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
 };
