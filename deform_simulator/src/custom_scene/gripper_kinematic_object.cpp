@@ -338,7 +338,7 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
  *  applied force fizzles since the gripper is a kinematic object.
  *
  */
-const btVector3 GripperKinematicObject::calculateSoftBodyForce()
+btVector3 GripperKinematicObject::calculateSoftBodyForce() const
 {
     btVector3 force = btVector3(0.0f, 0.0f, 0.0f);
     

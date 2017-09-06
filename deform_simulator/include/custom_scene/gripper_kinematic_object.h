@@ -32,7 +32,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         void getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts);
         void appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence = 1);
-        const btVector3 calculateSoftBodyForce();
+        btVector3 calculateSoftBodyForce() const;
         void releaseAllAnchors(btSoftBody * psb);
 
         const std::vector<size_t>& getAttachedNodeIndices() const;
