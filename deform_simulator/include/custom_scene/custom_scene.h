@@ -99,8 +99,10 @@ class CustomScene : public Scene
         void makeRope();
 
         void makeCloth();
-        void findClothCornerNodes();
         void createClothMirrorLine();
+        void makeClothLines();
+        void updateClothLinesCallback();
+
 
 
         void makeRopeSingleRobotControlledGrippper();
@@ -235,8 +237,9 @@ class CustomScene : public Scene
 
         void drawAxes();
 
-        PlotPoints::Ptr plot_points_;
-        PlotLines::Ptr plot_lines_;
+        PlotPoints::Ptr plot_points_ = nullptr;;
+        PlotLines::Ptr plot_lines_ = nullptr;;
+        PlotLines::Ptr strain_lines_ = nullptr;
 
         std::unordered_map<std::string, PlotLines::Ptr> visualization_line_markers_;
         std::unordered_map<std::string, PlotPoints::Ptr> visualization_point_markers_;
@@ -253,6 +256,7 @@ class CustomScene : public Scene
 
         const smmap::DeformableType deformable_type_;
         const smmap::TaskType task_type_;
+        btScalar max_strain_;
 
         ////////////////////////////////////////////////////////////////////////
         // Grippers
