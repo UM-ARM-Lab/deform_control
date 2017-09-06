@@ -500,7 +500,7 @@ void CustomScene::makeCloth()
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
     findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
-    if(VisualizeStrainLines(ph_)){
+    if (VisualizeStrainLines(ph_)){
         makeClothLines();
     }
 }

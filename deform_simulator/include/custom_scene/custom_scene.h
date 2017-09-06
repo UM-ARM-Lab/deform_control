@@ -237,9 +237,9 @@ class CustomScene : public Scene
 
         void drawAxes();
 
-        PlotPoints::Ptr plot_points_;
-        PlotLines::Ptr plot_lines_;
-        PlotLines::Ptr strain_lines_;
+        PlotPoints::Ptr plot_points_ = nullptr;;
+        PlotLines::Ptr plot_lines_ = nullptr;;
+        PlotLines::Ptr strain_lines_ = nullptr;
 
         std::unordered_map<std::string, PlotLines::Ptr> visualization_line_markers_;
         std::unordered_map<std::string, PlotPoints::Ptr> visualization_point_markers_;
