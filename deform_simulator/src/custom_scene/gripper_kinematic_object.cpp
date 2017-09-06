@@ -197,10 +197,8 @@ void GripperKinematicObject::attach(btSoftBody * psb, double radius)
             getContactPointsWith(psb, rigidBody, rcontacts);
             //std::cout << "got " << rcontacts.size() << " contacts\n";
 
-            if(rcontacts.size() == 0)
-                continue;
-
-            for (int i = 0; i < rcontacts.size(); ++i) {
+            for (int i = 0; i < rcontacts.size(); ++i)
+            {
                 //const btSoftBody::RContact &c = rcontacts[i];
                 btSoftBody::Node *node = rcontacts[i].m_node;
                 //btRigidBody* colLink = c.m_cti.m_colObj;
@@ -340,7 +338,8 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
  *  applied force fizzles since the gripper is a kinematic object.
  *
  */
-btVector3 GripperKinematicObject::calculateSoftBodyForce(){
+const btVector3 GripperKinematicObject::calculateSoftBodyForce()
+{
     btVector3 force = btVector3(0.0f, 0.0f, 0.0f);
     
     if(!m_psb)
@@ -349,25 +348,25 @@ btVector3 GripperKinematicObject::calculateSoftBodyForce(){
     }
         
     int ni = (int)m_psb->m_anchors.size();
-    const btScalar	kAHR=m_psb->m_cfg.kAHR*1;
-    const btScalar	dt=m_psb->m_sst.sdt;
+    const btScalar      kAHR=m_psb->m_cfg.kAHR*1;
+    const btScalar      dt=m_psb->m_sst.sdt;
 
     for(int i=0; i<ni; ++i)
     {
-        const btSoftBody::Anchor&		a=m_psb->m_anchors[i];
+        const btSoftBody::Anchor& a = m_psb->m_anchors[i];
         if (a.m_body != children[0]->rigidBody.get() &&
             a.m_body != children[1]->rigidBody.get())
         {
             continue;
         }
         
-        const btTransform&	t=a.m_body->getWorldTransform();
-        btSoftBody::Node&	n=*a.m_node;
-        const btVector3		wa=t*a.m_local;
-        const btVector3		va=a.m_body->getVelocityInLocalPoint(a.m_c1)*dt;
-        const btVector3		vb=n.m_x-n.m_q;
-        const btVector3		vr=(va-vb)+(wa-n.m_x)*kAHR;
-        const btVector3		impulse=a.m_c0*vr*a.m_influence;
+        const btTransform&      t=a.m_body->getWorldTransform();
+        btSoftBody::Node&       n=*a.m_node;
+        const btVector3         wa=t*a.m_local;
+        const btVector3         va=a.m_body->getVelocityInLocalPoint(a.m_c1)*dt;
+        const btVector3         vb=n.m_x-n.m_q;
+        const btVector3         vr=(va-vb)+(wa-n.m_x)*kAHR;
+        const btVector3         impulse=a.m_c0*vr*a.m_influence;
         force += -impulse/dt;
     }
 

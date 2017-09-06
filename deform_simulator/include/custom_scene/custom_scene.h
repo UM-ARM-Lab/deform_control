@@ -238,8 +238,8 @@ class CustomScene : public Scene
 
         void drawAxes();
 
-        PlotPoints::Ptr plot_points_ = nullptr;;
-        PlotLines::Ptr plot_lines_ = nullptr;;
+        PlotPoints::Ptr plot_points_ = nullptr;
+        PlotLines::Ptr plot_lines_ = nullptr;
         PlotLines::Ptr strain_lines_ = nullptr;
         PlotLines::Ptr gripper_force_lines_ = nullptr;
 
