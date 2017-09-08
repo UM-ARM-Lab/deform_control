@@ -229,6 +229,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         deformable_object_state_marker.ns = "deformable_object";
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
+        deformable_object_state_marker.scale.y = 0.01;
         deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
