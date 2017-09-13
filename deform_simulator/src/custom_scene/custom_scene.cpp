@@ -503,7 +503,7 @@ void CustomScene::makeCloth()
     findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
     if (VisualizeStrainLines(ph_)){
         makeClothLines();
-        makeGripperForceLines();
+        makeGripperWrenchLines();
     }
 }
 
@@ -548,29 +548,40 @@ void CustomScene::updateClothLinesCallback(){
     strain_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
 }
 
-void CustomScene::makeGripperForceLines()
+void CustomScene::makeGripperWrenchLines()
 {
-    gripper_force_lines_ = boost::make_shared<PlotLines>(0.2f * METERS);
+    gripper_wrench_lines_ = boost::make_shared<PlotLines>(0.2f * METERS);
     
-    addPreStepCallback(boost::bind(&CustomScene::updateGripperForceLinesCallback, this));
-    env->add(gripper_force_lines_);
+    addPreStepCallback(boost::bind(&CustomScene::updateGripperWrenchLinesCallback, this));
+    env->add(gripper_wrench_lines_);
 }
 
-void CustomScene::updateGripperForceLinesCallback(){
-    std::vector<btVector3> force_lines_endpoints;
-    force_lines_endpoints.reserve(auto_grippers_.size()*2);
+/**
+ *  Updates lines corresponding to the wrench on the grippers
+ *  For easier visualization, this plots the negative force and torques
+ *  (i.e. the force, torque applied to the cloth, not the gripper)
+ *
+ */
+void CustomScene::updateGripperWrenchLinesCallback(){
+    std::vector<btVector3> wrench_lines_endpoints;
+    std::vector<btVector4> gripper_wrench_color;
+    wrench_lines_endpoints.reserve(auto_grippers_.size()*2);
     
     for (const std::string &gripper_name: auto_grippers_)
     {
         const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
-        btVector3 force = gripper->calculateSoftBodyForce();
+        auto wrench = gripper->calculateSoftBodyWrench();
         btVector3 gripper_pos = gripper->getWorldTransform().getOrigin();
-        force_lines_endpoints.push_back(gripper_pos);
-        force_lines_endpoints.push_back(gripper_pos - force);
+        wrench_lines_endpoints.push_back(gripper_pos);
+        wrench_lines_endpoints.push_back(gripper_pos - wrench.first);
+        gripper_wrench_color.push_back(btVector4(.8, .2, .2, 1));
+        wrench_lines_endpoints.push_back(gripper_pos);
+        wrench_lines_endpoints.push_back(gripper_pos - wrench.second);
+        gripper_wrench_color.push_back(btVector4(.8, .8, .2, 1));
     }
-    std::vector<btVector4> gripper_force_color(auto_grippers_.size(), btVector4(0, 0, 1, 1));
 
-    gripper_force_lines_->setPoints(force_lines_endpoints, gripper_force_color);
+
+    gripper_wrench_lines_->setPoints(wrench_lines_endpoints, gripper_wrench_color);
 }
 
 
@@ -2020,12 +2031,23 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
         }
     }
 
+    msg.max_strain = getMaximumStrain(cloth_->softBody.get());
+
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
     {
         const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
         msg.gripper_names.push_back(gripper_name);
         msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
+        auto force_torque = gripper->calculateSoftBodyWrench();
+        geometry_msgs::Wrench wrench;
+        wrench.force.x = force_torque.first[0];
+        wrench.force.y = force_torque.first[1];
+        wrench.force.z = force_torque.first[2];
+        wrench.torque.x = force_torque.second[0];
+        wrench.torque.y = force_torque.second[1];
+        wrench.torque.z = force_torque.second[2];
+        msg.gripper_wrenches.push_back(wrench);
 
         btPointCollector collision_result = collisionHelper(gripper);
 

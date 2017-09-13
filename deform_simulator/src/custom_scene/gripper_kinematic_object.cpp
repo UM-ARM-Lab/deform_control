@@ -338,13 +338,14 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
  *  applied force fizzles since the gripper is a kinematic object.
  *
  */
-btVector3 GripperKinematicObject::calculateSoftBodyForce() const
+std::pair<btVector3, btVector3> GripperKinematicObject::calculateSoftBodyWrench() const
 {
     btVector3 force = btVector3(0.0f, 0.0f, 0.0f);
+    btVector3 torque = btVector3(0.0f, 0.0f, 0.0f);
     
     if(!m_psb)
     {
-        return force;
+        return std::make_pair(force, torque);
     }
         
     int ni = (int)m_psb->m_anchors.size();
@@ -366,11 +367,14 @@ btVector3 GripperKinematicObject::calculateSoftBodyForce() const
         const btVector3         va=a.m_body->getVelocityInLocalPoint(a.m_c1)*dt;
         const btVector3         vb=n.m_x-n.m_q;
         const btVector3         vr=(va-vb)+(wa-n.m_x)*kAHR;
-        const btVector3         impulse=a.m_c0*vr*a.m_influence;
-        force += -impulse/dt;
+        const btVector3         impulse=a.m_c0*vr*a.m_influence; //impulse on the cloth
+        const btVector3&        rel_pos = a.m_c1;
+        
+        torque -= rel_pos.cross(impulse/dt); //subtract to apply impulse on gripper
+        force -= impulse/dt;           
     }
 
-    return force;
+    return std::make_pair(force, torque);
 }
 
 void GripperKinematicObject::releaseAllAnchors(btSoftBody * psb)

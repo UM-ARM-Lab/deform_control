@@ -102,8 +102,8 @@ class CustomScene : public Scene
         void createClothMirrorLine();
         void makeClothLines();
         void updateClothLinesCallback();
-        void makeGripperForceLines();
-        void updateGripperForceLinesCallback();
+        void makeGripperWrenchLines();
+        void updateGripperWrenchLinesCallback();
 
 
         void makeRopeSingleRobotControlledGrippper();
@@ -241,7 +241,7 @@ class CustomScene : public Scene
         PlotPoints::Ptr plot_points_ = nullptr;
         PlotLines::Ptr plot_lines_ = nullptr;
         PlotLines::Ptr strain_lines_ = nullptr;
-        PlotLines::Ptr gripper_force_lines_ = nullptr;
+        PlotLines::Ptr gripper_wrench_lines_ = nullptr;
 
         std::unordered_map<std::string, PlotLines::Ptr> visualization_line_markers_;
         std::unordered_map<std::string, PlotPoints::Ptr> visualization_point_markers_;
