@@ -21,6 +21,7 @@
 #include <bullet_helpers/bullet_ros_conversions.hpp>
 #include <bullet_helpers/bullet_math_helpers.hpp>
 #include <bullet_helpers/bullet_pretty_print.hpp>
+#include <bullet_helpers/bullet_cloth_helpers.hpp>
 
 #include "utils/util.h"
 #include "custom_scene/internal_utils.hpp"
@@ -49,7 +50,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
-    , collision_map_for_export_(Eigen::Affine3d(Eigen::Translation3d(work_space_grid_.getXMin() / METERS, work_space_grid_.getYMin() / METERS, work_space_grid_.getZMin() / METERS)),
+    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(work_space_grid_.getXMin() / METERS, work_space_grid_.getYMin() / METERS, work_space_grid_.getZMin() / METERS)),
                                 smmap::GetWorldFrameName(),
                                 work_space_grid_.minStepDimension() / METERS / 2.0,
                                 (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
@@ -177,9 +178,15 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         const bool draw_free_space_graph_corners = drawScene && false;
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
+
         // Let the object settle before anything else happens
-        ROS_INFO("Waiting for the scene to settle");
-        stepFor(BulletConfig::dt, 4.0);
+        {
+            const float settle_time = GetSettlingTime(ph_);
+            ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
+            stepFor(BulletConfig::dt, settle_time);
+        }
+        
+
         // Wait for the graph to be finished being made
         {
             while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
@@ -201,9 +208,9 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         test_grippers_poses_as_.start();
     }
 
-    // TODO: remove this hardcoded spin rate
-    std::thread spin_thread(&ROSHelpers::Spin, 100.0 / BulletConfig::dt);
-    ROS_INFO("Simulation ready.");
+    ros::AsyncSpinner spinner(1);
+    spinner.start();
+    ROS_INFO("Simulation ready");
 
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
@@ -226,6 +233,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         deformable_object_state_marker.ns = "deformable_object";
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
+        deformable_object_state_marker.scale.y = 0.01;
         deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
@@ -286,9 +294,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
     }
-
-    // clean up the extra thread we started
-    spin_thread.join();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -403,8 +408,6 @@ void CustomScene::makeBulletObjects()
     assert(cover_points_.size() == cover_point_normals_.size());
 }
 
-
-
 void CustomScene::makeRope()
 {
     // find the needed table parameters
@@ -510,78 +513,79 @@ void CustomScene::makeCloth()
     env->add(cloth_);
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
-    findClothCornerNodes();
-}
-
-/**
- * Sets cloth_corner_node_indices_ to the extremal points of the mesh
- *
- * cloth_corner_node_indices_[0] = minx_miny
- * cloth_corner_node_indices_[1] = minx_maxy
- * cloth_corner_node_indices_[2] = maxx_miny
- * cloth_corner_node_indices_[3] = maxx_maxy
- */
-void CustomScene::findClothCornerNodes()
-{
-    cloth_corner_node_indices_.resize(4, 0);
-    // Setup defaults for doing the max and min operations inside of the loop
-    std::vector<btVector3> corner_node_positions(4);
-
-    // min_x, min_y
-    corner_node_positions[0] = btVector3(
-            std::numeric_limits<btScalar>::infinity(),
-            std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    // min_x, max_y
-    corner_node_positions[1] = btVector3(
-            std::numeric_limits<btScalar>::infinity(),
-            -std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    // max_x, min_y
-    corner_node_positions[2] = btVector3(
-            -std::numeric_limits<btScalar>::infinity(),
-            std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    // max_x, max_y
-    corner_node_positions[3] = btVector3(
-            -std::numeric_limits<btScalar>::infinity(),
-            -std::numeric_limits<btScalar>::infinity(),
-            0);
-
-    btSoftBody::tNodeArray cloth_nodes = cloth_->softBody->m_nodes;
-
-    // Itterate through the nodes in the cloth, finding the extremal points
-    for (int ind = 0; ind < cloth_nodes.size(); ind++)
-    {
-        if (cloth_nodes[ind].m_x.x() <= corner_node_positions[0].x() &&
-                cloth_nodes[ind].m_x.y() <= corner_node_positions[0].y())
-        {
-            cloth_corner_node_indices_[0] = ind;
-            corner_node_positions[0] = cloth_nodes[ind].m_x;
-        }
-        else if (cloth_nodes[ind].m_x.x() <= corner_node_positions[1].x() &&
-                cloth_nodes[ind].m_x.y() >= corner_node_positions[1].y())
-        {
-            cloth_corner_node_indices_[1] = ind;
-            corner_node_positions[1] = cloth_nodes[ind].m_x;
-        }
-        else if (cloth_nodes[ind].m_x.x() >= corner_node_positions[2].x() &&
-                cloth_nodes[ind].m_x.y() <= corner_node_positions[2].y())
-        {
-            cloth_corner_node_indices_[2] = ind;
-            corner_node_positions[2] = cloth_nodes[ind].m_x;
-        }
-        else if (cloth_nodes[ind].m_x.x() >= corner_node_positions[3].x() &&
-                cloth_nodes[ind].m_x.y() >= corner_node_positions[3].y())
-        {
-            cloth_corner_node_indices_[3] = ind;
-            corner_node_positions[3] = cloth_nodes[ind].m_x;
-        }
+    findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
+    if (VisualizeStrainLines(ph_)){
+        makeClothLines();
+        makeGripperForceLines();
     }
 }
+
+
+
+/*
+ *  Creates a line for each link of a cloth
+ */
+void CustomScene::makeClothLines()
+{
+    strain_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
+    max_strain_ = GetMaxStrain(ph_);
+    
+    addPreStepCallback(boost::bind(&CustomScene::updateClothLinesCallback, this));
+    env->add(strain_lines_);
+}
+
+/*
+ *  Updates all cloth strain lines with new positions and opacities
+ */
+void CustomScene::updateClothLinesCallback(){
+    const btSoftBody* psb = cloth_->softBody.get();
+    int num_links = psb->m_links.size();
+    std::vector<btVector3> cloth_lines_endpoints;
+    cloth_lines_endpoints.reserve(num_links*2);
+    std::vector<btVector4> cloth_strain_color;
+    cloth_strain_color.reserve(num_links);
+    std::vector<btScalar> strains = getStrain(psb);
+
+    for(int i=0; i<num_links; i++)
+    {
+        const btSoftBody::Link& l = psb->m_links[i];
+        cloth_lines_endpoints.push_back(l.m_n[0]->m_x);
+        cloth_lines_endpoints.push_back(l.m_n[1]->m_x);
+
+        btScalar relative_strain = strains[i]/max_strain_;
+        btScalar alpha = std::min(std::max(relative_strain, 0.0f), 1.0f);
+        btVector4 color(1.0f, 0.0f, 0.0f, alpha);
+        cloth_strain_color.push_back(color);
+    }
+    
+    strain_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
+}
+
+void CustomScene::makeGripperForceLines()
+{
+    gripper_force_lines_ = boost::make_shared<PlotLines>(0.2f * METERS);
+    
+    addPreStepCallback(boost::bind(&CustomScene::updateGripperForceLinesCallback, this));
+    env->add(gripper_force_lines_);
+}
+
+void CustomScene::updateGripperForceLinesCallback(){
+    std::vector<btVector3> force_lines_endpoints;
+    force_lines_endpoints.reserve(auto_grippers_.size()*2);
+    
+    for (const std::string &gripper_name: auto_grippers_)
+    {
+        const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
+        btVector3 force = gripper->calculateSoftBodyForce();
+        btVector3 gripper_pos = gripper->getWorldTransform().getOrigin();
+        force_lines_endpoints.push_back(gripper_pos);
+        force_lines_endpoints.push_back(gripper_pos - force);
+    }
+    std::vector<btVector4> gripper_force_color(auto_grippers_.size(), btVector4(0, 0, 1, 1));
+
+    gripper_force_lines_->setPoints(force_lines_endpoints, gripper_force_color);
+}
+
 
 void CustomScene::createClothMirrorLine()
 {

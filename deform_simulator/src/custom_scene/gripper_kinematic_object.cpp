@@ -21,9 +21,13 @@ GripperKinematicObject::GripperKinematicObject(
     , apperture(apperture_input)
 //    , apperture(0.0285f * METERS)
     , closed_gap(0.006f*METERS)
+<<<<<<< HEAD
     , bAttached(false)
     , boxhalfextents(btVector3(0.0f, 0.0f, 0.00f)*METERS)
 //    , boxhalfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
+=======
+    , b_attached(false)
+>>>>>>> master
 {
 
     // The Mass of BoxObject was 0, --- Edited by Mengyao
@@ -282,101 +286,134 @@ void GripperKinematicObject::toggleOpen()
     bOpen = !bOpen;
 }
 
+/*
+ *  If no object in gripper, then grab psb
+ *  If object in gripper, drop it
+ */
+
 void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 {
-    //std::cout << name << " toggleAttach ";
-    if(bAttached)
+    if(b_attached)
     {
-        btAlignedObjectArray<btSoftBody::Anchor> newanchors;
-        for(int i = 0; i < psb->m_anchors.size(); i++)
-        {
-            if(psb->m_anchors[i].m_body != children[0]->rigidBody.get() && psb->m_anchors[i].m_body != children[1]->rigidBody.get())
-                newanchors.push_back(psb->m_anchors[i]);
-        }
-        releaseAllAnchors(psb);
-        for(int i = 0; i < newanchors.size(); i++)
-        {
-            psb->m_anchors.push_back(newanchors[i]);
-        }
-        vattached_node_inds.clear();
+        detach();
     }
     else
     {
-        if (radius >= 0)
+        attach(psb, radius);
+    }
+}
+
+/**
+ *  Attaches a soft body to the gripper
+ *
+ *  params:
+ *    psb: the soft body to attach
+ *    radius: if >0 then attaches all points within radius of center
+              if =0 then attaches all points within the extent of gripper
+              if <0 then attaches all points in contact
+ */
+void GripperKinematicObject::attach(btSoftBody * psb, double radius)
+{
+    if (radius >= 0)
+    {
+        if(radius == 0)
         {
-            if(radius == 0)
-            {
-                radius = 2 * halfextents[0];
-            }
+            radius = 2 * halfextents[0];
+        }
 //            std::cout << "using radius contact: radius: " << radius << std::endl;
 
-            btTransform top_tm;
-            children[0]->motionState->getWorldTransform(top_tm);
-            btTransform bottom_tm;
-            children[1]->motionState->getWorldTransform(bottom_tm);
-            size_t closest_body;
-            for(int j = 0; j < psb->m_nodes.size(); j++)
-            {
-                if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
-                {
-                    if((psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length())
-                        closest_body = 0;
-                    else
-                        closest_body = 1;
-
-                    vattached_node_inds.push_back((size_t)j);
-                    appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-//                    std::cout << "\tappending anchor, closest ind: " << j << std::endl;
-
-                }
-            }
-        }
-        else
+        btTransform top_tm;
+        children[0]->motionState->getWorldTransform(top_tm);
+        btTransform bottom_tm;
+        children[1]->motionState->getWorldTransform(bottom_tm);
+        size_t closest_body;
+        for(int j = 0; j < psb->m_nodes.size(); j++)
         {
-            std::vector<btVector3> nodeposvec;
-            nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
-
-            for(size_t k = 0; k < 2; k++)
+            if((psb->m_nodes[j].m_x - cur_tm.getOrigin()).length() < radius)
             {
-                BoxObject::Ptr part = children[k];
+                if((psb->m_nodes[j].m_x - top_tm.getOrigin()).length() < (psb->m_nodes[j].m_x - bottom_tm.getOrigin()).length())
+                    closest_body = 0;
+                else
+                    closest_body = 1;
 
-                btRigidBody* rigidBody = part->rigidBody.get();
-                btSoftBody::tRContactArray rcontacts;
-                getContactPointsWith(psb, rigidBody, rcontacts);
-                //std::cout << "got " << rcontacts.size() << " contacts\n";
+                vattached_node_inds.push_back((size_t)j);
+                appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
+                // std::cout << "\tappending anchor, closest ind: " << j << std::endl;
 
-                //if no contacts, return without toggling bAttached
-                if(rcontacts.size() == 0)
-                    continue;
-
-                for (int i = 0; i < rcontacts.size(); ++i) {
-                    //const btSoftBody::RContact &c = rcontacts[i];
-                    btSoftBody::Node *node = rcontacts[i].m_node;
-                    //btRigidBody* colLink = c.m_cti.m_colObj;
-                    //if (!colLink) continue;
-                    const btVector3 &contactPt = node->m_x;
-                    //if (onInnerSide(contactPt, left)) {
-                        unsigned int closest_ind = 0;
-                        bool closest_found = false;
-                        for(unsigned int n = 0; !closest_found && n < nodeposvec.size(); n++)
-                        {
-                            if((contactPt - nodeposvec[n]).length() < 0.0001)
-                            {
-                                closest_ind = n;
-                                closest_found = true;
-                            }
-                        }
-                        assert(closest_found);
-
-                        vattached_node_inds.push_back(closest_ind);
-                        appendAnchor(psb, node, rigidBody);
-                        //std::cout << "\tappending anchor, closest ind: "<< closest_ind << std::endl;
-                }
             }
         }
     }
+    else
+    {
+        std::vector<btVector3> nodeposvec;
+        nodeArrayToNodePosVector(psb->m_nodes, nodeposvec);
 
-    bAttached = !bAttached;
+        for(size_t k = 0; k < 2; k++)
+        {
+            BoxObject::Ptr part = children[k];
+
+            btRigidBody* rigidBody = part->rigidBody.get();
+            btSoftBody::tRContactArray rcontacts;
+            getContactPointsWith(psb, rigidBody, rcontacts);
+            //std::cout << "got " << rcontacts.size() << " contacts\n";
+
+            for (int i = 0; i < rcontacts.size(); ++i)
+            {
+                //const btSoftBody::RContact &c = rcontacts[i];
+                btSoftBody::Node *node = rcontacts[i].m_node;
+                //btRigidBody* colLink = c.m_cti.m_colObj;
+                //if (!colLink) continue;
+                const btVector3 &contactPt = node->m_x;
+                //if (onInnerSide(contactPt, left)) {
+                unsigned int closest_ind = 0;
+                bool closest_found = false;
+                for(unsigned int n = 0; !closest_found && n < nodeposvec.size(); n++)
+                {
+                    if((contactPt - nodeposvec[n]).length() < 0.0001)
+                    {
+                        closest_ind = n;
+                        closest_found = true;
+                    }
+                }
+                assert(closest_found);
+
+                vattached_node_inds.push_back(closest_ind);
+                appendAnchor(psb, node, rigidBody);
+                //std::cout << "\tappending anchor, closest ind: "<< closest_ind << std::endl;
+            }
+        }
+    }
+    
+    b_attached = true;
+}
+
+
+/**
+ *  Detaches the soft body from this gripper
+ *
+ */
+void GripperKinematicObject::detach()
+{
+    if(!m_psb)
+    {
+        return;
+    }
+    
+    btAlignedObjectArray<btSoftBody::Anchor> newanchors;
+    for(int i = 0; i < m_psb->m_anchors.size(); i++)
+    {
+        if(m_psb->m_anchors[i].m_body != children[0]->rigidBody.get() &&
+           m_psb->m_anchors[i].m_body != children[1]->rigidBody.get())
+            newanchors.push_back(m_psb->m_anchors[i]);
+    }
+    releaseAllAnchors(m_psb);
+    for(int i = 0; i < newanchors.size(); i++)
+    {
+        m_psb->m_anchors.push_back(newanchors[i]);
+    }
+    vattached_node_inds.clear();
+    m_psb = NULL;
+    b_attached=false;
 }
 
 
@@ -451,6 +488,49 @@ void GripperKinematicObject::appendAnchor(btSoftBody *psb, btSoftBody::Node *nod
     a.m_node->m_battach = true;
     a.m_influence = influence;
     psb->m_anchors.push_back(a);
+    m_psb = psb;
+}
+
+/**
+ *  Calculated the forces on the gripper from the soft body anchor points.
+ *  This code is largely copied from btSoftBody::PSolve_Anchors, which runs
+ *  every simulation step. However, the duplication is necessary because the 
+ *  applied force fizzles since the gripper is a kinematic object.
+ *
+ */
+btVector3 GripperKinematicObject::calculateSoftBodyForce() const
+{
+    btVector3 force = btVector3(0.0f, 0.0f, 0.0f);
+    
+    if(!m_psb)
+    {
+        return force;
+    }
+        
+    int ni = (int)m_psb->m_anchors.size();
+    const btScalar      kAHR=m_psb->m_cfg.kAHR*1;
+    const btScalar      dt=m_psb->m_sst.sdt;
+
+    for(int i=0; i<ni; ++i)
+    {
+        const btSoftBody::Anchor& a = m_psb->m_anchors[i];
+        if (a.m_body != children[0]->rigidBody.get() &&
+            a.m_body != children[1]->rigidBody.get())
+        {
+            continue;
+        }
+        
+        const btTransform&      t=a.m_body->getWorldTransform();
+        btSoftBody::Node&       n=*a.m_node;
+        const btVector3         wa=t*a.m_local;
+        const btVector3         va=a.m_body->getVelocityInLocalPoint(a.m_c1)*dt;
+        const btVector3         vb=n.m_x-n.m_q;
+        const btVector3         vr=(va-vb)+(wa-n.m_x)*kAHR;
+        const btVector3         impulse=a.m_c0*vr*a.m_influence;
+        force += -impulse/dt;
+    }
+
+    return force;
 }
 
 void GripperKinematicObject::releaseAllAnchors(btSoftBody * psb)
@@ -469,7 +549,7 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
 {
     if (state == GripperState_DONE) return;
 
-    if (state == GripperState_OPENING && bAttached)
+    if (state == GripperState_OPENING && b_attached)
     {
         toggleAttach(psb);
     }
@@ -494,7 +574,7 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
     children[0]->motionState->setKinematicPos(top_tm);
     children[1]->motionState->setKinematicPos(bottom_tm);
 
-//        if(state == GripperState_CLOSING && !bAttached)
+//        if(state == GripperState_CLOSING && !b_attached)
 //            toggleAttach(psb, 0.5);
 
     float cur_gap_length = (top_tm.getOrigin() - bottom_tm.getOrigin()).length();
@@ -502,7 +582,7 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
     {
         state = GripperState_DONE;
         bOpen = false;
-        if(!bAttached)
+        if(!b_attached)
             toggleAttach(psb);
 
     }
@@ -541,7 +621,7 @@ void GripperKinematicObject::internalCopy(GripperKinematicObject::Ptr o, Fork &f
     o->vattached_node_inds = vattached_node_inds;
     o->halfextents = halfextents;
     o->name = name;
-    o->bAttached = bAttached;
+    o->b_attached = b_attached;
 
     o->children.clear();
     o->children.reserve(children.size());
@@ -731,7 +811,7 @@ std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gr
             << PrettyPrint::PrettyPrint(gripper.cur_tm) << std::endl
             << "apperture: " << gripper.apperture
             << " open: " << gripper.bOpen
-            << " attached: " << gripper.bAttached
+            << " attached: " << gripper.b_attached
             << " closed_gap: " << gripper.closed_gap
             << " half extents: " << " x: " << gripper.halfextents.x()
                                  << " y: " << gripper.halfextents.y()

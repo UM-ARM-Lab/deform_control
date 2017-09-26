@@ -5,7 +5,7 @@
 int main(int argc, char* argv[])
 {
     // Read in all ROS parameters
-    ros::init(argc, argv, "custom_scene", ros::init_options::NoSigintHandler);
+    ros::init(argc, argv, "deform_simulator_node", ros::init_options::NoSigintHandler);
     ros::NodeHandle nh;
     ros::NodeHandle ph("~");
 

@@ -43,6 +43,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         void getContactPointsWith(btSoftBody *psb, btCollisionObject *pco, btSoftBody::tRContactArray &rcontacts);
         void appendAnchor(btSoftBody *psb, btSoftBody::Node *node, btRigidBody *body, btScalar influence = 1);
+        btVector3 calculateSoftBodyForce() const;
         void releaseAllAnchors(btSoftBody * psb);
 
         const std::vector<size_t>& getAttachedNodeIndices() const;
@@ -73,6 +74,10 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     private:
         void internalCopy(GripperKinematicObject::Ptr o, Fork &f) const;
 
+        void attach(btSoftBody* psb, double radius);
+        void detach();
+
+
         std::string name;
         btVector3 halfextents;
 
@@ -88,8 +93,9 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         float apperture;
         float closed_gap;  // used only for cloth (I think)
 
-        bool bAttached;
+        bool b_attached;
         std::vector<size_t> vattached_node_inds;
+        btSoftBody* m_psb = NULL;   // soft body attached to this gripper
 
         // Edited by Mengyao
       //  boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
