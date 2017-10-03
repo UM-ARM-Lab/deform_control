@@ -2599,9 +2599,9 @@ bool CustomScene::getFreeSpaceGraphCallback(
             const uint64_t start_buffer_size = buffer.size();
             uint64_t running_total = 0;
 
-            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.x() / METERS, buffer);
-            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.y() / METERS, buffer);
-            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.z() / METERS, buffer);
+            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.x() / METERS, buffer);
+            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.y() / METERS, buffer);
+            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.z() / METERS, buffer);
 
             const uint64_t end_buffer_size = buffer.size();
             const uint64_t bytes_written = end_buffer_size - start_buffer_size;
@@ -2609,7 +2609,6 @@ bool CustomScene::getFreeSpaceGraphCallback(
             assert(running_total == bytes_written);
 
             return bytes_written;
-//            return 0;
         };
 
         const auto value_serializer_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
@@ -2617,9 +2616,9 @@ bool CustomScene::getFreeSpaceGraphCallback(
             const uint64_t start_buffer_size = buffer.size();
             uint64_t running_total = 0;
 
-            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.x(), buffer);
-            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.y(), buffer);
-            running_total += arc_helpers::SerializeFixedSizePOD<btScalar>(value.z(), buffer);
+            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.x(), buffer);
+            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.y(), buffer);
+            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.z(), buffer);
 
             const uint64_t end_buffer_size = buffer.size();
             const uint64_t bytes_written = end_buffer_size - start_buffer_size;
@@ -2627,7 +2626,6 @@ bool CustomScene::getFreeSpaceGraphCallback(
             assert(running_total == bytes_written);
 
             return bytes_written;
-//            return 0;
         };
 
         // Define the graph value serialization function
@@ -2636,11 +2634,11 @@ bool CustomScene::getFreeSpaceGraphCallback(
             uint64_t current_position = current;
 
             // Deserialze 3 floats, converting into doubles afterwards
-            std::pair<btScalar, uint64_t> x = arc_helpers::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
+            std::pair<btScalar, uint64_t> x = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
             current_position += x.second;
-            std::pair<btScalar, uint64_t> y = arc_helpers::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
+            std::pair<btScalar, uint64_t> y = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
             current_position += y.second;
-            std::pair<btScalar, uint64_t> z = arc_helpers::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
+            std::pair<btScalar, uint64_t> z = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
             current_position += z.second;
 
             const btVector3 deserialized(x.first, y.first, z.first);
@@ -2648,7 +2646,6 @@ bool CustomScene::getFreeSpaceGraphCallback(
             // Figure out how many bytes were read
             const uint64_t bytes_read = current_position - current;
             return std::make_pair(deserialized, bytes_read);
-//            return std::make_pair(btVector3(), 0L);
         };
 
         // Resize the edge weights by a factor of METERS
