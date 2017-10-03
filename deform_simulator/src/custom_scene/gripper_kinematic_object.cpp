@@ -21,13 +21,9 @@ GripperKinematicObject::GripperKinematicObject(
     , apperture(apperture_input)
 //    , apperture(0.0285f * METERS)
     , closed_gap(0.006f*METERS)
-<<<<<<< HEAD
-    , bAttached(false)
+    , b_attached(false)
     , boxhalfextents(btVector3(0.0f, 0.0f, 0.00f)*METERS)
 //    , boxhalfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
-=======
-    , b_attached(false)
->>>>>>> master
 {
 
     // The Mass of BoxObject was 0, --- Edited by Mengyao
