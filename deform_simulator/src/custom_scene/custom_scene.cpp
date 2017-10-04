@@ -2102,13 +2102,6 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         btVector3 nearest_node_point = cover_point;
         int64_t graph_ind = work_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
 
-        /* // For Debugging use.  --- Added by Mengyao
-        ROS_INFO_STREAM_NAMED("custom scene", "Graph ind from work space grid is: " << graph_ind << " counts ");
-        ROS_INFO_STREAM_NAMED("custom scene", "nearest node point X:: " << nearest_node_point.x() << " counts ");
-        ROS_INFO_STREAM_NAMED("custom scene", "nearest node point Y:: " << nearest_node_point.y() << " counts ");
-        ROS_INFO_STREAM_NAMED("custom scene", "nearest node point Z:: " << nearest_node_point.z() << " counts ");
-        */
-
         assert(graph_ind >= 0);
         assert(graph_ind < work_space_grid_.getNumCells());
 

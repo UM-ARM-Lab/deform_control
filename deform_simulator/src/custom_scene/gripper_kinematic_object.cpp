@@ -13,39 +13,29 @@ GripperKinematicObject::GripperKinematicObject(
         const btVector4 color)
     : name(name_input)
     #warning "Gripper size magic number - move to params file"
-//    , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
     , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
     , state(GripperState_DONE)
     , bOpen (true)
-    // TODO:: move this to RosParam
     , apperture(apperture_input)
-//    , apperture(0.0285f * METERS)
     , closed_gap(0.006f*METERS)
     , b_attached(false)
-    , boxhalfextents(btVector3(0.0f, 0.0f, 0.00f)*METERS)
-//    , boxhalfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
 {
 
-    // The Mass of BoxObject was 0, --- Edited by Mengyao
     BoxObject::Ptr top_jaw(new BoxObject(0, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1),
-                            btVector3(0, 0, apperture/2 + boxhalfextents[2] * 2)), true));
+                            btVector3(0, 0, apperture/2)), true));
     top_jaw->setColor(color[0],color[1],color[2],color[3]);
     top_jaw->collisionShape->setMargin(0.004f*METERS);
 
     BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1),
-                            btVector3(0, 0, -apperture/2 - boxhalfextents[2] * 2)), true));
+                            btVector3(0, 0, -apperture/2)), true));
     bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
     bottom_jaw->collisionShape->setMargin(0.004f*METERS);
 
     // Find the center of the gripper composite object
     top_jaw->motionState->getWorldTransform(cur_tm);
-    cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2 - boxhalfextents[2] * 2));
-
-    // TODO:: Added by Mengyao, probably should delete this one
-//    bottom_jaw->motionState->getWorldTransform(cur_bottom_tm);
-//    cur_bottom_tm.setOrigin(cur_bottom_tm.getOrigin() - btVector3(0,0, apperture/2 + boxhalfextents[2] * 2));
+    cur_tm.setOrigin(cur_tm.getOrigin() - btVector3(0,0,-apperture/2));
 
     children.push_back(top_jaw);
     children.push_back(bottom_jaw);
@@ -94,160 +84,21 @@ void GripperKinematicObject::getWorldTransform(btTransform& in)
 
 
 void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr)
-{
-    // Add dynamics squeezing boxes, --- Added by Mengyao
-    // The Mass of BoxObject was 0, --- Edited by Mengyao
+{    
+    btTransform top_tm;
+    children[0]->motionState->getWorldTransform(top_tm);
 
-    // End Mengyao Added
+    rope_cnt.reset(new btGeneric6DofSpringConstraint(*(children[0]->rigidBody.get()),
+                   *prb,
+                   top_tm.inverse()*cur_tm,
+                   btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
+                   true));
 
-    // Edited by Mengyao
-
-    // Add Ros Parameters for #switch# or move the code into a new class
-    // Add Constraint   ---- Revised by Mengyao
-    const bool use_squeezing_boxes = false;
-    if (use_squeezing_boxes)
-    {
-        // ************* Initialize squeezing boxes *********************
-        const btVector4 color(0.95f, 0.6f, 0.6f, 1.0f);
-
-        BoxObject::Ptr top_squeezing_jaw(new BoxObject(1, boxhalfextents,
-                    btTransform(prb->getOrientation(),
-                                prb->getCenterOfMassPosition() + btVector3(0, 0, apperture/2)), false));
-        top_squeezing_jaw->setColor(color[0],color[1],color[2],color[3]);
-        top_squeezing_jaw->collisionShape->setMargin(0.004f*METERS);
-
-        BoxObject::Ptr bottom_squeezing_jaw(new BoxObject(1, boxhalfextents,
-                    btTransform(prb->getOrientation(),
-                                prb->getCenterOfMassPosition() + btVector3(0, 0, -apperture/2)), false));
-        bottom_squeezing_jaw->setColor(color[0],color[1],color[2],color[3]);
-        bottom_squeezing_jaw->collisionShape->setMargin(0.004f*METERS);
-
-        top_squeezing_jaw->motionState->getWorldTransform(box_cur_top_tm);
-        box_cur_top_tm.setOrigin(box_cur_top_tm.getOrigin() - btVector3(0, 0, apperture/2));
-
-        bottom_squeezing_jaw->motionState->getWorldTransform(box_cur_bottom_tm);
-        box_cur_bottom_tm.setOrigin(box_cur_bottom_tm.getOrigin() - btVector3(0, 0, -apperture/2));
-
-        // Set best friction
-        top_squeezing_jaw->rigidBody->setFriction(1000.0);
-        bottom_squeezing_jaw->rigidBody->setFriction(1000.0);
-        // Set restitution
-        top_squeezing_jaw->rigidBody->setRestitution(0.2);
-        bottom_squeezing_jaw->rigidBody->setRestitution(0.2);
-
-    //    top_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
-    //    bottom_squeezing_jaw->rigidBody->setAnisotropicFriction(btVector3(0.9, 0.9, 0.9));
-    //    top_squeezing_jaw->rigidBody->applyForce((cur_tm.getOrigin() - box_cur_top_tm.getOrigin())*10000, box_cur_top_tm.getOrigin());
-    //    bottom_squeezing_jaw->rigidBody->applyForce((cur_tm.getOrigin() - box_cur_bottom_tm.getOrigin())*10000, box_cur_bottom_tm.getOrigin());
-
-        boxes_children.push_back(top_squeezing_jaw);
-        boxes_children.push_back(bottom_squeezing_jaw);
-
-        env_ptr->add(top_squeezing_jaw);
-        env_ptr->add(bottom_squeezing_jaw);
-        env_ptr->bullet->dynamicsWorld->getSolverInfo().m_solverMode |= SOLVER_USE_2_FRICTION_DIRECTIONS;
-
-
-        // ******************* Get squeezing boxes and grippers transform *******
-        btTransform top_tm;
-        children[0]->motionState->getWorldTransform(top_tm);
-
-        btTransform box_top_tm;
-        boxes_children[0]->motionState->getWorldTransform(box_top_tm);
-
-        btTransform bottom_tm;
-        children[1]->motionState->getWorldTransform(bottom_tm);
-
-        btTransform box_bottom_tm;
-        boxes_children[1]->motionState->getWorldTransform(box_bottom_tm);
-
-        // ******* Set Constraints: boxes to kinematic grippers ****************
-
-        // Set constraint for top one
-        top_jaw_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
-                          *(boxes_children[0]->rigidBody.get()),
-                          top_tm.inverse()*cur_tm,
-                          box_top_tm.inverse()*box_cur_top_tm,
-                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,-apperture/2)),
-                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
-                          true));
-
-        top_jaw_cnt->setLinearLowerLimit(btVector3(0,0,0));
-        top_jaw_cnt->setLinearUpperLimit(btVector3(0,0,0));
-        top_jaw_cnt->setAngularLowerLimit(btVector3(0,0,0));
-        top_jaw_cnt->setAngularUpperLimit(btVector3(0,0,0));
-        env_ptr->bullet->dynamicsWorld->addConstraint(top_jaw_cnt.get());
-
-        // **************** set constraint for bottom one **********************
-        bottom_jaw_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
-                          *(boxes_children[1]->rigidBody.get()),
-                          top_tm.inverse()*cur_tm,
-                          box_bottom_tm.inverse()*box_cur_bottom_tm,
-                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,-apperture/2)),
-                   //       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
-                          true));
-
-        bottom_jaw_cnt->setLinearLowerLimit(btVector3(0,0,0));
-        bottom_jaw_cnt->setLinearUpperLimit(btVector3(0,0,0));
-        bottom_jaw_cnt->setAngularLowerLimit(btVector3(0,0,0));
-        bottom_jaw_cnt->setAngularUpperLimit(btVector3(0,0,0));
-        env_ptr->bullet->dynamicsWorld->addConstraint(bottom_jaw_cnt.get());
-
-
-        // ***************** Set 6DOF spring constraints: boxes to rope ***********
-
-        rope_cnt.reset(new btGeneric6DofSpringConstraint(*(boxes_children[0]->rigidBody.get()),
-                       *prb,
-                       box_top_tm.inverse()*box_cur_top_tm,
-                       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,-apperture/2+halfextents[2])),
-                       true));
-
-        rope_cnt->setLinearLowerLimit(btVector3(0,0,0));
-        rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
-        rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
-        rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
-
-        rope_cnt->enableSpring(0, true);
-        rope_cnt->enableSpring(1, true);
-        rope_cnt->enableSpring(2, true);
-        rope_cnt->enableSpring(3, true);
-        rope_cnt->enableSpring(4, true);
-        rope_cnt->enableSpring(5, true);
-
-        rope_cnt->setStiffness(0, 1000.0);
-        rope_cnt->setStiffness(1, 1000.0);
-        rope_cnt->setStiffness(2, 1000.0);
-        rope_cnt->setStiffness(3, 1000.0);
-        rope_cnt->setStiffness(4, 1000.0);
-        rope_cnt->setStiffness(5, 1.0);
-
-        env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
-
-    }
-    else
-    {
-        btTransform top_tm;
-        children[0]->motionState->getWorldTransform(top_tm);
-
-        rope_cnt.reset(new btGeneric6DofSpringConstraint(*(children[0]->rigidBody.get()),
-     //   rope_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
-                       *prb,
-                       top_tm.inverse()*cur_tm,
-                       btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
-                       true));
-
-        rope_cnt->setLinearLowerLimit(btVector3(0,0,0));
-        rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
-        rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
-        rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
-        env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
-
-        // Try to enable spring
-    //    rope_cnt->enableSpring(0, true);
-    //    rope_cnt->setStiffness(0, 1000.0);
-    //    rope_cnt->enableSpring(1, true);
-    //    rope_cnt->setStiffness(1, 1000.0);
-    }
+    rope_cnt->setLinearLowerLimit(btVector3(0,0,0));
+    rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
+    rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
+    rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
+    env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
 
 
     vattached_node_inds.clear();
@@ -645,33 +496,6 @@ float GripperKinematicObject::getGripperRadius() const
             std::max(halfextents.x(), std::max(halfextents.y(), halfextents.z()));
 }
 
-// Get force and torque data for one gripper, size of data vector is two
-// --- Added by Mengyao
-std::vector<btVector3> GripperKinematicObject::getRopeGripperForce() const
-{
-    std::vector<btVector3> forceData;
-    // top and bottom box
-//    int num_boxes_for_gripper = boxes_children.size();
-    int num_boxes_for_gripper = children.size();
-    for (int child_ind = 0; child_ind < num_boxes_for_gripper; child_ind++)
-    {
-//        assert(children[child_ind]->rigidBody->hasAnisotropicFriction()
-//               && "Grippers don't have anisotropic friction, in custom_scene.cpp, get elemental force" );
-
-        // getTotalForce return m_totalfoce, which is central force on the box(rigid) body
-    //    forceData.push_back(children[child_ind]->rigidBody->getAnisotropicFriction());
-        forceData.push_back(
-                    children[child_ind]->getTotalForce());
-                  //  boxes_children[child_ind]->getTotalForce());
-    }
-    return forceData;
-}
-
-// To be rewritten later
-std::vector<btVector3> GripperKinematicObject::getGripperTotalTorque() const
-{
-    return getRopeGripperForce();
-}
 
 // Set the stretching vector information --- Added by Mengyao
 const std::string GripperKinematicObject::getGripperName()

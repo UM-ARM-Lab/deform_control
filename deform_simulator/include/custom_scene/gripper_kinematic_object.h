@@ -51,10 +51,6 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         const btVector3& getHalfExtents() const;
         float getGripperRadius() const;
 
-        // Get force data and torque data
-        std::vector<btVector3> getRopeGripperForce() const;
-        std::vector<btVector3> getGripperTotalTorque() const;
-
         // Used by the manual grippers for cloth
         void step_openclose(btSoftBody * psb);
 
@@ -81,10 +77,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         std::string name;
         btVector3 halfextents;
 
-        // Revised by Mengyao
-        // btTransform cur_tm;
         btTransform cur_tm;
-        btTransform cur_bottom_tm;
 
         enum GripperState { GripperState_DONE, GripperState_CLOSING, GripperState_OPENING };
 
@@ -97,19 +90,11 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         std::vector<size_t> vattached_node_inds;
         btSoftBody* m_psb = NULL;   // soft body attached to this gripper
 
-        // Edited by Mengyao
-      //  boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
         boost::shared_ptr<btGeneric6DofSpringConstraint> rope_cnt;
         boost::shared_ptr<btGeneric6DofConstraint> top_jaw_cnt;
         boost::shared_ptr<btGeneric6DofConstraint> bottom_jaw_cnt;
 
-        // --- Added by Mengyao
     public:
-        btVector3 boxhalfextents;
-        CompoundObject::ChildVector boxes_children;
-        btTransform box_cur_top_tm;
-        btTransform box_cur_bottom_tm;
-
         // Defined stretching detection nodes helper structure. --- Added by Mengyao
         // if more than two grippers in the future, should change it to vector
         GeoInfoToAnotherGripper to_another_gripper_info;

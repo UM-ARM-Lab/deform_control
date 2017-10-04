@@ -29,17 +29,6 @@ namespace BulletHelpers
         return nodeposvec;
     }
 
-    // Helper to convert contact info array into vector (for forces data) --- Added by Mengyao
-    inline std::vector<btVector3> nodeArrayToNodeForceAccumulatorVector(const btSoftBody::tNodeArray &m_nodes)
-    {
-        std::vector<btVector3> nodeforcevec(m_nodes.size());
-        for(int i = 0; i < m_nodes.size(); i++)
-        {
-            nodeforcevec[i] = m_nodes[i].m_f;
-        }
-        return nodeforcevec;
-    }
-
     template <typename T>
     inline btVector3 stdVectorToBtVector3(const std::vector<T>& std_vector)
     {
