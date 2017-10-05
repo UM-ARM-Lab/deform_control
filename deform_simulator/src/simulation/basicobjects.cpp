@@ -22,8 +22,6 @@ using namespace std;
 
 BulletObject::BulletObject(CI ci, const btTransform &initTrans, bool isKinematic_)
     : isKinematic(isKinematic_)
-    , rigidBody_totalForce(0.0, 0.0, 0.0)
-    , rigidBody_totalTorque(0.0, 0.0, 0.0)
 {
     assert(ci.m_motionState == nullptr);
     if (isKinematic)
@@ -44,8 +42,6 @@ BulletObject::BulletObject(CI ci, const btTransform &initTrans, bool isKinematic
 
 BulletObject::BulletObject(btScalar mass, btCollisionShape *cs, const btTransform &initTrans, bool isKinematic_)
     : isKinematic(isKinematic_)
-    , rigidBody_totalForce(0.0, 0.0, 0.0)
-    , rigidBody_totalTorque(0.0, 0.0, 0.0)
 {
     motionState.reset(new MotionState(*this, initTrans));
     collisionShape.reset(cs);
@@ -74,10 +70,6 @@ BulletObject::BulletObject(const BulletObject &o)
 
     // then copy the motionstate
     motionState = o.motionState->clone(*this);
-
-    // Copy the recorded force data
-    rigidBody_totalForce = o.rigidBody_totalForce;
-    rigidBody_totalTorque = o.rigidBody_totalTorque;
 
     // then serialize the rigid body
     boost::shared_ptr<btDefaultSerializer> serializer(new btDefaultSerializer());
@@ -247,43 +239,6 @@ void BulletObject::setColorAfterInit()
         SetColorsVisitor visitor(m_color->r(), m_color->g(), m_color->b(), m_color->a());
         node->accept(visitor);
     }
-}
-
-// Access recorded m_totalForce and m_totalTorque being cleared in
-// btDiscreteDynamicsWorld.cpp, Ln. 237.     --- Added by Mengyao
-btVector3 BulletObject::getTotalForce()
-{
-    if (!isKinematic)
-    {
-        return rigidBody_totalForce;
-    }
-    else
-    {
-        return rigidBody->getTotalForce();
-    }
-}
-
-btVector3 BulletObject::getTotalTorque()
-{
-    if (!isKinematic)
-    {
-        return rigidBody_totalTorque;
-    }
-    else
-    {
-        return rigidBody->getTotalTorque();
-    }
-
-}
-
-void BulletObject::setTotalForce(const btVector3& m_totalForce)
-{
-    rigidBody_totalForce = m_totalForce;
-}
-
-void BulletObject::setTotalTorque(const btVector3& m_totalTorque)
-{
-    rigidBody_totalTorque = m_totalTorque;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

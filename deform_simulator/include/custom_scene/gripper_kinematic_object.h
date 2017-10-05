@@ -65,6 +65,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
                 const int num_x,
                 const int num_y);
 
+
         friend std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper);
 
     private:
@@ -91,8 +92,6 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         btSoftBody* m_psb = NULL;   // soft body attached to this gripper
 
         boost::shared_ptr<btGeneric6DofSpringConstraint> rope_cnt;
-        boost::shared_ptr<btGeneric6DofConstraint> top_jaw_cnt;
-        boost::shared_ptr<btGeneric6DofConstraint> bottom_jaw_cnt;
 
     public:
         // Defined stretching detection nodes helper structure. --- Added by Mengyao

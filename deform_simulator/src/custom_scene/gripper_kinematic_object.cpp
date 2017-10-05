@@ -503,6 +503,7 @@ const std::string GripperKinematicObject::getGripperName()
     return name;
 }
 
+
 void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         Ptr to_gripper,
         const btSoftBody* cloth,
@@ -593,11 +594,7 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         to_another_gripper_info.from_nodes.push_back(min_ind);
         to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
 
-        /*
-        std::cout << "min_ind: " << min_ind << std::endl;
-        std::cout << "num_x: " << num_x << std::endl;
-        std::cout << "nodes on the cloth: " << cloth->m_nodes.size() << std::endl;
-        */
+
         assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) || "stretching info nodes outside bound");
 
         to_another_gripper_info.from_nodes.push_back(second_min_ind);
@@ -622,7 +619,6 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
                     stretching_point_to_gripper_center));
 
 }
-
 
 
 std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper)

@@ -120,9 +120,6 @@ class BulletObject : public EnvironmentObject
                 if (!obj.isKinematic)
                 {
                     btDefaultMotionState::setWorldTransform(t);
-                    // Record force and torque information before being cleared
-                    obj.setTotalForce(obj.rigidBody->getTotalForce());
-                    obj.setTotalTorque(obj.rigidBody->getTotalTorque());
                 }
             }
 
@@ -246,25 +243,12 @@ class BulletObject : public EnvironmentObject
         void setColor(const btVector4& color);
         void setColor(float r, float g, float b, float a);
 
-        // Access recorded m_totalForce and m_totalTorque being cleared in
-        // btDiscreteDynamicsWorld.cpp, Ln. 237.     --- Added by Mengyao
-        btVector3 getTotalForce();
-        btVector3 getTotalTorque();
-        void setTotalForce(const btVector3& m_totalForce);
-        void setTotalTorque(const btVector3& m_totalTorque);
-
-
     protected:
         // by default uses osgBullet. Can be overridden to provide custom OSG mesh
         virtual osg::ref_ptr<osg::Node> createOSGNode();
 
     private:
         boost::shared_ptr<osg::Vec4f> m_color;
-
-        // private variables record m_totalForce and m_totalTorque before being cleared in
-        // btDiscreteDynamicsWorld.cpp, Ln. 237.     --- Added by Mengyao
-        btVector3 rigidBody_totalForce;
-        btVector3 rigidBody_totalTorque;
 
         void setColorAfterInit();
 
