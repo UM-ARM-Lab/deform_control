@@ -249,9 +249,7 @@ class BulletObject : public EnvironmentObject
 
     private:
         boost::shared_ptr<osg::Vec4f> m_color;
-
         void setColorAfterInit();
-
 };
 
 ////////////////////////////////////////////////////////////////////////////////

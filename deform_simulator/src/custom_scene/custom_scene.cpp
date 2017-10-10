@@ -355,8 +355,6 @@ void CustomScene::makeBulletObjects()
         case TaskType::CLOTH_WAFR:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
-            // Table ----- Added by Mengyao
-        //    makeTableSurface(false);
             makeCylinder();
             break;
 
@@ -979,10 +977,8 @@ void CustomScene::makeCylinder()
 
             #pragma message "Magic numbers - discretization level of cover points"
             for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
-         //   for (float x = -cylinder_radius; x <= cylinder_radius; x += 0.02 * METERS)
             {
                 for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
-            //    for (float y = -cylinder_radius; y <= cylinder_radius; y += 0.02 * METERS)
                 {
                     // Only accept those points that are within the bounding circle
                     if (x * x + y * y < cylinder_radius * cylinder_radius)
@@ -990,7 +986,6 @@ void CustomScene::makeCylinder()
                         cover_points_.push_back(
                                     cylinder_com_origin
                                     + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
-                               //     + btVector3(x, y, cylinder_height / 2.0f + 0.00f * METERS));
 
                         cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
                     }
@@ -1001,14 +996,11 @@ void CustomScene::makeCylinder()
             // Horizontal Cylinder above first cylinder
             ////////////////////////////////////////////////////////////////////////
 
-        //    const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-        //            btVector3(-0.15f, 0.0f, 0.20f) * METERS;
             const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
                     btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_), GetWafrCylinderRelativeCenterOfMassY(nh_), GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
 
             CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
                         0, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
-                    //    0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
                         btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
             horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
@@ -1017,14 +1009,11 @@ void CustomScene::makeCylinder()
             world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
 
             #pragma message "Magic numbers - discretization level of cover points"
-
             for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
-         //   for (float theta = 1.0f * (float)M_PI - 0.15f; theta <= 2.0f * M_PI; theta += 0.015f * METERS / (horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS))
             {
                 const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
                 for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
-         //       for (float h = -0.3f * METERS; h <= 0.3f * METERS; h += 0.02f * METERS)
                 {
                     cover_points_.push_back(
                                 horizontal_cylinder_com_origin
@@ -1036,8 +1025,6 @@ void CustomScene::makeCylinder()
                     cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
                 }
             }
-
-        //    ROS_INFO_STREAM_NAMED("custom scene", "WAFR cover points set. SIZE : " << cover_points_.size() << " counts ");
             break;
         }
 
@@ -1822,24 +1809,7 @@ void CustomScene::makeRopeZigMatchObstacles()
     const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, first_floor_alpha);        // purple
     const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, second_floor_alpha);      // teal
 
-    // Make the goal region
-    /*
-    {
-        const btVector3 wall_half_extents = btVector3(0.8f * METERS, wall_thickness, internal_wall_height) / 2.0f;
-    //    const btVector3 wall_com = second_floor_center + btVector3(0.8f * METERS, 0.0f, 0.0f);
-        const btVector3 wall_com = second_floor_center + btVector3(0.8f * METERS, 0.0f, 0.0f);
-
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(second_floor_color);
-
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["goal_border_wall0"] = wall;
-    }
-    */
-
+    // Make the goal region    
     {
         const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
         const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
@@ -1939,8 +1909,6 @@ void CustomScene::makeRopeZigMatchObstacles()
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 
 }
-
-
 
 void CustomScene::makeGenericRegionCoverPoints()
 {
@@ -2090,7 +2058,6 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         }
     }
 
-    ROS_INFO_STREAM_NAMED("custom scene", "Custon Scene, Cover points set. SIZE : " << cover_points_.size() << " counts ");
     // Last connect the cover points to the graph
     cover_ind_to_free_space_graph_ind_.resize(cover_points_.size());
     for (size_t cover_ind = 0; cover_ind < cover_points_.size(); cover_ind++)
@@ -2195,7 +2162,6 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
-
     if (feedback_covariance_ > 0)
     {
         for (auto& point: msg.object_configuration)
@@ -2398,7 +2364,6 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
     gjkOutput_min.m_normalOnBInWorld.normalize();
     return gjkOutput_min;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Fork and Fork-visualization management

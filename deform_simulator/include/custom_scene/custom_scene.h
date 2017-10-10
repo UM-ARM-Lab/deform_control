@@ -149,7 +149,6 @@ class CustomScene : public Scene
         btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
         btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
 
-
         ////////////////////////////////////////////////////////////////////////////////
         // Fork and Fork-visualization management
         ////////////////////////////////////////////////////////////////////////////////

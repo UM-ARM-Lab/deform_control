@@ -20,16 +20,13 @@ GripperKinematicObject::GripperKinematicObject(
     , closed_gap(0.006f*METERS)
     , b_attached(false)
 {
-
     BoxObject::Ptr top_jaw(new BoxObject(0, halfextents,
-                btTransform(btQuaternion(0, 0, 0, 1),
-                            btVector3(0, 0, apperture/2)), true));
+                btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)), true));
     top_jaw->setColor(color[0],color[1],color[2],color[3]);
     top_jaw->collisionShape->setMargin(0.004f*METERS);
 
     BoxObject::Ptr bottom_jaw(new BoxObject(0, halfextents,
-                btTransform(btQuaternion(0, 0, 0, 1),
-                            btVector3(0, 0, -apperture/2)), true));
+                btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, -apperture/2)), true));
     bottom_jaw->setColor(color[0],color[1],color[2],color[3]);
     bottom_jaw->collisionShape->setMargin(0.004f*METERS);
 
@@ -84,22 +81,18 @@ void GripperKinematicObject::getWorldTransform(btTransform& in)
 
 
 void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr)
-{    
+{
     btTransform top_tm;
     children[0]->motionState->getWorldTransform(top_tm);
 
-    rope_cnt.reset(new btGeneric6DofSpringConstraint(*(children[0]->rigidBody.get()),
-                   *prb,
-                   top_tm.inverse()*cur_tm,
-                   btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),
-                   true));
-
+    rope_cnt.reset(new btGeneric6DofConstraint(*(children[0]->rigidBody.get()),
+                                            *prb, top_tm.inverse()*cur_tm,
+                                            btTransform(btQuaternion(0,0,0,1),btVector3(0,0,0)),true));
     rope_cnt->setLinearLowerLimit(btVector3(0,0,0));
     rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
     rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
     rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
     env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
-
 
     vattached_node_inds.clear();
     vattached_node_inds.push_back(objectnodeind);
