@@ -29,6 +29,7 @@
 
 using namespace BulletHelpers;
 using namespace smmap;
+using ColorBuilder = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>;
 
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
 
@@ -50,13 +51,17 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
-    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(work_space_grid_.getXMin() / METERS, work_space_grid_.getYMin() / METERS, work_space_grid_.getZMin() / METERS)),
-                                smmap::GetWorldFrameName(),
-                                work_space_grid_.minStepDimension() / METERS / 2.0,
-                                (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
-                                (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
-                                (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
-                                sdf_tools::COLLISION_CELL(0.0))
+    , collision_map_for_export_(
+          Eigen::Isometry3d(Eigen::Translation3d(
+                                work_space_grid_.getXMin() / METERS,
+                                work_space_grid_.getYMin() / METERS,
+                                work_space_grid_.getZMin() / METERS)),
+          smmap::GetWorldFrameName(),
+          work_space_grid_.minStepDimension() / METERS / 2.0,
+          (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
+          (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
+          (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
+          sdf_tools::COLLISION_CELL(0.0))
     , nh_(nh)
     , ph_("~")
     , feedback_covariance_(GetFeedbackCovariance(nh_))
@@ -216,10 +221,11 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     size_t deformable_object_marker_ind;
     size_t first_gripper_marker_ind;
     {
-        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
+        bullet_visualization_markers.markers.push_back(
+                    collision_map_for_export_.ExportForDisplay(
+                        ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
+                        ColorBuilder::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
+                        ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
 
 //        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
 
@@ -230,7 +236,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
         deformable_object_state_marker.scale.y = 0.01;
-        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
+        deformable_object_state_marker.color = ColorBuilder::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
         visualization_msgs::Marker cover_points_marker;
@@ -238,7 +244,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         cover_points_marker.ns = "cover_points";
         cover_points_marker.type = visualization_msgs::Marker::POINTS;
         cover_points_marker.scale.x = 0.01;
-        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
+        cover_points_marker.color = ColorBuilder::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
         cover_points_marker.points = toRosPointVector(cover_points_, METERS);
         bullet_visualization_markers.markers.push_back(cover_points_marker);
 
@@ -257,7 +263,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             gripper_marker.scale.y = gripper->getHalfExtents().y() * 2.0 / METERS;
             gripper_marker.scale.z = gripper->getHalfExtents().z() * 2.0 / METERS;
             gripper_marker.pose = toRosPose(gripper->getWorldTransform(), METERS);
-            gripper_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 1);
+            gripper_marker.color = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 1.0f);
 
             bullet_visualization_markers.markers.push_back(gripper_marker);
         }
@@ -2310,18 +2316,19 @@ SimForkResult CustomScene::simulateInNewFork(
 void CustomScene::visualizationMarkerCallback(
         visualization_msgs::Marker marker)
 {
+    // Don't lock here because the clearVisualizationsCallback will be locking itself
+    if (marker.action == visualization_msgs::Marker::DELETEALL)
+    {
+        std_srvs::Empty::Request req;
+        std_srvs::Empty::Response res;
+        clearVisualizationsCallback(req, res);
+        return;
+    }
+
     const std::string id = marker.ns + std::to_string(marker.id);
 
     // TODO: make this mutex not quite so "global" around this switch
     std::lock_guard<std::mutex> lock(sim_mutex_);
-
-    if (marker.action == visualization_msgs::Marker::DELETEALL)
-    {
-        ROS_ERROR_ONCE_NAMED(
-                    "visualization",
-                    "Delete all marker action not implemented, this message will only print once");
-        return;
-    }
 
     if (marker.action == visualization_msgs::Marker::DELETE)
     {
@@ -2383,42 +2390,100 @@ void CustomScene::visualizationMarkerCallback(
             }
             break;
         }
-        case visualization_msgs::Marker::CUBE_LIST:
-        {
-            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE_LIST as a set of cubes, this message will only print once");
-        }
         case visualization_msgs::Marker::CUBE:
         {
-            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE as a set of spheres, this message will only print once");
-            if (marker.points.size() == 0)
+            if (marker.points.size() != 0)
             {
-                geometry_msgs::Point p;
-                p.x = 0.0;
-                p.y = 0.0;
-                p.z = 0.0;
-                marker.points.push_back(p);
+                marker.points.clear();
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a CUBE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
             }
+            marker.points.push_back(geometry_msgs::Point());
             marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+        }
+        case visualization_msgs::Marker::CUBE_LIST:
+        {
+            if (marker.colors.size() == 0)
+            {
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+            else if (marker.colors.size() != marker.points.size())
+            {
+                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
+                marker.color = marker.colors[0];
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+
+            const auto marker_itr = visualization_box_markers_.find(id);
+            if (marker_itr == visualization_box_markers_.end())
+            {
+                auto boxes = boost::make_shared<PlotBoxes>();
+                boxes->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                            toOsgQuat(marker.pose.orientation),
+                            toOsgRefVec4Array(marker.colors),
+                            toOsgVec3(marker.scale, METERS));
+                visualization_box_markers_[id] = boxes;
+
+                env->add(boxes);
+            }
+            else
+            {
+                auto boxes = marker_itr->second;
+                boxes->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                            toOsgQuat(marker.pose.orientation),
+                            toOsgRefVec4Array(marker.colors),
+                            toOsgVec3(marker.scale, METERS));
+            }
+            break;
         }
         case visualization_msgs::Marker::SPHERE:
         {
+            if (marker.points.size() != 0)
+            {
+                marker.points.clear();
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
+            }
+            // Add a zero initialized point
+            marker.points.push_back(geometry_msgs::Point());
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+        }
+        case visualization_msgs::Marker::SPHERE_LIST:
+        {
+            if (marker.colors.size() == 0)
+            {
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+            else if (marker.colors.size() != marker.points.size())
+            {
+                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
+                marker.color = marker.colors[0];
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+
+            if ((marker.scale.y != marker.scale.x && marker.scale.y != 0.0f) ||
+                (marker.scale.z != marker.scale.x && marker.scale.z != 0.0f))
+            {
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE_LIST type that meaningful data in the y or z fields. This data is ignored. Namespace and id: " << id);
+            }
+
             const auto marker_itr = visualization_sphere_markers_.find(id);
             if (marker_itr == visualization_sphere_markers_.end())
             {
-                PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
+                auto spheres = boost::make_shared<PlotSpheres>();
                 spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                              // Note that we are converting from a diameter to a radius here
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
                 visualization_sphere_markers_[id] = spheres;
 
                 env->add(spheres);
             }
             else
             {
-                PlotSpheres::Ptr spheres = marker_itr->second;
+                auto spheres = marker_itr->second;
                 spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                              // Note that we are converting from a diameter to a radius here
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
             }
             break;
         }
@@ -2426,10 +2491,12 @@ void CustomScene::visualizationMarkerCallback(
         {
             if (marker.points.size() == 1)
             {
-                std::cerr << "Only 1 point for line strip:\n"
-                          << "  NS: " << marker.ns << std::endl
-                          << "  ID: " << marker.id << std::endl
-                          << "  Point: " << marker.points[0].x << " " << marker.points[0].y << " " << marker.points[0].z << std::endl;
+                ROS_ERROR_STREAM_NAMED(
+                            "visualization",
+                            "Only 1 point for line strip:\n"
+                            << "  NS: " << marker.ns << std::endl
+                            << "  ID: " << marker.id << std::endl
+                            << "  Point: " << marker.points[0].x << " " << marker.points[0].y << " " << marker.points[0].z);
             }
             if (marker.points.size() > 1)
             {
@@ -2441,7 +2508,7 @@ void CustomScene::visualizationMarkerCallback(
             const auto marker_itr = visualization_line_markers_.find(id);
             if (marker_itr == visualization_line_markers_.end())
             {
-                PlotLines::Ptr line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
+                auto line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
                                       toBulletColorArray(marker.colors));
                 visualization_line_markers_[id] = line_strip;
@@ -2450,7 +2517,7 @@ void CustomScene::visualizationMarkerCallback(
             }
             else
             {
-                PlotLines::Ptr line_strip = marker_itr->second;
+                auto line_strip = marker_itr->second;
                 line_strip->setPoints(toBulletPointVector(marker.points, METERS),
                                       toBulletColorArray(marker.colors));
             }
@@ -2472,6 +2539,60 @@ void CustomScene::visualizationMarkerArrayCallback(
         visualizationMarkerCallback(marker);
     }
 }
+
+
+bool CustomScene::clearVisualizationsCallback(
+        std_srvs::Empty::Request &req,
+        std_srvs::Empty::Response &res)
+{
+    (void)req;
+    (void)res;
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+
+    // Delete all markers from the lines list
+    {
+        for (auto& line_marker_pair : visualization_line_markers_)
+        {
+            auto plot_lines = line_marker_pair.second;
+            env->remove(plot_lines);
+        }
+        visualization_line_markers_.clear();
+    }
+
+    // Delete all markers from the points list
+    {
+        for (auto& points_marker_pair : visualization_point_markers_)
+        {
+            auto points = points_marker_pair.second;
+            env->remove(points);
+        }
+        visualization_point_markers_.clear();
+    }
+
+    // Delete all markers from the spheres list
+    {
+        for (auto& sphere_marker_pair : visualization_sphere_markers_)
+        {
+            auto spheres = sphere_marker_pair.second;
+            env->remove(spheres);
+        }
+        visualization_sphere_markers_.clear();
+    }
+
+    // Delete all markers from the boxes list
+    {
+        for (auto& boxes_marker_pair : visualization_box_markers_)
+        {
+            auto boxes = boxes_marker_pair.second;
+            env->remove(boxes);
+        }
+        visualization_sphere_markers_.clear();
+    }
+
+    return true;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // ROS Callbacks - Getting information
@@ -2718,48 +2839,6 @@ bool CustomScene::terminateSimulationCallback(
         screen_recorder_->zipScreenshots();
     }
     ros::shutdown();
-
-    return true;
-}
-
-bool CustomScene::clearVisualizationsCallback(
-        std_srvs::Empty::Request &req,
-        std_srvs::Empty::Response &res)
-{
-    (void)req;
-    (void)res;
-
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-
-    // Delete any matching marker from the points list
-    {
-        for (auto& points_marker_pair : visualization_point_markers_)
-        {
-            PlotPoints::Ptr points = points_marker_pair.second;
-            env->remove(points);
-        }
-        visualization_point_markers_.clear();
-    }
-
-    // Delete any matching marker from the spheres list
-    {
-        for (auto& sphere_marker_pair : visualization_sphere_markers_)
-        {
-            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
-            env->remove(spheres);
-        }
-        visualization_sphere_markers_.clear();
-    }
-
-    // Delete any matching markers from the lines list
-    {
-        for (auto& line_marker_pair : visualization_line_markers_)
-        {
-            PlotLines::Ptr plot_lines = line_marker_pair.second;
-            env->remove(plot_lines);
-        }
-        visualization_line_markers_.clear();
-    }
 
     return true;
 }

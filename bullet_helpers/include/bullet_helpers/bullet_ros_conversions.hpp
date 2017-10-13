@@ -138,7 +138,7 @@ namespace BulletHelpers
 
         osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
         out->reserve(ros.size());
-        for(auto& point: ros)
+        for(const auto& point: ros)
         {
             const auto eigen_point = eigen_tf * EigenHelpersConversions::GeometryPointToEigenVector3d(point);
             out->push_back(osg::Vec3(eigen_point.x(), eigen_point.y(), eigen_point.z()) * bt_scale);
@@ -146,13 +146,28 @@ namespace BulletHelpers
         return out;
     }
 
+    inline osg::Quat toOsgQuat(const geometry_msgs::Quaternion& ros_quat)
+    {
+        return osg::Quat(ros_quat.x, ros_quat.y, ros_quat.z, ros_quat.w);
+    }
+
+    inline osg::Vec3 toOsgVec3(const geometry_msgs::Vector3& ros, const float bt_scale)
+    {
+        return osg::Vec3(ros.x, ros.y, ros.z) * bt_scale;
+    }
+
+    inline osg::Vec3 toOsgVec3(const geometry_msgs::Point& ros, const float bt_scale)
+    {
+        return osg::Vec3(ros.x, ros.y, ros.z) * bt_scale;
+    }
+
     inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array(const std::vector<geometry_msgs::Point>& ros, const float bt_scale)
     {
         osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
         out->reserve(ros.size());
-        for(auto point: ros)
+        for(const auto& point: ros)
         {
-            out->push_back(osg::Vec3(point.x, point.y, point.z) * bt_scale);
+            out->push_back(toOsgVec3(point, bt_scale));
         }
         return out;
     }
@@ -161,7 +176,7 @@ namespace BulletHelpers
     {
         osg::ref_ptr<osg::Vec4Array> out = new osg::Vec4Array();
         out->reserve(ros.size());
-        for(auto color: ros)
+        for(const auto& color: ros)
         {
             out->push_back(osg::Vec4(color.r, color.g, color.b, color.a));
         }

@@ -29,6 +29,8 @@ void PlotObject::clear()
     m_geom->setColorArray(osgCols);
 }
 
+
+
 PlotPoints::PlotPoints(float size)
 {
     m_geode = new osg::Geode();
@@ -89,6 +91,8 @@ void PlotPoints::setPoints(const vector<btVector3>& pts)
     setPoints(toVec3Array(pts));
 }
 
+
+
 PlotLines::PlotLines(float width)
 {
     setDefaultColor(1,1,1,1);
@@ -125,7 +129,6 @@ void PlotLines::setPoints(const vector<btVector3>& pts)
     setPoints(toVec3Array(pts),  osgCols);
 }
 
-
 void PlotLines::setPoints(const osg::ref_ptr<osg::Vec3Array>& osgPts, const osg::ref_ptr<osg::Vec4Array>& osgCols)
 {
     int nPts = osgPts->getNumElements();
@@ -142,6 +145,8 @@ void PlotLines::setPoints(const osg::ref_ptr<osg::Vec3Array>& osgPts)
     BOOST_FOREACH(osg::Vec4& col, *osgCols) col = m_defaultColor;
     setPoints(osgPts, osgCols);
 }
+
+
 
 PlotSpheres::PlotSpheres()
 {
@@ -170,13 +175,53 @@ void PlotSpheres::plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::r
     for (int i=0; i < centers->size(); i++)
     {
         osg::TessellationHints* hints = new osg::TessellationHints();
-        hints->setDetailRatio(0.25f);
+        hints->setDetailRatio(0.7f);
         osg::Sphere* sphere = new osg::Sphere(centers->at(i), radii.at(i));
         osg::ShapeDrawable* sphereDrawable = new osg::ShapeDrawable(sphere,hints);
         sphereDrawable->setColor(cols->at(i));
         m_geode->addDrawable(sphereDrawable);
     }
 }
+
+
+
+PlotBoxes::PlotBoxes()
+{
+    m_geode = new osg::Geode();
+    m_nDrawables = 0;
+
+    osg::ref_ptr<osg::StateSet> stateset = new osg::StateSet();
+    //stateset->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    osg::ref_ptr<osg::BlendFunc> blendFunc = new osg::BlendFunc();
+    blendFunc->setFunction(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    stateset->setAttributeAndModes(blendFunc);
+    stateset->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+
+    m_geode->setStateSet(stateset);
+}
+
+void PlotBoxes::clear()
+{
+    m_geode->removeDrawables(0, m_nDrawables);
+}
+
+void PlotBoxes::plot(const osg::ref_ptr<osg::Vec3Array>& centers, const osg::Quat& rotation, const osg::ref_ptr<osg::Vec4Array>& cols, const osg::Vec3& scale)
+{
+    m_geode->removeDrawables(0,m_nDrawables);
+    m_nDrawables = centers->size();
+    for (int i=0; i < centers->size(); i++)
+    {
+        osg::TessellationHints* hints = new osg::TessellationHints();
+        hints->setDetailRatio(0.25f);
+        osg::Box* box = new osg::Box(centers->at(i), scale.x(), scale.y(), scale.z());
+        box->setRotation(rotation);
+        osg::ShapeDrawable* boxDrawable = new osg::ShapeDrawable(box,hints);
+        boxDrawable->setColor(cols->at(i));
+        m_geode->addDrawable(boxDrawable);
+    }
+}
+
+
 
 PlotAxes::PlotAxes()
     : m_ends(boost::make_shared<PlotSpheres>())
