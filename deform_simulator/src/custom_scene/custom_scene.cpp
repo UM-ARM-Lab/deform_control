@@ -322,6 +322,11 @@ void CustomScene::makeBulletObjects()
             makeRopeTwoRobotControlledGrippers();
             makeRopeMazeObstacles();
             break;
+            
+        case TaskType::CLOTH_EMPTY_WORLD:
+            makeCloth();
+            makeClothTwoRobotControlledGrippersSettable();
+            break;
 
         case TaskType::CLOTH_CYLINDER_COVERAGE:
             makeCloth();
@@ -514,7 +519,8 @@ void CustomScene::makeCloth()
  */
 void CustomScene::makeClothLines()
 {
-    strain_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
+    // strain_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
+    strain_lines_ = boost::make_shared<PlotLines>(0.2f * METERS);
     max_strain_ = GetMaxStrain(ph_);
     
     addPreStepCallback(boost::bind(&CustomScene::updateClothLinesCallback, this));
@@ -533,17 +539,55 @@ void CustomScene::updateClothLinesCallback(){
     cloth_strain_color.reserve(num_links);
     std::vector<btScalar> strains = getStrain(psb);
 
+
+    int tracking_ind = 220;
+
     for(int i=0; i<num_links; i++)
     {
+        if (i==tracking_ind)
+        {
+            continue;
+        }
+        
         const btSoftBody::Link& l = psb->m_links[i];
         cloth_lines_endpoints.push_back(l.m_n[0]->m_x);
         cloth_lines_endpoints.push_back(l.m_n[1]->m_x);
 
         btScalar relative_strain = strains[i]/max_strain_;
-        btScalar alpha = std::min(std::max(relative_strain, 0.0f), 1.0f);
+        // btScalar alpha = std::min(std::max(relative_strain, 0.0f), 1.0f);
+        btScalar alpha = .1;
         btVector4 color(1.0f, 0.0f, 0.0f, alpha);
         cloth_strain_color.push_back(color);
     }
+
+
+    /*  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     *              Only max strain
+     *  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     */
+
+    // inline btScalar getMaximumStrain(const btSoftBody* psb){
+    //     std::vector<btScalar> strains = getStrain(psb);
+    //     return *std::max_element(std::begin(strains), std::end(strains));
+    // }
+    int max_ind = std::distance(strains.begin(), std::max_element(strains.begin(), strains.end()));
+    {
+        // int i = max_ind;
+        int i = tracking_ind;
+        const btSoftBody::Link& l = psb->m_links[i];
+        cloth_lines_endpoints.push_back(l.m_n[0]->m_x);
+        cloth_lines_endpoints.push_back(l.m_n[1]->m_x);
+
+        btScalar relative_strain = strains[i]/max_strain_;
+        // btScalar alpha = std::min(std::max(relative_strain, 0.0f), 1.0f);
+        // btScalar alpha = std::min(std::max(relative_strain, 0.0f), 1.0f);
+        btScalar alpha = 1;
+        btVector4 color(0.0f, 0.0f, 0.0f, alpha);
+        cloth_strain_color.push_back(color);
+        ROS_INFO("Max Strain: %f, index %d", strains[i], i);
+        
+    }
+
     
     strain_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
 }
@@ -752,6 +796,79 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
 //        env->add(collision_check_gripper_);
     }
 }
+
+void CustomScene::makeClothTwoRobotControlledGrippersSettable()
+{
+    // auto gripper0
+    {
+        const std::string auto_gripper0_name = "auto_gripper0";
+        grippers_[auto_gripper0_name] = boost::make_shared<GripperKinematicObject>(
+                    auto_gripper0_name,
+                    GetGripperApperture(nh_) * METERS,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+        const btVector3 gripper_half_extents = grippers_[auto_gripper0_name]->getHalfExtents();
+        std::vector<double> pos = GetGripper0(nh_);
+        ROS_INFO("pos[0] %f, pos[1] %f, pos[2] %f, ", pos[0], pos[1], pos[2]);
+        btVector3 gripper_0_pos(pos[0]*METERS, pos[1]*METERS, pos[2]*METERS);
+        
+        // ROS_INFO("gripper_0_pos.x %f, ", gripper_0_pos.x());
+        // btVector3 clothx = cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x;
+        // ROS_INFO("cloth x %f, y %f, z %f ", clothx.x(), clothx.y(), clothx.z());
+        // ROS_INFO("METERS %f", METERS);
+        
+        grippers_[auto_gripper0_name]->setWorldTransform(
+                btTransform(btQuaternion(0, 0, 0, 1),
+                            gripper_0_pos));
+
+        // Grip the cloth
+        grippers_[auto_gripper0_name]->toggleOpen();
+        grippers_[auto_gripper0_name]->toggleAttach(cloth_->softBody.get());
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[auto_gripper0_name], cloth_->softBody.get()));
+
+        auto_grippers_.push_back(auto_gripper0_name);
+    }
+
+    // auto gripper1
+    {
+        const std::string auto_gripper1_name = "auto_gripper1";
+        grippers_[auto_gripper1_name] = boost::make_shared<GripperKinematicObject>(
+                    auto_gripper1_name,
+                    GetGripperApperture(nh_) * METERS,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+        const btVector3 gripper_half_extents = grippers_[auto_gripper1_name]->getHalfExtents();
+        grippers_[auto_gripper1_name]->setWorldTransform(
+                    btTransform(btQuaternion(0, 0, 0, 1),
+                                cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
+                + btVector3(gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
+
+        // Grip the cloth
+        grippers_[auto_gripper1_name]->toggleOpen();
+        grippers_[auto_gripper1_name]->toggleAttach(cloth_->softBody.get());
+
+        // Add a callback in case this gripper gets step_openclose activated on it
+        // This is a state machine whose input comes from CustomKeyHandler
+        addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[auto_gripper1_name], cloth_->softBody.get()));
+
+        auto_grippers_.push_back(auto_gripper1_name);
+    }
+
+    // Add a collision check gripper that is in the same kinematic state as used for the cloth experiments
+    {
+        collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
+                    "collision_check_gripper",
+                    GetGripperApperture(nh_) * METERS,
+                    btVector4(1.0f, 0.0f, 0.0f, 0.0f));
+        collision_check_gripper_->setWorldTransform(btTransform());
+        collision_check_gripper_->toggleOpen();
+        // We don't want to add this to the world, because then it shows up as a object to collide with
+//        env->add(collision_check_gripper_);
+    }
+}
+
+
 
 void CustomScene::makeClothTwoHumanControlledGrippers()
 {

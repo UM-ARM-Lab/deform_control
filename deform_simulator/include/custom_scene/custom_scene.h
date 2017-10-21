@@ -108,6 +108,7 @@ class CustomScene : public Scene
 
         void makeRopeSingleRobotControlledGrippper();
         void makeRopeTwoRobotControlledGrippers();
+        void makeClothTwoRobotControlledGrippersSettable();
         void makeClothTwoRobotControlledGrippers();
         void makeClothTwoHumanControlledGrippers();
         void addGrippersAndAxesToWorld();
