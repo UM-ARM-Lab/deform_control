@@ -186,7 +186,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             stepFor(BulletConfig::dt, settle_time);
         }
         
-
         // Wait for the graph to be finished being made
         {
             while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
@@ -1795,18 +1794,10 @@ void CustomScene::makeRopeZigMatchObstacles()
     const float wall_thickness = 0.2f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
     const btVector3 world_size = world_max - world_min;
-    const btVector3 first_floor_center = world_center - btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
     const btVector3 second_floor_center = world_center + btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
     const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
 
-
-    const float outer_walls_alpha = GetOuterWallsAlpha(ph_);
-    const float floor_divider_alpha = GetFloorDividerAlpha(ph_);
-    const float first_floor_alpha = GetFirstFloorAlpha(ph_);
     const float second_floor_alpha = GetSecondFloorAlpha(ph_);
-    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);      // grayish
-    const btVector4 floor_divider_color(165.0f/255.0f, 42.0f/255.0f, 42.0f/255.0f, floor_divider_alpha);    // brown
-    const btVector4 first_floor_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, first_floor_alpha);        // purple
     const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, second_floor_alpha);      // teal
 
     // Make the goal region    
