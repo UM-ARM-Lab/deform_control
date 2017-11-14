@@ -287,12 +287,16 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         }
         bullet_visualization_pub.publish(bullet_visualization_markers);
 
-//        osg::Vec3d eye, center, up;
-//        manip->getTransformation(eye, center, up);
+        if (drawScene)
+        {
+            osg::Vec3d eye, center, up;
+            manip->getTransformation(eye, center, up);
 
-//        std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
-//                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
-//                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
+            std::cout << eye.x()/METERS    << "f, " << eye.y()/METERS    << "f, " << eye.z()/METERS << "f    "
+                      << center.x()/METERS << "f, " << center.y()/METERS << "f, " << center.z()/METERS << "f    "
+                      << up.x()/METERS     << "f, " << up.y()/METERS     << "f, " << up.z()/METERS << "f"
+                      << std::endl;
+        }
 
         std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
     }
@@ -2414,25 +2418,20 @@ void CustomScene::visualizationMarkerCallback(
             }
 
             const auto marker_itr = visualization_box_markers_.find(id);
-            if (marker_itr == visualization_box_markers_.end())
+            if (marker_itr != visualization_box_markers_.end())
             {
-                auto boxes = boost::make_shared<PlotBoxes>();
-                boxes->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
-                            toOsgQuat(marker.pose.orientation),
-                            toOsgRefVec4Array(marker.colors),
-                            toOsgVec3(marker.scale, METERS));
-                visualization_box_markers_[id] = boxes;
+                auto old_boxes = marker_itr->second;
+                env->remove(old_boxes);
+            }
 
-                env->add(boxes);
-            }
-            else
-            {
-                auto boxes = marker_itr->second;
-                boxes->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
-                            toOsgQuat(marker.pose.orientation),
-                            toOsgRefVec4Array(marker.colors),
-                            toOsgVec3(marker.scale, METERS));
-            }
+            auto boxes = boost::make_shared<PlotBoxes>();
+            boxes->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                        toOsgQuat(marker.pose.orientation),
+                        toOsgRefVec4Array(marker.colors),
+                        toOsgVec3(marker.scale, METERS));
+            visualization_box_markers_[id] = boxes;
+            env->add(boxes);
+
             break;
         }
         case visualization_msgs::Marker::SPHERE:
@@ -2587,7 +2586,7 @@ bool CustomScene::clearVisualizationsCallback(
             auto boxes = boxes_marker_pair.second;
             env->remove(boxes);
         }
-        visualization_sphere_markers_.clear();
+        visualization_box_markers_.clear();
     }
 
     return true;
@@ -3010,6 +3009,17 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
                     case 'a':
                     {
                         scene_.advance_grippers_.store(!scene_.advance_grippers_.load());
+                        break;
+                    }
+                }
+
+                // Visualization keybonds
+                {
+                    case 'c':
+                    {
+                        std_srvs::Empty::Request req;
+                        std_srvs::Empty::Response res;
+                        scene_.clearVisualizationsCallback(req, res);
                         break;
                     }
                 }
