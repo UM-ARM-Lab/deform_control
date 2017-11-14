@@ -998,10 +998,12 @@ void CustomScene::makeCylinder()
             ////////////////////////////////////////////////////////////////////////
 
             const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                    btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_), GetWafrCylinderRelativeCenterOfMassY(nh_), GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
+                    btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_),
+                              GetWafrCylinderRelativeCenterOfMassY(nh_),
+                              GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
 
             CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                        0, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
+                        0.0f, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
                         btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
             horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
@@ -1780,7 +1782,6 @@ void CustomScene::makeRopeMazeObstacles()
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 }
 
-// Fixed Correspondency Task for controller. --- Added by Mengyao
 void CustomScene::makeRopeZigMatchObstacles()
 {
     const btVector3 world_min = btVector3(
@@ -1819,8 +1820,7 @@ void CustomScene::makeRopeZigMatchObstacles()
 
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
-    //    const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f);
-        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, -0.0f * METERS);
+        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f * METERS);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1833,8 +1833,7 @@ void CustomScene::makeRopeZigMatchObstacles()
     }
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
-    //    const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, 0.0f);
-        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, -0.0f * METERS);
+        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, 0.0f * METERS);
 
         BoxObject::Ptr wall = boost::make_shared<BoxObject>(
                     0, wall_half_extents,
@@ -1900,7 +1899,6 @@ void CustomScene::makeRopeZigMatchObstacles()
 
     assert((int)cover_points_.size() == num_rope_links);
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
-
 }
 
 void CustomScene::makeGenericRegionCoverPoints()
@@ -2407,15 +2405,16 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
         result.grippers_[gripper.first] = gripper_copy;
     }
 
-    /*
+    // TODO: Why do we need to do this with rope
     // If we have a rope, regrasp with the gripper
-    if (result.rope_)
+    if (result.rope_ != nullptr)
     {
-    //    assert(result.grippers_.size() == 1);
+        // Single gripper experiments, assumes that the gripper is grasping the "0th" index of the rope
         if (result.grippers_.size() == 1)
         {
             result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
         }
+        // Double gripper experiments, assumes that the gripper is grasping the "0th" and last index of the rope
         else if (result.grippers_.size() == 2)
         {
             const size_t object_node_ind = result.rope_->getChildren().size() - 1;
@@ -2427,7 +2426,6 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
             assert(false && "grippers size is neither 1 nor 2 ");
         }
     }
-    */
 
     return result;
 }
