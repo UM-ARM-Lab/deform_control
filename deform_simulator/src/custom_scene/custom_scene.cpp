@@ -30,6 +30,7 @@
 using namespace BulletHelpers;
 using namespace smmap;
 
+// TODO: Put this magic number somewhere else
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,7 +51,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
-    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(work_space_grid_.getXMin() / METERS, work_space_grid_.getYMin() / METERS, work_space_grid_.getZMin() / METERS)),
+    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
+                                                      work_space_grid_.getXMin() / METERS,
+                                                      work_space_grid_.getYMin() / METERS,
+                                                      work_space_grid_.getZMin() / METERS)),
                                 smmap::GetWorldFrameName(),
                                 work_space_grid_.minStepDimension() / METERS / 2.0,
                                 (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
@@ -754,15 +758,13 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     // Set stretching detection vector infomation
     grippers_["auto_gripper0"]->setClothGeoInfoToAnotherGripper(
                 grippers_["auto_gripper1"],
-                cloth_->softBody.get(),
-                GetClothNumControlPointsX(nh_),
-                GetClothNumControlPointsY(nh_));
+                cloth_->softBody,
+                GetClothNumControlPointsX(nh_));
 
     grippers_["auto_gripper1"]->setClothGeoInfoToAnotherGripper(
                 grippers_["auto_gripper0"],
-                cloth_->softBody.get(),
-                GetClothNumControlPointsX(nh_),
-                GetClothNumControlPointsY(nh_));
+                cloth_->softBody,
+                GetClothNumControlPointsX(nh_));
 }
 
 void CustomScene::makeClothTwoHumanControlledGrippers()
@@ -2659,10 +2661,10 @@ bool CustomScene::getGripperStretchingVectorInfoCallback(
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
 {
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
-    res.to_gripper_name = gripper->to_another_gripper_info.to_gripper_name;
-    res.attatched_indices = gripper->to_another_gripper_info.from_nodes;
-    res.neighbor_indices = gripper->to_another_gripper_info.to_nodes;
-    res.contributions = gripper->to_another_gripper_info.node_contribution;
+    res.to_gripper_name = gripper->getClothGeoInfoToAnotherGripper().to_gripper_name;
+    res.attatched_indices = gripper->getClothGeoInfoToAnotherGripper().from_nodes;
+    res.neighbor_indices = gripper->getClothGeoInfoToAnotherGripper().to_nodes;
+    res.contributions = gripper->getClothGeoInfoToAnotherGripper().node_contribution;
     return true;
 }
 

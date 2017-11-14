@@ -120,12 +120,10 @@ class CustomScene : public Scene
         void makeClothWallObstacles();
         void makeClothDoubleSlitObstacles();
         void makeRopeMazeObstacles();
-
-        // Fixed Correspondency Task for controller. --- Added by Mengyao
+        // Fixed Correspondences Task for controller
         void makeRopeZigMatchObstacles();
 
         void makeGenericRegionCoverPoints();
-
 
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
         void createFreeSpaceGraph(const bool draw_graph_corners = false);
@@ -187,7 +185,7 @@ class CustomScene : public Scene
                 deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Request& req,
                 deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Response& res);
 
-        // Stretching vector information client --- Added by Mengyao
+        // Used by StretchingAvoidanceController in SMMAP
         bool getGripperStretchingVectorInfoCallback(
                 deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
                 deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res);

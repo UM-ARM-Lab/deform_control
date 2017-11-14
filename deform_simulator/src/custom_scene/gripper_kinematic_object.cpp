@@ -7,12 +7,12 @@
 
 using namespace BulletHelpers;
 
+#pragma message "Gripper size magic number - move to params file"
 GripperKinematicObject::GripperKinematicObject(
         const std::string& name_input,
         const float apperture_input,
         const btVector4 color)
     : name(name_input)
-    #warning "Gripper size magic number - move to params file"
     , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
     , state(GripperState_DONE)
     , bOpen (true)
@@ -130,7 +130,6 @@ void GripperKinematicObject::toggleOpen()
  *  If no object in gripper, then grab psb
  *  If object in gripper, drop it
  */
-
 void GripperKinematicObject::toggleAttach(btSoftBody * psb, double radius)
 {
     if(b_attached)
@@ -400,12 +399,12 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
     children[1]->motionState->getWorldTransform(bottom_tm);
 
     float step_size = 0.005f;
-    if(state == GripperState_CLOSING)
+    if (state == GripperState_CLOSING)
     {
         top_tm.setOrigin(top_tm.getOrigin() + step_size*top_tm.getBasis().getColumn(2));
         bottom_tm.setOrigin(bottom_tm.getOrigin() - step_size*bottom_tm.getBasis().getColumn(2));
     }
-    else if(state == GripperState_OPENING)
+    else if (state == GripperState_OPENING)
     {
         top_tm.setOrigin(top_tm.getOrigin() - step_size*top_tm.getBasis().getColumn(2));
         bottom_tm.setOrigin(bottom_tm.getOrigin() + step_size*bottom_tm.getBasis().getColumn(2));
@@ -442,7 +441,6 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
 //            attach(false);
 //        }
 }
-
 
 EnvironmentObject::Ptr GripperKinematicObject::copy(Fork &f) const
 {
@@ -489,24 +487,19 @@ float GripperKinematicObject::getGripperRadius() const
             std::max(halfextents.x(), std::max(halfextents.y(), halfextents.z()));
 }
 
-
-// Set the stretching vector information --- Added by Mengyao
 const std::string GripperKinematicObject::getGripperName()
 {
     return name;
 }
 
-
 void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         Ptr to_gripper,
-        const btSoftBody* cloth,
-        const int num_x,
-        const int num_y)
+        const boost::shared_ptr<btSoftBody> cloth,
+        const int num_x)
 {
-    const std::vector<size_t>& to_gripper_attached_node_inds = to_gripper->getAttachedNodeIndices();
-    btVector3 to_gripper_origin = to_gripper->getWorldTransform().getOrigin();
-    btVector3 cur_origin = cur_tm.getOrigin();
-    std::string to_gripper_name = to_gripper->getGripperName();
+    const btVector3 to_gripper_origin = to_gripper->getWorldTransform().getOrigin();
+    const btVector3 cur_origin = cur_tm.getOrigin();
+    const std::string to_gripper_name = to_gripper->getGripperName();
 
     to_another_gripper_info.from_nodes.clear();
     to_another_gripper_info.to_nodes.clear();
@@ -515,17 +508,18 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
 
     btScalar min_dis = INFINITY;
     btScalar second_min_dis = INFINITY;
-    size_t min_ind = 0;
-    size_t second_min_ind = 0;
+    int min_ind = 0;
+    int second_min_ind = 0;
 
-    if(vattached_node_inds.size()<2)
+    if (vattached_node_inds.size() < 2)
     {
         assert(false && "number of attached nodes less than 2, no need calling this function. gripper_kinematic_object.cpp");
     }
 
     // Find the two nearest attached nodes to the center of the "to gripper"
-    for (size_t node_ind = 0; node_ind < vattached_node_inds.size(); node_ind++)
+    for (size_t array_ind = 0; array_ind < vattached_node_inds.size(); array_ind++)
     {
+        const int node_ind = (int)(vattached_node_inds[array_ind]);
         btScalar dis_to_origin = btDistance(cloth->m_nodes[node_ind].m_x, to_gripper_origin);
         if (dis_to_origin < min_dis)
         {
@@ -541,11 +535,8 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         }
     }
 
-    min_ind = vattached_node_inds.at(min_ind);
-    second_min_ind = vattached_node_inds.at(second_min_ind);
-
     // Find the relative position of grippers, highly depends on how the
-    // #makeClothTwoGrippers# works
+    // #CustomScene::makeClothTwoGrippers()# function works
     int position_factor = 0;
 
     if ((name.compare("auto_gripper0") == 0) || (name.compare("manual_gripper0") == 0))
@@ -574,7 +565,7 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
             + btDistance(cloth->m_nodes[min_ind].m_x, cur_origin);
 
     // If the center of the gripper is on the line inbetween two origins.
-    if(total_distance == btDistance(cur_origin, to_gripper_origin))
+    if (total_distance == btDistance(cur_origin, to_gripper_origin))
     {
         to_another_gripper_info.from_nodes.push_back(min_ind);
         to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
@@ -586,13 +577,11 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
     {
         to_another_gripper_info.from_nodes.push_back(min_ind);
         to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
-
-
-        assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) || "stretching info nodes outside bound");
+        assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
 
         to_another_gripper_info.from_nodes.push_back(second_min_ind);
         to_another_gripper_info.to_nodes.push_back(second_min_ind + position_factor * num_x);
-        assert(((second_min_ind + position_factor * num_x) < cloth->m_nodes.size()) || "stretching info nodes outside bound");
+        assert(((second_min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
 
         double min_con = btDistance(cur_origin, cloth->m_nodes[min_ind].m_x);
         double second_min_con = btDistance(cur_origin, cloth->m_nodes[second_min_ind].m_x);
@@ -600,17 +589,11 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         to_another_gripper_info.node_contribution.push_back(min_con/sum_con);
         to_another_gripper_info.node_contribution.push_back(second_min_con/sum_con);
     }
+}
 
-    // Set stretching offset from gripper center
-    btVector3 origins_relative_position = to_gripper_origin - cur_origin;
-    const btVector3 stretching_point_to_gripper_center = origins_relative_position.normalized() * halfextents.x();
-
-    stretching_to_center_offset.clear();
-    stretching_to_center_offset.push_back(
-                std::make_pair(
-                    to_gripper_name,
-                    stretching_point_to_gripper_center));
-
+const GripperKinematicObject::GeoInfoToAnotherGripper& GripperKinematicObject::getClothGeoInfoToAnotherGripper() const
+{
+    return to_another_gripper_info;
 }
 
 
