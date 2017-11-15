@@ -2658,7 +2658,7 @@ bool CustomScene::getGripperStretchingVectorInfoCallback(
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
 {
-    if (cloth != nullptr)
+    if (cloth_ != nullptr)
     {
         GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
         res.to_gripper_name = gripper->getClothGeoInfoToAnotherGripper().to_gripper_name;
