@@ -2653,17 +2653,25 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     return true;
 }
 
-// Stretching vector information client --- Added by Mengyao
+// Stretching vector information client
 bool CustomScene::getGripperStretchingVectorInfoCallback(
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
 {
-    GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
-    res.to_gripper_name = gripper->getClothGeoInfoToAnotherGripper().to_gripper_name;
-    res.attatched_indices = gripper->getClothGeoInfoToAnotherGripper().from_nodes;
-    res.neighbor_indices = gripper->getClothGeoInfoToAnotherGripper().to_nodes;
-    res.contributions = gripper->getClothGeoInfoToAnotherGripper().node_contribution;
-    return true;
+    if (cloth != nullptr)
+    {
+        GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
+        res.to_gripper_name = gripper->getClothGeoInfoToAnotherGripper().to_gripper_name;
+        res.attatched_indices = gripper->getClothGeoInfoToAnotherGripper().from_nodes;
+        res.neighbor_indices = gripper->getClothGeoInfoToAnotherGripper().to_nodes;
+        res.contributions = gripper->getClothGeoInfoToAnotherGripper().node_contribution;
+        return true;
+    }
+    else
+    {
+        ROS_WARN_ONCE("getGripperStretchingVectorInfo called for non-cloth task, this doesn't make sense");
+        return false;
+    }
 }
 
 bool CustomScene::getGripperPoseCallback(

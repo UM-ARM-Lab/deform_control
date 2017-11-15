@@ -19,6 +19,7 @@ GripperKinematicObject::GripperKinematicObject(
     , apperture(apperture_input)
     , closed_gap(0.006f*METERS)
     , b_attached(false)
+    , to_another_gripper_info_valid(false)
 {
     BoxObject::Ptr top_jaw(new BoxObject(0, halfextents,
                 btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, apperture/2)), true));
@@ -589,10 +590,13 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
         to_another_gripper_info.node_contribution.push_back(min_con/sum_con);
         to_another_gripper_info.node_contribution.push_back(second_min_con/sum_con);
     }
+
+    to_another_gripper_info_valid = true;
 }
 
 const GripperKinematicObject::GeoInfoToAnotherGripper& GripperKinematicObject::getClothGeoInfoToAnotherGripper() const
 {
+    assert(to_another_gripper_info_valid && "setClothGeoInfoToAnotherGripper() must be called before this function");
     return to_another_gripper_info;
 }
 

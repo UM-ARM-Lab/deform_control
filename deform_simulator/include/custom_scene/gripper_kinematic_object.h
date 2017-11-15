@@ -93,6 +93,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         // Defined stretching detection nodes helper structure.
         // if more than two grippers in the future, should change it to vector
+        bool to_another_gripper_info_valid;
         GeoInfoToAnotherGripper to_another_gripper_info;
 };
 
