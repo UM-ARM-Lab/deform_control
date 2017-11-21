@@ -66,6 +66,8 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , feedback_covariance_(GetFeedbackCovariance(nh_))
     , test_grippers_poses_as_(nh_, GetTestGrippersPosesTopic(nh_), boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
+    , raycast_source_(btVector3(GetRayCastSourceX(nh_), GetRayCastSourceY(nh_), GetRayCastSourceZ(nh_))*METERS)
+    , source_points_(1, raycast_source_)
 {
     makeBulletObjects();
 
@@ -229,6 +231,20 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
                                                    arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
 
 //        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
+
+        // Visualize ray cast source marker
+
+        visualization_msgs::Marker vis_raysource_marker;
+        //source_points_.push_back(raycast_source_);
+
+        vis_raysource_marker.header.frame_id = GetWorldFrameName();
+        vis_raysource_marker.ns = "ray_source";
+        vis_raysource_marker.type = visualization_msgs::Marker::POINTS;
+        vis_raysource_marker.scale.x = 0.01;
+        vis_raysource_marker.scale.y = 0.01;
+        vis_raysource_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 1.0f, 0.5f);
+        vis_raysource_marker.points = toRosPointVector(source_points_, METERS);
+        bullet_visualization_markers.markers.push_back(vis_raysource_marker);
 
         deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
@@ -1036,6 +1052,20 @@ void CustomScene::makeCylinder()
                 assert(false);
     }
 
+    std::vector<btVector3> show_points = cover_points_;
+    std::vector<btVector4> show_color(show_points.size(), btVector4(1, 0, 0, 1));
+
+    if (!GetFullyObservable(nh_))
+    {
+        show_points.push_back(raycast_source_);
+        show_color.push_back(btVector4(1, 1, 1, 1));
+    }
+
+    plot_points_->setPoints(show_points, show_color);
+    env->add(plot_points_);
+}
+
+    /*
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
@@ -2153,6 +2183,10 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
+
+    // fill out the occlusion info of object
+    msg.observable_nodes = getOcclusionInfo();
+
     if (feedback_covariance_ > 0)
     {
         for (auto& point: msg.object_configuration)
@@ -2199,6 +2233,8 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
     msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
+
+    msg.observable_nodes = getOcclusionInfo(result);
 
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
@@ -2268,6 +2304,104 @@ std::vector<btVector3> CustomScene::getDeformableObjectNodes(const SimForkResult
 
     return nodes;
 }
+
+// Get occlusion information. "1" is visible, "0" is invisible (occluded)
+std::vector<int8_t> CustomScene::getOcclusionInfo() const
+{
+    std::vector<int8_t> observable_map;
+
+    switch (deformable_type_)
+    {
+        case DeformableType::ROPE:
+        {
+            for(ssize_t node_ind = 0; node_ind < rope_->getNodes().size(); node_ind++)
+            {
+                if(observableNode(rope_->getNodes().at(node_ind)))
+                {
+                    observable_map.push_back((int8_t)1);
+                }
+                else
+                {
+                    observable_map.push_back((int8_t)0);
+                }
+            }
+            break;
+        }
+        case DeformableType::CLOTH:
+        {
+            std::vector<btVector3> nodes;
+            nodes = nodeArrayToNodePosVector(cloth_->softBody->m_nodes);
+            for(ssize_t node_ind = 0; node_ind < nodes.size(); node_ind++)
+            {
+                if(observableNode(nodes.at(node_ind)))
+                {
+                    observable_map.push_back((int8_t)1);
+                }
+                else
+                {
+                    observable_map.push_back((int8_t)0);
+                }
+            }
+            break;
+        }
+        default:
+        {
+            assert(false && "deformable type is neither rope nor cloth");
+            break;
+        }
+    }
+    return observable_map;
+}
+
+
+std::vector<int8_t> CustomScene::getOcclusionInfo(const SimForkResult& result) const
+{
+    std::vector<int8_t> observable_map;
+
+    switch (deformable_type_)
+    {
+        case DeformableType::ROPE:
+        {
+            for(ssize_t node_ind = 0; node_ind < result.rope_->getNodes().size(); node_ind++)
+            {
+                if(observableNode(result.rope_->getNodes().at(node_ind)))
+                {
+                    observable_map.push_back((int8_t)1);
+                }
+                else
+                {
+                    observable_map.push_back((int8_t)0);
+                }
+            }
+            break;
+        }
+        case DeformableType::CLOTH:
+        {
+            std::vector<btVector3> nodes;
+            nodes = nodeArrayToNodePosVector(result.cloth_->softBody->m_nodes);
+            for(ssize_t node_ind = 0; node_ind < nodes.size(); node_ind++)
+            {
+                if(observableNode(nodes.at(node_ind)))
+                {
+                    observable_map.push_back((int8_t)1);
+                }
+                else
+                {
+                    observable_map.push_back((int8_t)0);
+                }
+            }
+            break;
+        }
+        default:
+        {
+            assert(false && "deformable type is neither rope nor cloth");
+            break;
+        }
+    }
+    return observable_map;
+}
+
+
 
 /**
  * @brief Invoke bullet's collision detector to find the points on the gripper
@@ -2354,6 +2488,34 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
 
     gjkOutput_min.m_normalOnBInWorld.normalize();
     return gjkOutput_min;
+}
+
+
+////////////////////////////////////////////////////////////////////////
+// Ray Cast secnsor helper function
+////////////////////////////////////////////////////////////////////////
+
+bool CustomScene::observableNode(btVector3 node_on_object) const
+{
+    // Start and End are vectors
+    btCollisionWorld::ClosestRayResultCallback RayCallback(raycast_source_, node_on_object);
+
+    // Perform raycast
+    bullet->dynamicsWorld->rayTest(raycast_source_, node_on_object, RayCallback);
+
+    if(RayCallback.hasHit())
+    {
+        btVector3 End = RayCallback.m_hitPointWorld;
+        btVector3 Normal = RayCallback.m_hitNormalWorld;
+
+        const double matching_threshold = 0.00001;
+        if (btDistance(End, node_on_object) < matching_threshold)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

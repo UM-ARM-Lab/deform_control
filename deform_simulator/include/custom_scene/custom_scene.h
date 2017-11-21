@@ -147,6 +147,13 @@ class CustomScene : public Scene
         btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
         btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
 
+
+        // Get occlusion information. 1 is visible, 0 is invisible (occluded)
+        std::vector<int8_t> getOcclusionInfo() const;
+        std::vector<int8_t> getOcclusionInfo(const SimForkResult& result) const;
+
+        bool observableNode(btVector3 node_on_object) const;
+
         ////////////////////////////////////////////////////////////////////////////////
         // Fork and Fork-visualization management
         ////////////////////////////////////////////////////////////////////////////////
@@ -359,6 +366,15 @@ class CustomScene : public Scene
 
         double base_sim_time_;
         const size_t num_timesteps_to_execute_per_gripper_cmd_;
+
+        ////////////////////////////////////////////////////////////////////////
+        // Ray Cast object
+        ////////////////////////////////////////////////////////////////////////
+
+        //btCollisionWorld collision_world_;
+        btVector3 raycast_source_;
+        std::vector<btVector3> source_points_;
+
 
         ////////////////////////////////////////////////////////////////////////
         // Key Handler for our Custom Scene
