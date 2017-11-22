@@ -1063,9 +1063,7 @@ void CustomScene::makeCylinder()
 
     plot_points_->setPoints(show_points, show_color);
     env->add(plot_points_);
-}
 
-    /*
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
