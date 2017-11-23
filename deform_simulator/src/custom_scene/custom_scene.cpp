@@ -219,7 +219,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
-    bullet_visualization_markers.markers.reserve(6);
+    bullet_visualization_markers.markers.reserve(7);
 
     // Build markers for regular publishing
     size_t deformable_object_marker_ind;
