@@ -220,6 +220,10 @@ class CustomScene : public Scene
                 deformable_manipulation_msgs::GetSignedDistanceFieldRequest& req,
                 deformable_manipulation_msgs::GetSignedDistanceFieldResponse& res);
 
+        bool getObservabilitySignedDistanceFieldCallback(
+                deformable_manipulation_msgs::GetSignedDistanceFieldRequest &req,
+                deformable_manipulation_msgs::GetSignedDistanceFieldResponse &res);
+
         bool getObjectInitialConfigurationCallback(
                 deformable_manipulation_msgs::GetPointSet::Request& req,
                 deformable_manipulation_msgs::GetPointSet::Response& res);
@@ -306,6 +310,11 @@ class CustomScene : public Scene
         sdf_tools::CollisionMapGrid collision_map_for_export_;
         sdf_tools::SignedDistanceField sdf_for_export_;
 
+        // Observability information
+        sdf_tools::CollisionMapGrid observability_map_for_export_;
+        sdf_tools::SignedDistanceField observability_sdf_for_export_;
+
+
         ////////////////////////////////////////////////////////////////////////
         // Rope world objects
         ////////////////////////////////////////////////////////////////////////
@@ -351,6 +360,7 @@ class CustomScene : public Scene
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer free_space_graph_srv_;
         ros::ServiceServer signed_distance_field_srv_;
+        ros::ServiceServer observability_sdf_srv_;
         ros::ServiceServer terminate_sim_srv_;
 
         std::vector<geometry_msgs::Point> object_initial_configuration_;

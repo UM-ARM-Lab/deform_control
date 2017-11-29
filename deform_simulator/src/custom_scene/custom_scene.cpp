@@ -61,6 +61,16 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                                 (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
                                 (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
                                 sdf_tools::COLLISION_CELL(0.0))
+    , observability_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
+                                                          work_space_grid_.getXMin() / METERS,
+                                                          work_space_grid_.getYMin() / METERS,
+                                                          work_space_grid_.getZMin() / METERS)),
+                                    smmap::GetWorldFrameName(),
+                                    work_space_grid_.minStepDimension() / METERS / 2.0,
+                                    (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
+                                    (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
+                                    (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
+                                    sdf_tools::COLLISION_CELL(0.0))
     , nh_(nh)
     , ph_("~")
     , feedback_covariance_(GetFeedbackCovariance(nh_))
@@ -127,6 +137,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     // Create a service to let others know what the signed distance field of the world looks like
     signed_distance_field_srv_ = nh_.advertiseService(
             GetSignedDistanceFieldTopic(nh_), &CustomScene::getSignedDistanceFieldCallback, this);
+
+    // Create a service to let others know what the observability field of the world looks like
+    observability_sdf_srv_ = nh_.advertiseService(
+                GetObservabilitySignedDistanceFieldTopic(nh_), &CustomScene::getObservabilitySignedDistanceFieldCallback, this);
 
     // Create a service to let others know the object initial configuration
     object_initial_configuration_srv_ = nh_.advertiseService(
@@ -2142,6 +2156,18 @@ void CustomScene::createCollisionMapAndSDF()
                 {
                     collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(1.0));
                 }
+
+                // Observability information
+                const bool observable = observableNode(stdVectorToBtVector3(pos) * METERS);
+                if (observable)
+                {
+                    observability_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(0.0));
+                }
+                else
+                {
+                    observability_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(1.0));
+                }
+
             }
         }
     }
@@ -2150,6 +2176,9 @@ void CustomScene::createCollisionMapAndSDF()
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
     sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT).first;
     sdf_for_export_.Lock();
+
+    observability_sdf_for_export_ = observability_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT).first;
+    observability_sdf_for_export_.Lock();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3024,6 +3053,15 @@ bool CustomScene::getSignedDistanceFieldCallback(
 {
     (void)req;
     res.sdf = sdf_for_export_.GetMessageRepresentation();
+    return true;
+}
+
+bool CustomScene::getObservabilitySignedDistanceFieldCallback(
+        deformable_manipulation_msgs::GetSignedDistanceFieldRequest &req,
+        deformable_manipulation_msgs::GetSignedDistanceFieldResponse &res)
+{
+    (void)req;
+    res.sdf = observability_sdf_for_export_.GetMessageRepresentation();
     return true;
 }
 
