@@ -1047,6 +1047,7 @@ void CustomScene::makeCylinder()
                 const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
                 for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+            //    for (float h = -0.2 * METERS; h <= 0.2 * METERS; h += horizontal_cylinder->getHeight() / 30.0f)
                 {
                     cover_points_.push_back(
                                 horizontal_cylinder_com_origin
