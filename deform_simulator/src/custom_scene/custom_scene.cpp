@@ -1047,7 +1047,6 @@ void CustomScene::makeCylinder()
                 const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
                 for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
-            //    for (float h = -0.2 * METERS; h <= 0.2 * METERS; h += horizontal_cylinder->getHeight() / 30.0f)
                 {
                     cover_points_.push_back(
                                 horizontal_cylinder_com_origin
@@ -1078,10 +1077,6 @@ void CustomScene::makeCylinder()
 
     plot_points_->setPoints(show_points, show_color);
     env->add(plot_points_);
-
-    //std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
-    //plot_points_->setPoints(cover_points_, coverage_color);
-    //env->add(plot_points_);
 }
 
 void CustomScene::makeSinglePoleObstacles()
@@ -2428,8 +2423,6 @@ std::vector<int8_t> CustomScene::getOcclusionInfo(const SimForkResult& result) c
     }
     return observable_map;
 }
-
-
 
 /**
  * @brief Invoke bullet's collision detector to find the points on the gripper
