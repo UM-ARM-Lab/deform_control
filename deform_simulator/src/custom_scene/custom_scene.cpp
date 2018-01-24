@@ -314,14 +314,14 @@ void CustomScene::makeBulletObjects()
             makeRope();
             makeRopeSingleRobotControlledGrippper();
             makeTableSurface(false);
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeTableSurface(false);
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::ROPE_MAZE:
@@ -340,7 +340,7 @@ void CustomScene::makeBulletObjects()
         case TaskType::CLOTH_CYLINDER_COVERAGE:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::CLOTH_TABLE_COVERAGE:
@@ -358,7 +358,7 @@ void CustomScene::makeBulletObjects()
         case TaskType::CLOTH_WAFR:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::CLOTH_SINGLE_POLE:
@@ -396,6 +396,15 @@ void CustomScene::makeBulletObjects()
             makeRope();
             makeRopeSingleRobotControlledGrippper();
             makeTableSurface(false);
+            break;
+
+        case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
+            // Creating the cloth just so that various other parts of the code have valid data to parse.
+            // The cloth part of the simulation is not actually used for anything.
+            makeCloth();
+//            makeClothTwoRobotControlledGrippers();
+            makeTableSurface(false);
+            makeCylinder(false);
             break;
 
 
@@ -905,7 +914,7 @@ void CustomScene::makeTableSurface(const bool create_cover_points, const float s
     }
 }
 
-void CustomScene::makeCylinder()
+void CustomScene::makeCylinder(const bool create_cover_points)
 {
     // cylinder parameters
     const btVector3 cylinder_com_origin =
@@ -926,119 +935,122 @@ void CustomScene::makeCylinder()
     env->add(cylinder);
     world_obstacles_["cylinder"] = cylinder;
 
-    switch (task_type_)
+    if (create_cover_points)
     {
-        case TaskType::ROPE_CYLINDER_COVERAGE:
+        switch (task_type_)
         {
-            #pragma message "Magic numbers - discretization level of cover points"
-            // consider 21 points around the cylinder
-            for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+            case TaskType::ROPE_CYLINDER_COVERAGE:
             {
-                // 31 points per theta
-                for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
+                #pragma message "Magic numbers - discretization level of cover points"
+                // consider 21 points around the cylinder
+                for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+                // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
                 {
-                    cover_points_.push_back(
-                            cylinder_com_origin
-                            + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
-                                         (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
-                                         h));
-
-                    cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
-                }
-            }
-            break;
-        }
-
-        case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
-        {
-            #pragma message "Magic numbers - discretization level of cover points"
-            // consider 21 points around the cylinder
-            for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
-            {
-                // 31 points per theta
-                for (float h = -cylinder_height / 8.0f; h < cylinder_height / 8.0f; h += cylinder_height / 30.0f)
-                {
-                    cover_points_.push_back(
-                            cylinder_com_origin
-                            + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
-                                         (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
-                                         h));
-
-                    cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
-                }
-            }
-            break;
-        }
-
-        case TaskType::CLOTH_WAFR:
-        {
-            const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
-
-            #pragma message "Magic numbers - discretization level of cover points"
-            for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
-            {
-                for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
-                {
-                    // Only accept those points that are within the bounding circle
-                    if (x * x + y * y < cylinder_radius * cylinder_radius)
+                    // 31 points per theta
+                    for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
                     {
                         cover_points_.push_back(
-                                    cylinder_com_origin
-                                    + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+                                cylinder_com_origin
+                                + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                             (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                             h));
 
-                        cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
+                        cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
                     }
                 }
+                break;
             }
 
-            ////////////////////////////////////////////////////////////////////////
-            // Horizontal Cylinder above first cylinder
-            ////////////////////////////////////////////////////////////////////////
-
-            const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                    btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_),
-                              GetWafrCylinderRelativeCenterOfMassY(nh_),
-                              GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
-
-            CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                        0.0f, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
-                        btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
-            horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
-
-            // add the cylinder to the world
-            env->add(horizontal_cylinder);
-            world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
-
-            #pragma message "Magic numbers - discretization level of cover points"
-            for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+            case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
             {
-                const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
-
-                for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+                #pragma message "Magic numbers - discretization level of cover points"
+                // consider 21 points around the cylinder
+                for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+                // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
                 {
-                    cover_points_.push_back(
-                                horizontal_cylinder_com_origin
-                                + btVector3(
-                                    cover_points_radius * std::sin(theta),
-                                    h,
-                                    cover_points_radius * std::cos(theta)));
+                    // 31 points per theta
+                    for (float h = -cylinder_height / 8.0f; h < cylinder_height / 8.0f; h += cylinder_height / 30.0f)
+                    {
+                        cover_points_.push_back(
+                                cylinder_com_origin
+                                + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                             (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                             h));
 
-                    cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
+                        cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
+                    }
                 }
+                break;
             }
-            break;
+
+            case TaskType::CLOTH_WAFR:
+            {
+                const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
+
+                #pragma message "Magic numbers - discretization level of cover points"
+                for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
+                {
+                    for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
+                    {
+                        // Only accept those points that are within the bounding circle
+                        if (x * x + y * y < cylinder_radius * cylinder_radius)
+                        {
+                            cover_points_.push_back(
+                                        cylinder_com_origin
+                                        + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+
+                            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
+                        }
+                    }
+                }
+
+                ////////////////////////////////////////////////////////////////////////
+                // Horizontal Cylinder above first cylinder
+                ////////////////////////////////////////////////////////////////////////
+
+                const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
+                        btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_),
+                                  GetWafrCylinderRelativeCenterOfMassY(nh_),
+                                  GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
+
+                CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
+                            0.0f, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
+                            btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
+                horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+                // add the cylinder to the world
+                env->add(horizontal_cylinder);
+                world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
+
+                #pragma message "Magic numbers - discretization level of cover points"
+                for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+                {
+                    const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
+
+                    for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+                    {
+                        cover_points_.push_back(
+                                    horizontal_cylinder_com_origin
+                                    + btVector3(
+                                        cover_points_radius * std::sin(theta),
+                                        h,
+                                        cover_points_radius * std::cos(theta)));
+
+                        cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
+                    }
+                }
+                break;
+            }
+
+            default:
+                    ROS_FATAL_NAMED("deform_simulator", "Making cylinder cover points for unknown task, this should not be possible");
+                    assert(false);
         }
 
-        default:
-                ROS_FATAL_NAMED("deform_simulator", "Making cylinder for unknown task, this should not be possible");
-                assert(false);
+        std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+        plot_points_->setPoints(cover_points_, coverage_color);
+        env->add(plot_points_);
     }
-
-    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
-    plot_points_->setPoints(cover_points_, coverage_color);
-    env->add(plot_points_);
 }
 
 void CustomScene::makeSinglePoleObstacles()

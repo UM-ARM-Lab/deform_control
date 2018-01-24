@@ -114,7 +114,7 @@ class CustomScene : public Scene
 
 
         void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f, const bool add_legs = false);
-        void makeCylinder();
+        void makeCylinder(const bool create_cover_points);
         void makeSinglePoleObstacles();
         void makeWallObstacles();
         void makeClothWallObstacles();
