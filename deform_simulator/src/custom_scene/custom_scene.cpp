@@ -2647,7 +2647,10 @@ void CustomScene::visualizationMarkerCallback(
                 p.z = 0.0;
                 marker.points.push_back(p);
             }
-            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            if (marker.colors.size() != marker.points.size())
+            {
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
         }
         case visualization_msgs::Marker::SPHERE:
         {
