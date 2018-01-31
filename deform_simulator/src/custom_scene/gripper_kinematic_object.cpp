@@ -507,88 +507,105 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
     to_another_gripper_info.node_contribution.clear();
     to_another_gripper_info.to_gripper_name = to_gripper_name;
 
-    btScalar min_dis = INFINITY;
-    btScalar second_min_dis = INFINITY;
-    int min_ind = 0;
-    int second_min_ind = 0;
+    assert(vattached_node_inds.size() > 0 && to_gripper->vattached_node_inds.size() > 0 &&
+           "Both grippers need to be grasping the cloth for this function to have meaning. gripper_kinematic_object.cpp");
 
     if (vattached_node_inds.size() < 2)
     {
-        assert(false && "number of attached nodes less than 2, no need calling this function. gripper_kinematic_object.cpp");
-    }
+        // Handle the special case where both grippers are connected to only a single node.
+        if (to_gripper->vattached_node_inds.size() < 2)
+        {
+            to_another_gripper_info.from_nodes.push_back(vattached_node_inds[0]);
+            to_another_gripper_info.to_nodes.push_back(to_gripper->vattached_node_inds[0]);
 
-    // Find the two nearest attached nodes to the center of the "to gripper"
-    for (size_t array_ind = 0; array_ind < vattached_node_inds.size(); array_ind++)
-    {
-        const int node_ind = (int)(vattached_node_inds[array_ind]);
-        btScalar dis_to_origin = btDistance(cloth->m_nodes[node_ind].m_x, to_gripper_origin);
-        if (dis_to_origin < min_dis)
-        {
-            second_min_dis = min_dis;
-            min_dis = dis_to_origin;
-            second_min_ind = min_ind;
-            min_ind = node_ind;
+            const double full_contribution = 1.0;
+            to_another_gripper_info.node_contribution.push_back(full_contribution);
         }
-        else if (dis_to_origin < second_min_dis)
+        else
         {
-            second_min_dis = dis_to_origin;
-            second_min_ind = node_ind;
+            // We do not handle the case where the current gripper has 1 node, but the other gripper has multiple nodes.
+            assert(false && "Mismatch on number of nodes grasped by grippers, special case of self with 1 node, other with 2 nodes is not handled. gripper_kinematic_object.cpp");
         }
-    }
-
-    // Find the relative position of grippers, highly depends on how the
-    // #CustomScene::makeClothTwoGrippers()# function works
-    int position_factor = 0;
-
-    if ((name.compare("auto_gripper0") == 0) || (name.compare("manual_gripper0") == 0))
-    {
-        if ((to_gripper_name.compare("auto_gripper0") == 0) || (to_gripper_name.compare("manual_gripper0") == 0))
-        {
-            assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
-        }
-        position_factor = 1;
-    }
-    else if ((name.compare("auto_gripper1") == 0) || (name.compare("manual_gripper1") == 0))
-    {
-        if ((to_gripper_name.compare("auto_gripper1") == 0) || (to_gripper_name.compare("manual_gripper1") == 0))
-        {
-            assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
-        }
-        position_factor = -1;
     }
     else
     {
-        assert(false && "failed to set stretching detection vector for the cloth, in gripper_kinematic_object.cpp");
-    }
+        // Find the two nearest attached nodes to the center of the "to gripper"
+        btScalar min_dis = INFINITY;
+        btScalar second_min_dis = INFINITY;
+        int min_ind = 0;
+        int second_min_ind = 0;
 
-    // Set the tracking nodes pair for stretching detection vector
-    double total_distance = btDistance(cloth->m_nodes[min_ind].m_x, to_gripper_origin)
-            + btDistance(cloth->m_nodes[min_ind].m_x, cur_origin);
+        for (size_t array_ind = 0; array_ind < vattached_node_inds.size(); array_ind++)
+        {
+            const int node_ind = (int)(vattached_node_inds[array_ind]);
+            btScalar dis_to_origin = btDistance(cloth->m_nodes[node_ind].m_x, to_gripper_origin);
+            if (dis_to_origin < min_dis)
+            {
+                second_min_dis = min_dis;
+                min_dis = dis_to_origin;
+                second_min_ind = min_ind;
+                min_ind = node_ind;
+            }
+            else if (dis_to_origin < second_min_dis)
+            {
+                second_min_dis = dis_to_origin;
+                second_min_ind = node_ind;
+            }
+        }
 
-    // If the center of the gripper is on the line inbetween two origins.
-    if (total_distance == btDistance(cur_origin, to_gripper_origin))
-    {
-        to_another_gripper_info.from_nodes.push_back(min_ind);
-        to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
-        assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
-        double full_contribution = 1.0;
-        to_another_gripper_info.node_contribution.push_back(full_contribution);
-    }
-    else
-    {
-        to_another_gripper_info.from_nodes.push_back(min_ind);
-        to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
-        assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
+        // Find the relative position of grippers, highly depends on how the
+        // #CustomScene::makeClothTwoGrippers()# function works
+        int position_factor = 0;
+        if ((name == "auto_gripper0") || (name == "manual_gripper0"))
+        {
+            if ((to_gripper_name == "auto_gripper0") || (to_gripper_name == "manual_gripper0"))
+            {
+                assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
+            }
+            position_factor = 1;
+        }
+        else if ((name == "auto_gripper1") || (name == "manual_gripper1"))
+        {
+            if ((to_gripper_name == "auto_gripper1") || (to_gripper_name == "manual_gripper1"))
+            {
+                assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
+            }
+            position_factor = -1;
+        }
+        else
+        {
+            assert(false && "failed to set stretching detection vector for the cloth, in gripper_kinematic_object.cpp");
+        }
 
-        to_another_gripper_info.from_nodes.push_back(second_min_ind);
-        to_another_gripper_info.to_nodes.push_back(second_min_ind + position_factor * num_x);
-        assert(((second_min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
+        // Set the tracking nodes pair for stretching detection vector
+        double total_distance = btDistance(cloth->m_nodes[min_ind].m_x, to_gripper_origin)
+                + btDistance(cloth->m_nodes[min_ind].m_x, cur_origin);
 
-        double min_con = btDistance(cur_origin, cloth->m_nodes[min_ind].m_x);
-        double second_min_con = btDistance(cur_origin, cloth->m_nodes[second_min_ind].m_x);
-        double sum_con = min_con + second_min_con;
-        to_another_gripper_info.node_contribution.push_back(min_con/sum_con);
-        to_another_gripper_info.node_contribution.push_back(second_min_con/sum_con);
+        // If the center of the gripper is on the line inbetween two origins.
+        if (total_distance == btDistance(cur_origin, to_gripper_origin))
+        {
+            to_another_gripper_info.from_nodes.push_back(min_ind);
+            to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
+            assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
+            double full_contribution = 1.0;
+            to_another_gripper_info.node_contribution.push_back(full_contribution);
+        }
+        else
+        {
+            to_another_gripper_info.from_nodes.push_back(min_ind);
+            to_another_gripper_info.to_nodes.push_back(min_ind + position_factor * num_x);
+            assert(((min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
+
+            to_another_gripper_info.from_nodes.push_back(second_min_ind);
+            to_another_gripper_info.to_nodes.push_back(second_min_ind + position_factor * num_x);
+            assert(((second_min_ind + position_factor * num_x) < cloth->m_nodes.size()) && "stretching info nodes outside bound");
+
+            double min_con = btDistance(cur_origin, cloth->m_nodes[min_ind].m_x);
+            double second_min_con = btDistance(cur_origin, cloth->m_nodes[second_min_ind].m_x);
+            double sum_con = min_con + second_min_con;
+            to_another_gripper_info.node_contribution.push_back(min_con/sum_con);
+            to_another_gripper_info.node_contribution.push_back(second_min_con/sum_con);
+        }
     }
 
     to_another_gripper_info_valid = true;

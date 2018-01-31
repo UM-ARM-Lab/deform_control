@@ -8,6 +8,7 @@
 #include <thread>
 #include <future>
 #include <ros/callback_queue.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
@@ -51,29 +52,239 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
+    , nh_(nh)
+    , ph_("~")
+    , ros_spinner_(1)
+    , bullet_frame_name_(smmap::GetBulletFrameName())
+    , world_frame_name_(smmap::GetWorldFrameName())
+    , tf_buffer_()
+    , tf_listener_(tf_buffer_)
+
+    // Uses bullet_frame while being built, is transformed to the world frame once built
     , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
                                                       work_space_grid_.getXMin() / METERS,
                                                       work_space_grid_.getYMin() / METERS,
                                                       work_space_grid_.getZMin() / METERS)),
-                                smmap::GetWorldFrameName(),
+                                bullet_frame_name_,
                                 work_space_grid_.minStepDimension() / METERS / 2.0,
                                 (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
                                 (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
                                 (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
                                 sdf_tools::COLLISION_CELL(0.0))
-    , nh_(nh)
-    , ph_("~")
     , feedback_covariance_(GetFeedbackCovariance(nh_))
-    , test_grippers_poses_as_(nh_, GetTestGrippersPosesTopic(nh_), boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
+    , test_grippers_poses_as_(nh_,
+                              GetTestGrippersPosesTopic(nh_),
+                              boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
 {
     makeBulletObjects();
+    // We'll create the various ROS publishers, subscribers and services later to that
+    // TF has a chance to collect some data before we need to use it
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Main function that makes things happen
+////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::run(const bool drawScene, const bool syncTime)
+{
+    // Run the startup code for the viewer and everything else
+    // ros::ok() is only here to bypass things if a fast SIGINT is received
+    if (ros::ok())
+    {
+        // Start listening for TF messages
+        ros_spinner_.start();
+        getWorldToBulletTransform();
+
+        ViewerConfig::windowWidth = GetViewerWidth(ph_);
+        ViewerConfig::windowHeight = GetViewerHeight(ph_);
+
+        // Note that viewer cleans up this memory
+        viewer.addEventHandler(new CustomKeyHandler(*this));
+
+        // When the viewer closes, shutdown ROS
+        addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
+                        boost::bind(&CustomScene::terminateSimulationCallback, this,
+                                    std_srvs::Empty::Request(), std_srvs::Empty::Response()));
+
+        addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
+
+        // if syncTime is set, the simulator blocks until the real time elapsed
+        // matches the simulator time elapsed, or something, it's not clear
+        setSyncTime(syncTime);
+        setDrawing(drawScene);
+        if (drawScene)
+        {
+            startViewer();
+        }
+        screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
+
+        // Create a thread to create the free space graph and collision map while the object settles
+        const bool draw_free_space_graph_corners = drawScene && false;
+        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
+        auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
+
+        // Let the object settle before anything else happens
+        {
+            const float settle_time = GetSettlingTime(ph_);
+            ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
+            stepFor(BulletConfig::dt, settle_time);
+        }
+        
+        // Wait for the graph to be finished being made
+        {
+            while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
+            {
+                step(0);
+            }
+            free_space_graph_future.get();
+
+            while (collision_map_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
+            {
+                step(0);
+            }
+            collision_map_future.get();
+        }
+
+        base_sim_time_ = simTime;
+
+        // Startup the action server
+        test_grippers_poses_as_.start();
+    }
 
     // Store the initial configuration as it will be needed by other libraries
     // TODO: find a better way to do this that exposes less internals
-    object_initial_configuration_ = toRosPointVector(getDeformableObjectNodes(), METERS);
+    object_initial_configuration_ = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
 
-    ROS_INFO("Creating subscribers and publishers");
+    ROS_INFO("Simulation ready, starting publishers, subscribers, and services");
+    initializePublishersSubscribersAndServices();
+
+    // Used for constant visualization, independent of robot control structure
+    ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
+    visualization_msgs::MarkerArray bullet_visualization_markers;
+    bullet_visualization_markers.markers.reserve(6);
+
+    // Build markers for regular publishing
+    size_t deformable_object_marker_ind;
+    size_t first_gripper_marker_ind;
+    {
+        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
+                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
+
+//        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
+
+        deformable_object_marker_ind = bullet_visualization_markers.markers.size();
+        visualization_msgs::Marker deformable_object_state_marker;
+        deformable_object_state_marker.header.frame_id = bullet_frame_name_;
+        deformable_object_state_marker.ns = "deformable_object";
+        deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
+        deformable_object_state_marker.scale.x = 0.01;
+        deformable_object_state_marker.scale.y = 0.01;
+        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
+        bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
+
+        visualization_msgs::Marker cover_points_marker;
+        cover_points_marker.header.frame_id = world_frame_name_;
+        cover_points_marker.ns = "cover_points";
+        cover_points_marker.type = visualization_msgs::Marker::POINTS;
+        cover_points_marker.scale.x = 0.01;
+        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
+        cover_points_marker.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
+        bullet_visualization_markers.markers.push_back(cover_points_marker);
+
+        first_gripper_marker_ind = bullet_visualization_markers.markers.size();
+        for (size_t ind = 0; ind < auto_grippers_.size(); ++ind)
+        {
+            const auto& gripper_name = auto_grippers_[ind];
+            const auto& gripper = grippers_.at(gripper_name);
+
+            visualization_msgs::Marker gripper_marker;
+            gripper_marker.header.frame_id = world_frame_name_;
+            gripper_marker.ns = "grippers";
+            gripper_marker.id = (int)ind + 1;
+            gripper_marker.type = visualization_msgs::Marker::CUBE;
+            gripper_marker.scale.x = gripper->getHalfExtents().x() * 2.0 / METERS;
+            gripper_marker.scale.y = gripper->getHalfExtents().y() * 2.0 / METERS;
+            gripper_marker.scale.z = gripper->getHalfExtents().z() * 2.0 / METERS;
+            gripper_marker.pose = toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS);
+            gripper_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 1);
+
+            bullet_visualization_markers.markers.push_back(gripper_marker);
+        }
+    }
+
+    ROS_INFO("Simulation spinning...");
+    // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
+    while (ros::ok())
+    {
+        deformable_manipulation_msgs::SimulatorFeedback sim_fbk;
+        {
+            std::lock_guard<std::mutex> lock(sim_mutex_);
+            step(0);
+            sim_fbk = createSimulatorFbk();
+        }
+
+        simulator_fbk_pub_.publish(sim_fbk);
+        bullet_visualization_markers.markers[deformable_object_marker_ind].points = sim_fbk.object_configuration;
+        for (size_t gripper_ind = 0; gripper_ind < sim_fbk.gripper_poses.size(); gripper_ind++)
+        {
+            bullet_visualization_markers.markers.at(first_gripper_marker_ind + gripper_ind).pose = sim_fbk.gripper_poses[gripper_ind];
+        }
+        bullet_visualization_pub.publish(bullet_visualization_markers);
+
+//        osg::Vec3d eye, center, up;
+//        manip->getTransformation(eye, center, up);
+
+//        std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
+//                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
+//                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
+
+        std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Construction helper functions
+////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::getWorldToBulletTransform()
+{
+    // Get the transform from bullet to the world frame for use in data output
+    const double timeout = 5.0;
+    ROS_INFO_STREAM("Waiting for tf from world to bullet frame for at most " << timeout << " seconds");
+    geometry_msgs::TransformStamped world_to_bullet_tf_as_ros;
+    try
+    {
+        world_to_bullet_tf_as_ros =
+                tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time(0), ros::Duration(timeout));
+    }
+    catch (tf2::TransformException& ex)
+    {
+        ROS_WARN("%s", ex.what());
+        ROS_WARN("Assuming this means that no transform has been broadcast from world to bullet, starting my own broadcaster with an identity transform");
+        world_to_bullet_tf_as_ros.child_frame_id = bullet_frame_name_;
+
+        world_to_bullet_tf_as_ros.transform.translation.x = 0.0;
+        world_to_bullet_tf_as_ros.transform.translation.y = 0.0;
+        world_to_bullet_tf_as_ros.transform.translation.z = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.x = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.y = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.z = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.w = 1.0;
+
+        world_to_bullet_tf_as_ros.header.frame_id = world_frame_name_;
+        world_to_bullet_tf_as_ros.header.stamp = ros::Time::now();
+
+        static_broadcaster_.sendTransform(world_to_bullet_tf_as_ros);
+    }
+    world_to_bullet_tf_ = toBulletTransform(world_to_bullet_tf_as_ros.transform, METERS);
+}
+
+void CustomScene::initializePublishersSubscribersAndServices()
+{
+     ROS_INFO("Creating subscribers and publishers");
     // Publish to the feedback channel
     simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::SimulatorFeedback>(
             GetSimulatorFeedbackTopic(nh_), 20);
@@ -147,161 +358,6 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                 GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// Main function that makes things happen
-////////////////////////////////////////////////////////////////////////////////
-
-void CustomScene::run(const bool drawScene, const bool syncTime)
-{
-    // Run the startup code for the viewer and everything else
-    if (ros::ok())
-    {
-        ViewerConfig::windowWidth = GetViewerWidth(ph_);
-        ViewerConfig::windowHeight = GetViewerHeight(ph_);
-
-        // Note that viewer cleans up this memory
-        viewer.addEventHandler(new CustomKeyHandler(*this));
-
-        // When the viewer closes, shutdown ROS
-        addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-                        boost::bind(&CustomScene::terminateSimulationCallback, this, std_srvs::Empty::Request(), std_srvs::Empty::Response()));
-
-        addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
-
-        // if syncTime is set, the simulator blocks until the real time elapsed
-        // matches the simulator time elapsed, or something, it's not clear
-        setSyncTime(syncTime);
-        setDrawing(drawScene);
-        if (drawScene)
-        {
-            startViewer();
-        }
-        screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
-
-        // Create a thread to create the free space graph and collision map while the object settles
-        const bool draw_free_space_graph_corners = drawScene && false;
-        auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
-        auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
-
-        // Let the object settle before anything else happens
-        {
-            const float settle_time = GetSettlingTime(ph_);
-            ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
-            stepFor(BulletConfig::dt, settle_time);
-        }
-        
-        // Wait for the graph to be finished being made
-        {
-            while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
-            {
-                step(0);
-            }
-            free_space_graph_future.get();
-
-            while (collision_map_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
-            {
-                step(0);
-            }
-            collision_map_future.get();
-        }
-
-        base_sim_time_ = simTime;
-
-        // Startup the action server
-        test_grippers_poses_as_.start();
-    }
-
-    ros::AsyncSpinner spinner(1);
-    spinner.start();
-    ROS_INFO("Simulation ready");
-
-    ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
-    visualization_msgs::MarkerArray bullet_visualization_markers;
-    bullet_visualization_markers.markers.reserve(6);
-
-    // Build markers for regular publishing
-    size_t deformable_object_marker_ind;
-    size_t first_gripper_marker_ind;
-    {
-        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
-
-//        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
-
-        deformable_object_marker_ind = bullet_visualization_markers.markers.size();
-        visualization_msgs::Marker deformable_object_state_marker;
-        deformable_object_state_marker.header.frame_id = GetWorldFrameName();
-        deformable_object_state_marker.ns = "deformable_object";
-        deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
-        deformable_object_state_marker.scale.x = 0.01;
-        deformable_object_state_marker.scale.y = 0.01;
-        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
-        bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
-
-        visualization_msgs::Marker cover_points_marker;
-        cover_points_marker.header.frame_id = GetWorldFrameName();
-        cover_points_marker.ns = "cover_points";
-        cover_points_marker.type = visualization_msgs::Marker::POINTS;
-        cover_points_marker.scale.x = 0.01;
-        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
-        cover_points_marker.points = toRosPointVector(cover_points_, METERS);
-        bullet_visualization_markers.markers.push_back(cover_points_marker);
-
-        first_gripper_marker_ind = bullet_visualization_markers.markers.size();
-        for (size_t ind = 0; ind < auto_grippers_.size(); ++ind)
-        {
-            const auto& gripper_name = auto_grippers_[ind];
-            const auto& gripper = grippers_.at(gripper_name);
-
-            visualization_msgs::Marker gripper_marker;
-            gripper_marker.header.frame_id = GetWorldFrameName();
-            gripper_marker.ns = "grippers";
-            gripper_marker.id = (int)ind + 1;
-            gripper_marker.type = visualization_msgs::Marker::CUBE;
-            gripper_marker.scale.x = gripper->getHalfExtents().x() * 2.0 / METERS;
-            gripper_marker.scale.y = gripper->getHalfExtents().y() * 2.0 / METERS;
-            gripper_marker.scale.z = gripper->getHalfExtents().z() * 2.0 / METERS;
-            gripper_marker.pose = toRosPose(gripper->getWorldTransform(), METERS);
-            gripper_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 1);
-
-            bullet_visualization_markers.markers.push_back(gripper_marker);
-        }
-    }
-
-    // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
-    while (ros::ok())
-    {
-        deformable_manipulation_msgs::SimulatorFeedback sim_fbk;
-        {
-            std::lock_guard<std::mutex> lock(sim_mutex_);
-            step(0);
-            sim_fbk = createSimulatorFbk();
-        }
-
-        simulator_fbk_pub_.publish(sim_fbk);
-        bullet_visualization_markers.markers[deformable_object_marker_ind].points = sim_fbk.object_configuration;
-        for (size_t gripper_ind = 0; gripper_ind < sim_fbk.gripper_poses.size(); gripper_ind++)
-        {
-            bullet_visualization_markers.markers.at(first_gripper_marker_ind + gripper_ind).pose = sim_fbk.gripper_poses[gripper_ind];
-        }
-        bullet_visualization_pub.publish(bullet_visualization_markers);
-
-//        osg::Vec3d eye, center, up;
-//        manip->getTransformation(eye, center, up);
-
-//        std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
-//                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
-//                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
-
-        std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// Construction helper functions
-////////////////////////////////////////////////////////////////////////////////
 
 void CustomScene::makeBulletObjects()
 {
@@ -402,7 +458,7 @@ void CustomScene::makeBulletObjects()
             // Creating the cloth just so that various other parts of the code have valid data to parse.
             // The cloth part of the simulation is not actually used for anything.
             makeCloth();
-//            makeClothTwoRobotControlledGrippers();
+            makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
             makeCylinder(false);
             break;
@@ -524,7 +580,8 @@ void CustomScene::makeCloth()
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
     findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
-    if (VisualizeStrainLines(ph_)){
+    if (VisualizeStrainLines(ph_))
+    {
         makeClothLines();
         makeGripperForceLines();
     }
@@ -605,6 +662,9 @@ void CustomScene::createClothMirrorLine()
 //    const btVector3& max_x_min_y = cloth_nodes[cloth_corner_node_indices_[2]].m_x;
     const btVector3& max_x_max_y = cloth_nodes[cloth_corner_node_indices_[3]].m_x;
 
+    // TODO: Update mirror line data with non-bullet frames
+    mirror_line_data_.header.frame_id = bullet_frame_name_;
+    mirror_line_data_.header.stamp = ros::Time(0);
     mirror_line_data_.min_y = min_x_min_y.y() / METERS;
     mirror_line_data_.max_y = max_x_max_y.y() / METERS;
     mirror_line_data_.mid_x = (min_x_min_y.x() + (max_x_max_y.x() - min_x_min_y.x()) / 2) / METERS;
@@ -2114,7 +2174,7 @@ void CustomScene::createCollisionMapAndSDF()
         {
             for (int64_t z_ind = 0; z_ind < collision_map_for_export_.GetNumZCells(); z_ind++)
             {
-                std::vector<double> pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
+                const std::vector<double> pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
 
                 test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), stdVectorToBtVector3(pos) * METERS));
                 const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
@@ -2130,6 +2190,15 @@ void CustomScene::createCollisionMapAndSDF()
         }
     }
 
+    // Move the collision map to world frame
+    const Eigen::Isometry3d bullet_to_collision_map_starting_origin = collision_map_for_export_.GetOriginTransform();
+    const geometry_msgs::TransformStamped world_to_bullet_tf_as_ros =
+            tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time(0), ros::Duration(10.0));
+    const Eigen::Isometry3d world_to_bullet_as_eigen = EigenHelpersConversions::GeometryTransformToEigenIsometry3d(world_to_bullet_tf_as_ros.transform);
+    const Eigen::Isometry3d world_to_collision_map_origin = world_to_bullet_as_eigen * bullet_to_collision_map_starting_origin;
+    collision_map_for_export_.SetOriginTransform(world_to_collision_map_origin);
+    collision_map_for_export_.SetFrame(world_frame_name_);
+
     // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
     sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT).first;
@@ -2143,19 +2212,22 @@ void CustomScene::createCollisionMapAndSDF()
 void CustomScene::SetGripperTransform(
         const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
         const std::string& name,
-        const geometry_msgs::Pose& pose)
+        const btTransform& pose_in_bt_coords)
 {
-    GripperKinematicObject::Ptr gripper = grippers_map.at(name);
-
-    const btTransform tf = toBulletTransform(pose, METERS);
-
-    assert(-100.0f < tf.getOrigin().x() && tf.getOrigin().x() < 100.0f);
-    assert(-100.0f < tf.getOrigin().y() && tf.getOrigin().y() < 100.0f);
-    assert(-100.0f < tf.getOrigin().z() && tf.getOrigin().z() < 100.0f);
-
-    gripper->setWorldTransform(tf);
+    grippers_map.at(name)->setWorldTransform(pose_in_bt_coords);
 }
 
+
+geometry_msgs::PoseStamped CustomScene::transformPoseToBulletFrame(
+        const std_msgs::Header& input_header,
+        const geometry_msgs::Pose& pose_in_input_frame) const
+{
+    geometry_msgs::PoseStamped stamped;
+    stamped.header = input_header;
+    stamped.pose = pose_in_input_frame;
+    const geometry_msgs::PoseStamped pose_in_bullet_frame = tf_buffer_.transform(stamped, bullet_frame_name_);
+    return pose_in_bullet_frame;
+}
 
 deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
 {
@@ -2164,8 +2236,8 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
-    if (feedback_covariance_ > 0)
+    msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+    if (feedback_covariance_ > 0.0)
     {
         for (auto& point: msg.object_configuration)
         {
@@ -2180,14 +2252,14 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     {
         const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
         msg.gripper_names.push_back(gripper_name);
-        msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
+        msg.gripper_poses.push_back(toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS));
 
         btPointCollector collision_result = collisionHelper(gripper);
 
         if (collision_result.m_hasResult)
         {
             msg.gripper_distance_to_obstacle.push_back(collision_result.m_distance / METERS);
-            msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1));
+            msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1.0f));
             msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(
                         collision_result.m_pointInWorld
                         + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS));
@@ -2203,6 +2275,9 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     // update the sim_time
     msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
 
+    msg.header.frame_id = world_frame_name_;
+    msg.header.stamp = ros::Time::now();
+
     return msg;
 }
 
@@ -2210,14 +2285,14 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
 {
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
-    msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
+    msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(result), METERS);
 
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
     {
         const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
         msg.gripper_names.push_back(gripper_name);
-        msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
+        msg.gripper_poses.push_back(toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS));
 
         btPointCollector collision_result = collisionHelper(gripper);
 
@@ -2444,15 +2519,15 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
 
 SimForkResult CustomScene::createForkWithNoSimulationDone(
         const std::vector<std::string>& gripper_names,
-        const std::vector<geometry_msgs::Pose>& gripper_poses)
+        const std::vector<btTransform>& gripper_poses_in_bt_coords)
 {
-    assert(gripper_names.size() == gripper_poses.size());
+    assert(gripper_names.size() == gripper_poses_in_bt_coords.size());
 
     SimForkResult result = createForkWithNoSimulationDone(env, cloth_, rope_, grippers_);
 
     for (size_t gripper_ind = 0; gripper_ind < gripper_names.size(); gripper_ind++)
     {
-        SetGripperTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses[gripper_ind]);
+        SetGripperTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses_in_bt_coords[gripper_ind]);
     }
 
     return result;
@@ -2460,9 +2535,9 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
 
 SimForkResult CustomScene::simulateInNewFork(
         const std::vector<std::string>& gripper_names,
-        const std::vector<geometry_msgs::Pose>& gripper_poses)
+        const std::vector<btTransform>& gripper_poses_in_bt_coords)
 {
-    SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses);
+    SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses_in_bt_coords);
 
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
@@ -2531,6 +2606,10 @@ void CustomScene::visualizationMarkerCallback(
         return;
     }
 
+    // Transform the data into bullet's native frame
+    marker.pose = transformPoseToBulletFrame(marker.header, marker.pose).pose;
+    marker.header.frame_id = bullet_frame_name_;
+
     switch (marker.type)
     {
         case visualization_msgs::Marker::POINTS:
@@ -2539,7 +2618,7 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_point_markers_.end())
             {
                 PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
-                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
                 visualization_point_markers_[id] = points;
 
@@ -2548,7 +2627,7 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 PlotPoints::Ptr points = marker_itr->second;
-                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
             }
             break;
@@ -2576,7 +2655,7 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_sphere_markers_.end())
             {
                 PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
                 visualization_sphere_markers_[id] = spheres;
@@ -2586,7 +2665,7 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 PlotSpheres::Ptr spheres = marker_itr->second;
-                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
             }
@@ -2612,7 +2691,8 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_line_markers_.end())
             {
                 PlotLines::Ptr line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
-                line_strip->setPoints(toBulletPointVector(marker.points, METERS),
+                // marker.pose has already be transformed to bullet's native frame
+                line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
                                       toBulletColorArray(marker.colors));
                 visualization_line_markers_[id] = line_strip;
 
@@ -2621,7 +2701,8 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 PlotLines::Ptr line_strip = marker_itr->second;
-                line_strip->setPoints(toBulletPointVector(marker.points, METERS),
+                // marker.pose has already be transformed to bullet's native frame
+                line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
                                       toBulletColorArray(marker.colors));
             }
             break;
@@ -2665,7 +2746,6 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     return true;
 }
 
-// Stretching vector information client
 bool CustomScene::getGripperStretchingVectorInfoCallback(
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
@@ -2691,7 +2771,9 @@ bool CustomScene::getGripperPoseCallback(
         deformable_manipulation_msgs::GetGripperPose::Response& res)
 {
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
-    res.pose = toRosPose(gripper->getWorldTransform(), METERS);
+    res.pose = toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -2707,8 +2789,13 @@ bool CustomScene::gripperCollisionCheckCallback(
 
     for (size_t pose_ind = 0; pose_ind < num_checks; pose_ind++)
     {
-        collision_check_gripper_->setWorldTransform(toBulletTransform(req.pose[pose_ind], METERS));
-        btPointCollector collision_result = collisionHelper(collision_check_gripper_);
+        // Convert the pose into bullet coordinates
+        const geometry_msgs::PoseStamped pose_in_bt_frame = transformPoseToBulletFrame(req.header, req.pose[pose_ind]);
+        const btTransform pose_in_bt_coords = toBulletTransform(pose_in_bt_frame.pose, METERS);
+
+        // Move the collision check gripper to the querry pose and do the querry
+        collision_check_gripper_->setWorldTransform(pose_in_bt_coords);
+        const btPointCollector collision_result = collisionHelper(collision_check_gripper_);
 
         if (collision_result.m_hasResult)
         {
@@ -2719,11 +2806,20 @@ bool CustomScene::gripperCollisionCheckCallback(
             res.gripper_distance_to_obstacle[pose_ind] = std::numeric_limits<double>::infinity();
         }
 
-        res.obstacle_surface_normal[pose_ind] = toRosVector3(collision_result.m_normalOnBInWorld, 1);
-        res.gripper_nearest_point_to_obstacle[pose_ind] = toRosPoint(
-                    collision_result.m_pointInWorld
-                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS);
+        // Rotate the vector to the world frame for output - btScale = 1.0 because we want a normalized vector
+        res.obstacle_surface_normal[pose_ind] = toRosVector3(world_to_bullet_tf_, collision_result.m_normalOnBInWorld, 1.0);
+
+        // Calculate the nearest point on the gripper in bullet frame coordinates
+        const btVector3 gripper_nearest_point_to_obstacle_bt_frame =
+                collision_result.m_pointInWorld + collision_result.m_normalOnBInWorld * collision_result.m_distance;
+
+        // Transform the point to the world frame for output
+        res.gripper_nearest_point_to_obstacle[pose_ind] =
+                toRosPoint(world_to_bullet_tf_, gripper_nearest_point_to_obstacle_bt_frame, METERS);
     }
+
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
 
     return true;
 }
@@ -2733,16 +2829,21 @@ bool CustomScene::getCoverPointsCallback(
         deformable_manipulation_msgs::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(cover_points_, METERS);
+    res.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time(0);
     return true;
 }
 
 bool CustomScene::getCoverPointNormalsCallback(
-        deformable_manipulation_msgs::GetPointSet::Request& req,
-        deformable_manipulation_msgs::GetPointSet::Response& res)
+        deformable_manipulation_msgs::GetVector3Set::Request& req,
+        deformable_manipulation_msgs::GetVector3Set::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(cover_point_normals_, 1.0f);
+    // Because we want normalized vectors, don't rescale to world coords
+    res.vectors = toRosVec3Vector(world_to_bullet_tf_, cover_point_normals_, 1.0f);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time(0);
     return true;
 }
 
@@ -2754,6 +2855,8 @@ bool CustomScene::getMirrorLineCallback(
     if (task_type_ == TaskType::CLOTH_COLAB_FOLDING &&
          deformable_type_ == DeformableType::CLOTH)
     {
+        // TODO: Update mirror line data with non-bullet frames - currently uses bullet frame
+        assert(bullet_frame_name_ == world_frame_name_);
         res = mirror_line_data_;
         return true;
     }
@@ -2774,34 +2877,26 @@ bool CustomScene::getFreeSpaceGraphCallback(
 
     // First serialze the graph itself
     {
-        // Allocate a data buffer to store the results in
-        res.graph_data_buffer.clear();
-        size_t expected_data_len = 0;
-        expected_data_len += sizeof(size_t); // Graph node vector header
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 3 * sizeof(btScalar); // Value item for each graph node
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * sizeof(double); // Distance value for each graph node
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 2 * sizeof(size_t); // Edge vector overhead
-        expected_data_len += num_graph_edges_ * sizeof(arc_dijkstras::GraphEdge); // Total number of edges to store
-        res.graph_data_buffer.reserve(expected_data_len);
-
-        // Define the graph value serialization function
-        const auto value_serializer_with_scaling_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
+        // Create a copy of the graph in world coordinates and world scaling
+        auto resized_graph = free_space_graph_;
+        for (auto& node: resized_graph.GetNodesMutable())
         {
-            const uint64_t start_buffer_size = buffer.size();
-            uint64_t running_total = 0;
+            const btVector3 point_in_world_frame = world_to_bullet_tf_ * node.GetValueImmutable() / METERS;
+            node.GetValueMutable() = point_in_world_frame;
 
-            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.x() / METERS, buffer);
-            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.y() / METERS, buffer);
-            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.z() / METERS, buffer);
+            // Lower the weight by the same distance factor
+            for (auto& edge: node.GetInEdgesMutable())
+            {
+                edge.SetWeight(edge.GetWeight() / METERS);
+            }
+            for (auto& edge: node.GetOutEdgesMutable())
+            {
+                edge.SetWeight(edge.GetWeight() / METERS);
+            }
+        }
+        assert(resized_graph.CheckGraphLinkage());
 
-            const uint64_t end_buffer_size = buffer.size();
-            const uint64_t bytes_written = end_buffer_size - start_buffer_size;
-
-            assert(running_total == bytes_written);
-
-            return bytes_written;
-        };
-
+        // Assumes that the data is already in the world frame and distance scale
         const auto value_serializer_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
         {
             const uint64_t start_buffer_size = buffer.size();
@@ -2819,53 +2914,26 @@ bool CustomScene::getFreeSpaceGraphCallback(
             return bytes_written;
         };
 
-        // Define the graph value serialization function
-        const auto value_deserializer_fn = [] (const std::vector<uint8_t>& buffer, const int64_t current)
-        {
-            uint64_t current_position = current;
-
-            // Deserialze 3 floats, converting into doubles afterwards
-            std::pair<btScalar, uint64_t> x = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
-            current_position += x.second;
-            std::pair<btScalar, uint64_t> y = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
-            current_position += y.second;
-            std::pair<btScalar, uint64_t> z = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
-            current_position += z.second;
-
-            const btVector3 deserialized(x.first, y.first, z.first);
-
-            // Figure out how many bytes were read
-            const uint64_t bytes_read = current_position - current;
-            return std::make_pair(deserialized, bytes_read);
-        };
-
-        // Resize the edge weights by a factor of METERS
-        free_space_graph_.SerializeSelf(res.graph_data_buffer, value_serializer_with_scaling_fn);
-        auto resized_graph = arc_dijkstras::Graph<btVector3>::Deserialize(res.graph_data_buffer, 0, value_deserializer_fn).first;
-
-        for (auto& node: resized_graph.GetNodesMutable())
-        {
-            for (auto& edge: node.GetInEdgesMutable())
-            {
-                edge.SetWeight(edge.GetWeight() / METERS);
-            }
-            for (auto& edge: node.GetOutEdgesMutable())
-            {
-                edge.SetWeight(edge.GetWeight() / METERS);
-            }
-        }
-        // Ensure we still have a valid graph
-        assert(free_space_graph_.CheckGraphLinkage());
-        assert(resized_graph.CheckGraphLinkage());
+        // Allocate a data buffer to store the results in
+        res.graph_data_buffer.clear();
+        size_t expected_data_len = 0;
+        expected_data_len += sizeof(size_t); // Graph node vector header
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 3 * sizeof(btScalar); // Value item for each graph node
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * sizeof(double);       // Distance value for each graph node
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 2 * sizeof(size_t);   // Edge vector overhead
+        expected_data_len += num_graph_edges_ * sizeof(arc_dijkstras::GraphEdge);                 // Total number of edges to store
+        res.graph_data_buffer.reserve(expected_data_len);
 
         // Finally, serialze the graph
-        res.graph_data_buffer.clear();
-        res.graph_data_buffer.reserve(expected_data_len);
         resized_graph.SerializeSelf(res.graph_data_buffer, value_serializer_fn);
     }
 
     // Next add the mapping between cover indices and graph indices
     res.cover_point_ind_to_graph_ind = cover_ind_to_free_space_graph_ind_;
+
+    // And add the header information
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time(0);
 
     return true;
 }
@@ -2875,6 +2943,7 @@ bool CustomScene::getSignedDistanceFieldCallback(
         deformable_manipulation_msgs::GetSignedDistanceFieldResponse &res)
 {
     (void)req;
+    // The SDF should already be in world frame and distances, so no conversion needed
     res.sdf = sdf_for_export_.GetMessageRepresentation();
     return true;
 }
@@ -2885,6 +2954,8 @@ bool CustomScene::getObjectInitialConfigurationCallback(
 {
     (void)req;
     res.points = object_initial_configuration_;
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time(0);
     return true;
 }
 
@@ -2893,7 +2964,9 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
         deformable_manipulation_msgs::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(getDeformableObjectNodes(), METERS);
+    res.points = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -2964,20 +3037,15 @@ bool CustomScene::executeGripperMovementCallback(
         deformable_manipulation_msgs::ExecuteGripperMovement::Response& res)
 {
     assert(req.grippers_names.size() == req.gripper_poses.size());
+    ROS_INFO("Executing gripper command");
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
 
-    ROS_INFO("Executing gripper command");
-//    std::cout << PrettyPrint::PrettyPrint(req.gripper_poses, true, "\n") << std::endl;
-
     for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
     {
-        SetGripperTransform(grippers_, req.grippers_names[gripper_ind], req.gripper_poses[gripper_ind]);
-
-//        const auto test = collisionHelper(grippers_[req.grippers_names[gripper_ind]]);
-//        std::cout << PrettyPrint::PrettyPrint(req.gripper_poses[gripper_ind]);
-//        std::cout << "distance to object: " << test.m_distance << std::endl;
-//        std::cout << "gripper radius:     " << grippers_[req.grippers_names[gripper_ind]]->getGripperRadius() / 20.0 << std::endl << std::endl;
+        const geometry_msgs::PoseStamped pose_in_bt_frame = transformPoseToBulletFrame(req.header, req.gripper_poses[gripper_ind]);
+        const btTransform pose_in_bt_coords = toBulletTransform(pose_in_bt_frame.pose, METERS);
+        SetGripperTransform(grippers_, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
@@ -3001,7 +3069,9 @@ void CustomScene::testGripperPosesExecuteCallback(
     for (size_t test_ind = 0; test_ind < num_tests; test_ind++)
     {
         ROS_INFO_STREAM_NAMED("test_gripper_poses", "Testing gripper pose " << test_ind);
-        const SimForkResult result = simulateInNewFork(goal->gripper_names, goal->poses_to_test[test_ind].pose);
+        const std::vector<btTransform> gripper_poses_in_bt_frame =
+                toVectorBulletTransform(world_to_bullet_tf_, goal->poses_to_test[test_ind].poses, METERS);
+        const SimForkResult result = simulateInNewFork(goal->gripper_names, gripper_poses_in_bt_frame);
 
         // Create a feedback message
         deformable_manipulation_msgs::TestGrippersPosesFeedback fbk;
@@ -3032,9 +3102,9 @@ void CustomScene::drawAxes()
 
 
 
-////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Key Handler for our Custom Scene
-////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 CustomScene::CustomKeyHandler::CustomKeyHandler(CustomScene &scene)
     : scene_(scene)
@@ -3043,7 +3113,7 @@ CustomScene::CustomKeyHandler::CustomKeyHandler(CustomScene &scene)
     , rotate_gripper_(false)
 {}
 
-bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdapter & aa)
+bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
 {
     (void)aa;
     bool suppress_default_handler = false;
