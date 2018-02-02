@@ -462,7 +462,7 @@ void CustomScene::makeBulletObjects()
             makeCloth();
             makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
-            makeCylinder(false);
+//            makeCylinder(false);
             loadCoverPointsFromFile();
             break;
 
@@ -768,8 +768,8 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
 void CustomScene::makeClothTwoRobotControlledGrippers()
 {
     // auto gripper0
+    const std::string auto_gripper0_name = GetGripper0Name(nh_);
     {
-        const std::string auto_gripper0_name = "auto_gripper0";
         grippers_[auto_gripper0_name] = boost::make_shared<GripperKinematicObject>(
                     auto_gripper0_name,
                     GetGripperApperture(nh_) * METERS,
@@ -792,8 +792,8 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     }
 
     // auto gripper1
+    const std::string auto_gripper1_name = GetGripper1Name(nh_);
     {
-        const std::string auto_gripper1_name = "auto_gripper1";
         grippers_[auto_gripper1_name] = boost::make_shared<GripperKinematicObject>(
                     auto_gripper1_name,
                     GetGripperApperture(nh_) * METERS,
@@ -828,13 +828,13 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     }
 
     // Set stretching detection vector infomation
-    grippers_["auto_gripper0"]->setClothGeoInfoToAnotherGripper(
-                grippers_["auto_gripper1"],
+    grippers_[auto_gripper0_name]->setClothGeoInfoToAnotherGripper(
+                grippers_[auto_gripper1_name],
                 cloth_->softBody,
                 GetClothNumControlPointsX(nh_));
 
-    grippers_["auto_gripper1"]->setClothGeoInfoToAnotherGripper(
-                grippers_["auto_gripper0"],
+    grippers_[auto_gripper1_name]->setClothGeoInfoToAnotherGripper(
+                grippers_[auto_gripper0_name],
                 cloth_->softBody,
                 GetClothNumControlPointsX(nh_));
 }
