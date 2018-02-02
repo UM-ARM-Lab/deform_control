@@ -10,6 +10,8 @@
 #include <ros/callback_queue.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
+#include <arc_utilities/zlib_helpers.hpp>
+#include <arc_utilities/serialization_eigen.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -177,7 +179,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
-        deformable_object_state_marker.header.frame_id = bullet_frame_name_;
+        deformable_object_state_marker.header.frame_id = world_frame_name_;
         deformable_object_state_marker.ns = "deformable_object";
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
@@ -258,7 +260,7 @@ void CustomScene::getWorldToBulletTransform()
     try
     {
         world_to_bullet_tf_as_ros =
-                tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time(0), ros::Duration(timeout));
+                tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time::now(), ros::Duration(timeout));
     }
     catch (tf2::TransformException& ex)
     {
@@ -461,6 +463,7 @@ void CustomScene::makeBulletObjects()
             makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
             makeCylinder(false);
+            loadCoverPointsFromFile();
             break;
 
 
@@ -664,7 +667,7 @@ void CustomScene::createClothMirrorLine()
 
     // TODO: Update mirror line data with non-bullet frames
     mirror_line_data_.header.frame_id = bullet_frame_name_;
-    mirror_line_data_.header.stamp = ros::Time(0);
+    mirror_line_data_.header.stamp = ros::Time::now();
     mirror_line_data_.min_y = min_x_min_y.y() / METERS;
     mirror_line_data_.max_y = max_x_max_y.y() / METERS;
     mirror_line_data_.mid_x = (min_x_min_y.x() + (max_x_max_y.x() - min_x_min_y.x()) / 2) / METERS;
@@ -2006,7 +2009,62 @@ void CustomScene::makeGenericRegionCoverPoints()
         }
     }
 
-    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    const std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+
+    ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+}
+
+// TODO: Saving code is in smmap_live_robot, while loading code is here. These should be adjacent.
+void CustomScene::loadCoverPointsFromFile()
+{
+    // Load the parameters for which file to read from
+    const std::string log_folder = GetLogFolder(nh_);
+    const std::string file_name_prefix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_prefix", "cover_points");
+    const std::string file_name_suffix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_suffix", "cloth_near_robot");
+    const std::string file_name = log_folder + "/" + file_name_prefix + "__" + file_name_suffix + ".compressed";
+
+    // Load and decompress
+    const std::vector<uint8_t> decompressed = ZlibHelpers::LoadFromFileAndDecompress(file_name);
+    size_t bytes_read = 0;
+    const auto frame_deserialized = arc_utilities::DeserializeString<char>(decompressed, bytes_read);
+    const std::string& cover_points_frame = frame_deserialized.first;
+    bytes_read += frame_deserialized.second;
+    const auto value_deserializer = [] (const std::vector<uint8_t>& buffer, const uint64_t current)
+    {
+        return arc_utilities::DeserializeEigenType<Eigen::Vector3d>(buffer, current);
+    };
+    const auto cover_points_deserialized =
+            arc_utilities::DeserializeVector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>(
+                decompressed, bytes_read, value_deserializer);
+    const EigenHelpers::VectorVector3d& cover_points_in_native_frame = cover_points_deserialized.first;
+    bytes_read += cover_points_deserialized.second;
+    assert(bytes_read == decompressed.size() && "Not all points read; this means an error in the saving or loading code");
+
+    // Transform into bullet native frame
+    const geometry_msgs::Transform cover_points_frame_to_bt_frame_ros =
+            tf_buffer_.lookupTransform(bullet_frame_name_, cover_points_frame, ros::Time::now(), ros::Duration(5.0)).transform;
+    const Eigen::Isometry3d cover_points_frame_to_bt_frame_eigen =
+            EigenHelpersConversions::GeometryTransformToEigenIsometry3d(cover_points_frame_to_bt_frame_ros);
+//    std::cout << "cover_points_frame_to_bt_frame:\n" << cover_points_frame_to_bt_frame_eigen.matrix() << std::endl;
+
+    // Add each point to the cover points list, in the bullet frame
+    for (const auto& cover_point_eigen_frame : cover_points_in_native_frame)
+    {
+//        std::cout << "native frame: " << cover_point_eigen_frame.transpose() << std::endl;
+//        std::cout << "bt frame:     " << (cover_points_frame_to_bt_frame_eigen * cover_point_eigen_frame).transpose() << std::endl;
+//        std::cout << std::endl;
+
+        const Eigen::Vector3d cover_point_bt_frame_world_distances = cover_points_frame_to_bt_frame_eigen * cover_point_eigen_frame;
+        const btVector3 cover_point_bt_coords = btVector3((btScalar)cover_point_bt_frame_world_distances.x(),
+                                                          (btScalar)cover_point_bt_frame_world_distances.y(),
+                                                          (btScalar)cover_point_bt_frame_world_distances.z()) * METERS;
+        cover_points_.push_back(cover_point_bt_coords);
+        cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
+    }
+
+    const std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
 
@@ -2193,7 +2251,7 @@ void CustomScene::createCollisionMapAndSDF()
     // Move the collision map to world frame
     const Eigen::Isometry3d bullet_to_collision_map_starting_origin = collision_map_for_export_.GetOriginTransform();
     const geometry_msgs::TransformStamped world_to_bullet_tf_as_ros =
-            tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time(0), ros::Duration(10.0));
+            tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time::now(), ros::Duration(10.0));
     const Eigen::Isometry3d world_to_bullet_as_eigen = EigenHelpersConversions::GeometryTransformToEigenIsometry3d(world_to_bullet_tf_as_ros.transform);
     const Eigen::Isometry3d world_to_collision_map_origin = world_to_bullet_as_eigen * bullet_to_collision_map_starting_origin;
     collision_map_for_export_.SetOriginTransform(world_to_collision_map_origin);
@@ -2236,7 +2294,7 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     deformable_manipulation_msgs::SimulatorFeedback msg;
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+    msg.object_configuration   = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
     if (feedback_covariance_ > 0.0)
     {
         for (auto& point: msg.object_configuration)
@@ -2834,7 +2892,7 @@ bool CustomScene::getCoverPointsCallback(
     (void)req;
     res.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
     res.header.frame_id = world_frame_name_;
-    res.header.stamp = ros::Time(0);
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -2846,7 +2904,7 @@ bool CustomScene::getCoverPointNormalsCallback(
     // Because we want normalized vectors, don't rescale to world coords
     res.vectors = toRosVec3Vector(world_to_bullet_tf_, cover_point_normals_, 1.0f);
     res.header.frame_id = world_frame_name_;
-    res.header.stamp = ros::Time(0);
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -2936,7 +2994,7 @@ bool CustomScene::getFreeSpaceGraphCallback(
 
     // And add the header information
     res.header.frame_id = world_frame_name_;
-    res.header.stamp = ros::Time(0);
+    res.header.stamp = ros::Time::now();
 
     return true;
 }
@@ -2958,7 +3016,7 @@ bool CustomScene::getObjectInitialConfigurationCallback(
     (void)req;
     res.points = object_initial_configuration_;
     res.header.frame_id = world_frame_name_;
-    res.header.stamp = ros::Time(0);
+    res.header.stamp = ros::Time::now();
     return true;
 }
 

@@ -130,6 +130,7 @@ class CustomScene : public Scene
         void makeRopeZigMatchObstacles();
 
         void makeGenericRegionCoverPoints();
+        void loadCoverPointsFromFile();
 
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
         void createFreeSpaceGraph(const bool draw_graph_corners = false);
