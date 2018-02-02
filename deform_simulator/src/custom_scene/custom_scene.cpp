@@ -2022,7 +2022,7 @@ void CustomScene::loadCoverPointsFromFile()
     // Load the parameters for which file to read from
     const std::string log_folder = GetLogFolder(nh_);
     const std::string file_name_prefix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_prefix", "cover_points");
-    const std::string file_name_suffix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_suffix", "cloth_near_robot");
+    const std::string file_name_suffix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_suffix_to_load", "cloth_near_robot");
     const std::string file_name = log_folder + "/" + file_name_prefix + "__" + file_name_suffix + ".compressed";
 
     // Load and decompress
