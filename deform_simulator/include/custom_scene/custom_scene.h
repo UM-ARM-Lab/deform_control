@@ -299,13 +299,6 @@ class CustomScene : public Scene
 
         std::unordered_map<std::string, BulletObject::Ptr> world_obstacles_;
 
-        // Uses bullet (scaled) translational distances, and the bullet frame
-        const smmap::XYZGrid work_space_grid_;
-        arc_dijkstras::Graph<btVector3> free_space_graph_;
-        size_t num_graph_edges_;
-        std::vector<int64_t> cover_ind_to_free_space_graph_ind_;
-        std::vector<PlotAxes::Ptr> graph_corners_;
-
         ////////////////////////////////////////////////////////////////////////
         // Rope world objects
         ////////////////////////////////////////////////////////////////////////
@@ -345,6 +338,13 @@ class CustomScene : public Scene
         btTransform world_to_bullet_tf_;
         // Broadcasts an identity transform between the world and bullet if no one else is broadcasting within 10 seconds of startup
         tf2_ros::StaticTransformBroadcaster static_broadcaster_;
+
+        // Uses bullet (scaled) translational distances, and the bullet frame
+        const smmap::XYZGrid work_space_grid_;
+        arc_dijkstras::Graph<btVector3> free_space_graph_;
+        size_t num_graph_edges_;
+        std::vector<int64_t> cover_ind_to_free_space_graph_ind_;
+        std::vector<PlotAxes::Ptr> graph_corners_;
 
         // Uses world (unscaled) translational distances, and the world frame
         sdf_tools::CollisionMapGrid collision_map_for_export_;

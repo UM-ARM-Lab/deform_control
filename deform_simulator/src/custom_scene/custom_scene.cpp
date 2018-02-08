@@ -49,11 +49,6 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , deformable_type_(deformable_type)
     , task_type_(task_type)
     , advance_grippers_(true)
-    , work_space_grid_(GetWorldXMin(nh) * METERS, GetWorldXStep(nh) * METERS, GetWorldXNumSteps(nh),
-                       GetWorldYMin(nh) * METERS, GetWorldYStep(nh) * METERS, GetWorldYNumSteps(nh),
-                       GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
-    , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
-    , num_graph_edges_(0)
     , nh_(nh)
     , ph_("~")
     , ros_spinner_(1)
@@ -62,16 +57,32 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , tf_buffer_()
     , tf_listener_(tf_buffer_)
 
-    // Uses bullet_frame while being built, is transformed to the world frame once built
+    // Uses the bullet_frame and bullet coords
+    , work_space_grid_(Eigen::Isometry3d(Eigen::Translation3d(
+                                             GetWorldXMin(nh) * METERS,
+                                             GetWorldYMin(nh) * METERS,
+                                             GetWorldZMin(nh) * METERS)),
+                       bullet_frame_name_,
+                       GetWorldXStep(nh) * METERS,
+                       GetWorldYStep(nh) * METERS,
+                       GetWorldZStep(nh) * METERS,
+                       GetWorldXNumSteps(nh),
+                       GetWorldYNumSteps(nh),
+                       GetWorldZNumSteps(nh))
+    , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
+    , num_graph_edges_(0)
+
+
+    // Uses bullet_frame but world distances while being built, is transformed to the world frame once built
     , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
-                                                      work_space_grid_.getXMin() / METERS,
-                                                      work_space_grid_.getYMin() / METERS,
-                                                      work_space_grid_.getZMin() / METERS)),
+                                                      GetWorldXMin(nh),
+                                                      GetWorldYMin(nh),
+                                                      GetWorldZMin(nh))),
                                 bullet_frame_name_,
                                 work_space_grid_.minStepDimension() / METERS / 2.0,
-                                (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
-                                (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
-                                (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
+                                GetWorldZMax(nh) - GetWorldZMin(nh),
+                                GetWorldZMax(nh) - GetWorldZMin(nh),
+                                GetWorldZMax(nh) - GetWorldZMin(nh),
                                 sdf_tools::COLLISION_CELL(0.0))
     , feedback_covariance_(GetFeedbackCovariance(nh_))
     , test_grippers_poses_as_(nh_,
@@ -1438,14 +1449,14 @@ void CustomScene::makeClothDoubleSlitObstacles()
 void CustomScene::makeRopeMazeObstacles()
 {
     const btVector3 world_min = btVector3(
-                (float)work_space_grid_.getXMin(),
-                (float)work_space_grid_.getYMin(),
-                (float)work_space_grid_.getZMin());
+                (btScalar)GetWorldXMin(nh_),
+                (btScalar)GetWorldYMin(nh_),
+                (btScalar)GetWorldZMin(nh_)) * METERS;
 
     const btVector3 world_max = btVector3(
-                (float)work_space_grid_.getXMax(),
-                (float)work_space_grid_.getYMax(),
-                (float)work_space_grid_.getZMax());
+                (btScalar)GetWorldXMax(nh_),
+                (btScalar)GetWorldYMax(nh_),
+                (btScalar)GetWorldZMax(nh_)) * METERS;
 
     const float wall_thickness = 0.2f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
@@ -1860,14 +1871,14 @@ void CustomScene::makeRopeMazeObstacles()
 void CustomScene::makeRopeZigMatchObstacles()
 {
     const btVector3 world_min = btVector3(
-                (float)work_space_grid_.getXMin(),
-                (float)work_space_grid_.getYMin(),
-                (float)work_space_grid_.getZMin());
+                (btScalar)GetWorldXMin(nh_),
+                (btScalar)GetWorldYMin(nh_),
+                (btScalar)GetWorldZMin(nh_)) * METERS;
 
     const btVector3 world_max = btVector3(
-                (float)work_space_grid_.getXMax(),
-                (float)work_space_grid_.getYMax(),
-                (float)work_space_grid_.getZMax());
+                (btScalar)GetWorldXMax(nh_),
+                (btScalar)GetWorldYMax(nh_),
+                (btScalar)GetWorldZMax(nh_)) * METERS;
 
     const float wall_thickness = 0.2f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
@@ -2076,10 +2087,8 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
 {
     const int64_t starting_ind = work_space_grid_.xyzIndexToGridIndex(x_starting_ind, y_starting_ind, z_starting_ind);
     assert(starting_ind >= 0);
-    const double x = work_space_grid_.xIndToWorldX(x_starting_ind);
-    const double y = work_space_grid_.yIndToWorldY(y_starting_ind);
-    const double z = work_space_grid_.zIndToWorldZ(z_starting_ind);
-    const btVector3 starting_pos((btScalar)x, (btScalar)y, (btScalar)z);
+    const Eigen::Vector3d starting_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_starting_ind, y_starting_ind, z_starting_ind);
+    const btVector3 starting_pos((btScalar)starting_pos_eigen.x(), (btScalar)starting_pos_eigen.y(), (btScalar)starting_pos_eigen.z());
 
     // Note that these are in [min, max) form - i.e. exclude the max
     const int64_t x_min_ind = std::max(0L, x_starting_ind - 1);
@@ -2093,24 +2102,21 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
 
     for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
     {
-        const double x_loop = work_space_grid_.xIndToWorldX(x_loop_ind);
         for (int64_t y_loop_ind = y_min_ind; y_loop_ind < y_max_ind; y_loop_ind++)
         {
-            const double y_loop = work_space_grid_.yIndToWorldY(y_loop_ind);
             for (int64_t z_loop_ind = z_min_ind; z_loop_ind < z_max_ind; z_loop_ind++)
             {
                 // Only count a neighbour if it's not the same as the starting position
                 if (x_starting_ind != x_loop_ind || y_starting_ind != y_loop_ind || z_starting_ind != z_loop_ind)
                 {
-                    const double z_loop = work_space_grid_.zIndToWorldZ(z_loop_ind);
-
-                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop)));
+                    const Eigen::Vector3d test_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_loop_ind, y_loop_ind, z_loop_ind);
+                    const btVector3 test_pos((btScalar)test_pos_eigen.x(), (btScalar)test_pos_eigen.y(), (btScalar)test_pos_eigen.z());
+                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), test_pos));
 
                     // If we are not in collision already, then check for neighbours
-                    if (collisionHelper(test_sphere).m_distance >= 0.0)
+//                    if (collisionHelper(test_sphere).m_distance >= 0.0) // Disabled collision check to allow for edges out of the table due to perception errors etc.
                     {
-                        const btVector3 loop_pos((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop);
-                        const btScalar dist = (loop_pos - starting_pos).length();
+                        const btScalar dist = (test_pos - starting_pos).length();
 
                         const int64_t loop_ind = work_space_grid_.xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
                         assert(loop_ind >= 0);
@@ -2132,18 +2138,26 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         // Debugging - draw the corners of the grid
         std::cout << "Drawing the 8 corners of the graph world\n";
         graph_corners_.reserve((8));
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wconversion"
-        #pragma GCC diagnostic ignored "-Wfloat-conversion"
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMin(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMin(), work_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMax(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMax(), work_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMin(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMin(), work_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMax(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMax(), work_space_grid_.getZMax())), 1));
-        #pragma GCC diagnostic pop
+
+        const btVector3 world_min = btVector3(
+                    (btScalar)GetWorldXMin(nh_),
+                    (btScalar)GetWorldYMin(nh_),
+                    (btScalar)GetWorldZMin(nh_)) * METERS;
+
+        const btVector3 world_max = btVector3(
+                    (btScalar)GetWorldXMax(nh_),
+                    (btScalar)GetWorldYMax(nh_),
+                    (btScalar)GetWorldZMax(nh_)) * METERS;
+
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_min.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_min.y(), world_max.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_max.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_max.y(), world_max.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_min.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_min.y(), world_max.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_max.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_max.y(), world_max.z())), 1.0f));
+
         for (auto& corner: graph_corners_)
         {
             env->add(corner);
@@ -2153,16 +2167,15 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     // First add all of the cells to the graph with no edges
     for (int64_t x_ind = 0; x_ind < work_space_grid_.getXNumSteps(); x_ind++)
     {
-        const double x = work_space_grid_.xIndToWorldX(x_ind);
         for (int64_t y_ind = 0; y_ind < work_space_grid_.getYNumSteps(); y_ind++)
         {
-            const double y = work_space_grid_.yIndToWorldY(y_ind);
             for (int64_t z_ind = 0; z_ind < work_space_grid_.getZNumSteps(); z_ind++)
             {
-                const double z = work_space_grid_.zIndToWorldZ(z_ind);
-                const int64_t node_ind = free_space_graph_.AddNode(btVector3((btScalar)x, (btScalar)y, (btScalar)z));
+                const Eigen::Vector3d node_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_ind, y_ind, z_ind);
+                const btVector3 node_pos((btScalar)node_pos_eigen.x(), (btScalar)node_pos_eigen.y(), (btScalar)node_pos_eigen.z());
+                const int64_t node_ind = free_space_graph_.AddNode(node_pos);
                 // Double checking my math here
-                assert(node_ind == work_space_grid_.worldPosToGridIndex(x, y, z));
+                assert(node_ind == work_space_grid_.worldPosToGridIndex(node_pos_eigen));
             }
         }
     }
@@ -2280,10 +2293,20 @@ geometry_msgs::PoseStamped CustomScene::transformPoseToBulletFrame(
         const std_msgs::Header& input_header,
         const geometry_msgs::Pose& pose_in_input_frame) const
 {
-    geometry_msgs::PoseStamped stamped;
-    stamped.header = input_header;
-    stamped.pose = pose_in_input_frame;
-    const geometry_msgs::PoseStamped pose_in_bullet_frame = tf_buffer_.transform(stamped, bullet_frame_name_);
+    geometry_msgs::PoseStamped stamped_input;
+    stamped_input.header = input_header;
+    stamped_input.pose = pose_in_input_frame;
+//    const geometry_msgs::PoseStamped pose_in_bullet_frame = tf_buffer_.transform(stamped_input, bullet_frame_name_, ros::Duration(0.1));
+
+    // Get the latest available transform, whatever that is
+    geometry_msgs::PoseStamped pose_in_bullet_frame;
+    tf_buffer_.transform(stamped_input, pose_in_bullet_frame, bullet_frame_name_, ros::Time(0), world_frame_name_);
+
+//    const geometry_msgs::TransformStamped transform_stamped =
+//            tf_buffer_.lookupTransform(bullet_frame_name_, input_header.frame_id, ros::Time(0));
+
+//    tf2::doTransform(stamped_input, stamped_output, transform_stamped);
+
     return pose_in_bullet_frame;
 }
 

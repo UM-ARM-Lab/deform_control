@@ -12,6 +12,7 @@ set(CATKIN_PACKAGES
     bullet_helpers
     sdf_tools
     tf2_ros
+    tf2_geometry_msgs
     deformable_manipulation_msgs
     deformable_manipulation_experiment_params
 )
