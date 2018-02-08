@@ -10,8 +10,7 @@
 #include <ros/callback_queue.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
-#include <arc_utilities/zlib_helpers.hpp>
-#include <arc_utilities/serialization_eigen.hpp>
+#include <deformable_manipulation_experiment_params/serialization.h>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -2034,44 +2033,30 @@ void CustomScene::loadCoverPointsFromFile()
     const std::string log_folder = GetLogFolder(nh_);
     const std::string file_name_prefix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_prefix", "cover_points");
     const std::string file_name_suffix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_suffix_to_load", "cloth_near_robot");
-    const std::string file_name = log_folder + "/" + file_name_prefix + "__" + file_name_suffix + ".compressed";
+    const std::string file_name = file_name_prefix + "__" + file_name_suffix + ".compressed";
 
     // Load and decompress
-    const std::vector<uint8_t> decompressed = ZlibHelpers::LoadFromFileAndDecompress(file_name);
-    size_t bytes_read = 0;
-    const auto frame_deserialized = arc_utilities::DeserializeString<char>(decompressed, bytes_read);
-    const std::string& cover_points_frame = frame_deserialized.first;
-    bytes_read += frame_deserialized.second;
-    const auto value_deserializer = [] (const std::vector<uint8_t>& buffer, const uint64_t current)
-    {
-        return arc_utilities::DeserializeEigenType<Eigen::Vector3d>(buffer, current);
-    };
-    const auto cover_points_deserialized =
-            arc_utilities::DeserializeVector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>>(
-                decompressed, bytes_read, value_deserializer);
-    const EigenHelpers::VectorVector3d& cover_points_in_native_frame = cover_points_deserialized.first;
-    bytes_read += cover_points_deserialized.second;
-    assert(bytes_read == decompressed.size() && "Not all points read; this means an error in the saving or loading code");
+    const auto deserialized = smmap::LoadAndDeserializePointSet(log_folder, file_name);
+    const std::string& cover_points_frame = deserialized.first;
+    const EigenHelpers::VectorVector3d& cover_points_in_native_frame = deserialized.second;
 
     // Transform into bullet native frame
     const geometry_msgs::Transform cover_points_frame_to_bt_frame_ros =
             tf_buffer_.lookupTransform(bullet_frame_name_, cover_points_frame, ros::Time::now(), ros::Duration(5.0)).transform;
     const Eigen::Isometry3d cover_points_frame_to_bt_frame_eigen =
             EigenHelpersConversions::GeometryTransformToEigenIsometry3d(cover_points_frame_to_bt_frame_ros);
-//    std::cout << "cover_points_frame_to_bt_frame:\n" << cover_points_frame_to_bt_frame_eigen.matrix() << std::endl;
 
     // Add each point to the cover points list, in the bullet frame
     for (const auto& cover_point_eigen_frame : cover_points_in_native_frame)
     {
-//        std::cout << "native frame: " << cover_point_eigen_frame.transpose() << std::endl;
-//        std::cout << "bt frame:     " << (cover_points_frame_to_bt_frame_eigen * cover_point_eigen_frame).transpose() << std::endl;
-//        std::cout << std::endl;
-
         const Eigen::Vector3d cover_point_bt_frame_world_distances = cover_points_frame_to_bt_frame_eigen * cover_point_eigen_frame;
         const btVector3 cover_point_bt_coords = btVector3((btScalar)cover_point_bt_frame_world_distances.x(),
                                                           (btScalar)cover_point_bt_frame_world_distances.y(),
                                                           (btScalar)cover_point_bt_frame_world_distances.z()) * METERS;
-        cover_points_.push_back(cover_point_bt_coords);
+
+        #warning "Cover point position hack for cloth placemat demo"
+        // Offset the cover points from the table by a bit
+        cover_points_.push_back(cover_point_bt_coords + btVector3(0.0f, 0.0f, 0.02f * METERS));
         cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
     }
 
