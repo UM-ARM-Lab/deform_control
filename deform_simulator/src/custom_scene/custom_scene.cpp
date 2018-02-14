@@ -2047,9 +2047,9 @@ void CustomScene::loadCoverPointsFromFile()
             EigenHelpersConversions::GeometryTransformToEigenIsometry3d(cover_points_frame_to_bt_frame_ros);
 
     // Add each point to the cover points list, in the bullet frame
-    for (const auto& cover_point_eigen_frame : cover_points_in_native_frame)
+    for (const auto& cover_point_native_frame_eigen : cover_points_in_native_frame)
     {
-        const Eigen::Vector3d cover_point_bt_frame_world_distances = cover_points_frame_to_bt_frame_eigen * cover_point_eigen_frame;
+        const Eigen::Vector3d cover_point_bt_frame_world_distances = cover_points_frame_to_bt_frame_eigen * cover_point_native_frame_eigen;
         const btVector3 cover_point_bt_coords = btVector3((btScalar)cover_point_bt_frame_world_distances.x(),
                                                           (btScalar)cover_point_bt_frame_world_distances.y(),
                                                           (btScalar)cover_point_bt_frame_world_distances.z()) * METERS;
