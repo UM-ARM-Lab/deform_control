@@ -318,10 +318,6 @@ void CustomScene::initializePublishersSubscribersAndServices()
     gripper_attached_node_indices_srv_ = nh_.advertiseService(
             GetGripperAttachedNodeIndicesTopic(nh_), &CustomScene::getGripperAttachedNodeIndicesCallback, this);
 
-    // Create a service to let others know stretching vector information --- Added by Mengyao
-    gripper_stretching_vector_info_srv_ = nh_.advertiseService(
-                GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
-
     // Create a service to let others know the current gripper pose
     gripper_pose_srv_ = nh_.advertiseService(
             GetGripperPoseTopic(nh_), &CustomScene::getGripperPoseCallback, this);
@@ -836,17 +832,6 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
         // We don't want to add this to the world, because then it shows up as a object to collide with
 //        env->add(collision_check_gripper_);
     }
-
-    // Set stretching detection vector infomation
-    grippers_[auto_gripper0_name]->setClothGeoInfoToAnotherGripper(
-                grippers_[auto_gripper1_name],
-                cloth_->softBody,
-                GetClothNumControlPointsX(nh_));
-
-    grippers_[auto_gripper1_name]->setClothGeoInfoToAnotherGripper(
-                grippers_[auto_gripper0_name],
-                cloth_->softBody,
-                GetClothNumControlPointsX(nh_));
 }
 
 void CustomScene::makeClothTwoHumanControlledGrippers()
@@ -2026,7 +2011,6 @@ void CustomScene::makeGenericRegionCoverPoints()
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 }
 
-// TODO: Saving code is in smmap_live_robot, while loading code is here. These should be adjacent.
 void CustomScene::loadCoverPointsFromFile()
 {
     // Load the parameters for which file to read from
@@ -2813,26 +2797,6 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
     res.indices = gripper->getAttachedNodeIndices();
     return true;
-}
-
-bool CustomScene::getGripperStretchingVectorInfoCallback(
-        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
-        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
-{
-    if (cloth_ != nullptr)
-    {
-        GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
-        res.to_gripper_name = gripper->getClothGeoInfoToAnotherGripper().to_gripper_name;
-        res.attatched_indices = gripper->getClothGeoInfoToAnotherGripper().from_nodes;
-        res.neighbor_indices = gripper->getClothGeoInfoToAnotherGripper().to_nodes;
-        res.contributions = gripper->getClothGeoInfoToAnotherGripper().node_contribution;
-        return true;
-    }
-    else
-    {
-        ROS_WARN_ONCE("getGripperStretchingVectorInfo called for non-cloth task, this doesn't make sense");
-        return false;
-    }
 }
 
 bool CustomScene::getGripperPoseCallback(
