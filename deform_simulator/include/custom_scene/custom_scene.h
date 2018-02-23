@@ -149,8 +149,8 @@ class CustomScene : public Scene
                 const std_msgs::Header& input_header,
                 const geometry_msgs::Pose& pose_in_input_frame) const;
 
-        deformable_manipulation_msgs::SimulatorFeedback createSimulatorFbk() const;
-        deformable_manipulation_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
+        deformable_manipulation_msgs::WorldState createSimulatorFbk() const;
+        deformable_manipulation_msgs::WorldState createSimulatorFbk(const SimForkResult& result) const;
 
         std::vector<btVector3> getDeformableObjectNodes() const;
         std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
@@ -204,6 +204,9 @@ class CustomScene : public Scene
         bool getGripperPoseCallback(
                 deformable_manipulation_msgs::GetGripperPose::Request& req,
                 deformable_manipulation_msgs::GetGripperPose::Response& res);
+        bool getRobotConfigurationCallback(
+                deformable_manipulation_msgs::GetRobotConfiguration::Request& req,
+                deformable_manipulation_msgs::GetRobotConfiguration::Response& res);
         bool gripperCollisionCheckCallback(
                 deformable_manipulation_msgs::GetGripperCollisionReport::Request& req,
                 deformable_manipulation_msgs::GetGripperCollisionReport::Response& res);
@@ -234,12 +237,12 @@ class CustomScene : public Scene
                 std_srvs::Empty::Request& req,
                 std_srvs::Empty::Response& res);
 
-        bool executeGripperMovementCallback(
-                deformable_manipulation_msgs::ExecuteGripperMovement::Request& req,
-                deformable_manipulation_msgs::ExecuteGripperMovement::Response& res);
+        bool executeRobotMotionCallback(
+                deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
+                deformable_manipulation_msgs::ExecuteRobotMotion::Response& res);
 
-        void testGripperPosesExecuteCallback(
-                const deformable_manipulation_msgs::TestGrippersPosesGoalConstPtr& goal);
+        void testRobotMotionExecuteCallback(
+                const deformable_manipulation_msgs::TestRobotMotionGoalConstPtr& goal);
 
         ////////////////////////////////////////////////////////////////////
         // Stuff, and things
@@ -360,6 +363,7 @@ class CustomScene : public Scene
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
         ros::ServiceServer gripper_pose_srv_;
+        ros::ServiceServer robot_configuration_srv_;
         ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer cover_point_normals_srv_;
@@ -373,7 +377,7 @@ class CustomScene : public Scene
         ros::ServiceServer object_current_configuration_srv_;
 
         ros::ServiceServer execute_gripper_movement_srv_;
-        actionlib::SimpleActionServer<deformable_manipulation_msgs::TestGrippersPosesAction> test_grippers_poses_as_;
+        actionlib::SimpleActionServer<deformable_manipulation_msgs::TestRobotMotionAction> test_grippers_poses_as_;
 
         ////////////////////////////////////////////////////////////////////////
         // Low-pass filter / quasi static world data structures

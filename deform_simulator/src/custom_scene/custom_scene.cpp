@@ -85,8 +85,8 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                                 sdf_tools::COLLISION_CELL(0.0))
     , feedback_covariance_(GetFeedbackCovariance(nh_))
     , test_grippers_poses_as_(nh_,
-                              GetTestGrippersPosesTopic(nh_),
-                              boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
+                              GetTestRobotMotionTopic(nh_),
+                              boost::bind(&CustomScene::testRobotMotionExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
 {
     makeBulletObjects();
@@ -231,7 +231,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
     while (ros::ok())
     {
-        deformable_manipulation_msgs::SimulatorFeedback sim_fbk;
+        deformable_manipulation_msgs::WorldState sim_fbk;
         {
             std::lock_guard<std::mutex> lock(sim_mutex_);
             step(0);
@@ -298,8 +298,8 @@ void CustomScene::initializePublishersSubscribersAndServices()
 {
      ROS_INFO("Creating subscribers and publishers");
     // Publish to the feedback channel
-    simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::SimulatorFeedback>(
-            GetSimulatorFeedbackTopic(nh_), 20);
+    simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::WorldState>(
+            GetWorldStateTopic(nh_), 20);
 
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
@@ -321,6 +321,9 @@ void CustomScene::initializePublishersSubscribersAndServices()
     // Create a service to let others know the current gripper pose
     gripper_pose_srv_ = nh_.advertiseService(
             GetGripperPoseTopic(nh_), &CustomScene::getGripperPoseCallback, this);
+
+    robot_configuration_srv_ = nh_.advertiseService(
+            GetRobotConfigurationTopic(nh_), &CustomScene::getRobotConfigurationCallback, this);
 
     // Create a service to let others know the current gripper pose
     gripper_collision_check_srv_ = nh_.advertiseService(
@@ -359,7 +362,7 @@ void CustomScene::initializePublishersSubscribersAndServices()
 
     // Create a service to listen to in order to move the grippers and advance sim time
     execute_gripper_movement_srv_ = nh_.advertiseService(
-                GetExecuteGrippersMovementTopic(nh_), &CustomScene::executeGripperMovementCallback, this);
+                GetExecuteRobotMotionTopic(nh_), &CustomScene::executeRobotMotionCallback, this);
 
     // Create a service to clear all visualizations that have been sent to us via ROS
     clear_visualizations_srv_ = nh_.advertiseService(
@@ -2279,11 +2282,11 @@ geometry_msgs::PoseStamped CustomScene::transformPoseToBulletFrame(
     return pose_in_bullet_frame;
 }
 
-deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
+deformable_manipulation_msgs::WorldState CustomScene::createSimulatorFbk() const
 {
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
 
-    deformable_manipulation_msgs::SimulatorFeedback msg;
+    deformable_manipulation_msgs::WorldState msg;
 
     // fill out the object configuration data
     msg.object_configuration   = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
@@ -2322,6 +2325,9 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
         }
     }
 
+    // fill out the robot configuration data as being invalid
+    msg.robot_configuration_valid = false;
+
     // update the sim_time
     msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
 
@@ -2331,16 +2337,26 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     return msg;
 }
 
-deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(const SimForkResult& result) const
+deformable_manipulation_msgs::WorldState CustomScene::createSimulatorFbk(const SimForkResult& result) const
 {
-    deformable_manipulation_msgs::SimulatorFeedback msg;
+    deformable_manipulation_msgs::WorldState msg;
 
+    // fill out the object configuration data
     msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(result), METERS);
+    if (feedback_covariance_ > 0.0)
+    {
+        for (auto& point: msg.object_configuration)
+        {
+            point.x += BoxMuller(0, feedback_covariance_);
+            point.y += BoxMuller(0, feedback_covariance_);
+            point.z += BoxMuller(0, feedback_covariance_);
+        }
+    }
 
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
     {
-        const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
+        const GripperKinematicObject::Ptr gripper = result.grippers_.at(gripper_name);
         msg.gripper_names.push_back(gripper_name);
         msg.gripper_poses.push_back(toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS));
 
@@ -2360,11 +2376,17 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
             msg.obstacle_surface_normal.push_back(toRosVector3(btVector3(1.0f, 0.0f, 0.0f), 1));
             msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(btVector3(0.0f, 0.0f, 0.0f), 1));
         }
-
-        // update the sim_time
-        // TODO: I think this math is wrong - sim time won't be updated yet
-        msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
     }
+
+    // fill out the robot configuration data as being invalid
+    msg.robot_configuration_valid = false;
+
+    // update the sim_time
+    // TODO: I think this math is wrong - sim time won't be updated yet
+    msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
+
+    msg.header.frame_id = world_frame_name_;
+    msg.header.stamp = ros::Time::now();
 
     return msg;
 }
@@ -2810,6 +2832,15 @@ bool CustomScene::getGripperPoseCallback(
     return true;
 }
 
+bool CustomScene::getRobotConfigurationCallback(
+        deformable_manipulation_msgs::GetRobotConfiguration::Request& req,
+        deformable_manipulation_msgs::GetRobotConfiguration::Response& res)
+{
+    (void)req;
+    res.valid = false;
+    return true;
+}
+
 bool CustomScene::gripperCollisionCheckCallback(
         deformable_manipulation_msgs::GetGripperCollisionReport::Request& req,
         deformable_manipulation_msgs::GetGripperCollisionReport::Response& res)
@@ -3065,9 +3096,9 @@ bool CustomScene::clearVisualizationsCallback(
 // ROS Callbacks - Simulation actions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool CustomScene::executeGripperMovementCallback(
-        deformable_manipulation_msgs::ExecuteGripperMovement::Request& req,
-        deformable_manipulation_msgs::ExecuteGripperMovement::Response& res)
+bool CustomScene::executeRobotMotionCallback(
+        deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
+        deformable_manipulation_msgs::ExecuteRobotMotion::Response& res)
 {
     assert(req.grippers_names.size() == req.gripper_poses.size());
     ROS_INFO("Executing gripper command");
@@ -3088,12 +3119,12 @@ bool CustomScene::executeGripperMovementCallback(
         simulator_fbk_pub_.publish(createSimulatorFbk());
     }
 
-    res.sim_state = createSimulatorFbk();
+    res.world_state = createSimulatorFbk();
     return true;
 }
 
-void CustomScene::testGripperPosesExecuteCallback(
-        const deformable_manipulation_msgs::TestGrippersPosesGoalConstPtr& goal)
+void CustomScene::testRobotMotionExecuteCallback(
+        const deformable_manipulation_msgs::TestRobotMotionGoalConstPtr& goal)
 {
     const size_t num_tests = goal->poses_to_test.size();
 
@@ -3107,8 +3138,8 @@ void CustomScene::testGripperPosesExecuteCallback(
         const SimForkResult result = simulateInNewFork(goal->gripper_names, gripper_poses_in_bt_frame);
 
         // Create a feedback message
-        deformable_manipulation_msgs::TestGrippersPosesFeedback fbk;
-        fbk.sim_state = createSimulatorFbk(result);
+        deformable_manipulation_msgs::TestRobotMotionFeedback fbk;
+        fbk.world_state = createSimulatorFbk(result);
         fbk.test_id = test_ind;
         // Send feedback
         test_grippers_poses_as_.publishFeedback(fbk);
