@@ -362,6 +362,7 @@ class CustomScene : public Scene
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
+        ros::ServiceServer gripper_stretching_vector_info_srv_;
         ros::ServiceServer gripper_pose_srv_;
         ros::ServiceServer robot_configuration_srv_;
         ros::ServiceServer gripper_collision_check_srv_;
