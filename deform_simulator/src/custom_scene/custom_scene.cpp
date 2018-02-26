@@ -79,8 +79,8 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                                                       GetWorldZMin(nh))),
                                 bullet_frame_name_,
                                 work_space_grid_.minStepDimension() / METERS / 2.0,
-                                GetWorldZMax(nh) - GetWorldZMin(nh),
-                                GetWorldZMax(nh) - GetWorldZMin(nh),
+                                GetWorldXMax(nh) - GetWorldXMin(nh),
+                                GetWorldYMax(nh) - GetWorldYMin(nh),
                                 GetWorldZMax(nh) - GetWorldZMin(nh),
                                 sdf_tools::COLLISION_CELL(0.0))
     , feedback_covariance_(GetFeedbackCovariance(nh_))
@@ -841,15 +841,17 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     }
 
     // Set stretching detection vector infomation
-    grippers_[auto_gripper0_name]->setClothGeoInfoToAnotherGripper(
-                grippers_[auto_gripper1_name],
-                cloth_->softBody,
-                GetClothNumControlPointsX(nh_));
+    {
+        grippers_[auto_gripper0_name]->setClothGeoInfoToAnotherGripper(
+                    grippers_[auto_gripper1_name],
+                    cloth_->softBody,
+                    GetClothNumControlPointsX(nh_));
 
-    grippers_[auto_gripper1_name]->setClothGeoInfoToAnotherGripper(
-                grippers_[auto_gripper0_name],
-                cloth_->softBody,
-                GetClothNumControlPointsX(nh_));
+        grippers_[auto_gripper1_name]->setClothGeoInfoToAnotherGripper(
+                    grippers_[auto_gripper0_name],
+                    cloth_->softBody,
+                    GetClothNumControlPointsX(nh_));
+    }
 }
 
 void CustomScene::makeClothTwoHumanControlledGrippers()
@@ -1979,7 +1981,6 @@ void CustomScene::makeRopeZigMatchObstacles()
 
     // Set the cover point normals to all be pointing in positive Z
     cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
-
 
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
     plot_points_->setPoints(cover_points_, coverage_color);
@@ -3155,6 +3156,7 @@ bool CustomScene::executeRobotMotionCallback(
     }
 
     res.world_state = createSimulatorFbk();
+    std::cout << "World state frame: " << res.world_state.header.frame_id << std::endl;
     return true;
 }
 

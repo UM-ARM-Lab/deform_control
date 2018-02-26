@@ -555,18 +555,19 @@ void GripperKinematicObject::setClothGeoInfoToAnotherGripper(
 
         // Find the relative position of grippers, highly depends on how the
         // #CustomScene::makeClothTwoGrippers()# function works
+        // Names must match the ones in smmap::GetGripperXName(nh_)
         int position_factor = 0;
-        if ((name == "auto_gripper0") || (name == "manual_gripper0"))
+        if ((name == "left") || (name == "manual_gripper0"))
         {
-            if ((to_gripper_name == "auto_gripper0") || (to_gripper_name == "manual_gripper0"))
+            if ((to_gripper_name == "left") || (to_gripper_name == "manual_gripper0"))
             {
                 assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
             }
             position_factor = 1;
         }
-        else if ((name == "auto_gripper1") || (name == "manual_gripper1"))
+        else if ((name == "right") || (name == "manual_gripper1"))
         {
-            if ((to_gripper_name == "auto_gripper1") || (to_gripper_name == "manual_gripper1"))
+            if ((to_gripper_name == "right") || (to_gripper_name == "manual_gripper1"))
             {
                 assert(false && "stretching vectors need more than one gripper to be defined. gripper_kinematic_object.cpp");
             }
