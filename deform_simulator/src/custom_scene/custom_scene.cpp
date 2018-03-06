@@ -3156,7 +3156,6 @@ bool CustomScene::executeRobotMotionCallback(
     }
 
     res.world_state = createSimulatorFbk();
-    std::cout << "World state frame: " << res.world_state.header.frame_id << std::endl;
     return true;
 }
 

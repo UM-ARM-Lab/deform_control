@@ -84,6 +84,8 @@ struct ViewerData
 class CustomScene : public Scene
 {
     public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
         CustomScene(ros::NodeHandle& nh, const smmap::DeformableType deformable_type, const smmap::TaskType task_type);
 
         ////////////////////////////////////////////////////////////////////////
