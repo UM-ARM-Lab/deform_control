@@ -498,6 +498,12 @@ void CustomScene::makeRope()
                       GetRopeCenterOfMassY(nh_),
                       GetRopeCenterOfMassZ(nh_)) * METERS;
 
+    #warning "MOve this to the params file!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    const btScalar rope_unit_vec_x = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_x", 1.0);
+    const btScalar rope_unit_vec_y = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_y", 0.0);
+    const btScalar rope_unit_vec_z = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_z", 0.0);
+    const btVector3 rope_unit_vec(rope_unit_vec_x, rope_unit_vec_y, rope_unit_vec_z);
+
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
     const size_t num_control_points = (size_t)GetRopeNumLinks(nh_) + 1;
 
@@ -506,7 +512,7 @@ void CustomScene::makeRope()
     for (size_t n = 0; n < num_control_points; n++)
     {
         control_points[n] = rope_com +
-                btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0.0f, 0.0f);
+                ((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length * rope_unit_vec;
     }
 
     rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
@@ -1895,20 +1901,6 @@ void CustomScene::makeRopeZigMatchObstacles()
 
     // Make the goal region    
     {
-        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
-        const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
-
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(second_floor_color);
-
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["goal_border_wall1"] = wall;
-    }
-
-    {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
         const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f * METERS);
 
@@ -1946,9 +1938,9 @@ void CustomScene::makeRopeZigMatchObstacles()
 
     const btVector3 rope_center =
             world_center +
-            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                  // Center in the goal region (x,y)
-            btVector3(0.0f,          0.0f,          wall_thickness / 2.0f) + // Move up out of the floor
-            btVector3(0.0f,          0.0f,          rope_radius);            // Move up so that the target points are off the floor just enough
+            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                         // Center in the goal region (x,y)
+            btVector3(0.0f,          0.0f,          internal_wall_height / 2.0f) +  // Move up out of the floor
+            btVector3(0.0f,          0.0f,          rope_radius);                   // Move up so that the target points are off the floor just enough
 
     const btVector3 middle_unit_vector = btVector3(0.1f * METERS, rope_segment_length * (float)(num_vertical_per_side - 1), 0.0f).normalized();
 

@@ -106,15 +106,17 @@ TableKinematicObject::TableKinematicObject(
     }
 }
 
-EnvironmentObject::Ptr TableKinematicObject::copy(Fork &f) const
-{
-    (void)f;
-    assert(false && "Table copy not implemented");
-}
+/// TODO: Properly copy the table, right now we are relying on the CompoundObject<>'s copy, and it does not copy the members of the inherited class
 
-void TableKinematicObject::internalCopy(TableKinematicObject::Ptr o, Fork &f) const
-{
-    (void)o;
-    (void)f;
-    assert(false && "Table copy not implemented");
-}
+//EnvironmentObject::Ptr TableKinematicObject::copy(Fork &f) const
+//{
+//    (void)f;
+//    assert(false && "Table copy not implemented");
+//}
+
+//void TableKinematicObject::internalCopy(TableKinematicObject::Ptr o, Fork &f) const
+//{
+//    (void)o;
+//    (void)f;
+//    assert(false && "Table copy not implemented");
+//}

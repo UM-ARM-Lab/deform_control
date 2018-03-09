@@ -32,6 +32,11 @@ int main(int argc, char* argv[])
             ViewerConfig::cameraHomePosition = btVector3(0.0f, 0.0f, 6.0f) * METERS;
             ViewerConfig::pointCameraLooksAt = btVector3(0.0f, 0.0f, 0.0f) * METERS;
         }
+        else if (smmap::GetTaskType(nh) == smmap::ROPE_ZIG_MATCH)
+        {
+            ViewerConfig::cameraHomePosition = btVector3(0.7f, 0.6f, 6.0f) * METERS;
+            ViewerConfig::pointCameraLooksAt = btVector3(0.7f, 0.6f, 0.0f) * METERS;
+        }
         else
         {
             ViewerConfig::cameraHomePosition = btVector3(0.0f, 1.0f, 3.5f) * METERS;

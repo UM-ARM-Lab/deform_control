@@ -16,10 +16,10 @@ class TableKinematicObject : public CompoundObject<BoxObject>
                 const btVector4& color,
                 const bool create_legs);
 
-        EnvironmentObject::Ptr copy(Fork &f) const;
+//        EnvironmentObject::Ptr copy(Fork &f) const;
 
     private:
-        void internalCopy(TableKinematicObject::Ptr o, Fork &f) const;
+//        void internalCopy(TableKinematicObject::Ptr o, Fork &f) const;
 
         const std::string name_;
         const btVector3 extents_;
