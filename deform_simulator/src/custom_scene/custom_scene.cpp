@@ -451,19 +451,8 @@ void CustomScene::makeBulletObjects()
             makeClothDoubleSlitObstacles();
             break;
 
-        case TaskType::ROPE_DRAG_ALONG_TABLE:
-            makeRope();
-            makeRopeSingleRobotControlledGrippper();
-            makeTableSurface(false);
-            break;
-
-        case TaskType::ROPE_DRAG_OPPOSITE_TABLE:
-            makeRope();
-            makeRopeSingleRobotControlledGrippper();
-            makeTableSurface(false);
-            break;
-
-        case TaskType::ROPE_TOWARD_TABLE:
+        case TaskType::ROPE_TABLE_LINEAR_MOTION:
+        case TaskType::ROPE_TABLE_PENTRATION:
             makeRope();
             makeRopeSingleRobotControlledGrippper();
             makeTableSurface(false);
