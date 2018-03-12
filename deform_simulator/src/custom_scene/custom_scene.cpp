@@ -458,6 +458,12 @@ void CustomScene::makeBulletObjects()
             makeTableSurface(false);
             break;
 
+        case TaskType::CLOTH_TABLE_PENETRATION:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeTableSurface(false);
+            break;
+
         case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
             // Creating the cloth just so that various other parts of the code have valid data to parse.
             // The cloth part of the simulation is not actually used for anything.
