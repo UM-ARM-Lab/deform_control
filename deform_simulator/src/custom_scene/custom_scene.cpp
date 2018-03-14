@@ -458,7 +458,7 @@ void CustomScene::makeBulletObjects()
             makeTableSurface(false);
             break;
 
-        case TaskType::CLOTH_TABLE_PENETRATION:
+        case TaskType::CLOTH_TABLE_LINEAR_MOTION:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
