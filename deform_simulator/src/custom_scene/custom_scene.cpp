@@ -58,9 +58,9 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
     // Uses the bullet_frame and bullet coords
     , work_space_grid_(Eigen::Isometry3d(Eigen::Translation3d(
-                                             GetWorldXMin(nh) * METERS,
-                                             GetWorldYMin(nh) * METERS,
-                                             GetWorldZMin(nh) * METERS)),
+                                             GetWorldXMinBulletFrame(nh) * METERS,
+                                             GetWorldYMinBulletFrame(nh) * METERS,
+                                             GetWorldZMinBulletFrame(nh) * METERS)),
                        bullet_frame_name_,
                        GetWorldXStep(nh) * METERS,
                        GetWorldYStep(nh) * METERS,
@@ -74,14 +74,14 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
     // Uses bullet_frame but world distances while being built, is transformed to the world frame once built
     , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
-                                                      GetWorldXMin(nh),
-                                                      GetWorldYMin(nh),
-                                                      GetWorldZMin(nh))),
+                                                      GetWorldXMinBulletFrame(nh),
+                                                      GetWorldYMinBulletFrame(nh),
+                                                      GetWorldZMinBulletFrame(nh))),
                                 bullet_frame_name_,
                                 work_space_grid_.minStepDimension() / METERS / 2.0,
-                                GetWorldXMax(nh) - GetWorldXMin(nh),
-                                GetWorldYMax(nh) - GetWorldYMin(nh),
-                                GetWorldZMax(nh) - GetWorldZMin(nh),
+                                GetWorldXMaxBulletFrame(nh) - GetWorldXMinBulletFrame(nh),
+                                GetWorldYMaxBulletFrame(nh) - GetWorldYMinBulletFrame(nh),
+                                GetWorldZMaxBulletFrame(nh) - GetWorldZMinBulletFrame(nh),
                                 sdf_tools::COLLISION_CELL(0.0))
     , feedback_covariance_(GetFeedbackCovariance(nh_))
     , test_grippers_poses_as_(nh_,
@@ -470,7 +470,7 @@ void CustomScene::makeBulletObjects()
             makeCloth();
             makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
-//            makeCylinder(false);
+            makeCylinder(false);
             loadCoverPointsFromFile();
             break;
 
@@ -1454,14 +1454,14 @@ void CustomScene::makeClothDoubleSlitObstacles()
 void CustomScene::makeRopeMazeObstacles()
 {
     const btVector3 world_min = btVector3(
-                (btScalar)GetWorldXMin(nh_),
-                (btScalar)GetWorldYMin(nh_),
-                (btScalar)GetWorldZMin(nh_)) * METERS;
+                (btScalar)GetWorldXMinBulletFrame(nh_),
+                (btScalar)GetWorldYMinBulletFrame(nh_),
+                (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
 
     const btVector3 world_max = btVector3(
-                (btScalar)GetWorldXMax(nh_),
-                (btScalar)GetWorldYMax(nh_),
-                (btScalar)GetWorldZMax(nh_)) * METERS;
+                (btScalar)GetWorldXMaxBulletFrame(nh_),
+                (btScalar)GetWorldYMaxBulletFrame(nh_),
+                (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
     const float wall_thickness = 0.2f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
@@ -1876,14 +1876,14 @@ void CustomScene::makeRopeMazeObstacles()
 void CustomScene::makeRopeZigMatchObstacles()
 {
     const btVector3 world_min = btVector3(
-                (btScalar)GetWorldXMin(nh_),
-                (btScalar)GetWorldYMin(nh_),
-                (btScalar)GetWorldZMin(nh_)) * METERS;
+                (btScalar)GetWorldXMinBulletFrame(nh_),
+                (btScalar)GetWorldYMinBulletFrame(nh_),
+                (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
 
     const btVector3 world_max = btVector3(
-                (btScalar)GetWorldXMax(nh_),
-                (btScalar)GetWorldYMax(nh_),
-                (btScalar)GetWorldZMax(nh_)) * METERS;
+                (btScalar)GetWorldXMaxBulletFrame(nh_),
+                (btScalar)GetWorldYMaxBulletFrame(nh_),
+                (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
     const float wall_thickness = 0.2f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
@@ -2115,14 +2115,14 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         graph_corners_.reserve((8));
 
         const btVector3 world_min = btVector3(
-                    (btScalar)GetWorldXMin(nh_),
-                    (btScalar)GetWorldYMin(nh_),
-                    (btScalar)GetWorldZMin(nh_)) * METERS;
+                    (btScalar)GetWorldXMinBulletFrame(nh_),
+                    (btScalar)GetWorldYMinBulletFrame(nh_),
+                    (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
 
         const btVector3 world_max = btVector3(
-                    (btScalar)GetWorldXMax(nh_),
-                    (btScalar)GetWorldYMax(nh_),
-                    (btScalar)GetWorldZMax(nh_)) * METERS;
+                    (btScalar)GetWorldXMaxBulletFrame(nh_),
+                    (btScalar)GetWorldYMaxBulletFrame(nh_),
+                    (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
         graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_min.y(), world_min.z())), 1.0f));
         graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_min.y(), world_max.z())), 1.0f));
