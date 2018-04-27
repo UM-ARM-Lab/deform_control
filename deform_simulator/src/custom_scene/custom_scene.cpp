@@ -200,9 +200,11 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         visualization_msgs::Marker cover_points_marker;
         cover_points_marker.header.frame_id = world_frame_name_;
         cover_points_marker.ns = "cover_points";
-        cover_points_marker.type = visualization_msgs::Marker::POINTS;
-        cover_points_marker.scale.x = 0.01;
-        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
+        cover_points_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+        cover_points_marker.scale.x = 0.05;
+        cover_points_marker.scale.y = 0.05;
+        cover_points_marker.scale.z = 0.05;
+        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 1.0f, 0.3f);
         cover_points_marker.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
         bullet_visualization_markers.markers.push_back(cover_points_marker);
 
