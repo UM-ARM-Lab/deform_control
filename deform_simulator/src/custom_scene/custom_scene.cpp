@@ -2091,7 +2091,8 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
                     test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), test_pos));
 
                     // If we are not in collision already, then check for neighbours
-//                    if (collisionHelper(test_sphere).m_distance >= 0.0) // Disabled collision check to allow for edges out of the table due to perception errors etc.
+                    #warning "This check needs to be addressed to allow for errors in perception"
+                    if (collisionHelper(test_sphere).m_distance >= 0.0)
                     {
                         const btScalar dist = (test_pos - starting_pos).length();
 
@@ -2628,6 +2629,48 @@ SimForkResult CustomScene::simulateInNewFork(
 // ROS Callbacks - Setting visualization markers
 ////////////////////////////////////////////////////////////////////////////////
 
+bool CustomScene::clearVisualizationsCallback(
+        std_srvs::Empty::Request &req,
+        std_srvs::Empty::Response &res)
+{
+    (void)req;
+    (void)res;
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+
+    // Delete any matching marker from the points list
+    {
+        for (auto& points_marker_pair : visualization_point_markers_)
+        {
+            PlotPoints::Ptr points = points_marker_pair.second;
+            env->remove(points);
+        }
+        visualization_point_markers_.clear();
+    }
+
+    // Delete any matching marker from the spheres list
+    {
+        for (auto& sphere_marker_pair : visualization_sphere_markers_)
+        {
+            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
+            env->remove(spheres);
+        }
+        visualization_sphere_markers_.clear();
+    }
+
+    // Delete any matching markers from the lines list
+    {
+        for (auto& line_marker_pair : visualization_line_markers_)
+        {
+            PlotLines::Ptr plot_lines = line_marker_pair.second;
+            env->remove(plot_lines);
+        }
+        visualization_line_markers_.clear();
+    }
+
+    return true;
+}
+
 // TODO: be able to delete markers and have a timeout
 void CustomScene::visualizationMarkerCallback(
         visualization_msgs::Marker marker)
@@ -2639,9 +2682,9 @@ void CustomScene::visualizationMarkerCallback(
 
     if (marker.action == visualization_msgs::Marker::DELETEALL)
     {
-        ROS_ERROR_ONCE_NAMED(
-                    "visualization",
-                    "Delete all marker action not implemented, this message will only print once");
+        std_srvs::Empty::Request req;
+        std_srvs::Empty::Response res;
+        clearVisualizationsCallback(req, res);
         return;
     }
 
@@ -3071,48 +3114,6 @@ bool CustomScene::terminateSimulationCallback(
         screen_recorder_->zipScreenshots();
     }
     ros::shutdown();
-
-    return true;
-}
-
-bool CustomScene::clearVisualizationsCallback(
-        std_srvs::Empty::Request &req,
-        std_srvs::Empty::Response &res)
-{
-    (void)req;
-    (void)res;
-
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-
-    // Delete any matching marker from the points list
-    {
-        for (auto& points_marker_pair : visualization_point_markers_)
-        {
-            PlotPoints::Ptr points = points_marker_pair.second;
-            env->remove(points);
-        }
-        visualization_point_markers_.clear();
-    }
-
-    // Delete any matching marker from the spheres list
-    {
-        for (auto& sphere_marker_pair : visualization_sphere_markers_)
-        {
-            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
-            env->remove(spheres);
-        }
-        visualization_sphere_markers_.clear();
-    }
-
-    // Delete any matching markers from the lines list
-    {
-        for (auto& line_marker_pair : visualization_line_markers_)
-        {
-            PlotLines::Ptr plot_lines = line_marker_pair.second;
-            env->remove(plot_lines);
-        }
-        visualization_line_markers_.clear();
-    }
 
     return true;
 }
