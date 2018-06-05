@@ -2633,6 +2633,11 @@ bool CustomScene::clearVisualizationsCallback(
         std_srvs::Empty::Request &req,
         std_srvs::Empty::Response &res)
 {
+    if (!drawingOn)
+    {
+        return true;
+    }
+
     (void)req;
     (void)res;
 
@@ -2675,6 +2680,11 @@ bool CustomScene::clearVisualizationsCallback(
 void CustomScene::visualizationMarkerCallback(
         visualization_msgs::Marker marker)
 {
+    if (!drawingOn)
+    {
+        return;
+    }
+
     const std::string id = marker.ns + std::to_string(marker.id);
 
     // TODO: make this mutex not quite so "global" around this switch
@@ -2841,6 +2851,11 @@ void CustomScene::visualizationMarkerCallback(
 void CustomScene::visualizationMarkerArrayCallback(
         visualization_msgs::MarkerArray marker_array)
 {
+    if (!drawingOn)
+    {
+        return;
+    }
+
     for (visualization_msgs::Marker marker: marker_array.markers)
     {
         visualizationMarkerCallback(marker);
