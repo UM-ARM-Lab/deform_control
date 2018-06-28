@@ -28,7 +28,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <arc_utilities/dijkstras.hpp>
-#include <sdf_tools/collision_map.hpp>
+#include <sdf_tools/tagged_object_collision_map.hpp>
 #include <sdf_tools/sdf.hpp>
 #include <deformable_manipulation_experiment_params/task_enums.h>
 #include <deformable_manipulation_experiment_params/xyzgrid.h>
@@ -352,7 +352,7 @@ class CustomScene : public Scene
         std::vector<PlotAxes::Ptr> graph_corners_;
 
         // Uses world (unscaled) translational distances, and the world frame
-        sdf_tools::CollisionMapGrid collision_map_for_export_;
+        sdf_tools::TaggedObjectCollisionMapGrid collision_map_for_export_;
         sdf_tools::SignedDistanceField sdf_for_export_;
 
         ros::Publisher simulator_fbk_pub_;

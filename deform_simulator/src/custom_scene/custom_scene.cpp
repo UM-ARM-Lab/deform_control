@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <future>
+#include <boost/polymorphic_pointer_cast.hpp>
 #include <ros/callback_queue.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
@@ -31,6 +32,7 @@
 
 using namespace BulletHelpers;
 using namespace smmap;
+using ColorBuilder = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>;
 
 // TODO: Put this magic number somewhere else
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
@@ -82,7 +84,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                                 GetWorldXMaxBulletFrame(nh) - GetWorldXMinBulletFrame(nh),
                                 GetWorldYMaxBulletFrame(nh) - GetWorldYMinBulletFrame(nh),
                                 GetWorldZMaxBulletFrame(nh) - GetWorldZMinBulletFrame(nh),
-                                sdf_tools::COLLISION_CELL(0.0))
+                                sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0))
     , feedback_covariance_(GetFeedbackCovariance(nh_))
     , test_grippers_poses_as_(nh_,
                               GetTestRobotMotionTopic(nh_),
@@ -180,12 +182,16 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     size_t deformable_object_marker_ind;
     size_t first_gripper_marker_ind;
     {
-        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
-                                                   arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
+        std::map<uint32_t, std_msgs::ColorRGBA> object_color_map;
+        // Background - alpha = 0, so it doesn't get exported at all
+        object_color_map[0] = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 0.0f, 0.0f);
+        // Table and default objects
+        object_color_map[1] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1);
+        // Peg
+        object_color_map[2] = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1);
 
-//        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
+        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(object_color_map));
+
 
         deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
@@ -194,7 +200,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
         deformable_object_state_marker.scale.y = 0.01;
-        deformable_object_state_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
+        deformable_object_state_marker.color = ColorBuilder::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.5f);
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
         visualization_msgs::Marker cover_points_marker;
@@ -204,7 +210,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         cover_points_marker.scale.x = 0.05;
         cover_points_marker.scale.y = 0.05;
         cover_points_marker.scale.z = 0.05;
-        cover_points_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(1.0f, 0.0f, 1.0f, 0.3f);
+        cover_points_marker.color = ColorBuilder::MakeFromFloatColors(1.0f, 0.0f, 1.0f, 0.3f);
         cover_points_marker.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
         bullet_visualization_markers.markers.push_back(cover_points_marker);
 
@@ -223,7 +229,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             gripper_marker.scale.y = gripper->getHalfExtents().y() * 2.0 / METERS;
             gripper_marker.scale.z = gripper->getHalfExtents().z() * 2.0 / METERS;
             gripper_marker.pose = toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS);
-            gripper_marker.color = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>::MakeFromFloatColors(0, 0, 1, 1);
+            gripper_marker.color = ColorBuilder::MakeFromFloatColors(0, 0, 1, 1);
 
             bullet_visualization_markers.markers.push_back(gripper_marker);
         }
@@ -2229,11 +2235,28 @@ void CustomScene::createCollisionMapAndSDF()
                 const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
                 if (freespace)
                 {
-                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(0.0));
+                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
+                }
+                else if (task_type_ == TaskType::CLOTH_PLACEMAT_LIVE_ROBOT)
+                {
+                    BoxObject::Ptr table = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["table_surface"]);
+                    btTransform table_surface_transform;
+                    table->motionState->getWorldTransform(table_surface_transform);
+                    const float table_surface_z =  table_surface_transform.getOrigin().z() + table->halfExtents.z();
+
+                    if (pos[2] * METERS > table_surface_z)
+                    {
+                        collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
+                    }
+                    else
+                    {
+                        collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                    }
+
                 }
                 else
                 {
-                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(1.0));
+                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
                 }
             }
         }
@@ -2250,7 +2273,8 @@ void CustomScene::createCollisionMapAndSDF()
 
     // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
-    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT).first;
+    // Note that I'm assuming no more than 6 objects, with 0 being unused background
+    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}).first;
     sdf_for_export_.Lock();
 }
 
