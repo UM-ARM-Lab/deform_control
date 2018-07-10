@@ -311,11 +311,11 @@ void CustomScene::initializePublishersSubscribersAndServices()
 
     // Create a subscriber to take visualization instructions
     visualization_marker_sub_ = nh_.subscribe(
-            GetVisualizationMarkerTopic(nh_), 3000, &CustomScene::visualizationMarkerCallback, this);
+            GetVisualizationMarkerTopic(nh_), 20, &CustomScene::visualizationMarkerCallback, this);
 
     // Create a subscriber to take visualization instructions
     visualization_marker_array_sub_ = nh_.subscribe(
-            GetVisualizationMarkerArrayTopic(nh_), 3000, &CustomScene::visualizationMarkerArrayCallback, this);
+            GetVisualizationMarkerArrayTopic(nh_), 20, &CustomScene::visualizationMarkerArrayCallback, this);
 
     ROS_INFO("Creating services");
     // Create a service to let others know the internal gripper names
@@ -2653,74 +2653,16 @@ SimForkResult CustomScene::simulateInNewFork(
 // ROS Callbacks - Setting visualization markers
 ////////////////////////////////////////////////////////////////////////////////
 
-bool CustomScene::clearVisualizationsCallback(
-        std_srvs::Empty::Request &req,
-        std_srvs::Empty::Response &res)
-{
-    if (!drawingOn)
-    {
-        return true;
-    }
-
-    (void)req;
-    (void)res;
-
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-
-    // Delete any matching marker from the points list
-    {
-        for (auto& points_marker_pair : visualization_point_markers_)
-        {
-            PlotPoints::Ptr points = points_marker_pair.second;
-            env->remove(points);
-        }
-        visualization_point_markers_.clear();
-    }
-
-    // Delete any matching marker from the spheres list
-    {
-        for (auto& sphere_marker_pair : visualization_sphere_markers_)
-        {
-            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
-            env->remove(spheres);
-        }
-        visualization_sphere_markers_.clear();
-    }
-
-    // Delete any matching markers from the lines list
-    {
-        for (auto& line_marker_pair : visualization_line_markers_)
-        {
-            PlotLines::Ptr plot_lines = line_marker_pair.second;
-            env->remove(plot_lines);
-        }
-        visualization_line_markers_.clear();
-    }
-
-    return true;
-}
-
-// TODO: be able to delete markers and have a timeout
-void CustomScene::visualizationMarkerCallback(
+void CustomScene::visualizationMarkerInternalHandler(
         visualization_msgs::Marker marker)
 {
-    if (!drawingOn)
+    if (marker.action == visualization_msgs::Marker::DELETEALL)
     {
+        clearVisualizationsInternalHandler();
         return;
     }
 
     const std::string id = marker.ns + std::to_string(marker.id);
-
-    // TODO: make this mutex not quite so "global" around this switch
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-
-    if (marker.action == visualization_msgs::Marker::DELETEALL)
-    {
-        std_srvs::Empty::Request req;
-        std_srvs::Empty::Response res;
-        clearVisualizationsCallback(req, res);
-        return;
-    }
 
     if (marker.action == visualization_msgs::Marker::DELETE)
     {
@@ -2872,17 +2814,81 @@ void CustomScene::visualizationMarkerCallback(
     }
 }
 
-void CustomScene::visualizationMarkerArrayCallback(
-        visualization_msgs::MarkerArray marker_array)
+void CustomScene::clearVisualizationsInternalHandler()
+{
+    // Delete the entire points list
+    {
+        for (auto& points_marker_pair : visualization_point_markers_)
+        {
+            PlotPoints::Ptr points = points_marker_pair.second;
+            env->remove(points);
+        }
+        visualization_point_markers_.clear();
+    }
+
+    // Delete the entire spheres list
+    {
+        for (auto& sphere_marker_pair : visualization_sphere_markers_)
+        {
+            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
+            env->remove(spheres);
+        }
+        visualization_sphere_markers_.clear();
+    }
+
+    // Delete the entire lines list
+    {
+        for (auto& line_marker_pair : visualization_line_markers_)
+        {
+            PlotLines::Ptr plot_lines = line_marker_pair.second;
+            env->remove(plot_lines);
+        }
+        visualization_line_markers_.clear();
+    }
+}
+
+bool CustomScene::clearVisualizationsCallback(
+        std_srvs::Empty::Request &req,
+        std_srvs::Empty::Response &res)
+{
+    if (!drawingOn)
+    {
+        return true;
+    }
+
+    (void)req;
+    (void)res;
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+    clearVisualizationsInternalHandler();
+    return true;
+}
+
+// TODO: be able to delete markers and have a timeout
+void CustomScene::visualizationMarkerCallback(
+        const visualization_msgs::Marker& marker)
 {
     if (!drawingOn)
     {
         return;
     }
 
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+    visualizationMarkerInternalHandler(marker);
+}
+
+void CustomScene::visualizationMarkerArrayCallback(
+        const visualization_msgs::MarkerArray& marker_array)
+{
+    if (!drawingOn)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
     for (visualization_msgs::Marker marker: marker_array.markers)
     {
-        visualizationMarkerCallback(marker);
+        visualizationMarkerInternalHandler(marker);
     }
 }
 

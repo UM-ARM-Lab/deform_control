@@ -184,9 +184,15 @@ class CustomScene : public Scene
         // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
 
-        void visualizationMarkerCallback(visualization_msgs::Marker marker);
-        void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
+        // Not threadsafe
+        void visualizationMarkerInternalHandler(visualization_msgs::Marker marker);
+        // Threadsafe - locks and then calls the internal handler
+        void visualizationMarkerCallback(const visualization_msgs::Marker& marker);
+        void visualizationMarkerArrayCallback(const visualization_msgs::MarkerArray& marker_array);
 
+        // Not threadsafe
+        void clearVisualizationsInternalHandler();
+        // Threadsafe - locks and then calls the internal handler
         bool clearVisualizationsCallback(
                 std_srvs::Empty::Request &req,
                 std_srvs::Empty::Response &res);
