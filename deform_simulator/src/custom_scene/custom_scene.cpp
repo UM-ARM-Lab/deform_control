@@ -110,6 +110,10 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         ros_spinner_.start();
         getWorldToBulletTransform();
 
+        // Store the initial configuration as it will be needed by other libraries
+        // TODO: find a better way to do this that exposes less internals
+        object_initial_configuration_ = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+
         ViewerConfig::windowWidth = GetViewerWidth(ph_);
         ViewerConfig::windowHeight = GetViewerHeight(ph_);
 
@@ -165,10 +169,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         // Startup the action server
         test_grippers_poses_as_.start();
     }
-
-    // Store the initial configuration as it will be needed by other libraries
-    // TODO: find a better way to do this that exposes less internals
-    object_initial_configuration_ = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
 
     ROS_INFO("Simulation ready, starting publishers, subscribers, and services");
     initializePublishersSubscribersAndServices();
