@@ -12,6 +12,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
 #include <deformable_manipulation_experiment_params/serialization.h>
+#include <arc_utilities/timing.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -90,6 +91,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                               GetTestRobotMotionTopic(nh_),
                               boost::bind(&CustomScene::testRobotMotionExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
+    , simulation_time_logger_(GetLogFolder(nh_) + "bullet_sim_time.txt")
 {
     makeBulletObjects();
     // We'll create the various ROS publishers, subscribers and services later to that
@@ -278,7 +280,7 @@ void CustomScene::getWorldToBulletTransform()
     try
     {
         world_to_bullet_tf_as_ros =
-                tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time::now(), ros::Duration(timeout));
+                tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time(0.0), ros::Duration(timeout));
     }
     catch (tf2::TransformException& ex)
     {
@@ -328,7 +330,7 @@ void CustomScene::initializePublishersSubscribersAndServices()
 
     // Create a service to let others know stretching vector information
     gripper_stretching_vector_info_srv_ = nh_.advertiseService(
-                GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
+            GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
 
     // Create a service to let others know the current gripper pose
     gripper_pose_srv_ = nh_.advertiseService(
@@ -346,7 +348,7 @@ void CustomScene::initializePublishersSubscribersAndServices()
             GetCoverPointsTopic(nh_), &CustomScene::getCoverPointsCallback, this);
 
     cover_point_normals_srv_ = nh_.advertiseService(
-                GetCoverPointNormalsTopic(nh_), &CustomScene::getCoverPointNormalsCallback, this);
+            GetCoverPointNormalsTopic(nh_), &CustomScene::getCoverPointNormalsCallback, this);
 
     // Create a service to let others know the mirror line data
     mirror_line_srv_ = nh_.advertiseService(
@@ -366,19 +368,19 @@ void CustomScene::initializePublishersSubscribersAndServices()
 
     // Create a service to let others know the object current configuration
     object_current_configuration_srv_ = nh_.advertiseService(
-                GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
+            GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
 
     // Create a service to listen to in order to know when to shutdown
     terminate_sim_srv_ = nh_.advertiseService(
-                GetTerminateSimulationTopic(nh_), &CustomScene::terminateSimulationCallback, this);
+            GetTerminateSimulationTopic(nh_), &CustomScene::terminateSimulationCallback, this);
 
     // Create a service to listen to in order to move the grippers and advance sim time
     execute_gripper_movement_srv_ = nh_.advertiseService(
-                GetExecuteRobotMotionTopic(nh_), &CustomScene::executeRobotMotionCallback, this);
+            GetExecuteRobotMotionTopic(nh_), &CustomScene::executeRobotMotionCallback, this);
 
     // Create a service to clear all visualizations that have been sent to us via ROS
     clear_visualizations_srv_ = nh_.advertiseService(
-                GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
+            GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
 }
 
 
@@ -480,6 +482,14 @@ void CustomScene::makeBulletObjects()
             makeTableSurface(false);
             makeCylinder(false);
             loadCoverPointsFromFile();
+            break;
+
+        case TaskType::CLOTH_PLACEMAT_LINEAR_MOTION:
+            // Creating the cloth just so that various other parts of the code have valid data to parse.
+            // The cloth part of the simulation is not actually used for anything.
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeTableSurface(false);
             break;
 
 
@@ -3183,12 +3193,17 @@ bool CustomScene::executeRobotMotionCallback(
         SetGripperTransform(grippers_, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
+    double total_time = 0.0;
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
         screen_recorder_->snapshot();
+        arc_utilities::Stopwatch stopwatch;
         step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+        total_time += stopwatch(arc_utilities::READ);
         simulator_fbk_pub_.publish(createSimulatorFbk());
     }
+
+    LOG_STREAM(simulation_time_logger_, num_timesteps_to_execute_per_gripper_cmd_ << " " << total_time);
 
     res.world_state = createSimulatorFbk();
     return true;

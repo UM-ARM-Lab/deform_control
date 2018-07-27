@@ -28,6 +28,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <arc_utilities/dijkstras.hpp>
+#include <arc_utilities/log.hpp>
 #include <sdf_tools/tagged_object_collision_map.hpp>
 #include <sdf_tools/sdf.hpp>
 #include <deformable_manipulation_experiment_params/task_enums.h>
@@ -394,6 +395,12 @@ class CustomScene : public Scene
 
         double base_sim_time_;
         const size_t num_timesteps_to_execute_per_gripper_cmd_;
+
+        ////////////////////////////////////////////////////////////////////////
+        // Logging
+        ////////////////////////////////////////////////////////////////////////
+
+        Log::Log simulation_time_logger_;
 
         ////////////////////////////////////////////////////////////////////////
         // Key Handler for our Custom Scene
