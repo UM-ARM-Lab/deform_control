@@ -2050,7 +2050,7 @@ void CustomScene::loadCoverPointsFromFile()
 
     // Transform into bullet native frame
     const geometry_msgs::Transform cover_points_frame_to_bt_frame_ros =
-            tf_buffer_.lookupTransform(bullet_frame_name_, cover_points_frame, ros::Time::now(), ros::Duration(5.0)).transform;
+            tf_buffer_.lookupTransform(bullet_frame_name_, cover_points_frame, ros::Time(0), ros::Duration(5.0)).transform;
     const Eigen::Isometry3d cover_points_frame_to_bt_frame_eigen =
             EigenHelpersConversions::GeometryTransformToEigenIsometry3d(cover_points_frame_to_bt_frame_ros);
 
@@ -2308,16 +2308,10 @@ geometry_msgs::PoseStamped CustomScene::transformPoseToBulletFrame(
     geometry_msgs::PoseStamped stamped_input;
     stamped_input.header = input_header;
     stamped_input.pose = pose_in_input_frame;
-//    const geometry_msgs::PoseStamped pose_in_bullet_frame = tf_buffer_.transform(stamped_input, bullet_frame_name_, ros::Duration(0.1));
 
     // Get the latest available transform, whatever that is
     geometry_msgs::PoseStamped pose_in_bullet_frame;
     tf_buffer_.transform(stamped_input, pose_in_bullet_frame, bullet_frame_name_, ros::Time(0), world_frame_name_);
-
-//    const geometry_msgs::TransformStamped transform_stamped =
-//            tf_buffer_.lookupTransform(bullet_frame_name_, input_header.frame_id, ros::Time(0));
-
-//    tf2::doTransform(stamped_input, stamped_output, transform_stamped);
 
     return pose_in_bullet_frame;
 }
