@@ -807,9 +807,12 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         const btVector3 gripper_half_extents = grippers_[auto_gripper0_name]->getHalfExtents();
+
+        // Retreive the node index to put the gripper on, defaulting to one of the corners if no parameter exists
+        const int node_idx = ROSHelpers::GetParam<int>(nh_, auto_gripper0_name + "_gripper_attached_node_idx", cloth_corner_node_indices_[0]);
         grippers_[auto_gripper0_name]->setWorldTransform(
                 btTransform(btQuaternion(0, 0, 0, 1),
-                             cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
+                             cloth_->softBody->m_nodes[node_idx].m_x
                              + btVector3(gripper_half_extents.x(), gripper_half_extents.y(), 0)));
 
         // Grip the cloth
@@ -831,9 +834,12 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         const btVector3 gripper_half_extents = grippers_[auto_gripper1_name]->getHalfExtents();
+
+        // Retreive the node index to put the gripper on, defaulting to one of the corners if no parameter exists
+        const int node_idx = ROSHelpers::GetParam<int>(nh_, auto_gripper1_name + "_gripper_attached_node_idx", cloth_corner_node_indices_[1]);
         grippers_[auto_gripper1_name]->setWorldTransform(
                     btTransform(btQuaternion(0, 0, 0, 1),
-                                cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
+                                cloth_->softBody->m_nodes[node_idx].m_x
                 + btVector3(gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
 
         // Grip the cloth

@@ -160,7 +160,7 @@ void GripperKinematicObject::attach(btSoftBody * psb, double radius)
         {
             radius = 2 * halfextents[0];
         }
-//            std::cout << "using radius contact: radius: " << radius << std::endl;
+        std::cerr << "using radius contact: radius: " << radius << std::endl;
 
         btTransform top_tm;
         children[0]->motionState->getWorldTransform(top_tm);
@@ -178,7 +178,7 @@ void GripperKinematicObject::attach(btSoftBody * psb, double radius)
 
                 vattached_node_inds.push_back((size_t)j);
                 appendAnchor(psb, &psb->m_nodes[j], children[closest_body]->rigidBody.get());
-                // std::cout << "\tappending anchor, closest ind: " << j << std::endl;
+                std::cerr << "\tappending anchor, closest ind: " << j << std::endl;
 
             }
         }
@@ -195,7 +195,7 @@ void GripperKinematicObject::attach(btSoftBody * psb, double radius)
             btRigidBody* rigidBody = part->rigidBody.get();
             btSoftBody::tRContactArray rcontacts;
             getContactPointsWith(psb, rigidBody, rcontacts);
-            //std::cout << "got " << rcontacts.size() << " contacts\n";
+            std::cerr << "got " << rcontacts.size() << " contacts\n";
 
             for (int i = 0; i < rcontacts.size(); ++i)
             {
@@ -219,7 +219,7 @@ void GripperKinematicObject::attach(btSoftBody * psb, double radius)
 
                 vattached_node_inds.push_back(closest_ind);
                 appendAnchor(psb, node, rigidBody);
-                //std::cout << "\tappending anchor, closest ind: "<< closest_ind << std::endl;
+                std::cerr << "\tappending anchor, closest ind: "<< closest_ind << std::endl;
             }
         }
     }
