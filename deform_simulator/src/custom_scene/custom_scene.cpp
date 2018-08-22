@@ -511,7 +511,7 @@ void CustomScene::makeRope()
                       GetRopeCenterOfMassY(nh_),
                       GetRopeCenterOfMassZ(nh_)) * METERS;
 
-    #warning "MOve this to the params file!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    #warning "Move this to the params file!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     const btScalar rope_unit_vec_x = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_x", 1.0);
     const btScalar rope_unit_vec_y = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_y", 0.0);
     const btScalar rope_unit_vec_z = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_z", 0.0);
@@ -2245,13 +2245,14 @@ void CustomScene::createCollisionMapAndSDF()
         {
             for (int64_t z_ind = 0; z_ind < collision_map_for_export_.GetNumZCells(); z_ind++)
             {
-                const std::vector<double> pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
+                const Eigen::Vector4d pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
 
-                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), stdVectorToBtVector3(pos) * METERS));
+                const btVector3 trans((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z()));
+                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), trans * METERS));
                 const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
                 if (freespace)
                 {
-                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
+                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
                 }
                 else if (task_type_ == TaskType::CLOTH_PLACEMAT_LIVE_ROBOT)
                 {
@@ -2262,17 +2263,17 @@ void CustomScene::createCollisionMapAndSDF()
 
                     if (pos[2] * METERS > table_surface_z)
                     {
-                        collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
+                        collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
                     }
                     else
                     {
-                        collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                        collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
                     }
 
                 }
                 else
                 {
-                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
                 }
             }
         }
@@ -2284,13 +2285,13 @@ void CustomScene::createCollisionMapAndSDF()
             tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time::now(), ros::Duration(10.0));
     const Eigen::Isometry3d world_to_bullet_as_eigen = EigenHelpersConversions::GeometryTransformToEigenIsometry3d(world_to_bullet_tf_as_ros.transform);
     const Eigen::Isometry3d world_to_collision_map_origin = world_to_bullet_as_eigen * bullet_to_collision_map_starting_origin;
-    collision_map_for_export_.SetOriginTransform(world_to_collision_map_origin);
+    collision_map_for_export_.UpdateOriginTransform(world_to_collision_map_origin);
     collision_map_for_export_.SetFrame(world_frame_name_);
 
     // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
     // Note that I'm assuming no more than 6 objects, with 0 being unused background
-    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}).first;
+    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}, true, false).first;
     sdf_for_export_.Lock();
 }
 
@@ -3131,7 +3132,7 @@ bool CustomScene::getSignedDistanceFieldCallback(
 {
     (void)req;
     // The SDF should already be in world frame and distances, so no conversion needed
-    res.sdf = sdf_for_export_.GetMessageRepresentation();
+    res.sdf = sdf_tools::SignedDistanceField::GetMessageRepresentation(sdf_for_export_);
     return true;
 }
 
