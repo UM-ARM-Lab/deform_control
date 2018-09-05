@@ -310,6 +310,32 @@ namespace BulletHelpers
         return out;
     }
 
+    inline osg::Quat toOsgQuat(const geometry_msgs::Quaternion& ros_quat)
+    {
+        return osg::Quat(ros_quat.x, ros_quat.y, ros_quat.z, ros_quat.w);
+    }
+
+    inline osg::Vec3 toOsgVec3(const geometry_msgs::Vector3& ros, const float bt_scale)
+    {
+        return osg::Vec3(ros.x, ros.y, ros.z) * bt_scale;
+    }
+
+    inline osg::Vec3 toOsgVec3(const geometry_msgs::Point& ros, const float bt_scale)
+    {
+        return osg::Vec3(ros.x, ros.y, ros.z) * bt_scale;
+    }
+
+    inline osg::ref_ptr<osg::Vec3Array> toOsgRefVec3Array(const std::vector<geometry_msgs::Point>& ros, const float bt_scale)
+    {
+        osg::ref_ptr<osg::Vec3Array> out = new osg::Vec3Array();
+        out->reserve(ros.size());
+        for(const auto& point: ros)
+        {
+            out->push_back(toOsgVec3(point, bt_scale));
+        }
+        return out;
+    }
+
     inline osg::ref_ptr<osg::Vec4Array> toOsgRefVec4Array(
             const std::vector<std_msgs::ColorRGBA>& ros)
     {

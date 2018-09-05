@@ -260,12 +260,16 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         }
         bullet_visualization_pub.publish(bullet_visualization_markers);
 
-//        osg::Vec3d eye, center, up;
-//        manip->getTransformation(eye, center, up);
+        if (drawScene)
+        {
+//            osg::Vec3d eye, center, up;
+//            manip->getTransformation(eye, center, up);
 
-//        std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
-//                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
-//                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
+//            std::cout << eye.x()/METERS    << "f, " << eye.y()/METERS    << "f, " << eye.z()/METERS << "f    "
+//                      << center.x()/METERS << "f, " << center.y()/METERS << "f, " << center.z()/METERS << "f    "
+//                      << up.x()/METERS     << "f, " << up.y()/METERS     << "f, " << up.z()/METERS << "f"
+//                      << std::endl;
+        }
 
         std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
     }
@@ -2960,6 +2964,17 @@ void CustomScene::visualizationMarkerInternalHandler(
             }
         }
 
+        // Delete any matching marker from the boxes list
+        {
+            const auto box_marker_itr = visualization_box_markers_.find(id);
+            if (box_marker_itr != visualization_box_markers_.end())
+            {
+                PlotBoxes::Ptr boxes = box_marker_itr->second;
+                visualization_box_markers_.erase(box_marker_itr);
+                env->remove(boxes);
+            }
+        }
+
         return;
     }
 
@@ -2989,45 +3004,96 @@ void CustomScene::visualizationMarkerInternalHandler(
             }
             break;
         }
-        case visualization_msgs::Marker::CUBE_LIST:
-        {
-            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE_LIST as a set of cubes, this message will only print once");
-        }
         case visualization_msgs::Marker::CUBE:
         {
-            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE as a set of spheres, this message will only print once");
-            if (marker.points.size() == 0)
+            if (marker.points.size() != 0)
             {
-                geometry_msgs::Point p;
-                p.x = 0.0;
-                p.y = 0.0;
-                p.z = 0.0;
-                marker.points.push_back(p);
+                marker.points.clear();
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a CUBE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
+            }
+            marker.points.push_back(geometry_msgs::Point());
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+        }
+        case visualization_msgs::Marker::CUBE_LIST:
+        {
+            if (marker.colors.size() == 0)
+            {
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+            else if (marker.colors.size() != marker.points.size())
+            {
+                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
+                marker.color = marker.colors[0];
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+
+            const auto marker_itr = visualization_box_markers_.find(id);
+            if (marker_itr != visualization_box_markers_.end())
+            {
+                auto old_boxes = marker_itr->second;
+                env->remove(old_boxes);
+            }
+
+            auto boxes = boost::make_shared<PlotBoxes>();
+            boxes->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                        toOsgQuat(marker.pose.orientation),
+                        toOsgRefVec4Array(marker.colors),
+                        toOsgVec3(marker.scale, METERS));
+            visualization_box_markers_[id] = boxes;
+            env->add(boxes);
+
+            break;
+        }
+        case visualization_msgs::Marker::SPHERE:
+        {
+            if (marker.points.size() != 0)
+            {
+                marker.points.clear();
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
             }
             if (marker.colors.size() != marker.points.size())
             {
                 marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
             }
         }
-        case visualization_msgs::Marker::SPHERE:
+        case visualization_msgs::Marker::SPHERE_LIST:
         {
+            if (marker.colors.size() == 0)
+            {
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+            else if (marker.colors.size() != marker.points.size())
+            {
+                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
+                marker.color = marker.colors[0];
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
+
+            if ((marker.scale.y != marker.scale.x && marker.scale.y != 0.0f) ||
+                (marker.scale.z != marker.scale.x && marker.scale.z != 0.0f))
+            {
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE_LIST type that meaningful data in the y or z fields. This data is ignored. Namespace and id: " << id);
+            }
+
             const auto marker_itr = visualization_sphere_markers_.find(id);
             if (marker_itr == visualization_sphere_markers_.end())
             {
-                PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
+                auto spheres = boost::make_shared<PlotSpheres>();
                 spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                              // Note that we are converting from a diameter to a radius here
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
                 visualization_sphere_markers_[id] = spheres;
 
                 env->add(spheres);
             }
             else
             {
-                PlotSpheres::Ptr spheres = marker_itr->second;
+                auto spheres = marker_itr->second;
                 spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                              // Note that we are converting from a diameter to a radius here
+                              std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
             }
             break;
         }
@@ -3035,10 +3101,12 @@ void CustomScene::visualizationMarkerInternalHandler(
         {
             if (marker.points.size() == 1)
             {
-                std::cerr << "Only 1 point for line strip:\n"
-                          << "  NS: " << marker.ns << std::endl
-                          << "  ID: " << marker.id << std::endl
-                          << "  Point: " << marker.points[0].x << " " << marker.points[0].y << " " << marker.points[0].z << std::endl;
+                ROS_ERROR_STREAM_NAMED(
+                            "visualization",
+                            "Only 1 point for line strip:\n"
+                            << "  NS: " << marker.ns << std::endl
+                            << "  ID: " << marker.id << std::endl
+                            << "  Point: " << marker.points[0].x << " " << marker.points[0].y << " " << marker.points[0].z);
             }
             if (marker.points.size() > 1)
             {
@@ -3050,7 +3118,7 @@ void CustomScene::visualizationMarkerInternalHandler(
             const auto marker_itr = visualization_line_markers_.find(id);
             if (marker_itr == visualization_line_markers_.end())
             {
-                PlotLines::Ptr line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
+                auto line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
                 // marker.pose has already be transformed to bullet's native frame
                 line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
                                       toBulletColorArray(marker.colors));
@@ -3060,7 +3128,7 @@ void CustomScene::visualizationMarkerInternalHandler(
             }
             else
             {
-                PlotLines::Ptr line_strip = marker_itr->second;
+                auto line_strip = marker_itr->second;
                 // marker.pose has already be transformed to bullet's native frame
                 line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
                                       toBulletColorArray(marker.colors));
@@ -3593,6 +3661,17 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter& ea, osg
                     case 'a':
                     {
                         scene_.advance_grippers_.store(!scene_.advance_grippers_.load());
+                        break;
+                    }
+                }
+
+                // Visualization keybonds
+                {
+                    case 'c':
+                    {
+                        std_srvs::Empty::Request req;
+                        std_srvs::Empty::Response res;
+                        scene_.clearVisualizationsCallback(req, res);
                         break;
                     }
                 }
