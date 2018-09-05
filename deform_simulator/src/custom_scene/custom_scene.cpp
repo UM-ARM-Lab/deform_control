@@ -31,6 +31,7 @@ using namespace BulletHelpers;
 using namespace smmap;
 using ColorBuilder = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>;
 
+// TODO: Put this magic number somewhere else
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -51,17 +52,16 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                        GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
     , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
     , num_graph_edges_(0)
-    , collision_map_for_export_(
-          Eigen::Isometry3d(Eigen::Translation3d(
-                                work_space_grid_.getXMin() / METERS,
-                                work_space_grid_.getYMin() / METERS,
-                                work_space_grid_.getZMin() / METERS)),
-          smmap::GetWorldFrameName(),
-          work_space_grid_.minStepDimension() / METERS / 2.0,
-          (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
-          (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
-          (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
-          sdf_tools::COLLISION_CELL(0.0))
+    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
+                                                      work_space_grid_.getXMin() / METERS,
+                                                      work_space_grid_.getYMin() / METERS,
+                                                      work_space_grid_.getZMin() / METERS)),
+                                smmap::GetWorldFrameName(),
+                                work_space_grid_.minStepDimension() / METERS / 2.0,
+                                (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
+                                (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
+                                (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
+                                sdf_tools::COLLISION_CELL(0.0))
     , nh_(nh)
     , ph_("~")
     , feedback_covariance_(GetFeedbackCovariance(nh_))
@@ -95,6 +95,10 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     // Create a service to let others know what nodes the grippers are attached too
     gripper_attached_node_indices_srv_ = nh_.advertiseService(
             GetGripperAttachedNodeIndicesTopic(nh_), &CustomScene::getGripperAttachedNodeIndicesCallback, this);
+
+    // Create a service to let others know stretching vector information --- Added by Mengyao
+    gripper_stretching_vector_info_srv_ = nh_.advertiseService(
+                GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
 
     // Create a service to let others know the current gripper pose
     gripper_pose_srv_ = nh_.advertiseService(
@@ -187,7 +191,6 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             stepFor(BulletConfig::dt, settle_time);
         }
         
-
         // Wait for the graph to be finished being made
         {
             while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
@@ -331,6 +334,13 @@ void CustomScene::makeBulletObjects()
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeRopeMazeObstacles();
+            break;
+
+            // Fixed Correspondency Task. --- Added by Mengyao
+        case TaskType::ROPE_ZIG_MATCH:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeRopeZigMatchObstacles();
             break;
 
         case TaskType::CLOTH_CYLINDER_COVERAGE:
@@ -750,6 +760,17 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
         // We don't want to add this to the world, because then it shows up as a object to collide with
 //        env->add(collision_check_gripper_);
     }
+
+    // Set stretching detection vector infomation
+    grippers_["auto_gripper0"]->setClothGeoInfoToAnotherGripper(
+                grippers_["auto_gripper1"],
+                cloth_->softBody,
+                GetClothNumControlPointsX(nh_));
+
+    grippers_["auto_gripper1"]->setClothGeoInfoToAnotherGripper(
+                grippers_["auto_gripper0"],
+                cloth_->softBody,
+                GetClothNumControlPointsX(nh_));
 }
 
 void CustomScene::makeClothTwoHumanControlledGrippers()
@@ -983,10 +1004,12 @@ void CustomScene::makeCylinder()
             ////////////////////////////////////////////////////////////////////////
 
             const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                    btVector3(-0.15f, 0.0f, 0.20f) * METERS;
+                    btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_),
+                              GetWafrCylinderRelativeCenterOfMassY(nh_),
+                              GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
 
             CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                        0, cylinder_radius / 4.0f, cylinder_height * 1.9f,
+                        0.0f, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
                         btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
             horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
 
@@ -1765,6 +1788,124 @@ void CustomScene::makeRopeMazeObstacles()
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 }
 
+void CustomScene::makeRopeZigMatchObstacles()
+{
+    const btVector3 world_min = btVector3(
+                (float)work_space_grid_.getXMin(),
+                (float)work_space_grid_.getYMin(),
+                (float)work_space_grid_.getZMin());
+
+    const btVector3 world_max = btVector3(
+                (float)work_space_grid_.getXMax(),
+                (float)work_space_grid_.getYMax(),
+                (float)work_space_grid_.getZMax());
+
+    const float wall_thickness = 0.2f * METERS;
+    const btVector3 world_center = (world_max + world_min) / 2.0f;
+    const btVector3 world_size = world_max - world_min;
+    const btVector3 second_floor_center = world_center + btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
+    const float internal_wall_height = (world_size.z() - wall_thickness) / 2.0f;
+
+    const float second_floor_alpha = GetSecondFloorAlpha(ph_);
+    const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, second_floor_alpha);      // teal
+
+    // Make the goal region    
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_border_wall1"] = wall;
+    }
+
+    {
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f * METERS);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_obstacle0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
+        const btVector3 wall_com = second_floor_center + btVector3(0.5f * METERS, 0.35f * METERS, 0.0f * METERS);
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(second_floor_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["goal_obstacle1"] = wall;
+    }
+
+    // Create the target points
+    const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
+    const float rope_radius = GetRopeRadius(nh_) * METERS;
+    const int num_rope_links = GetRopeNumLinks(nh_);
+    assert(num_rope_links % 2 == 1);
+
+    const int num_vertical_per_side = std::min<int>(14, (num_rope_links - 1) / 2);
+    const int num_horizontal_per_side = (num_rope_links - (num_vertical_per_side * 2) - 1) / 2;
+
+    const btVector3 rope_center =
+            world_center +
+            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                  // Center in the goal region (x,y)
+            btVector3(0.0f,          0.0f,          wall_thickness / 2.0f) + // Move up out of the floor
+            btVector3(0.0f,          0.0f,          rope_radius);            // Move up so that the target points are off the floor just enough
+
+    const btVector3 middle_unit_vector = btVector3(0.1f * METERS, rope_segment_length * (float)(num_vertical_per_side - 1), 0.0f).normalized();
+
+    // Create the part in y (middle visually on start)
+    {
+        for (int cover_idx = -num_vertical_per_side; cover_idx <= num_vertical_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = rope_center + middle_unit_vector * (float)cover_idx * rope_segment_length;
+            cover_points_.push_back(target_point);
+        }
+    }
+    // Create the first part in x (towards the middle of the maze visually on start)
+    {
+        const btVector3 start_point = cover_points_.back();
+        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = start_point + btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
+            cover_points_.push_back(target_point);
+        }
+    }
+    // Create the second part in x (top right corner visually on start)
+    {
+        const btVector3 start_point = cover_points_.front();
+        for (int cover_idx = 0; cover_idx < num_horizontal_per_side; ++cover_idx)
+        {
+            const btVector3 target_point = start_point - btVector3(rope_segment_length, 0.0f, 0.0f) * (float)(cover_idx + 1);
+            cover_points_.insert(cover_points_.begin(), target_point);
+        }
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
+
+
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+
+    assert((int)cover_points_.size() == num_rope_links);
+    ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+}
 
 void CustomScene::makeGenericRegionCoverPoints()
 {
@@ -1923,8 +2064,6 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         // Find the nearest node in the graph due to the grid
         btVector3 nearest_node_point = cover_point;
         int64_t graph_ind = work_space_grid_.worldPosToGridIndex(nearest_node_point.x(), nearest_node_point.y(), nearest_node_point.z());
-
-
 
         assert(graph_ind >= 0);
         assert(graph_ind < work_space_grid_.getNumCells());
@@ -2272,11 +2411,26 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
         result.grippers_[gripper.first] = gripper_copy;
     }
 
+    // TODO: Why do we need to do this with rope
     // If we have a rope, regrasp with the gripper
-    if (result.rope_)
+    if (result.rope_ != nullptr)
     {
-        assert(result.grippers_.size() == 1);
-        result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
+        // Single gripper experiments, assumes that the gripper is grasping the "0th" index of the rope
+        if (result.grippers_.size() == 1)
+        {
+            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
+        }
+        // Double gripper experiments, assumes that the gripper is grasping the "0th" and last index of the rope
+        else if (result.grippers_.size() == 2)
+        {
+            const size_t object_node_ind = result.rope_->getChildren().size() - 1;
+            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
+            result.grippers_[auto_grippers_[1]]->rigidGrab(result.rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, result.fork_->env);
+        }
+        else
+        {
+            assert(false && "grippers size is neither 1 nor 2 ");
+        }
     }
 
     return result;
@@ -2613,6 +2767,27 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
     res.indices = gripper->getAttachedNodeIndices();
     return true;
+}
+
+// Stretching vector information client
+bool CustomScene::getGripperStretchingVectorInfoCallback(
+        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
+        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
+{
+    if (cloth_ != nullptr)
+    {
+        GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
+        res.to_gripper_name = gripper->getClothGeoInfoToAnotherGripper().to_gripper_name;
+        res.attatched_indices = gripper->getClothGeoInfoToAnotherGripper().from_nodes;
+        res.neighbor_indices = gripper->getClothGeoInfoToAnotherGripper().to_nodes;
+        res.contributions = gripper->getClothGeoInfoToAnotherGripper().node_contribution;
+        return true;
+    }
+    else
+    {
+        ROS_WARN_ONCE("getGripperStretchingVectorInfo called for non-cloth task, this doesn't make sense");
+        return false;
+    }
 }
 
 bool CustomScene::getGripperPoseCallback(

@@ -9,6 +9,16 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
     public:
         typedef boost::shared_ptr<GripperKinematicObject> Ptr;
 
+        // Defined stretching detection nodes helper structure.
+        // Used by StretchingAvoidanceController
+        struct GeoInfoToAnotherGripper
+        {
+            std::vector<size_t> from_nodes;
+            std::vector<size_t> to_nodes;
+            std::vector<double> node_contribution;
+            std::string to_gripper_name;
+        };
+
         GripperKinematicObject(
                 const std::string& name_input,
                 const float apperture_input,
@@ -45,6 +55,16 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         EnvironmentObject::Ptr copy(Fork &f) const;
 
+        const std::string getGripperName();
+
+        // TODO: Can we remove passing this pointer, and just use m_psb?
+        void setClothGeoInfoToAnotherGripper(
+                Ptr to_gripper,
+                const boost::shared_ptr<btSoftBody> cloth,
+                const int num_x);
+
+        const GeoInfoToAnotherGripper& getClothGeoInfoToAnotherGripper() const;
+
         friend std::ostream& operator<< (std::ostream& stream, const GripperKinematicObject& gripper);
 
     private:
@@ -52,7 +72,6 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         void attach(btSoftBody* psb, double radius);
         void detach();
-
 
         std::string name;
         btVector3 halfextents;
@@ -71,6 +90,11 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         btSoftBody* m_psb = NULL;   // soft body attached to this gripper
 
         boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
+
+        // Defined stretching detection nodes helper structure.
+        // if more than two grippers in the future, should change it to vector
+        bool to_another_gripper_info_valid;
+        GeoInfoToAnotherGripper to_another_gripper_info;
 };
 
 #endif

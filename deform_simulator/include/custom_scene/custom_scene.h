@@ -120,9 +120,10 @@ class CustomScene : public Scene
         void makeClothWallObstacles();
         void makeClothDoubleSlitObstacles();
         void makeRopeMazeObstacles();
+        // Fixed Correspondences Task for controller
+        void makeRopeZigMatchObstacles();
 
         void makeGenericRegionCoverPoints();
-
 
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
         void createFreeSpaceGraph(const bool draw_graph_corners = false);
@@ -183,6 +184,12 @@ class CustomScene : public Scene
         bool getGripperAttachedNodeIndicesCallback(
                 deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Request& req,
                 deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Response& res);
+
+        // Used by StretchingAvoidanceController in SMMAP
+        bool getGripperStretchingVectorInfoCallback(
+                deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
+                deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res);
+
         bool getGripperPoseCallback(
                 deformable_manipulation_msgs::GetGripperPose::Request& req,
                 deformable_manipulation_msgs::GetGripperPose::Response& res);
@@ -330,6 +337,7 @@ class CustomScene : public Scene
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
+        ros::ServiceServer gripper_stretching_vector_info_srv_;
         ros::ServiceServer gripper_pose_srv_;
         ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
