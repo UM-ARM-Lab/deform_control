@@ -104,9 +104,13 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
 void CustomScene::run(const bool drawScene, const bool syncTime)
 {
-    // Run the startup code for the viewer and everything else
     // ros::ok() is only here to bypass things if a fast SIGINT is received
-    if (ros::ok())
+    if (!ros::ok())
+    {
+        return;
+    }
+
+    // Run the startup code for the viewer and everything else
     {
         // Start listening for TF messages
         ros_spinner_.start();
@@ -492,6 +496,17 @@ void CustomScene::makeBulletObjects()
             makeTableSurface(false);
             break;
 
+        case TaskType::ROPE_HOOKS_BASIC:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeRopeHooksObstacles();
+            break;
+
+        case TaskType::CLOTH_HOOKS:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeClothHooksObstacles();
+            break;
 
         default:
             ROS_FATAL_STREAM("Unknown task type " << task_type_);
@@ -511,10 +526,9 @@ void CustomScene::makeRope()
                       GetRopeCenterOfMassY(nh_),
                       GetRopeCenterOfMassZ(nh_)) * METERS;
 
-    #warning "Move this to the params file!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-    const btScalar rope_unit_vec_x = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_x", 1.0);
-    const btScalar rope_unit_vec_y = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_y", 0.0);
-    const btScalar rope_unit_vec_z = (btScalar)ROSHelpers::GetParam(nh_, "rope_extension_z", 0.0);
+    const btScalar rope_unit_vec_x = GetRopeExtensionVectorX(nh_);
+    const btScalar rope_unit_vec_y = GetRopeExtensionVectorY(nh_);
+    const btScalar rope_unit_vec_z = GetRopeExtensionVectorZ(nh_);
     const btVector3 rope_unit_vec(rope_unit_vec_x, rope_unit_vec_y, rope_unit_vec_z);
 
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
@@ -1487,7 +1501,7 @@ void CustomScene::makeRopeMazeObstacles()
                 (btScalar)GetWorldYMaxBulletFrame(nh_),
                 (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
-    const float wall_thickness = 0.2f * METERS;
+    const float wall_thickness = (btScalar)GetWorldResolution(nh_) * 4.0f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
     const btVector3 world_size = world_max - world_min;
     const btVector3 first_floor_center = world_center - btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
@@ -1842,7 +1856,7 @@ void CustomScene::makeRopeMazeObstacles()
     }
 
     // Create the target points
-    const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
+    const float rope_segment_length = (btScalar)GetRopeSegmentLength(nh_) * METERS;
     const float rope_radius = GetRopeRadius(nh_) * METERS;
     const int num_rope_links = GetRopeNumLinks(nh_);
     assert(num_rope_links % 2 == 1);
@@ -1999,6 +2013,242 @@ void CustomScene::makeRopeZigMatchObstacles()
 
     assert((int)cover_points_.size() == num_rope_links);
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+}
+
+void CustomScene::makeRopeHooksObstacles()
+{
+    const btVector3 world_min = btVector3(
+                (btScalar)GetWorldXMinBulletFrame(nh_),
+                (btScalar)GetWorldYMinBulletFrame(nh_),
+                (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
+
+    const btVector3 world_max = btVector3(
+                (btScalar)GetWorldXMaxBulletFrame(nh_),
+                (btScalar)GetWorldYMaxBulletFrame(nh_),
+                (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
+
+    const float wall_thickness = (btScalar)GetWorldResolution(nh_) * 4.0f * METERS;
+    const btVector3 world_center = (world_max + world_min) / 2.0f;
+    const btVector3 world_size = world_max - world_min;
+
+    const float outer_walls_alpha = GetOuterWallsAlpha(ph_);
+    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);      // grayish
+
+    const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 1.0f);                       // purple
+
+    // Make the floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(world_size.x() + wall_thickness, world_size.y() + wall_thickness, wall_thickness) / 2.0f;
+        const btVector3 floor_com = btVector3(world_center.x(), world_center.y(), world_min.z() - wall_thickness / 2.0f);
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["floor"] = floor;
+    }
+
+    // Make the ceiling to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 ceiling_half_extents = btVector3(world_size.x() + wall_thickness, world_size.y() + wall_thickness, wall_thickness) / 2.0f;
+        const btVector3 ceiling_com = btVector3(world_center.x(), world_center.y(), world_max.z() + wall_thickness / 2.0f);
+
+        BoxObject::Ptr ceiling = boost::make_shared<BoxObject>(
+                    0, ceiling_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), ceiling_com));
+        ceiling->setColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // add the wall to the world
+        env->add(ceiling);
+        world_obstacles_["ceiling"] = ceiling;
+    }
+
+    // Make the outer walls
+    {
+        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_center.x(), world_min.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_center.x(), world_max.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall1"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_min.x(), world_center.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall2"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_max.x(), world_center.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall3"] = wall;
+    }
+
+    // Make the initial obstacle to go around
+    {
+        // obstacle parameters
+        const btVector3 obstacle_com =
+            btVector3(GetCylinderCenterOfMassX(nh_),
+                      GetCylinderCenterOfMassY(nh_),
+                      GetCylinderCenterOfMassZ(nh_)) * METERS;
+
+        const btScalar obstacle_radius = GetCylinderRadius(nh_) * METERS;
+        const btScalar obstacle_height = GetCylinderHeight(nh_) * METERS;
+        const btVector3 obstacle_half_extents(obstacle_radius, obstacle_radius, obstacle_height / 2.0f);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the cylinder to the world
+        env->add(obstacle);
+        world_obstacles_["initial_obstacle"] = obstacle;
+    }
+
+    const btScalar hook_height = GetHookHeight(nh_) * METERS;
+    const btScalar hook_length = GetHookLength(nh_) * METERS;
+    const btScalar hook_radius = wall_thickness / 4.0f;
+
+    const btScalar hook_com_x = GetHookComX(nh_) * METERS;
+    const btScalar hook_com_offset_y = GetHookComOffsetY(nh_) * METERS;
+
+    // Top hook (visuallay on starting the simulator
+    {
+        // obstacle parameters
+
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, hook_com_offset_y, -hook_height / 2.0f);
+
+        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook1_vertical"] = obstacle;
+    }
+    {
+        // obstacle parameters
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, hook_com_offset_y, -hook_radius)    // Center on the existing vertical section
+                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
+                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
+
+        const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook1_horizontal"] = obstacle;
+    }
+
+    // Bottom hook (visuallay on starting the simulator
+    {
+        // obstacle parameters
+
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, -hook_com_offset_y, -hook_height / 2.0f);
+
+        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook2_vertical"] = obstacle;
+    }
+    {
+        // obstacle parameters
+        // obstacle parameters
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, -hook_com_offset_y, -hook_radius)   // Center on the existing vertical section
+                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
+                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
+
+        const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook2_horizontal"] = obstacle;
+    }
+
+    // Make the target region
+    const std::vector<btVector3> rope_nodes = rope_->getNodes();
+    for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
+    {
+        const btVector3 target_point = rope_nodes[cover_idx] + btVector3(world_size.x() * 0.75f, 0.0f, world_size.z() / 3.0f);
+        cover_points_.push_back(target_point);
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
+
+    // Visualize the cover points
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+}
+
+void CustomScene::makeClothHooksObstacles()
+{
+    assert(false && "makeClothHooksObstacles not implemented!");
 }
 
 void CustomScene::makeGenericRegionCoverPoints()

@@ -129,8 +129,9 @@ class CustomScene : public Scene
         void makeClothWallObstacles();
         void makeClothDoubleSlitObstacles();
         void makeRopeMazeObstacles();
-        // Fixed Correspondences Task for controller
         void makeRopeZigMatchObstacles();
+        void makeRopeHooksObstacles();
+        void makeClothHooksObstacles();
 
         void makeGenericRegionCoverPoints();
         void loadCoverPointsFromFile();
