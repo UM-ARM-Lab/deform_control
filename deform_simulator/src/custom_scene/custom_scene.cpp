@@ -192,9 +192,11 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         // Background - alpha = 0, so it doesn't get exported at all
         object_color_map[0] = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 0.0f, 0.0f);
         // Table and default objects
-        object_color_map[1] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1);
+        object_color_map[1] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
         // Peg
-        object_color_map[2] = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1);
+        object_color_map[2] = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
+        // Outer walls for Rope Hooks - disabled visualization for debugging
+        object_color_map[3] = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 0.0f, 0.0f);
 
         bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(object_color_map));
 
@@ -2508,26 +2510,46 @@ void CustomScene::createCollisionMapAndSDF()
                 {
                     collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
                 }
-                else if (task_type_ == TaskType::CLOTH_PLACEMAT_LIVE_ROBOT)
-                {
-                    BoxObject::Ptr table = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["table_surface"]);
-                    btTransform table_surface_transform;
-                    table->motionState->getWorldTransform(table_surface_transform);
-                    const float table_surface_z =  table_surface_transform.getOrigin().z() + table->halfExtents.z();
-
-                    if (pos[2] * METERS > table_surface_z)
-                    {
-                        collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
-                    }
-                    else
-                    {
-                        collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
-                    }
-
-                }
                 else
                 {
-                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                    switch (task_type_)
+                    {
+                        case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
+                        {
+                            BoxObject::Ptr table = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["table_surface"]);
+                            btTransform table_surface_transform;
+                            table->motionState->getWorldTransform(table_surface_transform);
+                            const float table_surface_z =  table_surface_transform.getOrigin().z() + table->halfExtents.z();
+
+                            if (pos[2] * METERS > table_surface_z)
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
+                            }
+                            else
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                            }
+                            break;
+                        }
+
+                        case TaskType::ROPE_HOOKS_BASIC:
+                        {
+                            // Disable drawing the outer walls in RViz
+                            if (x_ind >= 4 && x_ind < collision_map_for_export_.GetNumXCells() - 4 &&
+                                y_ind >= 4 && y_ind < collision_map_for_export_.GetNumYCells() - 4)
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                            }
+                            else
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 3));
+                            }
+                            break;
+                        }
+
+                        default:
+                            collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                    }
                 }
             }
         }
@@ -3669,9 +3691,12 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter& ea, osg
                 {
                     case 'c':
                     {
-                        std_srvs::Empty::Request req;
-                        std_srvs::Empty::Response res;
-                        scene_.clearVisualizationsCallback(req, res);
+//                        std_srvs::Empty::Request req;
+//                        std_srvs::Empty::Response res;
+//                        scene_.clearVisualizationsCallback(req, res);
+                        // The scene is already locked in the main sim loop,
+                        // thus we call the internall handler, not the external interface
+                        scene_.clearVisualizationsInternalHandler();
                         break;
                     }
                 }
