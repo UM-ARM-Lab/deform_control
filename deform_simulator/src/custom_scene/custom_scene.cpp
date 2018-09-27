@@ -2728,48 +2728,99 @@ void CustomScene::visualizationMarkerInternalHandler(
             }
             break;
         }
-        case visualization_msgs::Marker::CUBE_LIST:
-        {
-            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE_LIST as a set of cubes, this message will only print once");
-        }
         case visualization_msgs::Marker::CUBE:
         {
-            ROS_WARN_ONCE_NAMED("visualization", "Treating CUBE as a set of spheres, this message will only print once");
-            if (marker.points.size() == 0)
+            if (marker.points.size() != 0)
             {
-                geometry_msgs::Point p;
-                p.x = 0.0;
-                p.y = 0.0;
-                p.z = 0.0;
-                marker.points.push_back(p);
+                marker.points.clear();
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a CUBE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
             }
-            if (marker.colors.size() != marker.points.size())
+            marker.points.push_back(geometry_msgs::Point());
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+        }
+        case visualization_msgs::Marker::CUBE_LIST:
+        {
+            if (marker.colors.size() == 0)
             {
                 marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
             }
-        }
-        case visualization_msgs::Marker::SPHERE:
-        {
-            const auto marker_itr = visualization_sphere_markers_.find(id);
-            if (marker_itr == visualization_sphere_markers_.end())
+            else if (marker.colors.size() != marker.points.size())
             {
-                PlotSpheres::Ptr spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
-                              toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
-                visualization_sphere_markers_[id] = spheres;
+                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
+                marker.color = marker.colors[0];
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
 
-                env->add(spheres);
-            }
-            else
+            const auto marker_itr = visualization_box_markers_.find(id);
+            if (marker_itr != visualization_box_markers_.end())
             {
-                PlotSpheres::Ptr spheres = marker_itr->second;
-                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
-                              toOsgRefVec4Array(marker.colors),
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * METERS));
+                auto old_boxes = marker_itr->second;
+                env->remove(old_boxes);
             }
+
+            auto boxes = boost::make_shared<PlotBoxes>();
+            boxes->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                        toOsgQuat(marker.pose.orientation),
+                        toOsgRefVec4Array(marker.colors),
+                        toOsgVec3(marker.scale, METERS));
+            visualization_box_markers_[id] = boxes;
+            env->add(boxes);
+
             break;
         }
+        case visualization_msgs::Marker::SPHERE:
+                {
+                    if (marker.points.size() != 0)
+                    {
+                        marker.points.clear();
+                        ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
+                    }
+                    if (marker.colors.size() != marker.points.size())
+                    {
+                        marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+                    }
+                }
+                case visualization_msgs::Marker::SPHERE_LIST:
+                {
+                    if (marker.colors.size() == 0)
+                    {
+                        marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+                    }
+                    else if (marker.colors.size() != marker.points.size())
+                    {
+                        ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
+                        marker.color = marker.colors[0];
+                        marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+                    }
+
+                    if ((marker.scale.y != marker.scale.x && marker.scale.y != 0.0f) ||
+                        (marker.scale.z != marker.scale.x && marker.scale.z != 0.0f))
+                    {
+                        ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE_LIST type that meaningful data in the y or z fields. This data is ignored. Namespace and id: " << id);
+                    }
+
+                    const auto marker_itr = visualization_sphere_markers_.find(id);
+                    if (marker_itr == visualization_sphere_markers_.end())
+                    {
+                        auto spheres = boost::make_shared<PlotSpheres>();
+                        spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                                      toOsgRefVec4Array(marker.colors),
+                                      // Note that we are converting from a diameter to a radius here
+                                      std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
+                        visualization_sphere_markers_[id] = spheres;
+
+                        env->add(spheres);
+                    }
+                    else
+                    {
+                        auto spheres = marker_itr->second;
+                        spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                                      toOsgRefVec4Array(marker.colors),
+                                      // Note that we are converting from a diameter to a radius here
+                                      std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
+                    }
+                    break;
+                }
         case visualization_msgs::Marker::LINE_STRIP:
         {
             if (marker.points.size() == 1)
@@ -2844,6 +2895,16 @@ void CustomScene::clearVisualizationsInternalHandler()
             env->remove(plot_lines);
         }
         visualization_line_markers_.clear();
+    }
+
+    // Delete the entire boxes list
+    {
+        for (auto& box_marker_pair : visualization_box_markers_)
+        {
+            PlotBoxes::Ptr plot_boxes = box_marker_pair.second;
+            env->remove(plot_boxes);
+        }
+        visualization_box_markers_.clear();
     }
 }
 
