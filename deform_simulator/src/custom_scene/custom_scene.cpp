@@ -3196,6 +3196,16 @@ void CustomScene::clearVisualizationsInternalHandler()
         }
         visualization_line_markers_.clear();
     }
+
+    // Delete the entire boxes list
+    {
+        for (auto& box_marker_pair : visualization_box_markers_)
+        {
+            PlotBoxes::Ptr plot_boxes = box_marker_pair.second;
+            env->remove(plot_boxes);
+        }
+        visualization_box_markers_.clear();
+    }
 }
 
 bool CustomScene::clearVisualizationsCallback(
