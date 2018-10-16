@@ -5,6 +5,7 @@
 struct ViewerConfig : Config {
         static btVector3 cameraHomePosition;
         static btVector3 pointCameraLooksAt;
+        static btVector3 cameraUp;
         static int windowWidth;
         static int windowHeight;
     ViewerConfig() : Config() {

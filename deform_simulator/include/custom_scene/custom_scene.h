@@ -21,11 +21,15 @@
 #include "manual_gripper_path.h"
 
 #include <ros/ros.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/static_transform_broadcaster.h>
 #include <std_srvs/Empty.h>
 #include <actionlib/server/simple_action_server.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <geometry_msgs/PoseStamped.h>
 #include <arc_utilities/dijkstras.hpp>
-#include <sdf_tools/collision_map.hpp>
+#include <arc_utilities/log.hpp>
+#include <sdf_tools/tagged_object_collision_map.hpp>
 #include <sdf_tools/sdf.hpp>
 #include <deformable_manipulation_experiment_params/task_enums.h>
 #include <deformable_manipulation_experiment_params/xyzgrid.h>
@@ -81,6 +85,8 @@ struct ViewerData
 class CustomScene : public Scene
 {
     public:
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
         CustomScene(ros::NodeHandle& nh, const smmap::DeformableType deformable_type, const smmap::TaskType task_type);
 
         ////////////////////////////////////////////////////////////////////////
@@ -93,6 +99,9 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
         // Construction helper functions
         ////////////////////////////////////////////////////////////////////////
+
+        void getWorldToBulletTransform();
+        void initializePublishersSubscribersAndServices();
 
         void makeBulletObjects();
 
@@ -114,16 +123,18 @@ class CustomScene : public Scene
 
 
         void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f, const bool add_legs = false);
-        void makeCylinder();
+        void makeCylinder(const bool create_cover_points);
         void makeSinglePoleObstacles();
         void makeWallObstacles();
         void makeClothWallObstacles();
         void makeClothDoubleSlitObstacles();
         void makeRopeMazeObstacles();
-        // Fixed Correspondences Task for controller
         void makeRopeZigMatchObstacles();
+        void makeRopeHooksObstacles();
+        void makeClothHooksObstacles();
 
         void makeGenericRegionCoverPoints();
+        void loadCoverPointsFromFile();
 
         void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
         void createFreeSpaceGraph(const bool draw_graph_corners = false);
@@ -136,10 +147,14 @@ class CustomScene : public Scene
         static void SetGripperTransform(
                 const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
                 const std::string& name,
-                const geometry_msgs::Pose& pose);
+                const btTransform& pose_in_bt_coords);
 
-        deformable_manipulation_msgs::SimulatorFeedback createSimulatorFbk() const;
-        deformable_manipulation_msgs::SimulatorFeedback createSimulatorFbk(const SimForkResult& result) const;
+        geometry_msgs::PoseStamped transformPoseToBulletFrame(
+                const std_msgs::Header& input_header,
+                const geometry_msgs::Pose& pose_in_input_frame) const;
+
+        deformable_manipulation_msgs::WorldState createSimulatorFbk() const;
+        deformable_manipulation_msgs::WorldState createSimulatorFbk(const SimForkResult& result) const;
 
         std::vector<btVector3> getDeformableObjectNodes() const;
         std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
@@ -161,19 +176,25 @@ class CustomScene : public Scene
 
         SimForkResult createForkWithNoSimulationDone(
                 const std::vector<std::string>& gripper_names,
-                const std::vector<geometry_msgs::Pose>& gripper_poses);
+                const std::vector<btTransform>& gripper_poses_in_bt_coords);
 
         SimForkResult simulateInNewFork(
                 const std::vector<std::string>& gripper_names,
-                const std::vector<geometry_msgs::Pose>& gripper_poses);
+                const std::vector<btTransform>& gripper_poses_in_bt_coords);
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
 
-        void visualizationMarkerCallback(visualization_msgs::Marker marker);
-        void visualizationMarkerArrayCallback(visualization_msgs::MarkerArray marker_array);
+        // Not threadsafe
+        void visualizationMarkerInternalHandler(visualization_msgs::Marker marker);
+        // Threadsafe - locks and then calls the internal handler
+        void visualizationMarkerCallback(const visualization_msgs::Marker& marker);
+        void visualizationMarkerArrayCallback(const visualization_msgs::MarkerArray& marker_array);
 
+        // Not threadsafe
+        void clearVisualizationsInternalHandler();
+        // Threadsafe - locks and then calls the internal handler
         bool clearVisualizationsCallback(
                 std_srvs::Empty::Request &req,
                 std_srvs::Empty::Response &res);
@@ -193,6 +214,9 @@ class CustomScene : public Scene
         bool getGripperPoseCallback(
                 deformable_manipulation_msgs::GetGripperPose::Request& req,
                 deformable_manipulation_msgs::GetGripperPose::Response& res);
+        bool getRobotConfigurationCallback(
+                deformable_manipulation_msgs::GetRobotConfiguration::Request& req,
+                deformable_manipulation_msgs::GetRobotConfiguration::Response& res);
         bool gripperCollisionCheckCallback(
                 deformable_manipulation_msgs::GetGripperCollisionReport::Request& req,
                 deformable_manipulation_msgs::GetGripperCollisionReport::Response& res);
@@ -200,8 +224,8 @@ class CustomScene : public Scene
                 deformable_manipulation_msgs::GetPointSet::Request& req,
                 deformable_manipulation_msgs::GetPointSet::Response& res);
         bool getCoverPointNormalsCallback(
-                deformable_manipulation_msgs::GetPointSet::Request& req,
-                deformable_manipulation_msgs::GetPointSet::Response& res);
+                deformable_manipulation_msgs::GetVector3Set::Request& req,
+                deformable_manipulation_msgs::GetVector3Set::Response& res);
         bool getMirrorLineCallback(
                 deformable_manipulation_msgs::GetMirrorLine::Request& req,
                 deformable_manipulation_msgs::GetMirrorLine::Response& res);
@@ -223,12 +247,12 @@ class CustomScene : public Scene
                 std_srvs::Empty::Request& req,
                 std_srvs::Empty::Response& res);
 
-        bool executeGripperMovementCallback(
-                deformable_manipulation_msgs::ExecuteGripperMovement::Request& req,
-                deformable_manipulation_msgs::ExecuteGripperMovement::Response& res);
+        bool executeRobotMotionCallback(
+                deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
+                deformable_manipulation_msgs::ExecuteRobotMotion::Response& res);
 
-        void testGripperPosesExecuteCallback(
-                const deformable_manipulation_msgs::TestGrippersPosesGoalConstPtr& goal);
+        void testRobotMotionExecuteCallback(
+                const deformable_manipulation_msgs::TestRobotMotionGoalConstPtr& goal);
 
         ////////////////////////////////////////////////////////////////////
         // Stuff, and things
@@ -266,7 +290,7 @@ class CustomScene : public Scene
 
         const smmap::DeformableType deformable_type_;
         const smmap::TaskType task_type_;
-        btScalar max_strain_;
+        btScalar max_strain_; // Not constant so that we can allow it to not be a parameter anywhere if we are not visualizing the strain lines
 
         ////////////////////////////////////////////////////////////////////////
         // Grippers
@@ -288,17 +312,6 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         std::unordered_map<std::string, BulletObject::Ptr> world_obstacles_;
-
-        // Uses bullet (scaled) translational distances
-        const smmap::XYZGrid work_space_grid_;
-        arc_dijkstras::Graph<btVector3> free_space_graph_;
-        size_t num_graph_edges_;
-        std::vector<int64_t> cover_ind_to_free_space_graph_ind_;
-        std::vector<PlotAxes::Ptr> graph_corners_;
-
-        // Uses world (unscaled) translational distances
-        sdf_tools::CollisionMapGrid collision_map_for_export_;
-        sdf_tools::SignedDistanceField sdf_for_export_;
 
         ////////////////////////////////////////////////////////////////////////
         // Rope world objects
@@ -327,6 +340,29 @@ class CustomScene : public Scene
 
         ros::NodeHandle nh_;
         ros::NodeHandle ph_;
+        ros::AsyncSpinner ros_spinner_;
+
+        const std::string bullet_frame_name_;
+        const std::string world_frame_name_;
+        tf2_ros::Buffer tf_buffer_;
+        const tf2_ros::TransformListener tf_listener_;
+
+        // Cannot be const because we need to wait for the buffer to collect data
+        // Stores the transform that makes point_in_world_frame = world_to_bullet_tf_ * point_in_bullet_frame
+        btTransform world_to_bullet_tf_;
+        // Broadcasts an identity transform between the world and bullet if no one else is broadcasting within 10 seconds of startup
+        tf2_ros::StaticTransformBroadcaster static_broadcaster_;
+
+        // Uses bullet (scaled) translational distances, and the bullet frame
+        const smmap::XYZGrid work_space_grid_;
+        arc_dijkstras::Graph<btVector3> free_space_graph_;
+        size_t num_graph_edges_;
+        std::vector<int64_t> cover_ind_to_free_space_graph_ind_;
+        std::vector<PlotAxes::Ptr> graph_corners_;
+
+        // Uses world (unscaled) translational distances, and the world frame
+        sdf_tools::TaggedObjectCollisionMapGrid collision_map_for_export_;
+        sdf_tools::SignedDistanceField sdf_for_export_;
 
         ros::Publisher simulator_fbk_pub_;
         const double feedback_covariance_;
@@ -339,6 +375,7 @@ class CustomScene : public Scene
         ros::ServiceServer gripper_attached_node_indices_srv_;
         ros::ServiceServer gripper_stretching_vector_info_srv_;
         ros::ServiceServer gripper_pose_srv_;
+        ros::ServiceServer robot_configuration_srv_;
         ros::ServiceServer gripper_collision_check_srv_;
         ros::ServiceServer cover_points_srv_;
         ros::ServiceServer cover_point_normals_srv_;
@@ -352,7 +389,7 @@ class CustomScene : public Scene
         ros::ServiceServer object_current_configuration_srv_;
 
         ros::ServiceServer execute_gripper_movement_srv_;
-        actionlib::SimpleActionServer<deformable_manipulation_msgs::TestGrippersPosesAction> test_grippers_poses_as_;
+        actionlib::SimpleActionServer<deformable_manipulation_msgs::TestRobotMotionAction> test_grippers_poses_as_;
 
         ////////////////////////////////////////////////////////////////////////
         // Low-pass filter / quasi static world data structures
@@ -360,6 +397,12 @@ class CustomScene : public Scene
 
         double base_sim_time_;
         const size_t num_timesteps_to_execute_per_gripper_cmd_;
+
+        ////////////////////////////////////////////////////////////////////////
+        // Logging
+        ////////////////////////////////////////////////////////////////////////
+
+        Log::Log simulation_time_logger_;
 
         ////////////////////////////////////////////////////////////////////////
         // Key Handler for our Custom Scene
@@ -370,7 +413,7 @@ class CustomScene : public Scene
             public:
                 CustomKeyHandler(CustomScene &scene);
 
-                bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter&);
+                bool handle(const osgGA::GUIEventAdapter& ea,osgGA::GUIActionAdapter& aa);
 
             private:
                 CustomScene& scene_;

@@ -7,8 +7,12 @@
 #include <string>
 #include <thread>
 #include <future>
+#include <boost/polymorphic_pointer_cast.hpp>
 #include <ros/callback_queue.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
+#include <deformable_manipulation_experiment_params/serialization.h>
+#include <arc_utilities/timing.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -47,105 +51,51 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , deformable_type_(deformable_type)
     , task_type_(task_type)
     , advance_grippers_(true)
-    , work_space_grid_(GetWorldXMin(nh) * METERS, GetWorldXStep(nh) * METERS, GetWorldXNumSteps(nh),
-                       GetWorldYMin(nh) * METERS, GetWorldYStep(nh) * METERS, GetWorldYNumSteps(nh),
-                       GetWorldZMin(nh) * METERS, GetWorldZStep(nh) * METERS, GetWorldZNumSteps(nh))
-    , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
-    , num_graph_edges_(0)
-    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
-                                                      work_space_grid_.getXMin() / METERS,
-                                                      work_space_grid_.getYMin() / METERS,
-                                                      work_space_grid_.getZMin() / METERS)),
-                                smmap::GetWorldFrameName(),
-                                work_space_grid_.minStepDimension() / METERS / 2.0,
-                                (work_space_grid_.getXMax() - work_space_grid_.getXMin()) / METERS,
-                                (work_space_grid_.getYMax() - work_space_grid_.getYMin()) / METERS,
-                                (work_space_grid_.getZMax() - work_space_grid_.getZMin()) / METERS,
-                                sdf_tools::COLLISION_CELL(0.0))
     , nh_(nh)
     , ph_("~")
+    , ros_spinner_(1)
+    , bullet_frame_name_(smmap::GetBulletFrameName())
+    , world_frame_name_(smmap::GetWorldFrameName())
+    , tf_buffer_()
+    , tf_listener_(tf_buffer_)
+
+    // Uses the bullet_frame and bullet coords
+    , work_space_grid_(Eigen::Isometry3d(Eigen::Translation3d(
+                                             GetWorldXMinBulletFrame(nh) * METERS,
+                                             GetWorldYMinBulletFrame(nh) * METERS,
+                                             GetWorldZMinBulletFrame(nh) * METERS)),
+                       bullet_frame_name_,
+                       GetWorldXStep(nh) * METERS,
+                       GetWorldYStep(nh) * METERS,
+                       GetWorldZStep(nh) * METERS,
+                       GetWorldXNumSteps(nh),
+                       GetWorldYNumSteps(nh),
+                       GetWorldZNumSteps(nh))
+    , free_space_graph_((size_t)work_space_grid_.getNumCells() + 1000)
+    , num_graph_edges_(0)
+
+
+    // Uses bullet_frame but world distances while being built, is transformed to the world frame once built
+    , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
+                                                      GetWorldXMinBulletFrame(nh),
+                                                      GetWorldYMinBulletFrame(nh),
+                                                      GetWorldZMinBulletFrame(nh))),
+                                bullet_frame_name_,
+                                work_space_grid_.minStepDimension() / METERS / 2.0,
+                                GetWorldXMaxBulletFrame(nh) - GetWorldXMinBulletFrame(nh),
+                                GetWorldYMaxBulletFrame(nh) - GetWorldYMinBulletFrame(nh),
+                                GetWorldZMaxBulletFrame(nh) - GetWorldZMinBulletFrame(nh),
+                                sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0))
     , feedback_covariance_(GetFeedbackCovariance(nh_))
-    , test_grippers_poses_as_(nh_, GetTestGrippersPosesTopic(nh_), boost::bind(&CustomScene::testGripperPosesExecuteCallback, this, _1), false)
+    , test_grippers_poses_as_(nh_,
+                              GetTestRobotMotionTopic(nh_),
+                              boost::bind(&CustomScene::testRobotMotionExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
+    , simulation_time_logger_(GetLogFolder(nh_) + "bullet_sim_time.txt")
 {
     makeBulletObjects();
-
-    // Store the initial configuration as it will be needed by other libraries
-    // TODO: find a better way to do this that exposes less internals
-    object_initial_configuration_ = toRosPointVector(getDeformableObjectNodes(), METERS);
-
-    ROS_INFO("Creating subscribers and publishers");
-    // Publish to the feedback channel
-    simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::SimulatorFeedback>(
-            GetSimulatorFeedbackTopic(nh_), 20);
-
-    // Create a subscriber to take visualization instructions
-    visualization_marker_sub_ = nh_.subscribe(
-            GetVisualizationMarkerTopic(nh_), 3000, &CustomScene::visualizationMarkerCallback, this);
-
-    // Create a subscriber to take visualization instructions
-    visualization_marker_array_sub_ = nh_.subscribe(
-            GetVisualizationMarkerArrayTopic(nh_), 3000, &CustomScene::visualizationMarkerArrayCallback, this);
-
-    ROS_INFO("Creating services");
-    // Create a service to let others know the internal gripper names
-    gripper_names_srv_ = nh_.advertiseService(
-            GetGripperNamesTopic(nh_), &CustomScene::getGripperNamesCallback, this);
-
-    // Create a service to let others know what nodes the grippers are attached too
-    gripper_attached_node_indices_srv_ = nh_.advertiseService(
-            GetGripperAttachedNodeIndicesTopic(nh_), &CustomScene::getGripperAttachedNodeIndicesCallback, this);
-
-    // Create a service to let others know stretching vector information --- Added by Mengyao
-    gripper_stretching_vector_info_srv_ = nh_.advertiseService(
-                GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
-
-    // Create a service to let others know the current gripper pose
-    gripper_pose_srv_ = nh_.advertiseService(
-            GetGripperPoseTopic(nh_), &CustomScene::getGripperPoseCallback, this);
-
-    // Create a service to let others know the current gripper pose
-    gripper_collision_check_srv_ = nh_.advertiseService(
-            GetGripperCollisionCheckTopic(nh_), &CustomScene::gripperCollisionCheckCallback, this);
-
-    // Create a service to let others know the cover points
-    cover_points_srv_ = nh_.advertiseService(
-            GetCoverPointsTopic(nh_), &CustomScene::getCoverPointsCallback, this);
-
-    cover_point_normals_srv_ = nh_.advertiseService(
-                GetCoverPointNormalsTopic(nh_), &CustomScene::getCoverPointNormalsCallback, this);
-
-    // Create a service to let others know the mirror line data
-    mirror_line_srv_ = nh_.advertiseService(
-            GetMirrorLineTopic(nh_), &CustomScene::getMirrorLineCallback, this);
-
-    // Create a service to let others know what the free space of the world looks like
-    free_space_graph_srv_ = nh_.advertiseService(
-            GetFreeSpaceGraphTopic(nh_), &CustomScene::getFreeSpaceGraphCallback, this);
-
-    // Create a service to let others know what the signed distance field of the world looks like
-    signed_distance_field_srv_ = nh_.advertiseService(
-            GetSignedDistanceFieldTopic(nh_), &CustomScene::getSignedDistanceFieldCallback, this);
-
-    // Create a service to let others know the object initial configuration
-    object_initial_configuration_srv_ = nh_.advertiseService(
-            GetObjectInitialConfigurationTopic(nh_), &CustomScene::getObjectInitialConfigurationCallback, this);
-
-    // Create a service to let others know the object current configuration
-    object_current_configuration_srv_ = nh_.advertiseService(
-                GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
-
-    // Create a service to listen to in order to know when to shutdown
-    terminate_sim_srv_ = nh_.advertiseService(
-                GetTerminateSimulationTopic(nh_), &CustomScene::terminateSimulationCallback, this);
-
-    // Create a service to listen to in order to move the grippers and advance sim time
-    execute_gripper_movement_srv_ = nh_.advertiseService(
-                GetExecuteGrippersMovementTopic(nh_), &CustomScene::executeGripperMovementCallback, this);
-
-    // Create a service to clear all visualizations that have been sent to us via ROS
-    clear_visualizations_srv_ = nh_.advertiseService(
-                GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
+    // We'll create the various ROS publishers, subscribers and services later to that
+    // TF has a chance to collect some data before we need to use it
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -154,9 +104,22 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
 void CustomScene::run(const bool drawScene, const bool syncTime)
 {
-    // Run the startup code for the viewer and everything else
-    if (ros::ok())
+    // ros::ok() is only here to bypass things if a fast SIGINT is received
+    if (!ros::ok())
     {
+        return;
+    }
+
+    // Run the startup code for the viewer and everything else
+    {
+        // Start listening for TF messages
+        ros_spinner_.start();
+        getWorldToBulletTransform();
+
+        // Store the initial configuration as it will be needed by other libraries
+        // TODO: find a better way to do this that exposes less internals
+        object_initial_configuration_ = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+
         ViewerConfig::windowWidth = GetViewerWidth(ph_);
         ViewerConfig::windowHeight = GetViewerHeight(ph_);
 
@@ -165,7 +128,8 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         // When the viewer closes, shutdown ROS
         addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-                        boost::bind(&CustomScene::terminateSimulationCallback, this, std_srvs::Empty::Request(), std_srvs::Empty::Response()));
+                        boost::bind(&CustomScene::terminateSimulationCallback, this,
+                                    std_srvs::Empty::Request(), std_srvs::Empty::Response()));
 
         addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
 
@@ -212,10 +176,10 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         test_grippers_poses_as_.start();
     }
 
-    ros::AsyncSpinner spinner(1);
-    spinner.start();
-    ROS_INFO("Simulation ready");
+    ROS_INFO("Simulation ready, starting publishers, subscribers, and services");
+    initializePublishersSubscribersAndServices();
 
+    // Used for constant visualization, independent of robot control structure
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
     bullet_visualization_markers.markers.reserve(6);
@@ -224,17 +188,22 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     size_t deformable_object_marker_ind;
     size_t first_gripper_marker_ind;
     {
-        bullet_visualization_markers.markers.push_back(
-                    collision_map_for_export_.ExportForDisplay(
-                        ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1),
-                        ColorBuilder::MakeFromFloatColors(0.0f, 1.0f, 0.0f, 0.0f),
-                        ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 0.1f)));
+        std::map<uint32_t, std_msgs::ColorRGBA> object_color_map;
+        // Background - alpha = 0, so it doesn't get exported at all
+        object_color_map[0] = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 0.0f, 0.0f);
+        // Table and default objects
+        object_color_map[1] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+        // Peg
+        object_color_map[2] = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
+        // Outer walls for Rope Hooks - disabled visualization for debugging
+        object_color_map[3] = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 0.0f, 0.0f);
 
-//        bullet_visualization_markers.markers.push_back(sdf_for_export_.ExportForDisplay());
+        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(object_color_map));
+
 
         deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
-        deformable_object_state_marker.header.frame_id = GetWorldFrameName();
+        deformable_object_state_marker.header.frame_id = world_frame_name_;
         deformable_object_state_marker.ns = "deformable_object";
         deformable_object_state_marker.type = visualization_msgs::Marker::POINTS;
         deformable_object_state_marker.scale.x = 0.01;
@@ -243,12 +212,14 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         bullet_visualization_markers.markers.push_back(deformable_object_state_marker);
 
         visualization_msgs::Marker cover_points_marker;
-        cover_points_marker.header.frame_id = GetWorldFrameName();
+        cover_points_marker.header.frame_id = world_frame_name_;
         cover_points_marker.ns = "cover_points";
-        cover_points_marker.type = visualization_msgs::Marker::POINTS;
-        cover_points_marker.scale.x = 0.01;
-        cover_points_marker.color = ColorBuilder::MakeFromFloatColors(1.0f, 0.0f, 0.0f, 0.3f);
-        cover_points_marker.points = toRosPointVector(cover_points_, METERS);
+        cover_points_marker.type = visualization_msgs::Marker::SPHERE_LIST;
+        cover_points_marker.scale.x = 0.05;
+        cover_points_marker.scale.y = 0.05;
+        cover_points_marker.scale.z = 0.05;
+        cover_points_marker.color = ColorBuilder::MakeFromFloatColors(1.0f, 0.0f, 1.0f, 0.3f);
+        cover_points_marker.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
         bullet_visualization_markers.markers.push_back(cover_points_marker);
 
         first_gripper_marker_ind = bullet_visualization_markers.markers.size();
@@ -258,24 +229,25 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             const auto& gripper = grippers_.at(gripper_name);
 
             visualization_msgs::Marker gripper_marker;
-            gripper_marker.header.frame_id = GetWorldFrameName();
+            gripper_marker.header.frame_id = world_frame_name_;
             gripper_marker.ns = "grippers";
             gripper_marker.id = (int)ind + 1;
             gripper_marker.type = visualization_msgs::Marker::CUBE;
             gripper_marker.scale.x = gripper->getHalfExtents().x() * 2.0 / METERS;
             gripper_marker.scale.y = gripper->getHalfExtents().y() * 2.0 / METERS;
             gripper_marker.scale.z = gripper->getHalfExtents().z() * 2.0 / METERS;
-            gripper_marker.pose = toRosPose(gripper->getWorldTransform(), METERS);
-            gripper_marker.color = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 1.0f, 1.0f);
+            gripper_marker.pose = toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS);
+            gripper_marker.color = ColorBuilder::MakeFromFloatColors(0, 0, 1, 1);
 
             bullet_visualization_markers.markers.push_back(gripper_marker);
         }
     }
 
+    ROS_INFO("Simulation spinning...");
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
     while (ros::ok())
     {
-        deformable_manipulation_msgs::SimulatorFeedback sim_fbk;
+        deformable_manipulation_msgs::WorldState sim_fbk;
         {
             std::lock_guard<std::mutex> lock(sim_mutex_);
             step(0);
@@ -292,13 +264,13 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         if (drawScene)
         {
-            osg::Vec3d eye, center, up;
-            manip->getTransformation(eye, center, up);
+//            osg::Vec3d eye, center, up;
+//            manip->getTransformation(eye, center, up);
 
-            std::cout << eye.x()/METERS    << "f, " << eye.y()/METERS    << "f, " << eye.z()/METERS << "f    "
-                      << center.x()/METERS << "f, " << center.y()/METERS << "f, " << center.z()/METERS << "f    "
-                      << up.x()/METERS     << "f, " << up.y()/METERS     << "f, " << up.z()/METERS << "f"
-                      << std::endl;
+//            std::cout << eye.x()/METERS    << "f, " << eye.y()/METERS    << "f, " << eye.z()/METERS << "f    "
+//                      << center.x()/METERS << "f, " << center.y()/METERS << "f, " << center.z()/METERS << "f    "
+//                      << up.x()/METERS     << "f, " << up.y()/METERS     << "f, " << up.z()/METERS << "f"
+//                      << std::endl;
         }
 
         std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
@@ -308,6 +280,119 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 ////////////////////////////////////////////////////////////////////////////////
 // Construction helper functions
 ////////////////////////////////////////////////////////////////////////////////
+
+void CustomScene::getWorldToBulletTransform()
+{
+    // Get the transform from bullet to the world frame for use in data output
+    const double timeout = 5.0;
+    ROS_INFO_STREAM("Waiting for tf from world to bullet frame for at most " << timeout << " seconds");
+    geometry_msgs::TransformStamped world_to_bullet_tf_as_ros;
+    try
+    {
+        world_to_bullet_tf_as_ros =
+                tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time(0.0), ros::Duration(timeout));
+    }
+    catch (tf2::TransformException& ex)
+    {
+        ROS_WARN("%s", ex.what());
+        ROS_WARN("Assuming this means that no transform has been broadcast from world to bullet, starting my own broadcaster with an identity transform");
+        world_to_bullet_tf_as_ros.child_frame_id = bullet_frame_name_;
+
+        world_to_bullet_tf_as_ros.transform.translation.x = 0.0;
+        world_to_bullet_tf_as_ros.transform.translation.y = 0.0;
+        world_to_bullet_tf_as_ros.transform.translation.z = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.x = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.y = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.z = 0.0;
+        world_to_bullet_tf_as_ros.transform.rotation.w = 1.0;
+
+        world_to_bullet_tf_as_ros.header.frame_id = world_frame_name_;
+        world_to_bullet_tf_as_ros.header.stamp = ros::Time::now();
+
+        static_broadcaster_.sendTransform(world_to_bullet_tf_as_ros);
+    }
+    world_to_bullet_tf_ = toBulletTransform(world_to_bullet_tf_as_ros.transform, METERS);
+}
+
+void CustomScene::initializePublishersSubscribersAndServices()
+{
+     ROS_INFO("Creating subscribers and publishers");
+    // Publish to the feedback channel
+    simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::WorldState>(
+            GetWorldStateTopic(nh_), 20);
+
+    // Create a subscriber to take visualization instructions
+    visualization_marker_sub_ = nh_.subscribe(
+            GetVisualizationMarkerTopic(nh_), 20, &CustomScene::visualizationMarkerCallback, this);
+
+    // Create a subscriber to take visualization instructions
+    visualization_marker_array_sub_ = nh_.subscribe(
+            GetVisualizationMarkerArrayTopic(nh_), 20, &CustomScene::visualizationMarkerArrayCallback, this);
+
+    ROS_INFO("Creating services");
+    // Create a service to let others know the internal gripper names
+    gripper_names_srv_ = nh_.advertiseService(
+            GetGripperNamesTopic(nh_), &CustomScene::getGripperNamesCallback, this);
+
+    // Create a service to let others know what nodes the grippers are attached too
+    gripper_attached_node_indices_srv_ = nh_.advertiseService(
+            GetGripperAttachedNodeIndicesTopic(nh_), &CustomScene::getGripperAttachedNodeIndicesCallback, this);
+
+    // Create a service to let others know stretching vector information
+    gripper_stretching_vector_info_srv_ = nh_.advertiseService(
+            GetGripperStretchingVectorInfoTopic(nh_), &CustomScene::getGripperStretchingVectorInfoCallback, this);
+
+    // Create a service to let others know the current gripper pose
+    gripper_pose_srv_ = nh_.advertiseService(
+            GetGripperPoseTopic(nh_), &CustomScene::getGripperPoseCallback, this);
+
+    robot_configuration_srv_ = nh_.advertiseService(
+            GetRobotConfigurationTopic(nh_), &CustomScene::getRobotConfigurationCallback, this);
+
+    // Create a service to let others know the current gripper pose
+    gripper_collision_check_srv_ = nh_.advertiseService(
+            GetGripperCollisionCheckTopic(nh_), &CustomScene::gripperCollisionCheckCallback, this);
+
+    // Create a service to let others know the cover points
+    cover_points_srv_ = nh_.advertiseService(
+            GetCoverPointsTopic(nh_), &CustomScene::getCoverPointsCallback, this);
+
+    cover_point_normals_srv_ = nh_.advertiseService(
+            GetCoverPointNormalsTopic(nh_), &CustomScene::getCoverPointNormalsCallback, this);
+
+    // Create a service to let others know the mirror line data
+    mirror_line_srv_ = nh_.advertiseService(
+            GetMirrorLineTopic(nh_), &CustomScene::getMirrorLineCallback, this);
+
+    // Create a service to let others know what the free space of the world looks like
+    free_space_graph_srv_ = nh_.advertiseService(
+            GetFreeSpaceGraphTopic(nh_), &CustomScene::getFreeSpaceGraphCallback, this);
+
+    // Create a service to let others know what the signed distance field of the world looks like
+    signed_distance_field_srv_ = nh_.advertiseService(
+            GetSignedDistanceFieldTopic(nh_), &CustomScene::getSignedDistanceFieldCallback, this);
+
+    // Create a service to let others know the object initial configuration
+    object_initial_configuration_srv_ = nh_.advertiseService(
+            GetObjectInitialConfigurationTopic(nh_), &CustomScene::getObjectInitialConfigurationCallback, this);
+
+    // Create a service to let others know the object current configuration
+    object_current_configuration_srv_ = nh_.advertiseService(
+            GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
+
+    // Create a service to listen to in order to know when to shutdown
+    terminate_sim_srv_ = nh_.advertiseService(
+            GetTerminateSimulationTopic(nh_), &CustomScene::terminateSimulationCallback, this);
+
+    // Create a service to listen to in order to move the grippers and advance sim time
+    execute_gripper_movement_srv_ = nh_.advertiseService(
+            GetExecuteRobotMotionTopic(nh_), &CustomScene::executeRobotMotionCallback, this);
+
+    // Create a service to clear all visualizations that have been sent to us via ROS
+    clear_visualizations_srv_ = nh_.advertiseService(
+            GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
+}
+
 
 void CustomScene::makeBulletObjects()
 {
@@ -320,14 +405,14 @@ void CustomScene::makeBulletObjects()
             makeRope();
             makeRopeSingleRobotControlledGrippper();
             makeTableSurface(false);
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeTableSurface(false);
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::ROPE_MAZE:
@@ -346,7 +431,7 @@ void CustomScene::makeBulletObjects()
         case TaskType::CLOTH_CYLINDER_COVERAGE:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::CLOTH_TABLE_COVERAGE:
@@ -364,7 +449,7 @@ void CustomScene::makeBulletObjects()
         case TaskType::CLOTH_WAFR:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
-            makeCylinder();
+            makeCylinder(true);
             break;
 
         case TaskType::CLOTH_SINGLE_POLE:
@@ -386,24 +471,48 @@ void CustomScene::makeBulletObjects()
             makeClothDoubleSlitObstacles();
             break;
 
-        case TaskType::ROPE_DRAG_ALONG_TABLE:
+        case TaskType::ROPE_TABLE_LINEAR_MOTION:
+        case TaskType::ROPE_TABLE_PENTRATION:
             makeRope();
             makeRopeSingleRobotControlledGrippper();
             makeTableSurface(false);
             break;
 
-        case TaskType::ROPE_DRAG_OPPOSITE_TABLE:
-            makeRope();
-            makeRopeSingleRobotControlledGrippper();
+        case TaskType::CLOTH_TABLE_LINEAR_MOTION:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
             break;
 
-        case TaskType::ROPE_TOWARD_TABLE:
-            makeRope();
-            makeRopeSingleRobotControlledGrippper();
+        case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
+            // Creating the cloth just so that various other parts of the code have valid data to parse.
+            // The cloth part of the simulation is not actually used for anything.
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeTableSurface(false);
+            makeCylinder(false);
+            loadCoverPointsFromFile();
+            break;
+
+        case TaskType::CLOTH_PLACEMAT_LINEAR_MOTION:
+            // Creating the cloth just so that various other parts of the code have valid data to parse.
+            // The cloth part of the simulation is not actually used for anything.
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
             break;
 
+        case TaskType::ROPE_HOOKS_BASIC:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeRopeHooksObstacles();
+            break;
+
+        case TaskType::CLOTH_HOOKS:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeClothHooksObstacles();
+            break;
 
         default:
             ROS_FATAL_STREAM("Unknown task type " << task_type_);
@@ -423,6 +532,11 @@ void CustomScene::makeRope()
                       GetRopeCenterOfMassY(nh_),
                       GetRopeCenterOfMassZ(nh_)) * METERS;
 
+    const btScalar rope_unit_vec_x = GetRopeExtensionVectorX(nh_);
+    const btScalar rope_unit_vec_y = GetRopeExtensionVectorY(nh_);
+    const btScalar rope_unit_vec_z = GetRopeExtensionVectorZ(nh_);
+    const btVector3 rope_unit_vec(rope_unit_vec_x, rope_unit_vec_y, rope_unit_vec_z);
+
     const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
     const size_t num_control_points = (size_t)GetRopeNumLinks(nh_) + 1;
 
@@ -431,7 +545,7 @@ void CustomScene::makeRope()
     for (size_t n = 0; n < num_control_points; n++)
     {
         control_points[n] = rope_com +
-                btVector3(((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length, 0.0f, 0.0f);
+                ((btScalar)n - (btScalar)(num_control_points) / 2.0f) * rope_segment_length * rope_unit_vec;
     }
 
     rope_ = boost::make_shared<CapsuleRope>(control_points, GetRopeRadius(nh_) * METERS);
@@ -521,7 +635,8 @@ void CustomScene::makeCloth()
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
     findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
-    if (VisualizeStrainLines(ph_)){
+    if (VisualizeStrainLines(ph_))
+    {
         makeClothLines();
         makeGripperForceLines();
     }
@@ -602,6 +717,9 @@ void CustomScene::createClothMirrorLine()
 //    const btVector3& max_x_min_y = cloth_nodes[cloth_corner_node_indices_[2]].m_x;
     const btVector3& max_x_max_y = cloth_nodes[cloth_corner_node_indices_[3]].m_x;
 
+    // TODO: Update mirror line data with non-bullet frames
+    mirror_line_data_.header.frame_id = bullet_frame_name_;
+    mirror_line_data_.header.stamp = ros::Time::now();
     mirror_line_data_.min_y = min_x_min_y.y() / METERS;
     mirror_line_data_.max_y = max_x_max_y.y() / METERS;
     mirror_line_data_.mid_x = (min_x_min_y.x() + (max_x_max_y.x() - min_x_min_y.x()) / 2) / METERS;
@@ -702,16 +820,19 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
 void CustomScene::makeClothTwoRobotControlledGrippers()
 {
     // auto gripper0
+    const std::string auto_gripper0_name = GetGripper0Name(nh_);
     {
-        const std::string auto_gripper0_name = "auto_gripper0";
         grippers_[auto_gripper0_name] = boost::make_shared<GripperKinematicObject>(
                     auto_gripper0_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         const btVector3 gripper_half_extents = grippers_[auto_gripper0_name]->getHalfExtents();
+
+        // Retreive the node index to put the gripper on, defaulting to one of the corners if no parameter exists
+        const int node_idx = ROSHelpers::GetParam<int>(nh_, auto_gripper0_name + "_gripper_attached_node_idx", cloth_corner_node_indices_[0]);
         grippers_[auto_gripper0_name]->setWorldTransform(
                 btTransform(btQuaternion(0, 0, 0, 1),
-                             cloth_->softBody->m_nodes[cloth_corner_node_indices_[0]].m_x
+                             cloth_->softBody->m_nodes[node_idx].m_x
                              + btVector3(gripper_half_extents.x(), gripper_half_extents.y(), 0)));
 
         // Grip the cloth
@@ -726,16 +847,19 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     }
 
     // auto gripper1
+    const std::string auto_gripper1_name = GetGripper1Name(nh_);
     {
-        const std::string auto_gripper1_name = "auto_gripper1";
         grippers_[auto_gripper1_name] = boost::make_shared<GripperKinematicObject>(
                     auto_gripper1_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         const btVector3 gripper_half_extents = grippers_[auto_gripper1_name]->getHalfExtents();
+
+        // Retreive the node index to put the gripper on, defaulting to one of the corners if no parameter exists
+        const int node_idx = ROSHelpers::GetParam<int>(nh_, auto_gripper1_name + "_gripper_attached_node_idx", cloth_corner_node_indices_[1]);
         grippers_[auto_gripper1_name]->setWorldTransform(
                     btTransform(btQuaternion(0, 0, 0, 1),
-                                cloth_->softBody->m_nodes[cloth_corner_node_indices_[1]].m_x
+                                cloth_->softBody->m_nodes[node_idx].m_x
                 + btVector3(gripper_half_extents.x(), -gripper_half_extents.y(), 0)));
 
         // Grip the cloth
@@ -762,15 +886,17 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     }
 
     // Set stretching detection vector infomation
-    grippers_["auto_gripper0"]->setClothGeoInfoToAnotherGripper(
-                grippers_["auto_gripper1"],
-                cloth_->softBody,
-                GetClothNumControlPointsX(nh_));
+    {
+        grippers_[auto_gripper0_name]->setClothGeoInfoToAnotherGripper(
+                    grippers_[auto_gripper1_name],
+                    cloth_->softBody,
+                    GetClothNumControlPointsX(nh_));
 
-    grippers_["auto_gripper1"]->setClothGeoInfoToAnotherGripper(
-                grippers_["auto_gripper0"],
-                cloth_->softBody,
-                GetClothNumControlPointsX(nh_));
+        grippers_[auto_gripper1_name]->setClothGeoInfoToAnotherGripper(
+                    grippers_[auto_gripper0_name],
+                    cloth_->softBody,
+                    GetClothNumControlPointsX(nh_));
+    }
 }
 
 void CustomScene::makeClothTwoHumanControlledGrippers()
@@ -911,7 +1037,7 @@ void CustomScene::makeTableSurface(const bool create_cover_points, const float s
     }
 }
 
-void CustomScene::makeCylinder()
+void CustomScene::makeCylinder(const bool create_cover_points)
 {
     // cylinder parameters
     const btVector3 cylinder_com_origin =
@@ -932,119 +1058,122 @@ void CustomScene::makeCylinder()
     env->add(cylinder);
     world_obstacles_["cylinder"] = cylinder;
 
-    switch (task_type_)
+    if (create_cover_points)
     {
-        case TaskType::ROPE_CYLINDER_COVERAGE:
+        switch (task_type_)
         {
-            #pragma message "Magic numbers - discretization level of cover points"
-            // consider 21 points around the cylinder
-            for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+            case TaskType::ROPE_CYLINDER_COVERAGE:
             {
-                // 31 points per theta
-                for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
+                #pragma message "Magic numbers - discretization level of cover points"
+                // consider 21 points around the cylinder
+                for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+                // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
                 {
-                    cover_points_.push_back(
-                            cylinder_com_origin
-                            + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
-                                         (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
-                                         h));
-
-                    cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
-                }
-            }
-            break;
-        }
-
-        case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
-        {
-            #pragma message "Magic numbers - discretization level of cover points"
-            // consider 21 points around the cylinder
-            for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-            // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
-            {
-                // 31 points per theta
-                for (float h = -cylinder_height / 8.0f; h < cylinder_height / 8.0f; h += cylinder_height / 30.0f)
-                {
-                    cover_points_.push_back(
-                            cylinder_com_origin
-                            + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
-                                         (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
-                                         h));
-
-                    cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
-                }
-            }
-            break;
-        }
-
-        case TaskType::CLOTH_WAFR:
-        {
-            const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
-
-            #pragma message "Magic numbers - discretization level of cover points"
-            for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
-            {
-                for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
-                {
-                    // Only accept those points that are within the bounding circle
-                    if (x * x + y * y < cylinder_radius * cylinder_radius)
+                    // 31 points per theta
+                    for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
                     {
                         cover_points_.push_back(
-                                    cylinder_com_origin
-                                    + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+                                cylinder_com_origin
+                                + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                             (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                             h));
 
-                        cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
+                        cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
                     }
                 }
+                break;
             }
 
-            ////////////////////////////////////////////////////////////////////////
-            // Horizontal Cylinder above first cylinder
-            ////////////////////////////////////////////////////////////////////////
-
-            const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
-                    btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_),
-                              GetWafrCylinderRelativeCenterOfMassY(nh_),
-                              GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
-
-            CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
-                        0.0f, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
-                        btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
-            horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
-
-            // add the cylinder to the world
-            env->add(horizontal_cylinder);
-            world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
-
-            #pragma message "Magic numbers - discretization level of cover points"
-            for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+            case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
             {
-                const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
-
-                for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+                #pragma message "Magic numbers - discretization level of cover points"
+                // consider 21 points around the cylinder
+                for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
+                // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
                 {
-                    cover_points_.push_back(
-                                horizontal_cylinder_com_origin
-                                + btVector3(
-                                    cover_points_radius * std::sin(theta),
-                                    h,
-                                    cover_points_radius * std::cos(theta)));
+                    // 31 points per theta
+                    for (float h = -cylinder_height / 8.0f; h < cylinder_height / 8.0f; h += cylinder_height / 30.0f)
+                    {
+                        cover_points_.push_back(
+                                cylinder_com_origin
+                                + btVector3((cylinder_radius + rope_->radius / 2.0f) * std::cos(theta),
+                                             (cylinder_radius + rope_->radius / 2.0f) * std::sin(theta),
+                                             h));
 
-                    cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
+                        cover_point_normals_.push_back(btVector3(std::cos(theta), std::sin(theta), 0.0f));
+                    }
                 }
+                break;
             }
-            break;
+
+            case TaskType::CLOTH_WAFR:
+            {
+                const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
+
+                #pragma message "Magic numbers - discretization level of cover points"
+                for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
+                {
+                    for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
+                    {
+                        // Only accept those points that are within the bounding circle
+                        if (x * x + y * y < cylinder_radius * cylinder_radius)
+                        {
+                            cover_points_.push_back(
+                                        cylinder_com_origin
+                                        + btVector3(x, y, cylinder_height / 2.0f + cloth_collision_margin));
+
+                            cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
+                        }
+                    }
+                }
+
+                ////////////////////////////////////////////////////////////////////////
+                // Horizontal Cylinder above first cylinder
+                ////////////////////////////////////////////////////////////////////////
+
+                const btVector3 horizontal_cylinder_com_origin = cylinder_com_origin +
+                        btVector3(GetWafrCylinderRelativeCenterOfMassX(nh_),
+                                  GetWafrCylinderRelativeCenterOfMassY(nh_),
+                                  GetWafrCylinderRelativeCenterOfMassZ(nh_)) * METERS;
+
+                CylinderStaticObject::Ptr horizontal_cylinder = boost::make_shared<CylinderStaticObject>(
+                            0.0f, GetWafrCylinderRadius(nh_) * METERS, GetWafrCylinderHeight(nh_) * METERS,
+                            btTransform(btQuaternion(btVector3(1, 0, 0), (float)M_PI/2.0f), horizontal_cylinder_com_origin));
+                horizontal_cylinder->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 0.5f);
+
+                // add the cylinder to the world
+                env->add(horizontal_cylinder);
+                world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
+
+                #pragma message "Magic numbers - discretization level of cover points"
+                for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+                {
+                    const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
+
+                    for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+                    {
+                        cover_points_.push_back(
+                                    horizontal_cylinder_com_origin
+                                    + btVector3(
+                                        cover_points_radius * std::sin(theta),
+                                        h,
+                                        cover_points_radius * std::cos(theta)));
+
+                        cover_point_normals_.push_back(btVector3(std::sin(theta), 0.0f, std::cos(theta)));
+                    }
+                }
+                break;
+            }
+
+            default:
+                    ROS_FATAL_NAMED("deform_simulator", "Making cylinder cover points for unknown task, this should not be possible");
+                    assert(false);
         }
 
-        default:
-                ROS_FATAL_NAMED("deform_simulator", "Making cylinder for unknown task, this should not be possible");
-                assert(false);
+        std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+        plot_points_->setPoints(cover_points_, coverage_color);
+        env->add(plot_points_);
     }
-
-    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
-    plot_points_->setPoints(cover_points_, coverage_color);
-    env->add(plot_points_);
 }
 
 void CustomScene::makeSinglePoleObstacles()
@@ -1369,16 +1498,16 @@ void CustomScene::makeClothDoubleSlitObstacles()
 void CustomScene::makeRopeMazeObstacles()
 {
     const btVector3 world_min = btVector3(
-                (float)work_space_grid_.getXMin(),
-                (float)work_space_grid_.getYMin(),
-                (float)work_space_grid_.getZMin());
+                (btScalar)GetWorldXMinBulletFrame(nh_),
+                (btScalar)GetWorldYMinBulletFrame(nh_),
+                (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
 
     const btVector3 world_max = btVector3(
-                (float)work_space_grid_.getXMax(),
-                (float)work_space_grid_.getYMax(),
-                (float)work_space_grid_.getZMax());
+                (btScalar)GetWorldXMaxBulletFrame(nh_),
+                (btScalar)GetWorldYMaxBulletFrame(nh_),
+                (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
-    const float wall_thickness = 0.2f * METERS;
+    const float wall_thickness = (btScalar)GetWorldResolution(nh_) * 4.0f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
     const btVector3 world_size = world_max - world_min;
     const btVector3 first_floor_center = world_center - btVector3(0.0f, 0.0f, world_size.z() + wall_thickness) / 4.0f;
@@ -1733,7 +1862,7 @@ void CustomScene::makeRopeMazeObstacles()
     }
 
     // Create the target points
-    const float rope_segment_length = GetRopeSegmentLength(nh_) * METERS;
+    const float rope_segment_length = (btScalar)GetRopeSegmentLength(nh_) * METERS;
     const float rope_radius = GetRopeRadius(nh_) * METERS;
     const int num_rope_links = GetRopeNumLinks(nh_);
     assert(num_rope_links % 2 == 1);
@@ -1791,14 +1920,14 @@ void CustomScene::makeRopeMazeObstacles()
 void CustomScene::makeRopeZigMatchObstacles()
 {
     const btVector3 world_min = btVector3(
-                (float)work_space_grid_.getXMin(),
-                (float)work_space_grid_.getYMin(),
-                (float)work_space_grid_.getZMin());
+                (btScalar)GetWorldXMinBulletFrame(nh_),
+                (btScalar)GetWorldYMinBulletFrame(nh_),
+                (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
 
     const btVector3 world_max = btVector3(
-                (float)work_space_grid_.getXMax(),
-                (float)work_space_grid_.getYMax(),
-                (float)work_space_grid_.getZMax());
+                (btScalar)GetWorldXMaxBulletFrame(nh_),
+                (btScalar)GetWorldYMaxBulletFrame(nh_),
+                (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
     const float wall_thickness = 0.2f * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
@@ -1810,20 +1939,6 @@ void CustomScene::makeRopeZigMatchObstacles()
     const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, second_floor_alpha);      // teal
 
     // Make the goal region    
-    {
-        const btVector3 wall_half_extents = btVector3(wall_thickness, 0.8f * METERS, internal_wall_height) / 2.0f;
-        const btVector3 wall_com = second_floor_center + btVector3(0.1f * METERS, 0.3f * METERS, 0.0f);
-
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(second_floor_color);
-
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["goal_border_wall1"] = wall;
-    }
-
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
         const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f * METERS);
@@ -1862,9 +1977,9 @@ void CustomScene::makeRopeZigMatchObstacles()
 
     const btVector3 rope_center =
             world_center +
-            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                  // Center in the goal region (x,y)
-            btVector3(0.0f,          0.0f,          wall_thickness / 2.0f) + // Move up out of the floor
-            btVector3(0.0f,          0.0f,          rope_radius);            // Move up so that the target points are off the floor just enough
+            btVector3(0.7f * METERS, 0.5f * METERS, 0.0f) +                         // Center in the goal region (x,y)
+            btVector3(0.0f,          0.0f,          internal_wall_height / 2.0f) +  // Move up out of the floor
+            btVector3(0.0f,          0.0f,          rope_radius);                   // Move up so that the target points are off the floor just enough
 
     const btVector3 middle_unit_vector = btVector3(0.1f * METERS, rope_segment_length * (float)(num_vertical_per_side - 1), 0.0f).normalized();
 
@@ -1898,13 +2013,248 @@ void CustomScene::makeRopeZigMatchObstacles()
     // Set the cover point normals to all be pointing in positive Z
     cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
 
-
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
 
     assert((int)cover_points_.size() == num_rope_links);
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+}
+
+void CustomScene::makeRopeHooksObstacles()
+{
+    const btVector3 world_min = btVector3(
+                (btScalar)GetWorldXMinBulletFrame(nh_),
+                (btScalar)GetWorldYMinBulletFrame(nh_),
+                (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
+
+    const btVector3 world_max = btVector3(
+                (btScalar)GetWorldXMaxBulletFrame(nh_),
+                (btScalar)GetWorldYMaxBulletFrame(nh_),
+                (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
+
+    const float wall_thickness = (btScalar)GetWorldResolution(nh_) * 4.0f * METERS;
+    const btVector3 world_center = (world_max + world_min) / 2.0f;
+    const btVector3 world_size = world_max - world_min;
+
+    const float outer_walls_alpha = GetOuterWallsAlpha(ph_);
+    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);      // grayish
+
+    const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 1.0f);                       // purple
+
+    // Make the floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(world_size.x() + wall_thickness, world_size.y() + wall_thickness, wall_thickness) / 2.0f;
+        const btVector3 floor_com = btVector3(world_center.x(), world_center.y(), world_min.z() - wall_thickness / 2.0f);
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+
+        // add the wall to the world
+        env->add(floor);
+        world_obstacles_["floor"] = floor;
+    }
+
+    // Make the ceiling to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 ceiling_half_extents = btVector3(world_size.x() + wall_thickness, world_size.y() + wall_thickness, wall_thickness) / 2.0f;
+        const btVector3 ceiling_com = btVector3(world_center.x(), world_center.y(), world_max.z() + wall_thickness / 2.0f);
+
+        BoxObject::Ptr ceiling = boost::make_shared<BoxObject>(
+                    0, ceiling_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), ceiling_com));
+        ceiling->setColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // add the wall to the world
+        env->add(ceiling);
+        world_obstacles_["ceiling"] = ceiling;
+    }
+
+    // Make the outer walls
+    {
+        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_center.x(), world_min.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall0"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_center.x(), world_max.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall1"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_min.x(), world_center.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall2"] = wall;
+    }
+    {
+        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+        const btVector3 wall_com = btVector3(world_max.x(), world_center.y(), world_center.z());
+
+        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                    0, wall_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+        wall->setColor(outer_walls_color);
+
+        // add the wall to the world
+        env->add(wall);
+        world_obstacles_["outer_wall3"] = wall;
+    }
+
+    // Make the initial obstacle to go around
+    {
+        // obstacle parameters
+        const btVector3 obstacle_com =
+            btVector3(GetCylinderCenterOfMassX(nh_),
+                      GetCylinderCenterOfMassY(nh_),
+                      GetCylinderCenterOfMassZ(nh_)) * METERS;
+
+        const btScalar obstacle_radius = GetCylinderRadius(nh_) * METERS;
+        const btScalar obstacle_height = GetCylinderHeight(nh_) * METERS;
+        const btVector3 obstacle_half_extents(obstacle_radius, obstacle_radius, obstacle_height / 2.0f);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the cylinder to the world
+        env->add(obstacle);
+        world_obstacles_["initial_obstacle"] = obstacle;
+    }
+
+    const btScalar hook_height = GetHookHeight(nh_) * METERS;
+    const btScalar hook_length = GetHookLength(nh_) * METERS;
+    const btScalar hook_radius = wall_thickness / 4.0f;
+
+    const btScalar hook_com_x = GetHookComX(nh_) * METERS;
+    const btScalar hook_com_offset_y = GetHookComOffsetY(nh_) * METERS;
+
+    // Top hook (visuallay on starting the simulator
+    {
+        // obstacle parameters
+
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, hook_com_offset_y, -hook_height / 2.0f);
+
+        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook1_vertical"] = obstacle;
+    }
+    {
+        // obstacle parameters
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, hook_com_offset_y, -hook_radius)    // Center on the existing vertical section
+                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
+                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
+
+        const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook1_horizontal"] = obstacle;
+    }
+
+    // Bottom hook (visuallay on starting the simulator
+    {
+        // obstacle parameters
+
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, -hook_com_offset_y, -hook_height / 2.0f);
+
+        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook2_vertical"] = obstacle;
+    }
+    {
+        // obstacle parameters
+        // obstacle parameters
+        const btVector3 obstacle_com = world_center
+                + btVector3(hook_com_x, -hook_com_offset_y, -hook_radius)   // Center on the existing vertical section
+                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
+                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
+
+        const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook2_horizontal"] = obstacle;
+    }
+
+    // Make the target region
+    const std::vector<btVector3> rope_nodes = rope_->getNodes();
+    for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
+    {
+        const btVector3 target_point = rope_nodes[cover_idx] + btVector3(world_size.x() * 0.75f, 0.0f, world_size.z() / 3.0f);
+        cover_points_.push_back(target_point);
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
+
+    // Visualize the cover points
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+}
+
+void CustomScene::makeClothHooksObstacles()
+{
+    assert(false && "makeClothHooksObstacles not implemented!");
 }
 
 void CustomScene::makeGenericRegionCoverPoints()
@@ -1940,7 +2290,47 @@ void CustomScene::makeGenericRegionCoverPoints()
         }
     }
 
-    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    const std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+
+    ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
+}
+
+void CustomScene::loadCoverPointsFromFile()
+{
+    // Load the parameters for which file to read from
+    const std::string log_folder = GetLogFolder(nh_);
+    const std::string file_name_prefix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_prefix", "cover_points");
+    const std::string file_name_suffix = ROSHelpers::GetParam<std::string>(ph_, "cover_points_file_name_suffix_to_load", "cloth_near_robot");
+    const std::string file_name = file_name_prefix + "__" + file_name_suffix + ".compressed";
+
+    // Load and decompress
+    const auto deserialized = smmap::LoadAndDeserializePointSet(log_folder, file_name);
+    const std::string& cover_points_frame = deserialized.first;
+    const EigenHelpers::VectorVector3d& cover_points_in_native_frame = deserialized.second;
+
+    // Transform into bullet native frame
+    const geometry_msgs::Transform cover_points_frame_to_bt_frame_ros =
+            tf_buffer_.lookupTransform(bullet_frame_name_, cover_points_frame, ros::Time(0), ros::Duration(5.0)).transform;
+    const Eigen::Isometry3d cover_points_frame_to_bt_frame_eigen =
+            EigenHelpersConversions::GeometryTransformToEigenIsometry3d(cover_points_frame_to_bt_frame_ros);
+
+    // Add each point to the cover points list, in the bullet frame
+    for (const auto& cover_point_native_frame_eigen : cover_points_in_native_frame)
+    {
+        const Eigen::Vector3d cover_point_bt_frame_world_distances = cover_points_frame_to_bt_frame_eigen * cover_point_native_frame_eigen;
+        const btVector3 cover_point_bt_coords = btVector3((btScalar)cover_point_bt_frame_world_distances.x(),
+                                                          (btScalar)cover_point_bt_frame_world_distances.y(),
+                                                          (btScalar)cover_point_bt_frame_world_distances.z()) * METERS;
+
+        #warning "Cover point position hack for cloth placemat demo"
+        // Offset the cover points from the table by a bit
+        cover_points_.push_back(cover_point_bt_coords + btVector3(0.0f, 0.0f, 0.02f * METERS));
+        cover_point_normals_.push_back(btVector3(0.0f, 0.0f, 1.0f));
+    }
+
+    const std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1, 0, 0, 1));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
 
@@ -1952,10 +2342,8 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
 {
     const int64_t starting_ind = work_space_grid_.xyzIndexToGridIndex(x_starting_ind, y_starting_ind, z_starting_ind);
     assert(starting_ind >= 0);
-    const double x = work_space_grid_.xIndToWorldX(x_starting_ind);
-    const double y = work_space_grid_.yIndToWorldY(y_starting_ind);
-    const double z = work_space_grid_.zIndToWorldZ(z_starting_ind);
-    const btVector3 starting_pos((btScalar)x, (btScalar)y, (btScalar)z);
+    const Eigen::Vector3d starting_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_starting_ind, y_starting_ind, z_starting_ind);
+    const btVector3 starting_pos((btScalar)starting_pos_eigen.x(), (btScalar)starting_pos_eigen.y(), (btScalar)starting_pos_eigen.z());
 
     // Note that these are in [min, max) form - i.e. exclude the max
     const int64_t x_min_ind = std::max(0L, x_starting_ind - 1);
@@ -1969,24 +2357,22 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
 
     for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
     {
-        const double x_loop = work_space_grid_.xIndToWorldX(x_loop_ind);
         for (int64_t y_loop_ind = y_min_ind; y_loop_ind < y_max_ind; y_loop_ind++)
         {
-            const double y_loop = work_space_grid_.yIndToWorldY(y_loop_ind);
             for (int64_t z_loop_ind = z_min_ind; z_loop_ind < z_max_ind; z_loop_ind++)
             {
                 // Only count a neighbour if it's not the same as the starting position
                 if (x_starting_ind != x_loop_ind || y_starting_ind != y_loop_ind || z_starting_ind != z_loop_ind)
                 {
-                    const double z_loop = work_space_grid_.zIndToWorldZ(z_loop_ind);
-
-                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), btVector3((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop)));
+                    const Eigen::Vector3d test_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_loop_ind, y_loop_ind, z_loop_ind);
+                    const btVector3 test_pos((btScalar)test_pos_eigen.x(), (btScalar)test_pos_eigen.y(), (btScalar)test_pos_eigen.z());
+                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), test_pos));
 
                     // If we are not in collision already, then check for neighbours
+                    #warning "This check needs to be addressed to allow for errors in perception"
                     if (collisionHelper(test_sphere).m_distance >= 0.0)
                     {
-                        const btVector3 loop_pos((btScalar)x_loop, (btScalar)y_loop, (btScalar)z_loop);
-                        const btScalar dist = (loop_pos - starting_pos).length();
+                        const btScalar dist = (test_pos - starting_pos).length();
 
                         const int64_t loop_ind = work_space_grid_.xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
                         assert(loop_ind >= 0);
@@ -2008,18 +2394,26 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         // Debugging - draw the corners of the grid
         std::cout << "Drawing the 8 corners of the graph world\n";
         graph_corners_.reserve((8));
-        #pragma GCC diagnostic push
-        #pragma GCC diagnostic ignored "-Wconversion"
-        #pragma GCC diagnostic ignored "-Wfloat-conversion"
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMin(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMin(), work_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMax(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMin(), work_space_grid_.getYMax(), work_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMin(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMin(), work_space_grid_.getZMax())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMax(), work_space_grid_.getZMin())), 1));
-        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(work_space_grid_.getXMax(), work_space_grid_.getYMax(), work_space_grid_.getZMax())), 1));
-        #pragma GCC diagnostic pop
+
+        const btVector3 world_min = btVector3(
+                    (btScalar)GetWorldXMinBulletFrame(nh_),
+                    (btScalar)GetWorldYMinBulletFrame(nh_),
+                    (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
+
+        const btVector3 world_max = btVector3(
+                    (btScalar)GetWorldXMaxBulletFrame(nh_),
+                    (btScalar)GetWorldYMaxBulletFrame(nh_),
+                    (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
+
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_min.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_min.y(), world_max.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_max.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_min.x(), world_max.y(), world_max.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_min.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_min.y(), world_max.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_max.y(), world_min.z())), 1.0f));
+        graph_corners_.push_back(boost::make_shared<PlotAxes>(btTransform(btQuaternion(0, 0, 0, 1), btVector3(world_max.x(), world_max.y(), world_max.z())), 1.0f));
+
         for (auto& corner: graph_corners_)
         {
             env->add(corner);
@@ -2029,16 +2423,15 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     // First add all of the cells to the graph with no edges
     for (int64_t x_ind = 0; x_ind < work_space_grid_.getXNumSteps(); x_ind++)
     {
-        const double x = work_space_grid_.xIndToWorldX(x_ind);
         for (int64_t y_ind = 0; y_ind < work_space_grid_.getYNumSteps(); y_ind++)
         {
-            const double y = work_space_grid_.yIndToWorldY(y_ind);
             for (int64_t z_ind = 0; z_ind < work_space_grid_.getZNumSteps(); z_ind++)
             {
-                const double z = work_space_grid_.zIndToWorldZ(z_ind);
-                const int64_t node_ind = free_space_graph_.AddNode(btVector3((btScalar)x, (btScalar)y, (btScalar)z));
+                const Eigen::Vector3d node_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_ind, y_ind, z_ind);
+                const btVector3 node_pos((btScalar)node_pos_eigen.x(), (btScalar)node_pos_eigen.y(), (btScalar)node_pos_eigen.z());
+                const int64_t node_ind = free_space_graph_.AddNode(node_pos);
                 // Double checking my math here
-                assert(node_ind == work_space_grid_.worldPosToGridIndex(x, y, z));
+                assert(node_ind == work_space_grid_.worldPosToGridIndex(node_pos_eigen));
             }
         }
     }
@@ -2108,25 +2501,73 @@ void CustomScene::createCollisionMapAndSDF()
         {
             for (int64_t z_ind = 0; z_ind < collision_map_for_export_.GetNumZCells(); z_ind++)
             {
-                std::vector<double> pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
+                const Eigen::Vector4d pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
 
-                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), stdVectorToBtVector3(pos) * METERS));
+                const btVector3 trans((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z()));
+                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), trans * METERS));
                 const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
                 if (freespace)
                 {
-                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(0.0));
+                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
                 }
                 else
                 {
-                    collision_map_for_export_.Set(x_ind, y_ind, z_ind, sdf_tools::COLLISION_CELL(1.0));
+                    switch (task_type_)
+                    {
+                        case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
+                        {
+                            BoxObject::Ptr table = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["table_surface"]);
+                            btTransform table_surface_transform;
+                            table->motionState->getWorldTransform(table_surface_transform);
+                            const float table_surface_z =  table_surface_transform.getOrigin().z() + table->halfExtents.z();
+
+                            if (pos[2] * METERS > table_surface_z)
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
+                            }
+                            else
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                            }
+                            break;
+                        }
+
+                        case TaskType::ROPE_HOOKS_BASIC:
+                        {
+                            // Disable drawing the outer walls in RViz
+                            if (x_ind >= 4 && x_ind < collision_map_for_export_.GetNumXCells() - 4 &&
+                                y_ind >= 4 && y_ind < collision_map_for_export_.GetNumYCells() - 4)
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                            }
+                            else
+                            {
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 3));
+                            }
+                            break;
+                        }
+
+                        default:
+                            collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                    }
                 }
             }
         }
     }
 
+    // Move the collision map to world frame
+    const Eigen::Isometry3d bullet_to_collision_map_starting_origin = collision_map_for_export_.GetOriginTransform();
+    const geometry_msgs::TransformStamped world_to_bullet_tf_as_ros =
+            tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time::now(), ros::Duration(10.0));
+    const Eigen::Isometry3d world_to_bullet_as_eigen = EigenHelpersConversions::GeometryTransformToEigenIsometry3d(world_to_bullet_tf_as_ros.transform);
+    const Eigen::Isometry3d world_to_collision_map_origin = world_to_bullet_as_eigen * bullet_to_collision_map_starting_origin;
+    collision_map_for_export_.UpdateOriginTransform(world_to_collision_map_origin);
+    collision_map_for_export_.SetFrame(world_frame_name_);
+
     // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
-    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT).first;
+    // Note that I'm assuming no more than 6 objects, with 0 being unused background
+    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}, true, false).first;
     sdf_for_export_.Lock();
 }
 
@@ -2137,29 +2578,36 @@ void CustomScene::createCollisionMapAndSDF()
 void CustomScene::SetGripperTransform(
         const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
         const std::string& name,
-        const geometry_msgs::Pose& pose)
+        const btTransform& pose_in_bt_coords)
 {
-    GripperKinematicObject::Ptr gripper = grippers_map.at(name);
-
-    const btTransform tf = toBulletTransform(pose, METERS);
-
-    assert(-100.0f < tf.getOrigin().x() && tf.getOrigin().x() < 100.0f);
-    assert(-100.0f < tf.getOrigin().y() && tf.getOrigin().y() < 100.0f);
-    assert(-100.0f < tf.getOrigin().z() && tf.getOrigin().z() < 100.0f);
-
-    gripper->setWorldTransform(tf);
+    grippers_map.at(name)->setWorldTransform(pose_in_bt_coords);
 }
 
 
-deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk() const
+geometry_msgs::PoseStamped CustomScene::transformPoseToBulletFrame(
+        const std_msgs::Header& input_header,
+        const geometry_msgs::Pose& pose_in_input_frame) const
+{
+    geometry_msgs::PoseStamped stamped_input;
+    stamped_input.header = input_header;
+    stamped_input.pose = pose_in_input_frame;
+
+    // Get the latest available transform, whatever that is
+    geometry_msgs::PoseStamped pose_in_bullet_frame;
+    tf_buffer_.transform(stamped_input, pose_in_bullet_frame, bullet_frame_name_, ros::Time(0), world_frame_name_);
+
+    return pose_in_bullet_frame;
+}
+
+deformable_manipulation_msgs::WorldState CustomScene::createSimulatorFbk() const
 {
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
 
-    deformable_manipulation_msgs::SimulatorFeedback msg;
+    deformable_manipulation_msgs::WorldState msg;
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector(getDeformableObjectNodes(), METERS);
-    if (feedback_covariance_ > 0)
+    msg.object_configuration   = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+    if (feedback_covariance_ > 0.0)
     {
         for (auto& point: msg.object_configuration)
         {
@@ -2174,14 +2622,14 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
     {
         const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
         msg.gripper_names.push_back(gripper_name);
-        msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
+        msg.gripper_poses.push_back(toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS));
 
         btPointCollector collision_result = collisionHelper(gripper);
 
         if (collision_result.m_hasResult)
         {
             msg.gripper_distance_to_obstacle.push_back(collision_result.m_distance / METERS);
-            msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1));
+            msg.obstacle_surface_normal.push_back(toRosVector3(collision_result.m_normalOnBInWorld, 1.0f));
             msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(
                         collision_result.m_pointInWorld
                         + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS));
@@ -2193,25 +2641,41 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
             msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(btVector3(0.0f, 0.0f, 0.0f), 1));
         }
     }
+
+    // fill out the robot configuration data as being invalid
+    msg.robot_configuration_valid = false;
 
     // update the sim_time
     msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
 
+    msg.header.frame_id = world_frame_name_;
+    msg.header.stamp = ros::Time::now();
+
     return msg;
 }
 
-deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(const SimForkResult& result) const
+deformable_manipulation_msgs::WorldState CustomScene::createSimulatorFbk(const SimForkResult& result) const
 {
-    deformable_manipulation_msgs::SimulatorFeedback msg;
+    deformable_manipulation_msgs::WorldState msg;
 
-    msg.object_configuration = toRosPointVector(getDeformableObjectNodes(result), METERS);
+    // fill out the object configuration data
+    msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(result), METERS);
+    if (feedback_covariance_ > 0.0)
+    {
+        for (auto& point: msg.object_configuration)
+        {
+            point.x += BoxMuller(0, feedback_covariance_);
+            point.y += BoxMuller(0, feedback_covariance_);
+            point.z += BoxMuller(0, feedback_covariance_);
+        }
+    }
 
     // fill out the gripper data
     for (const std::string &gripper_name: auto_grippers_)
     {
-        const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
+        const GripperKinematicObject::Ptr gripper = result.grippers_.at(gripper_name);
         msg.gripper_names.push_back(gripper_name);
-        msg.gripper_poses.push_back(toRosPose(gripper->getWorldTransform(), METERS));
+        msg.gripper_poses.push_back(toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS));
 
         btPointCollector collision_result = collisionHelper(gripper);
 
@@ -2229,11 +2693,17 @@ deformable_manipulation_msgs::SimulatorFeedback CustomScene::createSimulatorFbk(
             msg.obstacle_surface_normal.push_back(toRosVector3(btVector3(1.0f, 0.0f, 0.0f), 1));
             msg.gripper_nearest_point_to_obstacle.push_back(toRosPoint(btVector3(0.0f, 0.0f, 0.0f), 1));
         }
-
-        // update the sim_time
-        // TODO: I think this math is wrong - sim time won't be updated yet
-        msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
     }
+
+    // fill out the robot configuration data as being invalid
+    msg.robot_configuration_valid = false;
+
+    // update the sim_time
+    // TODO: I think this math is wrong - sim time won't be updated yet
+    msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
+
+    msg.header.frame_id = world_frame_name_;
+    msg.header.stamp = ros::Time::now();
 
     return msg;
 }
@@ -2438,15 +2908,15 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
 
 SimForkResult CustomScene::createForkWithNoSimulationDone(
         const std::vector<std::string>& gripper_names,
-        const std::vector<geometry_msgs::Pose>& gripper_poses)
+        const std::vector<btTransform>& gripper_poses_in_bt_coords)
 {
-    assert(gripper_names.size() == gripper_poses.size());
+    assert(gripper_names.size() == gripper_poses_in_bt_coords.size());
 
     SimForkResult result = createForkWithNoSimulationDone(env, cloth_, rope_, grippers_);
 
     for (size_t gripper_ind = 0; gripper_ind < gripper_names.size(); gripper_ind++)
     {
-        SetGripperTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses[gripper_ind]);
+        SetGripperTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses_in_bt_coords[gripper_ind]);
     }
 
     return result;
@@ -2454,9 +2924,9 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
 
 SimForkResult CustomScene::simulateInNewFork(
         const std::vector<std::string>& gripper_names,
-        const std::vector<geometry_msgs::Pose>& gripper_poses)
+        const std::vector<btTransform>& gripper_poses_in_bt_coords)
 {
-    SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses);
+    SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses_in_bt_coords);
 
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
@@ -2470,23 +2940,16 @@ SimForkResult CustomScene::simulateInNewFork(
 // ROS Callbacks - Setting visualization markers
 ////////////////////////////////////////////////////////////////////////////////
 
-// TODO: be able to delete markers and have a timeout
-void CustomScene::visualizationMarkerCallback(
+void CustomScene::visualizationMarkerInternalHandler(
         visualization_msgs::Marker marker)
 {
-    // Don't lock here because the clearVisualizationsCallback will be locking itself
     if (marker.action == visualization_msgs::Marker::DELETEALL)
     {
-        std_srvs::Empty::Request req;
-        std_srvs::Empty::Response res;
-        clearVisualizationsCallback(req, res);
+        clearVisualizationsInternalHandler();
         return;
     }
 
     const std::string id = marker.ns + std::to_string(marker.id);
-
-    // TODO: make this mutex not quite so "global" around this switch
-    std::lock_guard<std::mutex> lock(sim_mutex_);
 
     if (marker.action == visualization_msgs::Marker::DELETE)
     {
@@ -2523,8 +2986,23 @@ void CustomScene::visualizationMarkerCallback(
             }
         }
 
+        // Delete any matching marker from the boxes list
+        {
+            const auto box_marker_itr = visualization_box_markers_.find(id);
+            if (box_marker_itr != visualization_box_markers_.end())
+            {
+                PlotBoxes::Ptr boxes = box_marker_itr->second;
+                visualization_box_markers_.erase(box_marker_itr);
+                env->remove(boxes);
+            }
+        }
+
         return;
     }
+
+    // Transform the data into bullet's native frame
+    marker.pose = transformPoseToBulletFrame(marker.header, marker.pose).pose;
+    marker.header.frame_id = bullet_frame_name_;
 
     switch (marker.type)
     {
@@ -2534,7 +3012,7 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_point_markers_.end())
             {
                 PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
-                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
                 visualization_point_markers_[id] = points;
 
@@ -2543,7 +3021,7 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 PlotPoints::Ptr points = marker_itr->second;
-                points->setPoints(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
             }
             break;
@@ -2579,7 +3057,7 @@ void CustomScene::visualizationMarkerCallback(
             }
 
             auto boxes = boost::make_shared<PlotBoxes>();
-            boxes->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+            boxes->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                         toOsgQuat(marker.pose.orientation),
                         toOsgRefVec4Array(marker.colors),
                         toOsgVec3(marker.scale, METERS));
@@ -2595,9 +3073,10 @@ void CustomScene::visualizationMarkerCallback(
                 marker.points.clear();
                 ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
             }
-            // Add a zero initialized point
-            marker.points.push_back(geometry_msgs::Point());
-            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            if (marker.colors.size() != marker.points.size())
+            {
+                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            }
         }
         case visualization_msgs::Marker::SPHERE_LIST:
         {
@@ -2622,7 +3101,7 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_sphere_markers_.end())
             {
                 auto spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               // Note that we are converting from a diameter to a radius here
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
@@ -2633,7 +3112,7 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 auto spheres = marker_itr->second;
-                spheres->plot(toOsgRefVec3Array(marker.pose, marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               // Note that we are converting from a diameter to a radius here
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
@@ -2662,7 +3141,8 @@ void CustomScene::visualizationMarkerCallback(
             if (marker_itr == visualization_line_markers_.end())
             {
                 auto line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
-                line_strip->setPoints(toBulletPointVector(marker.points, METERS),
+                // marker.pose has already be transformed to bullet's native frame
+                line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
                                       toBulletColorArray(marker.colors));
                 visualization_line_markers_[id] = line_strip;
 
@@ -2671,7 +3151,8 @@ void CustomScene::visualizationMarkerCallback(
             else
             {
                 auto line_strip = marker_itr->second;
-                line_strip->setPoints(toBulletPointVector(marker.points, METERS),
+                // marker.pose has already be transformed to bullet's native frame
+                line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
                                       toBulletColorArray(marker.colors));
             }
             break;
@@ -2684,68 +3165,93 @@ void CustomScene::visualizationMarkerCallback(
     }
 }
 
-void CustomScene::visualizationMarkerArrayCallback(
-        visualization_msgs::MarkerArray marker_array)
+void CustomScene::clearVisualizationsInternalHandler()
 {
-    for (visualization_msgs::Marker marker: marker_array.markers)
-    {
-        visualizationMarkerCallback(marker);
-    }
-}
-
-
-bool CustomScene::clearVisualizationsCallback(
-        std_srvs::Empty::Request &req,
-        std_srvs::Empty::Response &res)
-{
-    (void)req;
-    (void)res;
-
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-
-    // Delete all markers from the lines list
-    {
-        for (auto& line_marker_pair : visualization_line_markers_)
-        {
-            auto plot_lines = line_marker_pair.second;
-            env->remove(plot_lines);
-        }
-        visualization_line_markers_.clear();
-    }
-
-    // Delete all markers from the points list
+    // Delete the entire points list
     {
         for (auto& points_marker_pair : visualization_point_markers_)
         {
-            auto points = points_marker_pair.second;
+            PlotPoints::Ptr points = points_marker_pair.second;
             env->remove(points);
         }
         visualization_point_markers_.clear();
     }
 
-    // Delete all markers from the spheres list
+    // Delete the entire spheres list
     {
         for (auto& sphere_marker_pair : visualization_sphere_markers_)
         {
-            auto spheres = sphere_marker_pair.second;
+            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
             env->remove(spheres);
         }
         visualization_sphere_markers_.clear();
     }
 
-    // Delete all markers from the boxes list
+    // Delete the entire lines list
     {
-        for (auto& boxes_marker_pair : visualization_box_markers_)
+        for (auto& line_marker_pair : visualization_line_markers_)
         {
-            auto boxes = boxes_marker_pair.second;
-            env->remove(boxes);
+            PlotLines::Ptr plot_lines = line_marker_pair.second;
+            env->remove(plot_lines);
+        }
+        visualization_line_markers_.clear();
+    }
+
+    // Delete the entire boxes list
+    {
+        for (auto& box_marker_pair : visualization_box_markers_)
+        {
+            PlotBoxes::Ptr plot_boxes = box_marker_pair.second;
+            env->remove(plot_boxes);
         }
         visualization_box_markers_.clear();
     }
+}
 
+bool CustomScene::clearVisualizationsCallback(
+        std_srvs::Empty::Request &req,
+        std_srvs::Empty::Response &res)
+{
+    if (!drawingOn)
+    {
+        return true;
+    }
+
+    (void)req;
+    (void)res;
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+    clearVisualizationsInternalHandler();
     return true;
 }
 
+// TODO: be able to delete markers and have a timeout
+void CustomScene::visualizationMarkerCallback(
+        const visualization_msgs::Marker& marker)
+{
+    if (!drawingOn)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+    visualizationMarkerInternalHandler(marker);
+}
+
+void CustomScene::visualizationMarkerArrayCallback(
+        const visualization_msgs::MarkerArray& marker_array)
+{
+    if (!drawingOn)
+    {
+        return;
+    }
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+    for (visualization_msgs::Marker marker: marker_array.markers)
+    {
+        visualizationMarkerInternalHandler(marker);
+    }
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // ROS Callbacks - Getting information
@@ -2769,7 +3275,6 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
     return true;
 }
 
-// Stretching vector information client
 bool CustomScene::getGripperStretchingVectorInfoCallback(
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
         deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
@@ -2795,7 +3300,18 @@ bool CustomScene::getGripperPoseCallback(
         deformable_manipulation_msgs::GetGripperPose::Response& res)
 {
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
-    res.pose = toRosPose(gripper->getWorldTransform(), METERS);
+    res.pose = toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
+    return true;
+}
+
+bool CustomScene::getRobotConfigurationCallback(
+        deformable_manipulation_msgs::GetRobotConfiguration::Request& req,
+        deformable_manipulation_msgs::GetRobotConfiguration::Response& res)
+{
+    (void)req;
+    res.valid = false;
     return true;
 }
 
@@ -2811,8 +3327,13 @@ bool CustomScene::gripperCollisionCheckCallback(
 
     for (size_t pose_ind = 0; pose_ind < num_checks; pose_ind++)
     {
-        collision_check_gripper_->setWorldTransform(toBulletTransform(req.pose[pose_ind], METERS));
-        btPointCollector collision_result = collisionHelper(collision_check_gripper_);
+        // Convert the pose into bullet coordinates
+        const geometry_msgs::PoseStamped pose_in_bt_frame = transformPoseToBulletFrame(req.header, req.pose[pose_ind]);
+        const btTransform pose_in_bt_coords = toBulletTransform(pose_in_bt_frame.pose, METERS);
+
+        // Move the collision check gripper to the querry pose and do the querry
+        collision_check_gripper_->setWorldTransform(pose_in_bt_coords);
+        const btPointCollector collision_result = collisionHelper(collision_check_gripper_);
 
         if (collision_result.m_hasResult)
         {
@@ -2823,11 +3344,20 @@ bool CustomScene::gripperCollisionCheckCallback(
             res.gripper_distance_to_obstacle[pose_ind] = std::numeric_limits<double>::infinity();
         }
 
-        res.obstacle_surface_normal[pose_ind] = toRosVector3(collision_result.m_normalOnBInWorld, 1);
-        res.gripper_nearest_point_to_obstacle[pose_ind] = toRosPoint(
-                    collision_result.m_pointInWorld
-                    + collision_result.m_normalOnBInWorld * collision_result.m_distance, METERS);
+        // Rotate the vector to the world frame for output - btScale = 1.0 because we want a normalized vector
+        res.obstacle_surface_normal[pose_ind] = toRosVector3(world_to_bullet_tf_, collision_result.m_normalOnBInWorld, 1.0);
+
+        // Calculate the nearest point on the gripper in bullet frame coordinates
+        const btVector3 gripper_nearest_point_to_obstacle_bt_frame =
+                collision_result.m_pointInWorld + collision_result.m_normalOnBInWorld * collision_result.m_distance;
+
+        // Transform the point to the world frame for output
+        res.gripper_nearest_point_to_obstacle[pose_ind] =
+                toRosPoint(world_to_bullet_tf_, gripper_nearest_point_to_obstacle_bt_frame, METERS);
     }
+
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
 
     return true;
 }
@@ -2837,16 +3367,21 @@ bool CustomScene::getCoverPointsCallback(
         deformable_manipulation_msgs::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(cover_points_, METERS);
+    res.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
 bool CustomScene::getCoverPointNormalsCallback(
-        deformable_manipulation_msgs::GetPointSet::Request& req,
-        deformable_manipulation_msgs::GetPointSet::Response& res)
+        deformable_manipulation_msgs::GetVector3Set::Request& req,
+        deformable_manipulation_msgs::GetVector3Set::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(cover_point_normals_, 1.0f);
+    // Because we want normalized vectors, don't rescale to world coords
+    res.vectors = toRosVec3Vector(world_to_bullet_tf_, cover_point_normals_, 1.0f);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -2858,6 +3393,8 @@ bool CustomScene::getMirrorLineCallback(
     if (task_type_ == TaskType::CLOTH_COLAB_FOLDING &&
          deformable_type_ == DeformableType::CLOTH)
     {
+        // TODO: Update mirror line data with non-bullet frames - currently uses bullet frame
+        assert(bullet_frame_name_ == world_frame_name_);
         res = mirror_line_data_;
         return true;
     }
@@ -2878,34 +3415,26 @@ bool CustomScene::getFreeSpaceGraphCallback(
 
     // First serialze the graph itself
     {
-        // Allocate a data buffer to store the results in
-        res.graph_data_buffer.clear();
-        size_t expected_data_len = 0;
-        expected_data_len += sizeof(size_t); // Graph node vector header
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 3 * sizeof(btScalar); // Value item for each graph node
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * sizeof(double); // Distance value for each graph node
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 2 * sizeof(size_t); // Edge vector overhead
-        expected_data_len += num_graph_edges_ * sizeof(arc_dijkstras::GraphEdge); // Total number of edges to store
-        res.graph_data_buffer.reserve(expected_data_len);
-
-        // Define the graph value serialization function
-        const auto value_serializer_with_scaling_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
+        // Create a copy of the graph in world coordinates and world scaling
+        auto resized_graph = free_space_graph_;
+        for (auto& node: resized_graph.GetNodesMutable())
         {
-            const uint64_t start_buffer_size = buffer.size();
-            uint64_t running_total = 0;
+            const btVector3 point_in_world_frame = world_to_bullet_tf_ * node.GetValueImmutable() / METERS;
+            node.GetValueMutable() = point_in_world_frame;
 
-            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.x() / METERS, buffer);
-            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.y() / METERS, buffer);
-            running_total += arc_utilities::SerializeFixedSizePOD<btScalar>(value.z() / METERS, buffer);
+            // Lower the weight by the same distance factor
+            for (auto& edge: node.GetInEdgesMutable())
+            {
+                edge.SetWeight(edge.GetWeight() / METERS);
+            }
+            for (auto& edge: node.GetOutEdgesMutable())
+            {
+                edge.SetWeight(edge.GetWeight() / METERS);
+            }
+        }
+        assert(resized_graph.CheckGraphLinkage());
 
-            const uint64_t end_buffer_size = buffer.size();
-            const uint64_t bytes_written = end_buffer_size - start_buffer_size;
-
-            assert(running_total == bytes_written);
-
-            return bytes_written;
-        };
-
+        // Assumes that the data is already in the world frame and distance scale
         const auto value_serializer_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
         {
             const uint64_t start_buffer_size = buffer.size();
@@ -2923,53 +3452,26 @@ bool CustomScene::getFreeSpaceGraphCallback(
             return bytes_written;
         };
 
-        // Define the graph value serialization function
-        const auto value_deserializer_fn = [] (const std::vector<uint8_t>& buffer, const int64_t current)
-        {
-            uint64_t current_position = current;
-
-            // Deserialze 3 floats, converting into doubles afterwards
-            std::pair<btScalar, uint64_t> x = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
-            current_position += x.second;
-            std::pair<btScalar, uint64_t> y = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
-            current_position += y.second;
-            std::pair<btScalar, uint64_t> z = arc_utilities::DeserializeFixedSizePOD<btScalar>(buffer, current_position);
-            current_position += z.second;
-
-            const btVector3 deserialized(x.first, y.first, z.first);
-
-            // Figure out how many bytes were read
-            const uint64_t bytes_read = current_position - current;
-            return std::make_pair(deserialized, bytes_read);
-        };
-
-        // Resize the edge weights by a factor of METERS
-        free_space_graph_.SerializeSelf(res.graph_data_buffer, value_serializer_with_scaling_fn);
-        auto resized_graph = arc_dijkstras::Graph<btVector3>::Deserialize(res.graph_data_buffer, 0, value_deserializer_fn).first;
-
-        for (auto& node: resized_graph.GetNodesMutable())
-        {
-            for (auto& edge: node.GetInEdgesMutable())
-            {
-                edge.SetWeight(edge.GetWeight() / METERS);
-            }
-            for (auto& edge: node.GetOutEdgesMutable())
-            {
-                edge.SetWeight(edge.GetWeight() / METERS);
-            }
-        }
-        // Ensure we still have a valid graph
-        assert(free_space_graph_.CheckGraphLinkage());
-        assert(resized_graph.CheckGraphLinkage());
+        // Allocate a data buffer to store the results in
+        res.graph_data_buffer.clear();
+        size_t expected_data_len = 0;
+        expected_data_len += sizeof(size_t); // Graph node vector header
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 3 * sizeof(btScalar); // Value item for each graph node
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * sizeof(double);       // Distance value for each graph node
+        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 2 * sizeof(size_t);   // Edge vector overhead
+        expected_data_len += num_graph_edges_ * sizeof(arc_dijkstras::GraphEdge);                 // Total number of edges to store
+        res.graph_data_buffer.reserve(expected_data_len);
 
         // Finally, serialze the graph
-        res.graph_data_buffer.clear();
-        res.graph_data_buffer.reserve(expected_data_len);
         resized_graph.SerializeSelf(res.graph_data_buffer, value_serializer_fn);
     }
 
     // Next add the mapping between cover indices and graph indices
     res.cover_point_ind_to_graph_ind = cover_ind_to_free_space_graph_ind_;
+
+    // And add the header information
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
 
     return true;
 }
@@ -2979,7 +3481,8 @@ bool CustomScene::getSignedDistanceFieldCallback(
         deformable_manipulation_msgs::GetSignedDistanceFieldResponse &res)
 {
     (void)req;
-    res.sdf = sdf_for_export_.GetMessageRepresentation();
+    // The SDF should already be in world frame and distances, so no conversion needed
+    res.sdf = sdf_tools::SignedDistanceField::GetMessageRepresentation(sdf_for_export_);
     return true;
 }
 
@@ -2989,6 +3492,8 @@ bool CustomScene::getObjectInitialConfigurationCallback(
 {
     (void)req;
     res.points = object_initial_configuration_;
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -2997,7 +3502,9 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
         deformable_manipulation_msgs::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(getDeformableObjectNodes(), METERS);
+    res.points = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -3021,40 +3528,40 @@ bool CustomScene::terminateSimulationCallback(
 // ROS Callbacks - Simulation actions
 ////////////////////////////////////////////////////////////////////////////////
 
-bool CustomScene::executeGripperMovementCallback(
-        deformable_manipulation_msgs::ExecuteGripperMovement::Request& req,
-        deformable_manipulation_msgs::ExecuteGripperMovement::Response& res)
+bool CustomScene::executeRobotMotionCallback(
+        deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
+        deformable_manipulation_msgs::ExecuteRobotMotion::Response& res)
 {
     assert(req.grippers_names.size() == req.gripper_poses.size());
+    ROS_INFO("Executing gripper command");
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
 
-    ROS_INFO("Executing gripper command");
-//    std::cout << PrettyPrint::PrettyPrint(req.gripper_poses, true, "\n") << std::endl;
-
     for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
     {
-        SetGripperTransform(grippers_, req.grippers_names[gripper_ind], req.gripper_poses[gripper_ind]);
-
-//        const auto test = collisionHelper(grippers_[req.grippers_names[gripper_ind]]);
-//        std::cout << PrettyPrint::PrettyPrint(req.gripper_poses[gripper_ind]);
-//        std::cout << "distance to object: " << test.m_distance << std::endl;
-//        std::cout << "gripper radius:     " << grippers_[req.grippers_names[gripper_ind]]->getGripperRadius() / 20.0 << std::endl << std::endl;
+        const geometry_msgs::PoseStamped pose_in_bt_frame = transformPoseToBulletFrame(req.header, req.gripper_poses[gripper_ind]);
+        const btTransform pose_in_bt_coords = toBulletTransform(pose_in_bt_frame.pose, METERS);
+        SetGripperTransform(grippers_, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
+    double total_time = 0.0;
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
         screen_recorder_->snapshot();
+        arc_utilities::Stopwatch stopwatch;
         step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+        total_time += stopwatch(arc_utilities::READ);
         simulator_fbk_pub_.publish(createSimulatorFbk());
     }
 
-    res.sim_state = createSimulatorFbk();
+    LOG_STREAM(simulation_time_logger_, num_timesteps_to_execute_per_gripper_cmd_ << " " << total_time);
+
+    res.world_state = createSimulatorFbk();
     return true;
 }
 
-void CustomScene::testGripperPosesExecuteCallback(
-        const deformable_manipulation_msgs::TestGrippersPosesGoalConstPtr& goal)
+void CustomScene::testRobotMotionExecuteCallback(
+        const deformable_manipulation_msgs::TestRobotMotionGoalConstPtr& goal)
 {
     const size_t num_tests = goal->poses_to_test.size();
 
@@ -3063,11 +3570,13 @@ void CustomScene::testGripperPosesExecuteCallback(
     for (size_t test_ind = 0; test_ind < num_tests; test_ind++)
     {
         ROS_INFO_STREAM_NAMED("test_gripper_poses", "Testing gripper pose " << test_ind);
-        const SimForkResult result = simulateInNewFork(goal->gripper_names, goal->poses_to_test[test_ind].pose);
+        const std::vector<btTransform> gripper_poses_in_bt_frame =
+                toVectorBulletTransform(world_to_bullet_tf_, goal->poses_to_test[test_ind].poses, METERS);
+        const SimForkResult result = simulateInNewFork(goal->gripper_names, gripper_poses_in_bt_frame);
 
         // Create a feedback message
-        deformable_manipulation_msgs::TestGrippersPosesFeedback fbk;
-        fbk.sim_state = createSimulatorFbk(result);
+        deformable_manipulation_msgs::TestRobotMotionFeedback fbk;
+        fbk.world_state = createSimulatorFbk(result);
         fbk.test_id = test_ind;
         // Send feedback
         test_grippers_poses_as_.publishFeedback(fbk);
@@ -3094,9 +3603,9 @@ void CustomScene::drawAxes()
 
 
 
-////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // Key Handler for our Custom Scene
-////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 CustomScene::CustomKeyHandler::CustomKeyHandler(CustomScene &scene)
     : scene_(scene)
@@ -3105,7 +3614,7 @@ CustomScene::CustomKeyHandler::CustomKeyHandler(CustomScene &scene)
     , rotate_gripper_(false)
 {}
 
-bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osgGA::GUIActionAdapter & aa)
+bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& aa)
 {
     (void)aa;
     bool suppress_default_handler = false;
@@ -3192,9 +3701,12 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter &ea, osg
                 {
                     case 'c':
                     {
-                        std_srvs::Empty::Request req;
-                        std_srvs::Empty::Response res;
-                        scene_.clearVisualizationsCallback(req, res);
+//                        std_srvs::Empty::Request req;
+//                        std_srvs::Empty::Response res;
+//                        scene_.clearVisualizationsCallback(req, res);
+                        // The scene is already locked in the main sim loop,
+                        // thus we call the internall handler, not the external interface
+                        scene_.clearVisualizationsInternalHandler();
                         break;
                     }
                 }

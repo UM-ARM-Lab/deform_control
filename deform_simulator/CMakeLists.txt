@@ -11,6 +11,8 @@ set(CATKIN_PACKAGES
     haptics
     bullet_helpers
     sdf_tools
+    tf2_ros
+    tf2_geometry_msgs
     deformable_manipulation_msgs
     deformable_manipulation_experiment_params
 )
@@ -53,7 +55,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -g -O3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -g -O2")
 
 include_directories(include SYSTEM
     ${catkin_INCLUDE_DIRS}

@@ -1,8 +1,8 @@
-cmake_minimum_required( VERSION 2.8.3 )
-project( bullet_helpers )
+cmake_minimum_required(VERSION 2.8.3)
+project(bullet_helpers)
 
 ## Find catkin macros and libraries
-set( CATKIN_PACKAGES
+set(CATKIN_PACKAGES
     osg_bullet
     roscpp
     geometry_msgs
@@ -10,7 +10,7 @@ set( CATKIN_PACKAGES
     arc_utilities
 )
 
-find_package( catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES} )
+find_package(catkin REQUIRED COMPONENTS ${CATKIN_PACKAGES})
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -63,13 +63,13 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(include SYSTEM
-  ${catkin_INCLUDE_DIRS}
+    ${catkin_INCLUDE_DIRS}
 )
 
-set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -O3 -g -flto -Wall -Wextra -Wpedantic -Werror" )
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -O2 -g -flto -Wall -Wextra -Wpedantic -Werror")
 
 ## Declare a C++ library
-add_library( ${PROJECT_NAME}
+add_library(${PROJECT_NAME}
     include/${PROJECT_NAME}/bullet_internal_conversions.hpp
     src/bullet_internal_conversions.cpp
     include/${PROJECT_NAME}/bullet_eigen_conversions.hpp
@@ -83,8 +83,8 @@ add_library( ${PROJECT_NAME}
     include/${PROJECT_NAME}/bullet_cloth_helpers.hpp
     src/bullet_cloth_helpers.cpp
 )
-add_dependencies( ${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
-target_link_libraries( ${PROJECT_NAME} ${catkin_LIBRARIES} )
+add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
 #############
 ## Install ##

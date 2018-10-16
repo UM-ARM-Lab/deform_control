@@ -19,7 +19,7 @@ inline double BoxMuller(double m, double s)
     if (use_last)
     {
         y1 = y2;
-        use_last = 0;
+        use_last = false;
     }
     else
     {

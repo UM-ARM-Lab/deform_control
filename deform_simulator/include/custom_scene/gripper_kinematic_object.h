@@ -90,7 +90,6 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         btSoftBody* m_psb = NULL;   // soft body attached to this gripper
 
         boost::shared_ptr<btGeneric6DofConstraint> rope_cnt;
-
         // Defined stretching detection nodes helper structure.
         // if more than two grippers in the future, should change it to vector
         bool to_another_gripper_info_valid;
