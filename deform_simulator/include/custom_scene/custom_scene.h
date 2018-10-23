@@ -361,6 +361,7 @@ class CustomScene : public Scene
         std::vector<PlotAxes::Ptr> graph_corners_;
 
         // Uses world (unscaled) translational distances, and the world frame
+        const int sdf_resolution_scale_;
         sdf_tools::TaggedObjectCollisionMapGrid collision_map_for_export_;
         sdf_tools::SignedDistanceField sdf_for_export_;
 
