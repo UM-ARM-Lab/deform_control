@@ -2155,16 +2155,19 @@ void CustomScene::makeRopeHooksObstacles()
     const btScalar hook_length = GetHookLength(nh_) * METERS;
     const btScalar hook_radius = wall_thickness / 4.0f;
 
+    // Defines the "inner corner" of the hook, where it meets the vertical wall
     const btScalar hook_com_x = GetHookComX(nh_) * METERS;
     const btScalar hook_com_offset_y = GetHookComOffsetY(nh_) * METERS;
 
-    // Top hook (visually on starting the simulator)
+    // Vertical wall blocking lower portion of arena
     {
-        // obstacle parameters
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, hook_com_offset_y, -hook_height / 2.0f - hook_radius);
+        const btVector3 obstacle_half_extents(hook_radius, (world_size.y() + wall_thickness) / 2.0f, hook_height / 2.0f + hook_radius);
 
-        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f + hook_radius);
+        // obstacle parameters
+        const btVector3 obstacle_com(
+                    hook_com_x + obstacle_half_extents.x(),
+                    world_center.y(),
+                    world_min.z() + obstacle_half_extents.z());
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2174,16 +2177,18 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["hook1_vertical"] = obstacle;
+        world_obstacles_["hook_vertical_lower"] = obstacle;
     }
+
+    // Top hook (visually on starting the simulator)
     {
         // obstacle parameters
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, hook_com_offset_y, -hook_radius)    // Center on the existing vertical section
-                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
-                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
-
         const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        const btVector3 obstacle_com(
+                    hook_com_x - obstacle_half_extents.x(),
+                    world_center.y() + hook_com_offset_y,
+                    world_min.z() + hook_height + obstacle_half_extents.z());
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2199,29 +2204,12 @@ void CustomScene::makeRopeHooksObstacles()
     // Bottom hook (visually on starting the simulator)
     {
         // obstacle parameters
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, -hook_com_offset_y, -hook_height / 2.0f - hook_radius);
-
-        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f + hook_radius);
-
-        // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
-                    0, obstacle_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
-
-        // add the box to the world
-        env->add(obstacle);
-        world_obstacles_["hook2_vertical"] = obstacle;
-    }
-    {
-        // obstacle parameters
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, -hook_com_offset_y, -hook_radius)   // Center on the existing vertical section
-                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
-                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
-
         const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        const btVector3 obstacle_com(
+                    hook_com_x - obstacle_half_extents.x(),
+                    world_center.y() - hook_com_offset_y,
+                    world_min.z() + hook_height + obstacle_half_extents.z());
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2238,7 +2226,7 @@ void CustomScene::makeRopeHooksObstacles()
     const std::vector<btVector3> rope_nodes = rope_->getNodes();
     for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
     {
-        const btVector3 target_point = rope_nodes[cover_idx] + btVector3(world_size.x() * 0.75f, 0.0f, -world_size.z() / 8.0f);
+        const btVector3 target_point(world_max.x() - 2 * wall_thickness, rope_nodes[cover_idx].y(), rope_nodes[cover_idx].z());
         cover_points_.push_back(target_point);
     }
 
@@ -2497,7 +2485,7 @@ void CustomScene::createCollisionMapAndSDF()
 {
     arc_utilities::Stopwatch stopwatch;
 
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, GetRobotMinGripperDistanceToObstacles() * METERS, btTransform(), true);
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() / sdf_resolution_scale_ * 0.01, btTransform(), true);
 
     // Itterate through the collision map, checking for collision
     for (int64_t x_ind = 0; x_ind < collision_map_for_export_.GetNumXCells(); x_ind++)
@@ -2540,8 +2528,8 @@ void CustomScene::createCollisionMapAndSDF()
                         case TaskType::ROPE_HOOKS_BASIC:
                         {
                             // Disable drawing the outer walls in RViz
-                            if (x_ind >= (2 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (2 * sdf_resolution_scale_) &&
-                                y_ind >= (2 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (2 * sdf_resolution_scale_))
+                            if (x_ind >= (4 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (4 * sdf_resolution_scale_) &&
+                                y_ind >= (4 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (4 * sdf_resolution_scale_))
                             {
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
                             }
@@ -3170,7 +3158,7 @@ void CustomScene::visualizationMarkerInternalHandler(
         }
         default:
         {
-            ROS_ERROR_STREAM_NAMED("visualization",
+            ROS_ERROR_STREAM_THROTTLE_NAMED(1.0, "visualization",
                     "Marker type " << marker.type << " not implemented " << id);
         }
     }
