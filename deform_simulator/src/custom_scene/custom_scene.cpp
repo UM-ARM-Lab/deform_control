@@ -2226,7 +2226,7 @@ void CustomScene::makeRopeHooksObstacles()
     const std::vector<btVector3> rope_nodes = rope_->getNodes();
     for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
     {
-        const btVector3 target_point(world_max.x() - 2 * wall_thickness, rope_nodes[cover_idx].y(), rope_nodes[cover_idx].z());
+        const btVector3 target_point(world_max.x() - 2 * wall_thickness, rope_nodes[cover_idx].y(), world_max.z() - wall_thickness);
         cover_points_.push_back(target_point);
     }
 
