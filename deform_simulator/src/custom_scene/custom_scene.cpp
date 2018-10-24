@@ -13,6 +13,7 @@
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
 #include <deformable_manipulation_experiment_params/serialization.h>
 #include <arc_utilities/timing.hpp>
+#include <arc_utilities/zlib_helpers.hpp>
 
 #include <BulletCollision/NarrowPhaseCollision/btVoronoiSimplexSolver.h>
 #include <BulletCollision/NarrowPhaseCollision/btGjkPairDetector.h>
@@ -2483,91 +2484,115 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 
 void CustomScene::createCollisionMapAndSDF()
 {
-    arc_utilities::Stopwatch stopwatch;
+    const std::string collision_map_file_location = GetCollisionMapStorageLocation(nh_);
 
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() / sdf_resolution_scale_ * 0.01, btTransform(), true);
-
-    // Itterate through the collision map, checking for collision
-    for (int64_t x_ind = 0; x_ind < collision_map_for_export_.GetNumXCells(); x_ind++)
+    // First check if there are saved results we can use
+    try
     {
-        for (int64_t y_ind = 0; y_ind < collision_map_for_export_.GetNumYCells(); y_ind++)
+        ROS_INFO("Checking if a collision map already exists");
+        const auto decompressed_collision_map = ZlibHelpers::LoadFromFileAndDecompress(collision_map_file_location);
+        collision_map_for_export_.DeserializeSelf(decompressed_collision_map, 0, nullptr);
+        ROS_WARN("Currently assuming that any saved collision map will work; not checked against anything");
+    }
+    catch (...)
+    {
+        arc_utilities::Stopwatch stopwatch;
+        ROS_INFO("No valid collision map found; regenerating");
+
+        SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() / sdf_resolution_scale_ * 0.01, btTransform(), true);
+
+        // Itterate through the collision map, checking for collision
+        for (int64_t x_ind = 0; x_ind < collision_map_for_export_.GetNumXCells(); x_ind++)
         {
-            for (int64_t z_ind = 0; z_ind < collision_map_for_export_.GetNumZCells(); z_ind++)
+            for (int64_t y_ind = 0; y_ind < collision_map_for_export_.GetNumYCells(); y_ind++)
             {
-                const Eigen::Vector4d pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
+                for (int64_t z_ind = 0; z_ind < collision_map_for_export_.GetNumZCells(); z_ind++)
+                {
+                    const Eigen::Vector4d pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
 
-                const btVector3 trans((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z()));
-                test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), trans * METERS));
-                const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
-                if (freespace)
-                {
-                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
-                }
-                else
-                {
-                    switch (task_type_)
+                    const btVector3 trans((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z()));
+                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), trans * METERS));
+                    const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
+                    if (freespace)
                     {
-                        case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
+                        collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
+                    }
+                    else
+                    {
+                        switch (task_type_)
                         {
-                            BoxObject::Ptr table = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["table_surface"]);
-                            btTransform table_surface_transform;
-                            table->motionState->getWorldTransform(table_surface_transform);
-                            const float table_surface_z =  table_surface_transform.getOrigin().z() + table->halfExtents.z();
+                            case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
+                            {
+                                BoxObject::Ptr table = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["table_surface"]);
+                                btTransform table_surface_transform;
+                                table->motionState->getWorldTransform(table_surface_transform);
+                                const float table_surface_z =  table_surface_transform.getOrigin().z() + table->halfExtents.z();
 
-                            if (pos[2] * METERS > table_surface_z)
-                            {
-                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
+                                if (pos[2] * METERS > table_surface_z)
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
+                                }
+                                else
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                                }
+                                break;
                             }
-                            else
+
+                            case TaskType::ROPE_HOOKS_BASIC:
                             {
+                                // Disable drawing the outer walls in RViz
+                                if (x_ind >= (4 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (4 * sdf_resolution_scale_) &&
+                                    y_ind >= (4 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (4 * sdf_resolution_scale_))
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                                }
+                                else
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 3));
+                                }
+                                break;
+                            }
+
+                            default:
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
-                            }
-                            break;
                         }
-
-                        case TaskType::ROPE_HOOKS_BASIC:
-                        {
-                            // Disable drawing the outer walls in RViz
-                            if (x_ind >= (4 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (4 * sdf_resolution_scale_) &&
-                                y_ind >= (4 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (4 * sdf_resolution_scale_))
-                            {
-                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
-                            }
-                            else
-                            {
-                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 3));
-                            }
-                            break;
-                        }
-
-                        default:
-                            collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
                     }
                 }
             }
         }
+
+        // Move the collision map to world frame
+        const Eigen::Isometry3d bullet_to_collision_map_starting_origin = collision_map_for_export_.GetOriginTransform();
+        const geometry_msgs::TransformStamped world_to_bullet_tf_as_ros =
+                tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time::now(), ros::Duration(10.0));
+        const Eigen::Isometry3d world_to_bullet_as_eigen = EigenHelpersConversions::GeometryTransformToEigenIsometry3d(world_to_bullet_tf_as_ros.transform);
+        const Eigen::Isometry3d world_to_collision_map_origin = world_to_bullet_as_eigen * bullet_to_collision_map_starting_origin;
+        collision_map_for_export_.UpdateOriginTransform(world_to_collision_map_origin);
+        collision_map_for_export_.SetFrame(world_frame_name_);
+
+        ROS_INFO_STREAM("Finished creating collision map in " << stopwatch(arc_utilities::READ) << " seconds");
+        ROS_INFO("Generating SDF");
+        stopwatch(arc_utilities::RESET);
+
+        try
+        {
+            ROS_INFO_STREAM("Serializing CollisionMap and saving to file");
+            std::vector<uint8_t> buffer;
+            collision_map_for_export_.SerializeSelf(buffer, nullptr);
+            ZlibHelpers::CompressAndWriteToFile(buffer, collision_map_file_location);
+        }
+        catch (...)
+        {
+            ROS_ERROR("Saving CollsionMap to file failed");
+        }
     }
-
-    // Move the collision map to world frame
-    const Eigen::Isometry3d bullet_to_collision_map_starting_origin = collision_map_for_export_.GetOriginTransform();
-    const geometry_msgs::TransformStamped world_to_bullet_tf_as_ros =
-            tf_buffer_.lookupTransform(world_frame_name_, bullet_frame_name_, ros::Time::now(), ros::Duration(10.0));
-    const Eigen::Isometry3d world_to_bullet_as_eigen = EigenHelpersConversions::GeometryTransformToEigenIsometry3d(world_to_bullet_tf_as_ros.transform);
-    const Eigen::Isometry3d world_to_collision_map_origin = world_to_bullet_as_eigen * bullet_to_collision_map_starting_origin;
-    collision_map_for_export_.UpdateOriginTransform(world_to_collision_map_origin);
-    collision_map_for_export_.SetFrame(world_frame_name_);
-
-    ROS_INFO_STREAM("Finished creating collision map in " << stopwatch(arc_utilities::READ) << " seconds");
-    ROS_INFO("Generating SDF");
-    stopwatch(arc_utilities::RESET);
 
     // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
     #pragma message "SDF generation is assuming that object ids 1 thru 6 are relevant"
     sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}, false, false).first;
     sdf_for_export_.Lock();
-
-    ROS_INFO_STREAM("Finished creating SDF in " << stopwatch(arc_utilities::READ) << " seconds");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
