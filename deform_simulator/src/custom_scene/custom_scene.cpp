@@ -76,12 +76,13 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 
 
     // Uses bullet_frame but world distances while being built, is transformed to the world frame once built
+    , sdf_resolution_scale_(GetSDFResolutionScale(nh))
     , collision_map_for_export_(Eigen::Isometry3d(Eigen::Translation3d(
                                                       GetWorldXMinBulletFrame(nh),
                                                       GetWorldYMinBulletFrame(nh),
                                                       GetWorldZMinBulletFrame(nh))),
                                 bullet_frame_name_,
-                                work_space_grid_.minStepDimension() / METERS / 2.0,
+                                work_space_grid_.minStepDimension() / METERS / sdf_resolution_scale_,
                                 GetWorldXMaxBulletFrame(nh) - GetWorldXMinBulletFrame(nh),
                                 GetWorldYMaxBulletFrame(nh) - GetWorldYMinBulletFrame(nh),
                                 GetWorldZMaxBulletFrame(nh) - GetWorldZMinBulletFrame(nh),
@@ -2149,21 +2150,24 @@ void CustomScene::makeRopeHooksObstacles()
         world_obstacles_["initial_obstacle"] = obstacle;
     }
 
+    // Defines the "inside" rectangle size of the hook. I.e. the size of gap.
     const btScalar hook_height = GetHookHeight(nh_) * METERS;
     const btScalar hook_length = GetHookLength(nh_) * METERS;
     const btScalar hook_radius = wall_thickness / 4.0f;
 
+    // Defines the "inner corner" of the hook, where it meets the vertical wall
     const btScalar hook_com_x = GetHookComX(nh_) * METERS;
     const btScalar hook_com_offset_y = GetHookComOffsetY(nh_) * METERS;
 
-    // Top hook (visuallay on starting the simulator
+    // Vertical wall blocking lower portion of arena
     {
+        const btVector3 obstacle_half_extents(hook_radius, (world_size.y() + wall_thickness) / 2.0f, hook_height / 2.0f + hook_radius);
+
         // obstacle parameters
-
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, hook_com_offset_y, -hook_height / 2.0f);
-
-        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f);
+        const btVector3 obstacle_com(
+                    hook_com_x + obstacle_half_extents.x(),
+                    world_center.y(),
+                    world_min.z() + obstacle_half_extents.z());
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2173,16 +2177,18 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["hook1_vertical"] = obstacle;
+        world_obstacles_["hook_vertical_lower"] = obstacle;
     }
+
+    // Top hook (visually on starting the simulator)
     {
         // obstacle parameters
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, hook_com_offset_y, -hook_radius)    // Center on the existing vertical section
-                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
-                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
-
         const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        const btVector3 obstacle_com(
+                    hook_com_x - obstacle_half_extents.x(),
+                    world_center.y() + hook_com_offset_y,
+                    world_min.z() + hook_height + obstacle_half_extents.z());
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2195,34 +2201,15 @@ void CustomScene::makeRopeHooksObstacles()
         world_obstacles_["hook1_horizontal"] = obstacle;
     }
 
-    // Bottom hook (visuallay on starting the simulator
+    // Bottom hook (visually on starting the simulator)
     {
         // obstacle parameters
-
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, -hook_com_offset_y, -hook_height / 2.0f);
-
-        const btVector3 obstacle_half_extents(hook_radius, hook_radius, hook_height / 2.0f);
-
-        // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
-                    0, obstacle_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
-
-        // add the box to the world
-        env->add(obstacle);
-        world_obstacles_["hook2_vertical"] = obstacle;
-    }
-    {
-        // obstacle parameters
-        // obstacle parameters
-        const btVector3 obstacle_com = world_center
-                + btVector3(hook_com_x, -hook_com_offset_y, -hook_radius)   // Center on the existing vertical section
-                + btVector3(-hook_radius, 0.0f, 0.0f)                       // Move off of the vertical section
-                + btVector3(-hook_length / 2.0f, 0.0f, 0.0f);               // Move halfway down the length
-
         const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+
+        const btVector3 obstacle_com(
+                    hook_com_x - obstacle_half_extents.x(),
+                    world_center.y() - hook_com_offset_y,
+                    world_min.z() + hook_height + obstacle_half_extents.z());
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2239,7 +2226,7 @@ void CustomScene::makeRopeHooksObstacles()
     const std::vector<btVector3> rope_nodes = rope_->getNodes();
     for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
     {
-        const btVector3 target_point = rope_nodes[cover_idx] + btVector3(world_size.x() * 0.75f, 0.0f, world_size.z() / 3.0f);
+        const btVector3 target_point(world_max.x() - 2 * wall_thickness, rope_nodes[cover_idx].y(), world_max.z() - wall_thickness);
         cover_points_.push_back(target_point);
     }
 
@@ -2345,6 +2332,10 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     const Eigen::Vector3d starting_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_starting_ind, y_starting_ind, z_starting_ind);
     const btVector3 starting_pos((btScalar)starting_pos_eigen.x(), (btScalar)starting_pos_eigen.y(), (btScalar)starting_pos_eigen.z());
 
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() * 0.01, btTransform(), true);
+    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), starting_pos));
+//    const btScalar starting_dist = collisionHelper(test_sphere).m_distance;
+
     // Note that these are in [min, max) form - i.e. exclude the max
     const int64_t x_min_ind = std::max(0L, x_starting_ind - 1);
     const int64_t x_max_ind = std::min(work_space_grid_.getXNumSteps(), x_starting_ind + 2);
@@ -2352,8 +2343,6 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     const int64_t y_max_ind = std::min(work_space_grid_.getYNumSteps(), y_starting_ind + 2);
     const int64_t z_min_ind = std::max(0L, z_starting_ind - 1);
     const int64_t z_max_ind = std::min(work_space_grid_.getZNumSteps(), z_starting_ind + 2);
-
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.002 * METERS, btTransform(), true);
 
     for (int64_t x_loop_ind = x_min_ind; x_loop_ind < x_max_ind; x_loop_ind++)
     {
@@ -2377,7 +2366,7 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
                         const int64_t loop_ind = work_space_grid_.xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
                         assert(loop_ind >= 0);
                         free_space_graph_.AddEdgeBetweenNodes(starting_ind, loop_ind, dist);
-                        num_graph_edges_ += 2;
+                        num_graph_edges_ += 1;
                     }
                 }
             }
@@ -2485,6 +2474,8 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         const int64_t cover_node_ind = free_space_graph_.AddNode(cover_point);
         free_space_graph_.AddEdgesBetweenNodes(cover_node_ind, graph_ind, dist);
         cover_ind_to_free_space_graph_ind_[cover_ind] = graph_ind;
+
+        num_graph_edges_ += 2;
     }
 
     assert(free_space_graph_.CheckGraphLinkage());
@@ -2492,7 +2483,9 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 
 void CustomScene::createCollisionMapAndSDF()
 {
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, GetRobotMinGripperDistanceToObstacles() * METERS, btTransform(), true);
+    arc_utilities::Stopwatch stopwatch;
+
+    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() / sdf_resolution_scale_ * 0.01, btTransform(), true);
 
     // Itterate through the collision map, checking for collision
     for (int64_t x_ind = 0; x_ind < collision_map_for_export_.GetNumXCells(); x_ind++)
@@ -2535,8 +2528,8 @@ void CustomScene::createCollisionMapAndSDF()
                         case TaskType::ROPE_HOOKS_BASIC:
                         {
                             // Disable drawing the outer walls in RViz
-                            if (x_ind >= 4 && x_ind < collision_map_for_export_.GetNumXCells() - 4 &&
-                                y_ind >= 4 && y_ind < collision_map_for_export_.GetNumYCells() - 4)
+                            if (x_ind >= (4 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (4 * sdf_resolution_scale_) &&
+                                y_ind >= (4 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (4 * sdf_resolution_scale_))
                             {
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
                             }
@@ -2564,11 +2557,17 @@ void CustomScene::createCollisionMapAndSDF()
     collision_map_for_export_.UpdateOriginTransform(world_to_collision_map_origin);
     collision_map_for_export_.SetFrame(world_frame_name_);
 
+    ROS_INFO_STREAM("Finished creating collision map in " << stopwatch(arc_utilities::READ) << " seconds");
+    ROS_INFO("Generating SDF");
+    stopwatch(arc_utilities::RESET);
+
     // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
-    // Note that I'm assuming no more than 6 objects, with 0 being unused background
-    sdf_for_export_ = collision_map_for_export_.ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}, true, false).first;
+    #pragma message "SDF generation is assuming that object ids 1 thru 6 are relevant"
+    sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}, false, false).first;
     sdf_for_export_.Lock();
+
+    ROS_INFO_STREAM("Finished creating SDF in " << stopwatch(arc_utilities::READ) << " seconds");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -3159,7 +3158,7 @@ void CustomScene::visualizationMarkerInternalHandler(
         }
         default:
         {
-            ROS_ERROR_STREAM_NAMED("visualization",
+            ROS_ERROR_STREAM_THROTTLE_NAMED(1.0, "visualization",
                     "Marker type " << marker.type << " not implemented " << id);
         }
     }
