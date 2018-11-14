@@ -254,12 +254,12 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         }
         bullet_visualization_pub.publish(bullet_visualization_markers);
 
-        osg::Vec3d eye, center, up;
-        manip->getTransformation(eye, center, up);
+//        osg::Vec3d eye, center, up;
+//        manip->getTransformation(eye, center, up);
 
-        std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
-                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
-                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
+//        std::cout << eye.x()/METERS    << " " << eye.y()/METERS    << " " << eye.z()/METERS << "    "
+//                  << center.x()/METERS << " " << center.y()/METERS << " " << center.z()/METERS << "    "
+//                  << up.x()/METERS     << " " << up.y()/METERS     << " " << up.z()/METERS << std::endl;
 
         std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
     }
