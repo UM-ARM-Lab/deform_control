@@ -2215,7 +2215,7 @@ void CustomScene::makeRopeHooksObstacles()
     // on a particular side of the arena, but allowing the rope to pass through it
     ////////////////////////////////////////////////////////////////////////////
 
-    const btScalar gripper_separator_length = task_progress_wall_x_com - world_min.x() + task_progress_wall_width / 2.0f;
+    const btScalar gripper_separator_length =       ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_length", __func__).GetImmutable() * METERS;
     const btScalar gripper_separator_width =        ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_width", __func__).GetImmutable() * METERS;
     const btScalar gripper_separator_lower_height = ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_lower_height", __func__).GetImmutable() * METERS;
     const btScalar gripper_separator_upper_height = ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_upper_height", __func__).GetImmutable() * METERS;
@@ -2350,7 +2350,7 @@ void CustomScene::makeRopeHooksObstacles()
     const std::vector<btVector3> rope_nodes = rope_->getNodes();
     for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
     {
-        const btVector3 target_point(world_max.x() - 2 * wall_thickness, rope_nodes[cover_idx].y(), world_max.z() - wall_thickness);
+        const btVector3 target_point(world_max.x() - 2 * wall_thickness, rope_nodes[cover_idx].y(), rope_nodes[cover_idx].z());
         cover_points_.push_back(target_point);
     }
 
