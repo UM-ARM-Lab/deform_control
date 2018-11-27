@@ -2041,8 +2041,8 @@ void CustomScene::makeRopeHooksObstacles()
 
     const float outer_walls_alpha = GetOuterWallsAlpha(ph_);
     const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);      // grayish
-
     const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 1.0f);                       // purple
+    const btVector4 pole_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 1.0f);                            // teal
 
     // Make the floor to ensure that the free space graph doesn't go down through the floor due to rounding
     {
@@ -2075,57 +2075,60 @@ void CustomScene::makeRopeHooksObstacles()
     }
 
     // Make the outer walls
+    if (false)
     {
-        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
-        const btVector3 wall_com = btVector3(world_center.x(), world_min.y(), world_center.z());
+        {
+            const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+            const btVector3 wall_com = btVector3(world_center.x(), world_min.y(), world_center.z());
 
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(outer_walls_color);
+            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                        0, wall_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+            wall->setColor(outer_walls_color);
 
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["outer_wall0"] = wall;
-    }
-    {
-        const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
-        const btVector3 wall_com = btVector3(world_center.x(), world_max.y(), world_center.z());
+            // add the wall to the world
+            env->add(wall);
+            world_obstacles_["outer_wall0"] = wall;
+        }
+        {
+            const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
+            const btVector3 wall_com = btVector3(world_center.x(), world_max.y(), world_center.z());
 
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(outer_walls_color);
+            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                        0, wall_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+            wall->setColor(outer_walls_color);
 
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["outer_wall1"] = wall;
-    }
-    {
-        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
-        const btVector3 wall_com = btVector3(world_min.x(), world_center.y(), world_center.z());
+            // add the wall to the world
+            env->add(wall);
+            world_obstacles_["outer_wall1"] = wall;
+        }
+        {
+            const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+            const btVector3 wall_com = btVector3(world_min.x(), world_center.y(), world_center.z());
 
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(outer_walls_color);
+            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                        0, wall_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+            wall->setColor(outer_walls_color);
 
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["outer_wall2"] = wall;
-    }
-    {
-        const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
-        const btVector3 wall_com = btVector3(world_max.x(), world_center.y(), world_center.z());
+            // add the wall to the world
+            env->add(wall);
+            world_obstacles_["outer_wall2"] = wall;
+        }
+        {
+            const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
+            const btVector3 wall_com = btVector3(world_max.x(), world_center.y(), world_center.z());
 
-        BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                    0, wall_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-        wall->setColor(outer_walls_color);
+            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
+                        0, wall_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
+            wall->setColor(outer_walls_color);
 
-        // add the wall to the world
-        env->add(wall);
-        world_obstacles_["outer_wall3"] = wall;
+            // add the wall to the world
+            env->add(wall);
+            world_obstacles_["outer_wall3"] = wall;
+        }
     }
 
     // Make the initial obstacle to go around
@@ -2144,29 +2147,32 @@ void CustomScene::makeRopeHooksObstacles()
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
                     0, obstacle_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
+        obstacle->setColor(pole_color);
 
         // add the cylinder to the world
         env->add(obstacle);
         world_obstacles_["initial_obstacle"] = obstacle;
     }
 
-    // Defines the "inside" rectangle size of the hook. I.e. the size of gap.
-    const btScalar hook_height = GetHookHeight(nh_) * METERS;
-    const btScalar hook_length = GetHookLength(nh_) * METERS;
-    const btScalar hook_radius = wall_thickness / 4.0f;
+    ////////////////////////////////////////////////////////////////////////////
+    // "Task barrier" wall settings - i.e. the ones directly impeeding task progress
+    ////////////////////////////////////////////////////////////////////////////
 
-    // Defines the "inner corner" of the hook, where it meets the vertical wall
-    const btScalar hook_com_x = GetHookComX(nh_) * METERS;
-    const btScalar hook_com_offset_y = GetHookComOffsetY(nh_) * METERS;
+    const btScalar task_progress_wall_width =        ROSHelpers::GetParamRequired<float>(nh_, "task_progress_wall_width", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_lower_height = ROSHelpers::GetParamRequired<float>(nh_, "task_progress_wall_lower_height", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_upper_height = ROSHelpers::GetParamRequired<float>(nh_, "task_progress_wall_upper_height", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_x_com =        ROSHelpers::GetParamRequired<float>(nh_, "task_progress_wall_x_com", __func__).GetImmutable() * METERS;
 
-    // Vertical wall blocking lower portion of arena
+    // Vertical wall blocking lower portion of arena - between the start and the goal
     {
-        const btVector3 obstacle_half_extents(hook_radius, (world_size.y() + wall_thickness) / 2.0f, hook_height / 2.0f + hook_radius);
+        const btVector3 obstacle_half_extents(
+                    task_progress_wall_width / 2.0f,
+                    (world_size.y() + wall_thickness) / 2.0f,
+                    task_progress_wall_lower_height / 2.0f);
 
         // obstacle parameters
         const btVector3 obstacle_com(
-                    hook_com_x + obstacle_half_extents.x(),
+                    task_progress_wall_x_com,
                     world_center.y(),
                     world_min.z() + obstacle_half_extents.z());
 
@@ -2178,39 +2184,132 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["hook_vertical_lower"] = obstacle;
+        world_obstacles_["task_progress_wall_lower"] = obstacle;
+    }
+    // Vertical wall blocking upper portion of arena - between the start and the goal
+    {
+        const btVector3 obstacle_half_extents(
+                    task_progress_wall_width / 2.0f,
+                    (world_size.y() + wall_thickness) / 2.0f,
+                    task_progress_wall_upper_height / 2.0f);
+
+        // obstacle parameters
+        const btVector3 obstacle_com(
+                    task_progress_wall_x_com,
+                    world_center.y(),
+                    world_max.z() - obstacle_half_extents.z());
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["task_progress_wall_upper"] = obstacle;
     }
 
-    // Top hook (visually on starting the simulator)
+    ////////////////////////////////////////////////////////////////////////////
+    // "Gripper separator" wall settings - i.e. the ones preventing the grippers
+    // on a particular side of the arena, but allowing the rope to pass through it
+    ////////////////////////////////////////////////////////////////////////////
+
+    const btScalar gripper_separator_length = task_progress_wall_x_com - world_min.x() + task_progress_wall_width / 2.0f;
+    const btScalar gripper_separator_width =        ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_width", __func__).GetImmutable() * METERS;
+    const btScalar gripper_separator_lower_height = ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_lower_height", __func__).GetImmutable() * METERS;
+    const btScalar gripper_separator_upper_height = ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_upper_height", __func__).GetImmutable() * METERS;
+    const btScalar gripper_separator_y_offset =     ROSHelpers::GetParamRequired<float>(nh_, "gripper_separator_y_offset", __func__).GetImmutable() * METERS;
+
+    // Vertical wall blocking lower portion of arena - between the grippers
     {
+        const btVector3 obstacle_half_extents(
+                    gripper_separator_length / 2.0f,
+                    gripper_separator_width / 2.0f,
+                    gripper_separator_lower_height / 2.0f);
+
         // obstacle parameters
-        const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+        const btVector3 obstacle_com(
+                    world_min.x() + obstacle_half_extents.x(),
+                    world_center.y() + gripper_separator_y_offset,
+                    world_min.z() + obstacle_half_extents.z());
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["gripper_separator_lower"] = obstacle;
+    }
+    // Vertical wall blocking upper portion of arena - between the grippers
+    {
+        const btVector3 obstacle_half_extents(
+                    gripper_separator_length / 2.0f,
+                    gripper_separator_width / 2.0f,
+                    gripper_separator_upper_height / 2.0f);
+
+        // obstacle parameters
+        const btVector3 obstacle_com(
+                    world_min.x() + obstacle_half_extents.x(),
+                    world_center.y() + gripper_separator_y_offset,
+                    world_max.z() - obstacle_half_extents.z());
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["gripper_separator_upper"] = obstacle;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Hook that is "affixed" to the task progress wall
+    ////////////////////////////////////////////////////////////////////////////
+
+    const btScalar hook_length =       ROSHelpers::GetParamRequired<float>(nh_, "hook_length", __func__).GetImmutable() * METERS;
+    const btScalar hook_radius =       ROSHelpers::GetParamRequired<float>(nh_, "hook_radius", __func__).GetImmutable() * METERS;
+    const btScalar hook_com_offset_y = ROSHelpers::GetParamRequired<float>(nh_, "hook_com_offset_y", __func__).GetImmutable() * METERS;
+
+    // Build the hook on the side of the wall towards the starting region (negative x)
+    {
+        const btVector3 obstacle_half_extents(
+                    hook_length / 2.0f,
+                    hook_radius,
+                    hook_radius);
 
         const btVector3 obstacle_com(
-                    hook_com_x - obstacle_half_extents.x(),
+                    task_progress_wall_x_com - task_progress_wall_width / 2.0f - obstacle_half_extents.x(),
                     world_center.y() + hook_com_offset_y,
-                    world_min.z() + hook_height + obstacle_half_extents.z());
+                    world_min.z() + gripper_separator_lower_height - hook_radius);
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
                     0, obstacle_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
+        obstacle->setColor(pole_color);
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["hook1_horizontal"] = obstacle;
+        world_obstacles_["hook"] = obstacle;
     }
 
-    // Bottom hook (visually on starting the simulator)
+    // Ensure that the gripper must pass on the left (positive y) of the hook
     {
-        // obstacle parameters
-        const btVector3 obstacle_half_extents(hook_length / 2.0f, hook_radius, hook_radius);
+        const btVector3 obstacle_half_extents(
+                    task_progress_wall_width / 2.0f,
+                    (hook_com_offset_y - gripper_separator_y_offset + hook_radius + gripper_separator_width / 2.0f) / 2.0f,
+                    gripper_separator_lower_height / 2.0f);
 
         const btVector3 obstacle_com(
-                    hook_com_x - obstacle_half_extents.x(),
-                    world_center.y() - hook_com_offset_y,
-                    world_min.z() + hook_height + obstacle_half_extents.z());
+                    task_progress_wall_x_com,
+                    world_center.y() + hook_com_offset_y - obstacle_half_extents.y() + hook_radius,
+                    world_min.z() + obstacle_half_extents.z());
 
         // create a box
         BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2220,10 +2319,34 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["hook2_horizontal"] = obstacle;
+        world_obstacles_["hook_gripper_blocker_lower"] = obstacle;
+    }
+    {
+        const btVector3 obstacle_half_extents(
+                    task_progress_wall_width / 2.0f,
+                    (hook_com_offset_y - gripper_separator_y_offset + hook_radius + gripper_separator_width / 2.0f) / 2.0f,
+                    gripper_separator_upper_height / 2.0f);
+
+        const btVector3 obstacle_com(
+                    task_progress_wall_x_com,
+                    world_center.y() + hook_com_offset_y - obstacle_half_extents.y() + hook_radius,
+                    world_max.z() - obstacle_half_extents.z());
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_["hook_gripper_blocker_upper"] = obstacle;
     }
 
+    ////////////////////////////////////////////////////////////////////////////
     // Make the target region
+    ////////////////////////////////////////////////////////////////////////////
+
     const std::vector<btVector3> rope_nodes = rope_->getNodes();
     for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
     {
@@ -2487,14 +2610,14 @@ void CustomScene::createCollisionMapAndSDF()
     const std::string collision_map_file_location = GetCollisionMapStorageLocation(nh_);
 
     // First check if there are saved results we can use
-    try
-    {
-        ROS_INFO("Checking if a collision map already exists");
-        const auto decompressed_collision_map = ZlibHelpers::LoadFromFileAndDecompress(collision_map_file_location);
-        collision_map_for_export_.DeserializeSelf(decompressed_collision_map, 0, nullptr);
-        ROS_WARN("Currently assuming that any saved collision map will work; not checked against anything");
-    }
-    catch (...)
+//    try
+//    {
+//        ROS_INFO("Checking if a collision map already exists");
+//        const auto decompressed_collision_map = ZlibHelpers::LoadFromFileAndDecompress(collision_map_file_location);
+//        collision_map_for_export_.DeserializeSelf(decompressed_collision_map, 0, nullptr);
+//        ROS_WARN("Currently assuming that any saved collision map will work; not checked against anything");
+//    }
+//    catch (...)
     {
         arc_utilities::Stopwatch stopwatch;
         ROS_INFO("No valid collision map found; regenerating");
@@ -2539,20 +2662,20 @@ void CustomScene::createCollisionMapAndSDF()
                                 break;
                             }
 
-                            case TaskType::ROPE_HOOKS_BASIC:
-                            {
-                                // Disable drawing the outer walls in RViz
-                                if (x_ind >= (4 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (4 * sdf_resolution_scale_) &&
-                                    y_ind >= (4 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (4 * sdf_resolution_scale_))
-                                {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
-                                }
-                                else
-                                {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 3));
-                                }
-                                break;
-                            }
+//                            case TaskType::ROPE_HOOKS_BASIC:
+//                            {
+//                                // Disable drawing the outer walls in RViz
+//                                if (x_ind >= (4 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (4 * sdf_resolution_scale_) &&
+//                                    y_ind >= (4 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (4 * sdf_resolution_scale_))
+//                                {
+//                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+//                                }
+//                                else
+//                                {
+//                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 3));
+//                                }
+//                                break;
+//                            }
 
                             default:
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
