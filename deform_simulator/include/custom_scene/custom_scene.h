@@ -93,9 +93,14 @@ class CustomScene : public Scene
         // Main function that makes things happen
         ////////////////////////////////////////////////////////////////////////
 
-        void run(const bool drawScene = false, const bool syncTime = false);
+        void initialize(const bool sync_time = false);
+        bool initialized() const;
+        void run();
 
     private:
+        bool initialized_;
+
+    protected:
         ////////////////////////////////////////////////////////////////////////
         // Construction helper functions
         ////////////////////////////////////////////////////////////////////////
@@ -149,10 +154,12 @@ class CustomScene : public Scene
                 const std::string& name,
                 const btTransform& pose_in_bt_coords);
 
+    public:
         geometry_msgs::PoseStamped transformPoseToBulletFrame(
                 const std_msgs::Header& input_header,
                 const geometry_msgs::Pose& pose_in_input_frame) const;
 
+    protected:
         deformable_manipulation_msgs::WorldState createSimulatorFbk() const;
         deformable_manipulation_msgs::WorldState createSimulatorFbk(const SimForkResult& result) const;
 
@@ -185,19 +192,6 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
         // ROS Callbacks
         ////////////////////////////////////////////////////////////////////////
-
-        // Not threadsafe
-        void visualizationMarkerInternalHandler(visualization_msgs::Marker marker);
-        // Threadsafe - locks and then calls the internal handler
-        void visualizationMarkerCallback(const visualization_msgs::Marker& marker);
-        void visualizationMarkerArrayCallback(const visualization_msgs::MarkerArray& marker_array);
-
-        // Not threadsafe
-        void clearVisualizationsInternalHandler();
-        // Threadsafe - locks and then calls the internal handler
-        bool clearVisualizationsCallback(
-                std_srvs::Empty::Request &req,
-                std_srvs::Empty::Response &res);
 
         bool getGripperNamesCallback(
                 deformable_manipulation_msgs::GetGripperNames::Request& req,
@@ -258,9 +252,12 @@ class CustomScene : public Scene
         // Stuff, and things
         ////////////////////////////////////////////////////////////////////
 
+    // Public to make things easy for writing the viewer manager
+    public:
         /// Protects against multiple threads accessing data that modifies the
         /// environment/simulation at the same time
         std::mutex sim_mutex_;
+    private:
         std::shared_ptr<ScreenRecorder> screen_recorder_;
 
         ////////////////////////////////////////////////////////////////////////
@@ -274,18 +271,13 @@ class CustomScene : public Scene
         PlotLines::Ptr strain_lines_ = nullptr;
         PlotLines::Ptr gripper_force_lines_ = nullptr;
 
-        std::unordered_map<std::string, PlotLines::Ptr> visualization_line_markers_;
-        std::unordered_map<std::string, PlotPoints::Ptr> visualization_point_markers_;
-        std::unordered_map<std::string, PlotSpheres::Ptr> visualization_sphere_markers_;
-        std::unordered_map<std::string, PlotBoxes::Ptr> visualization_box_markers_;
-
         ////////////////////////////////////////////////////////////////////////
         // Post-step Callbacks
         ////////////////////////////////////////////////////////////////////////
 
         ////////////////////////////////////////////////////////////////////////
         // Task Variables
-        // TODO to be moved into a CustomSceneConfig file?
+        // TODO: to be moved into a CustomSceneConfig file?
         ////////////////////////////////////////////////////////////////////////
 
         const smmap::DeformableType deformable_type_;
@@ -333,11 +325,14 @@ class CustomScene : public Scene
         std::vector<btVector3> cover_points_;
         std::vector<btVector3> cover_point_normals_;
         deformable_manipulation_msgs::GetMirrorLine::Response mirror_line_data_;
+        PlotLines::Ptr miror_line_vis_;
 
         ////////////////////////////////////////////////////////////////////////
         // ROS Objects and Helpers
         ////////////////////////////////////////////////////////////////////////
 
+    // Public to make things easy for writing the viewer manager
+    public:
         ros::NodeHandle nh_;
         ros::NodeHandle ph_;
         ros::AsyncSpinner ros_spinner_;
@@ -353,6 +348,7 @@ class CustomScene : public Scene
         // Broadcasts an identity transform between the world and bullet if no one else is broadcasting within 10 seconds of startup
         tf2_ros::StaticTransformBroadcaster static_broadcaster_;
 
+    private:
         // Uses bullet (scaled) translational distances, and the bullet frame
         const smmap::XYZGrid work_space_grid_;
         arc_dijkstras::Graph<btVector3> free_space_graph_;
@@ -367,10 +363,6 @@ class CustomScene : public Scene
 
         ros::Publisher simulator_fbk_pub_;
         const double feedback_covariance_;
-
-        ros::Subscriber visualization_marker_sub_;
-        ros::Subscriber visualization_marker_array_sub_;
-        ros::ServiceServer clear_visualizations_srv_;
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;

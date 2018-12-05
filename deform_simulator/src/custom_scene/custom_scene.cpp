@@ -46,7 +46,8 @@ static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 
 CustomScene::CustomScene(ros::NodeHandle& nh,
                          const DeformableType deformable_type,
                          const TaskType task_type)
-    : screen_recorder_(nullptr)
+    : initialized_(false)
+    , screen_recorder_(nullptr)
     , plot_points_(boost::make_shared<PlotPoints>(0.4f * METERS))
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
     , deformable_type_(deformable_type)
@@ -104,7 +105,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 // Main function that makes things happen
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::run(const bool drawScene, const bool syncTime)
+void CustomScene::initialize(const bool sync_time)
 {
     // ros::ok() is only here to bypass things if a fast SIGINT is received
     if (!ros::ok())
@@ -137,16 +138,16 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
 
         // if syncTime is set, the simulator blocks until the real time elapsed
         // matches the simulator time elapsed, or something, it's not clear
-        setSyncTime(syncTime);
-        setDrawing(drawScene);
-        if (drawScene)
+        setSyncTime(sync_time);
+        setDrawing(ROSHelpers::GetParam(ph_, "start_bullet_viewer", true));
+        if (drawingOn)
         {
             startViewer();
         }
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph and collision map while the object settles
-        const bool draw_free_space_graph_corners = drawScene && false;
+        const bool draw_free_space_graph_corners = drawingOn && false;
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
 
@@ -156,7 +157,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
             ROS_INFO("Waiting %.1f seconds for the scene to settle", settle_time);
             stepFor(BulletConfig::dt, settle_time);
         }
-        
+
         // Wait for the graph to be finished being made
         {
             while (free_space_graph_future.wait_for(std::chrono::microseconds(10000)) != std::future_status::ready)
@@ -181,6 +182,16 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
     ROS_INFO("Simulation ready, starting publishers, subscribers, and services");
     initializePublishersSubscribersAndServices();
 
+    initialized_ = true;
+}
+
+bool CustomScene::initialized() const
+{
+    return initialized_;
+}
+
+void CustomScene::run()
+{
     // Used for constant visualization, independent of robot control structure
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
     visualization_msgs::MarkerArray bullet_visualization_markers;
@@ -264,7 +275,7 @@ void CustomScene::run(const bool drawScene, const bool syncTime)
         }
         bullet_visualization_pub.publish(bullet_visualization_markers);
 
-        if (drawScene)
+        if (drawingOn)
         {
 //            osg::Vec3d eye, center, up;
 //            manip->getTransformation(eye, center, up);
@@ -322,14 +333,6 @@ void CustomScene::initializePublishersSubscribersAndServices()
     // Publish to the feedback channel
     simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::WorldState>(
             GetWorldStateTopic(nh_), 20);
-
-    // Create a subscriber to take visualization instructions
-    visualization_marker_sub_ = nh_.subscribe(
-            GetVisualizationMarkerTopic(nh_), 20, &CustomScene::visualizationMarkerCallback, this);
-
-    // Create a subscriber to take visualization instructions
-    visualization_marker_array_sub_ = nh_.subscribe(
-            GetVisualizationMarkerArrayTopic(nh_), 20, &CustomScene::visualizationMarkerArrayCallback, this);
 
     ROS_INFO("Creating services");
     // Create a service to let others know the internal gripper names
@@ -389,10 +392,6 @@ void CustomScene::initializePublishersSubscribersAndServices()
     // Create a service to listen to in order to move the grippers and advance sim time
     execute_gripper_movement_srv_ = nh_.advertiseService(
             GetExecuteRobotMotionTopic(nh_), &CustomScene::executeRobotMotionCallback, this);
-
-    // Create a service to clear all visualizations that have been sent to us via ROS
-    clear_visualizations_srv_ = nh_.advertiseService(
-            GetClearVisualizationsTopic(nh_), &CustomScene::clearVisualizationsCallback, this);
 }
 
 
@@ -732,11 +731,9 @@ void CustomScene::createClothMirrorLine()
     std::vector<btVector4> mirror_line_colors;
     mirror_line_colors.push_back(btVector4(1,0,0,1));
 
-    PlotLines::Ptr line_strip = boost::make_shared<PlotLines>(0.1f * METERS);
-    line_strip->setPoints(mirror_line_points, mirror_line_colors);
-    visualization_line_markers_["mirror_line"] = line_strip;
-
-    env->add(line_strip);
+    miror_line_vis_ = boost::make_shared<PlotLines>(0.1f * METERS);
+    miror_line_vis_->setPoints(mirror_line_points, mirror_line_colors);
+    env->add(miror_line_vis_);
 }
 
 
@@ -2610,14 +2607,14 @@ void CustomScene::createCollisionMapAndSDF()
     const std::string collision_map_file_location = GetCollisionMapStorageLocation(nh_);
 
     // First check if there are saved results we can use
-//    try
-//    {
-//        ROS_INFO("Checking if a collision map already exists");
-//        const auto decompressed_collision_map = ZlibHelpers::LoadFromFileAndDecompress(collision_map_file_location);
-//        collision_map_for_export_.DeserializeSelf(decompressed_collision_map, 0, nullptr);
-//        ROS_WARN("Currently assuming that any saved collision map will work; not checked against anything");
-//    }
-//    catch (...)
+    try
+    {
+        ROS_INFO("Checking if a collision map already exists");
+        const auto decompressed_collision_map = ZlibHelpers::LoadFromFileAndDecompress(collision_map_file_location);
+        collision_map_for_export_.DeserializeSelf(decompressed_collision_map, 0, nullptr);
+        ROS_WARN("Currently assuming that any saved collision map will work; not checked against anything");
+    }
+    catch (...)
     {
         arc_utilities::Stopwatch stopwatch;
         ROS_INFO("No valid collision map found; regenerating");
@@ -3084,323 +3081,6 @@ SimForkResult CustomScene::simulateInNewFork(
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-// ROS Callbacks - Setting visualization markers
-////////////////////////////////////////////////////////////////////////////////
-
-void CustomScene::visualizationMarkerInternalHandler(
-        visualization_msgs::Marker marker)
-{
-    if (marker.action == visualization_msgs::Marker::DELETEALL)
-    {
-        clearVisualizationsInternalHandler();
-        return;
-    }
-
-    const std::string id = marker.ns + std::to_string(marker.id);
-
-    if (marker.action == visualization_msgs::Marker::DELETE)
-    {
-        // Delete any matching marker from the points list
-        {
-            const auto points_marker_itr = visualization_point_markers_.find(id);
-            if (points_marker_itr != visualization_point_markers_.end())
-            {
-                PlotPoints::Ptr points = points_marker_itr->second;
-                visualization_point_markers_.erase(points_marker_itr);
-                env->remove(points);
-            }
-        }
-
-        // Delete any matching marker from the spheres list
-        {
-            const auto sphere_marker_itr = visualization_sphere_markers_.find(id);
-            if (sphere_marker_itr != visualization_sphere_markers_.end())
-            {
-                PlotSpheres::Ptr spheres = sphere_marker_itr->second;
-                visualization_sphere_markers_.erase(sphere_marker_itr);
-                env->remove(spheres);
-            }
-        }
-
-        // Delete any matching markers from the lines list
-        {
-            const auto line_marker_itr = visualization_line_markers_.find(id);
-            if (line_marker_itr != visualization_line_markers_.end())
-            {
-                PlotLines::Ptr plot_lines = line_marker_itr->second;
-                visualization_line_markers_.erase(line_marker_itr);
-                env->remove(plot_lines);
-            }
-        }
-
-        // Delete any matching marker from the boxes list
-        {
-            const auto box_marker_itr = visualization_box_markers_.find(id);
-            if (box_marker_itr != visualization_box_markers_.end())
-            {
-                PlotBoxes::Ptr boxes = box_marker_itr->second;
-                visualization_box_markers_.erase(box_marker_itr);
-                env->remove(boxes);
-            }
-        }
-
-        return;
-    }
-
-    // Transform the data into bullet's native frame
-    marker.pose = transformPoseToBulletFrame(marker.header, marker.pose).pose;
-    marker.header.frame_id = bullet_frame_name_;
-
-    switch (marker.type)
-    {
-        case visualization_msgs::Marker::POINTS:
-        {
-            const auto marker_itr = visualization_point_markers_.find(id);
-            if (marker_itr == visualization_point_markers_.end())
-            {
-                PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
-                points->setPoints(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
-                                  toOsgRefVec4Array(marker.colors));
-                visualization_point_markers_[id] = points;
-
-                env->add(points);
-            }
-            else
-            {
-                PlotPoints::Ptr points = marker_itr->second;
-                points->setPoints(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
-                                  toOsgRefVec4Array(marker.colors));
-            }
-            break;
-        }
-        case visualization_msgs::Marker::CUBE:
-        {
-            if (marker.points.size() != 0)
-            {
-                marker.points.clear();
-                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a CUBE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
-            }
-            marker.points.push_back(geometry_msgs::Point());
-            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-        }
-        case visualization_msgs::Marker::CUBE_LIST:
-        {
-            if (marker.colors.size() == 0)
-            {
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-            else if (marker.colors.size() != marker.points.size())
-            {
-                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
-                marker.color = marker.colors[0];
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-
-            const auto marker_itr = visualization_box_markers_.find(id);
-            if (marker_itr != visualization_box_markers_.end())
-            {
-                auto old_boxes = marker_itr->second;
-                env->remove(old_boxes);
-            }
-
-            auto boxes = boost::make_shared<PlotBoxes>();
-            boxes->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
-                        toOsgQuat(marker.pose.orientation),
-                        toOsgRefVec4Array(marker.colors),
-                        toOsgVec3(marker.scale, METERS));
-            visualization_box_markers_[id] = boxes;
-            env->add(boxes);
-
-            break;
-        }
-        case visualization_msgs::Marker::SPHERE:
-        {
-            if (marker.points.size() != 0)
-            {
-                marker.points.clear();
-                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << id);
-            }
-            if (marker.colors.size() != marker.points.size())
-            {
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-        }
-        case visualization_msgs::Marker::SPHERE_LIST:
-        {
-            if (marker.colors.size() == 0)
-            {
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-            else if (marker.colors.size() != marker.points.size())
-            {
-                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << id);
-                marker.color = marker.colors[0];
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-
-            if ((marker.scale.y != marker.scale.x && marker.scale.y != 0.0f) ||
-                (marker.scale.z != marker.scale.x && marker.scale.z != 0.0f))
-            {
-                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE_LIST type that meaningful data in the y or z fields. This data is ignored. Namespace and id: " << id);
-            }
-
-            const auto marker_itr = visualization_sphere_markers_.find(id);
-            if (marker_itr == visualization_sphere_markers_.end())
-            {
-                auto spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
-                              toOsgRefVec4Array(marker.colors),
-                              // Note that we are converting from a diameter to a radius here
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
-                visualization_sphere_markers_[id] = spheres;
-
-                env->add(spheres);
-            }
-            else
-            {
-                auto spheres = marker_itr->second;
-                spheres->plot(toOsgRefVec3Array(world_to_bullet_tf_, marker.pose, marker.points, METERS),
-                              toOsgRefVec4Array(marker.colors),
-                              // Note that we are converting from a diameter to a radius here
-                              std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
-            }
-            break;
-        }
-        case visualization_msgs::Marker::LINE_STRIP:
-        {
-            if (marker.points.size() == 1)
-            {
-                ROS_ERROR_STREAM_NAMED(
-                            "visualization",
-                            "Only 1 point for line strip:\n"
-                            << "  NS: " << marker.ns << std::endl
-                            << "  ID: " << marker.id << std::endl
-                            << "  Point: " << marker.points[0].x << " " << marker.points[0].y << " " << marker.points[0].z);
-            }
-            if (marker.points.size() > 1)
-            {
-                convertLineStripToLineList(marker);
-            }
-        }
-        case visualization_msgs::Marker::LINE_LIST:
-        {
-            const auto marker_itr = visualization_line_markers_.find(id);
-            if (marker_itr == visualization_line_markers_.end())
-            {
-                auto line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS);
-                // marker.pose has already be transformed to bullet's native frame
-                line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
-                                      toBulletColorArray(marker.colors));
-                visualization_line_markers_[id] = line_strip;
-
-                env->add(line_strip);
-            }
-            else
-            {
-                auto line_strip = marker_itr->second;
-                // marker.pose has already be transformed to bullet's native frame
-                line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
-                                      toBulletColorArray(marker.colors));
-            }
-            break;
-        }
-        default:
-        {
-            ROS_ERROR_STREAM_THROTTLE_NAMED(1.0, "visualization",
-                    "Marker type " << marker.type << " not implemented " << id);
-        }
-    }
-}
-
-void CustomScene::clearVisualizationsInternalHandler()
-{
-    // Delete the entire points list
-    {
-        for (auto& points_marker_pair : visualization_point_markers_)
-        {
-            PlotPoints::Ptr points = points_marker_pair.second;
-            env->remove(points);
-        }
-        visualization_point_markers_.clear();
-    }
-
-    // Delete the entire spheres list
-    {
-        for (auto& sphere_marker_pair : visualization_sphere_markers_)
-        {
-            PlotSpheres::Ptr spheres = sphere_marker_pair.second;
-            env->remove(spheres);
-        }
-        visualization_sphere_markers_.clear();
-    }
-
-    // Delete the entire lines list
-    {
-        for (auto& line_marker_pair : visualization_line_markers_)
-        {
-            PlotLines::Ptr plot_lines = line_marker_pair.second;
-            env->remove(plot_lines);
-        }
-        visualization_line_markers_.clear();
-    }
-
-    // Delete the entire boxes list
-    {
-        for (auto& box_marker_pair : visualization_box_markers_)
-        {
-            PlotBoxes::Ptr plot_boxes = box_marker_pair.second;
-            env->remove(plot_boxes);
-        }
-        visualization_box_markers_.clear();
-    }
-}
-
-bool CustomScene::clearVisualizationsCallback(
-        std_srvs::Empty::Request &req,
-        std_srvs::Empty::Response &res)
-{
-    if (!drawingOn)
-    {
-        return true;
-    }
-
-    (void)req;
-    (void)res;
-
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-    clearVisualizationsInternalHandler();
-    return true;
-}
-
-// TODO: be able to delete markers and have a timeout
-void CustomScene::visualizationMarkerCallback(
-        const visualization_msgs::Marker& marker)
-{
-    if (!drawingOn)
-    {
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-    visualizationMarkerInternalHandler(marker);
-}
-
-void CustomScene::visualizationMarkerArrayCallback(
-        const visualization_msgs::MarkerArray& marker_array)
-{
-    if (!drawingOn)
-    {
-        return;
-    }
-
-    std::lock_guard<std::mutex> lock(sim_mutex_);
-    for (visualization_msgs::Marker marker: marker_array.markers)
-    {
-        visualizationMarkerInternalHandler(marker);
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////
 // ROS Callbacks - Getting information
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -3846,16 +3526,16 @@ bool CustomScene::CustomKeyHandler::handle(const osgGA::GUIEventAdapter& ea, osg
 
                 // Visualization keybonds
                 {
-                    case 'c':
-                    {
+//                    case 'c':
+//                    {
 //                        std_srvs::Empty::Request req;
 //                        std_srvs::Empty::Response res;
 //                        scene_.clearVisualizationsCallback(req, res);
                         // The scene is already locked in the main sim loop,
                         // thus we call the internall handler, not the external interface
-                        scene_.clearVisualizationsInternalHandler();
-                        break;
-                    }
+//                        scene_.rviz_marker_manager_->clearVisualizationsInternalHandler();
+//                        break;
+//                    }
                 }
 
 /*

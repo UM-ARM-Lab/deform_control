@@ -1,5 +1,18 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.1.0)
 project(deform_simulator)
+
+# http://doc.qt.io/qt-5/cmake-manual.html
+# Find includes in corresponding build directories
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+# Instruct CMake to run moc automatically when needed
+set(CMAKE_AUTOMOC ON)
+# Create code from a list of Qt designer ui files
+set(CMAKE_AUTOUIC ON)
+
+# Find the QtWidgets library
+find_package(Qt5Widgets CONFIG REQUIRED)
+set(QT5_LIBS Qt5::Widgets)
+
 
 set(CATKIN_PACKAGES
     actionlib
@@ -55,7 +68,7 @@ catkin_package(
 ## Build ##
 ###########
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -g -O2 -Werror=return-type")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -g -O2 -Werror=return-type")#" -fsanitize=address -fno-omit-frame-pointer")
 
 include_directories(include SYSTEM
     ${catkin_INCLUDE_DIRS}

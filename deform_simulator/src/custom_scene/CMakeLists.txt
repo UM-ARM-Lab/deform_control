@@ -19,6 +19,8 @@ add_library(custom_scene
     gripper_kinematic_object.cpp
     ../../include/custom_scene/manual_gripper_path.h
     manual_gripper_path.cpp
+    ../../include/custom_scene/rviz_marker_manager.h
+    rviz_marker_manager.cpp
 )
 add_dependencies(custom_scene
     ${catkin_EXPORTED_TARGETS}
@@ -26,4 +28,5 @@ add_dependencies(custom_scene
 target_link_libraries(custom_scene
     simulation
     ${${PROJECT_NAME}_LINK_TARGETS}
+    ${QT5_LIBS}
 )

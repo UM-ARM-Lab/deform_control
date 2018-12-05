@@ -1,9 +1,14 @@
+#include <QApplication>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
 
 #include "custom_scene/custom_scene.h"
+#include "custom_scene/rviz_marker_manager.h"
 
 int main(int argc, char* argv[])
 {
+    // Initialize QT settings
+    QApplication qt_app(argc, argv);
+
     // Read in all ROS parameters
     ros::init(argc, argv, "deform_simulator_node", ros::init_options::NoSigintHandler);
     ros::NodeHandle nh;
@@ -81,8 +86,17 @@ int main(int argc, char* argv[])
 
     // TODO move these settings to a CustomSceneConfig class?
     CustomScene cs(nh, smmap::GetDeformableType(nh), smmap::GetTaskType(nh));
-    const bool syncTime = false;
-    cs.run(ROSHelpers::GetParam(ph, "start_bullet_viewer", true), syncTime);
+    const bool sync_time = false;
+    cs.initialize(sync_time);
+    // We need to run QT and CS in their own threads.
+    // QT requires that it be started in the main thread, so run CS in a new thread
+    std::thread cs_thread(&CustomScene::run, &cs);
 
-    return 0;
+    // Start the QT managed window
+    RVizMarkerManager marker_manager(nh, cs);
+    marker_manager.show();
+    const int rv = qt_app.exec();
+
+    cs_thread.join();
+    return rv;
 }
