@@ -202,16 +202,11 @@ void CustomScene::run()
     size_t first_gripper_marker_ind;
     {
         std::map<uint32_t, std_msgs::ColorRGBA> object_color_map;
-        // Background - alpha = 0, so it doesn't get exported at all
-        object_color_map[0] = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 0.0f, 0.0f);
-        // Table and default objects
-        object_color_map[1] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
-        // Peg
-        object_color_map[2] = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
-        // Outer walls for Rope Hooks - disabled visualization for debugging
-        object_color_map[3] = ColorBuilder::MakeFromFloatColors(0.0f, 0.0f, 0.0f, 0.0f);
+        object_color_map[GENERIC_OBSTACLE] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+        object_color_map[PEG]              = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
 
-        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportForDisplay(object_color_map));
+        ROS_INFO("Generating markers for collision map visualization");
+        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportContourOnlyForDisplay(object_color_map));
 
 
         deformable_object_marker_ind = bullet_visualization_markers.markers.size();
@@ -2036,8 +2031,6 @@ void CustomScene::makeRopeHooksObstacles()
     const btVector3 world_center = (world_max + world_min) / 2.0f;
     const btVector3 world_size = world_max - world_min;
 
-    const float outer_walls_alpha = GetOuterWallsAlpha(ph_);
-    const btVector4 outer_walls_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, outer_walls_alpha);      // grayish
     const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 1.0f);                       // purple
     const btVector4 pole_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 1.0f);                            // teal
 
@@ -2069,63 +2062,6 @@ void CustomScene::makeRopeHooksObstacles()
         // add the wall to the world
         env->add(ceiling);
         world_obstacles_["ceiling"] = ceiling;
-    }
-
-    // Make the outer walls
-    if (false)
-    {
-        {
-            const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
-            const btVector3 wall_com = btVector3(world_center.x(), world_min.y(), world_center.z());
-
-            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                        0, wall_half_extents,
-                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-            wall->setColor(outer_walls_color);
-
-            // add the wall to the world
-            env->add(wall);
-            world_obstacles_["outer_wall0"] = wall;
-        }
-        {
-            const btVector3 wall_half_extents = btVector3(world_size.x() + wall_thickness, wall_thickness, world_size.z()) / 2.0f;
-            const btVector3 wall_com = btVector3(world_center.x(), world_max.y(), world_center.z());
-
-            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                        0, wall_half_extents,
-                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-            wall->setColor(outer_walls_color);
-
-            // add the wall to the world
-            env->add(wall);
-            world_obstacles_["outer_wall1"] = wall;
-        }
-        {
-            const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
-            const btVector3 wall_com = btVector3(world_min.x(), world_center.y(), world_center.z());
-
-            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                        0, wall_half_extents,
-                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-            wall->setColor(outer_walls_color);
-
-            // add the wall to the world
-            env->add(wall);
-            world_obstacles_["outer_wall2"] = wall;
-        }
-        {
-            const btVector3 wall_half_extents = btVector3(wall_thickness, world_size.y() - wall_thickness, world_size.z()) / 2.0f;
-            const btVector3 wall_com = btVector3(world_max.x(), world_center.y(), world_center.z());
-
-            BoxObject::Ptr wall = boost::make_shared<BoxObject>(
-                        0, wall_half_extents,
-                        btTransform(btQuaternion(0, 0, 0, 1), wall_com));
-            wall->setColor(outer_walls_color);
-
-            // add the wall to the world
-            env->add(wall);
-            world_obstacles_["outer_wall3"] = wall;
-        }
     }
 
     // Make the initial obstacle to go around
@@ -2635,7 +2571,7 @@ void CustomScene::createCollisionMapAndSDF()
                     const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
                     if (freespace)
                     {
-                        collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0));
+                        collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, FREESPACE));
                     }
                     else
                     {
@@ -2650,32 +2586,17 @@ void CustomScene::createCollisionMapAndSDF()
 
                                 if (pos[2] * METERS > table_surface_z)
                                 {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 2));
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, PEG));
                                 }
                                 else
                                 {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
                                 }
                                 break;
                             }
 
-//                            case TaskType::ROPE_HOOKS_BASIC:
-//                            {
-//                                // Disable drawing the outer walls in RViz
-//                                if (x_ind >= (4 * sdf_resolution_scale_) && x_ind < collision_map_for_export_.GetNumXCells() - (4 * sdf_resolution_scale_) &&
-//                                    y_ind >= (4 * sdf_resolution_scale_) && y_ind < collision_map_for_export_.GetNumYCells() - (4 * sdf_resolution_scale_))
-//                                {
-//                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
-//                                }
-//                                else
-//                                {
-//                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 3));
-//                                }
-//                                break;
-//                            }
-
                             default:
-                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, 1));
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
                         }
                     }
                 }
@@ -2710,8 +2631,9 @@ void CustomScene::createCollisionMapAndSDF()
 
     // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
     // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
-    #pragma message "SDF generation is assuming that object ids 1 thru 6 are relevant"
-    sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, {1, 2, 3, 4, 5, 6}, false, false).first;
+    std::vector<uint32_t> obstacle_ids_to_use(ObjectIds::LAST_ID);
+    std::iota(obstacle_ids_to_use.begin(), obstacle_ids_to_use.end(), 1);
+    sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, obstacle_ids_to_use, false, false).first;
     sdf_for_export_.Lock();
 }
 

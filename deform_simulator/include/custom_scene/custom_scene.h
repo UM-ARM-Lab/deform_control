@@ -360,6 +360,13 @@ class CustomScene : public Scene
         const int sdf_resolution_scale_;
         sdf_tools::TaggedObjectCollisionMapGrid collision_map_for_export_;
         sdf_tools::SignedDistanceField sdf_for_export_;
+        enum ObjectIds
+        {
+            FREESPACE,
+            GENERIC_OBSTACLE,
+            PEG,
+            LAST_ID // This must the the last enum in the list, others can be added before it with no problems
+        };
 
         ros::Publisher simulator_fbk_pub_;
         const double feedback_covariance_;
