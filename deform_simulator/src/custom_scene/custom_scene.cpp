@@ -12,6 +12,7 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
 #include <deformable_manipulation_experiment_params/serialization.h>
+#include <arc_utilities/serialization_ros.hpp>
 #include <arc_utilities/timing.hpp>
 #include <arc_utilities/zlib_helpers.hpp>
 
@@ -201,13 +202,7 @@ void CustomScene::run()
     size_t deformable_object_marker_ind;
     size_t first_gripper_marker_ind;
     {
-        std::map<uint32_t, std_msgs::ColorRGBA> object_color_map;
-        object_color_map[GENERIC_OBSTACLE] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
-        object_color_map[PEG]              = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
-
-        ROS_INFO("Generating markers for collision map visualization");
-        bullet_visualization_markers.markers.push_back(collision_map_for_export_.ExportContourOnlyForDisplay(object_color_map));
-
+        bullet_visualization_markers.markers.push_back(collision_map_marker_for_export_);
 
         deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
@@ -281,7 +276,7 @@ void CustomScene::run()
 //                      << std::endl;
         }
 
-        std::this_thread::sleep_for(std::chrono::duration<double>(0.02));
+        arc_helpers::Sleep(0.02);
     }
 }
 
@@ -498,7 +493,7 @@ void CustomScene::makeBulletObjects()
             makeTableSurface(false);
             break;
 
-        case TaskType::ROPE_HOOKS_BASIC:
+        case TaskType::ROPE_HOOKS:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeRopeHooksObstacles();
@@ -2545,15 +2540,32 @@ void CustomScene::createCollisionMapAndSDF()
     // First check if there are saved results we can use
     try
     {
-        ROS_INFO("Checking if a collision map already exists");
-        const auto decompressed_collision_map = ZlibHelpers::LoadFromFileAndDecompress(collision_map_file_location);
-        collision_map_for_export_.DeserializeSelf(decompressed_collision_map, 0, nullptr);
-        ROS_WARN("Currently assuming that any saved collision map will work; not checked against anything");
+        const int rv = system(("rosrun deformable_manipulation_experiment_params md5check.sh "
+                               + GetTaskTypeString(nh_)).c_str());
+        ROS_INFO_STREAM("Checking if a valid collision map already exists: rv: " << rv);
+        if (rv == EXIT_SUCCESS)
+        {
+            ROS_INFO("Valid md5sum exists, loading if possible");
+            const auto buffer = ZlibHelpers::LoadFromFileAndDecompress(collision_map_file_location);
+            // Value deserializer is unused, so pass nullptr
+            const uint64_t map_bytes_read = collision_map_for_export_.DeserializeSelf(buffer, 0, nullptr);
+            const uint64_t sdf_bytes_read = sdf_for_export_.DeserializeSelf(buffer, map_bytes_read);
+            const auto message_deserialized =
+                    arc_utilities::RosMessageDeserializationWrapper<visualization_msgs::Marker>(buffer, map_bytes_read + sdf_bytes_read);
+            collision_map_marker_for_export_ = message_deserialized.first;
+            const uint64_t message_bytes_read = message_deserialized.second;
+            assert(map_bytes_read + sdf_bytes_read + message_bytes_read == buffer.size());
+        }
+        else
+        {
+            throw_arc_exception(std::invalid_argument, "Stored md5sum either does not exist, or needs to be regenerated");
+        }
     }
-    catch (...)
+    catch (const std::exception& e)
     {
         arc_utilities::Stopwatch stopwatch;
-        ROS_INFO("No valid collision map found; regenerating");
+        ROS_WARN_STREAM("No valid collision map found: " << e.what());
+        ROS_INFO("Generating collision map");
 
         SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() / sdf_resolution_scale_ * 0.01, btTransform(), true);
 
@@ -2611,16 +2623,34 @@ void CustomScene::createCollisionMapAndSDF()
         const Eigen::Isometry3d world_to_collision_map_origin = world_to_bullet_as_eigen * bullet_to_collision_map_starting_origin;
         collision_map_for_export_.UpdateOriginTransform(world_to_collision_map_origin);
         collision_map_for_export_.SetFrame(world_frame_name_);
-
         ROS_INFO_STREAM("Finished creating collision map in " << stopwatch(arc_utilities::READ) << " seconds");
+
         ROS_INFO("Generating SDF");
         stopwatch(arc_utilities::RESET);
+        // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
+        // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
+        std::vector<uint32_t> obstacle_ids_to_use(ObjectIds::LAST_ID);
+        std::iota(obstacle_ids_to_use.begin(), obstacle_ids_to_use.end(), 1);
+        sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, obstacle_ids_to_use, false, false).first;
+        sdf_for_export_.Lock();
+        ROS_INFO_STREAM("Finished SDF in " << stopwatch(arc_utilities::READ) << " seconds");
+
+        ROS_INFO("Generating markers for collision map visualization");
+        stopwatch(arc_utilities::RESET);
+        std::map<uint32_t, std_msgs::ColorRGBA> object_color_map;
+        object_color_map[GENERIC_OBSTACLE] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+        object_color_map[PEG]              = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
+        collision_map_marker_for_export_ = collision_map_for_export_.ExportContourOnlyForDisplay(object_color_map);
+        ROS_INFO_STREAM("Finished generating marker in " << stopwatch(arc_utilities::READ) << " seconds");
 
         try
         {
-            ROS_INFO_STREAM("Serializing CollisionMap and saving to file");
+            ROS_INFO_STREAM("Serializing CollisionMap, SDF, and RViz Marker and saving to file");
             std::vector<uint8_t> buffer;
-            collision_map_for_export_.SerializeSelf(buffer, nullptr);
+            const auto map_bytes_written = collision_map_for_export_.SerializeSelf(buffer, nullptr);
+            const auto sdf_bytes_written = sdf_for_export_.SerializeSelf(buffer);
+            const auto message_bytes_written = arc_utilities::RosMessageSerializationWrapper(collision_map_marker_for_export_, buffer);
+            assert(buffer.size() == map_bytes_written + sdf_bytes_written + message_bytes_written);
             ZlibHelpers::CompressAndWriteToFile(buffer, collision_map_file_location);
         }
         catch (...)
@@ -2628,13 +2658,6 @@ void CustomScene::createCollisionMapAndSDF()
             ROS_ERROR("Saving CollsionMap to file failed");
         }
     }
-
-    // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
-    // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
-    std::vector<uint32_t> obstacle_ids_to_use(ObjectIds::LAST_ID);
-    std::iota(obstacle_ids_to_use.begin(), obstacle_ids_to_use.end(), 1);
-    sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, obstacle_ids_to_use, false, false).first;
-    sdf_for_export_.Lock();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
