@@ -310,9 +310,9 @@ bool RVizMarkerManager::addOsgMarker(
             const auto marker_itr = visualization_line_markers_.find(unique_id);
             if (marker_itr == visualization_line_markers_.end())
             {
-                // Scale factor of 50 is arbitrary; this is used because "linewidth" 
-                // is actually "glLineWidth" which measures things in pixels
-                auto line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS * 50);
+                // Scale factor of 100 is arbitrary; this is used because "linewidth"
+                // in the construtor is actually "glLineWidth" which measures things in pixels
+                auto line_strip = boost::make_shared<PlotLines>((float)marker.scale.x * METERS * 100);
                 // marker.pose has already be transformed to bullet's native frame
                 line_strip->setPoints(toBulletPointVector(marker.pose, marker.points, METERS),
                                       toBulletColorArray(marker.colors));
