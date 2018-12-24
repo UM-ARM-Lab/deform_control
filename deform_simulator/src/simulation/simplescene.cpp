@@ -14,12 +14,6 @@ Scene::Scene() : drawingOn(false), syncTime(false), simTime(0) {
 
     env.reset(new Environment(bullet, osg));
 
-    // plots for debugging
-    plotPoints.reset(new PlotPoints(GeneralConfig::scale * 0.5));
-    env->add(plotPoints);
-    plotLines.reset(new PlotLines(GeneralConfig::scale * 0.5));
-    env->add(plotLines);
-
     // populate the scene with some basic objects
     ground.reset(new PlaneStaticObject(btVector3(0., 0., 1.), 0., btTransform(btQuaternion(0, 0, 0, 1), btVector3(0, 0, -20.0f)), 150.0f));
     ground->setColor(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);

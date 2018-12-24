@@ -98,8 +98,8 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , simulation_time_logger_(GetLogFolder(nh_) + "bullet_sim_time.txt")
 {
     makeBulletObjects();
-    // We'll create the various ROS publishers, subscribers and services later to that
-    // TF has a chance to collect some data before we need to use it
+    // We'll create the various ROS publishers, subscribers and services later so
+    // that TF has a chance to collect some data before we need to use it
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -511,6 +511,7 @@ void CustomScene::makeBulletObjects()
     }
 
     addGrippersAndAxesToWorld();
+    makeCollisionCheckGripper();
 
     assert(cover_points_.size() == cover_point_normals_.size());
 }
@@ -554,82 +555,89 @@ void CustomScene::makeRope()
 
 void CustomScene::makeCloth()
 {
-    // cloth parameters
-    const btVector3 cloth_center = btVector3(
-                GetClothCenterOfMassX(nh_),
-                GetClothCenterOfMassY(nh_),
-                GetClothCenterOfMassZ(nh_)) * METERS;
-
-    const btScalar cloth_x_half_side_length = GetClothXSize(nh_) * METERS / 2.0f;
-    const btScalar cloth_y_half_side_length = GetClothYSize(nh_) * METERS / 2.0f;
-
-    btSoftBody *psb = btSoftBodyHelpers::CreatePatch(
-        env->bullet->softBodyWorldInfo,
-        cloth_center + btVector3(-cloth_x_half_side_length, -cloth_y_half_side_length, 0),
-        cloth_center + btVector3(+cloth_x_half_side_length, -cloth_y_half_side_length, 0),
-        cloth_center + btVector3(-cloth_x_half_side_length, +cloth_y_half_side_length, 0),
-        cloth_center + btVector3(+cloth_x_half_side_length, +cloth_y_half_side_length, 0),
-        GetClothNumControlPointsX(nh_), GetClothNumControlPointsY(nh_),
-        0, true);
-    psb->setTotalMass(0.1f, true);
-
-//    psb->m_cfg.viterations = 10;     // Velocity solver iterations   - default 0 - changing this to 10 causes the cloth to just pass through objects it seems
-    psb->m_cfg.piterations = 10;     // Positions solver iterations  - default 1 - DmitrySim 10
-//    psb->m_cfg.diterations = 10;     // Drift solver iterations      - default 0 - changing this to 10 or 100 doesn't seem to cause any meaningful change
-    psb->m_cfg.citerations = 10;     // Cluster solver iterations    - default 4
-
-    psb->m_cfg.collisions   =
-            btSoftBody::fCollision::CL_SS |         // Cluster collisions, soft vs. soft
-            btSoftBody::fCollision::CL_RS |         // Cluster collisions, soft vs. rigid
-            btSoftBody::fCollision::CL_SELF;        // Cluster collisions, self - requires CL_SS
-
-    psb->getCollisionShape()->setMargin(0.0025f * METERS); // default 0.25 - DmitrySim 0.05
-
-
-    psb->m_cfg.kDP          = 0.05f;    // Damping coeffient [0, +inf]          - default 0
-    psb->m_cfg.kDF          = 1.0f;     // Dynamic friction coefficient [0,1]   - default 0.2
-//    psb->m_cfg.kMT          = 0.0f;     // Pose matching coefficient [0,1]      - default 0
-//    psb->m_cfg.kKHR         = 1.0f;     // Kinetic contacts hardness [0,1]      - default 0.1
-
-
-    btSoftBody::Material *pm = psb->m_materials[0];
-    pm->m_kLST = GetClothLinearStiffness(ph_);     // Linear stiffness coefficient [0,1]       - default is 1 - 0.2 makes it rubbery (handles self collisions better)
-//    pm->m_kAST = 0.90f;     // Area/Angular stiffness coefficient [0,1] - default is 1
-//    pm->m_kVST = 1;        // Volume stiffness coefficient [0,1]       - default is 1
-    const int distance = 2; // node radius for creating constraints
-    psb->generateBendingConstraints(distance, pm);
-    psb->randomizeConstraints();
-
-
-    if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
+    // Create the cloth itself
     {
-        psb->generateClusters(0);
-    }
-    else
-    {
-        // splits the soft body volume up into the given number of small, convex clusters,
-        // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
-        // Sending '0' causes the function to use the number of tetrahedral/face elemtents as the number of clusters
-//        psb->generateClusters(num_divs * num_divs / 25);
-        psb->generateClusters(500);
-        for (int i = 0; i < psb->m_clusters.size(); ++i)
+        // cloth parameters
+        const btVector3 cloth_center = btVector3(
+                    GetClothCenterOfMassX(nh_),
+                    GetClothCenterOfMassY(nh_),
+                    GetClothCenterOfMassZ(nh_)) * METERS;
+
+        const btScalar cloth_x_half_side_length = GetClothXSize(nh_) * METERS / 2.0f;
+        const btScalar cloth_y_half_side_length = GetClothYSize(nh_) * METERS / 2.0f;
+
+        btSoftBody *psb = btSoftBodyHelpers::CreatePatch(
+            env->bullet->softBodyWorldInfo,
+            cloth_center + btVector3(-cloth_x_half_side_length, -cloth_y_half_side_length, 0),
+            cloth_center + btVector3(+cloth_x_half_side_length, -cloth_y_half_side_length, 0),
+            cloth_center + btVector3(-cloth_x_half_side_length, +cloth_y_half_side_length, 0),
+            cloth_center + btVector3(+cloth_x_half_side_length, +cloth_y_half_side_length, 0),
+            GetClothNumControlPointsX(nh_), GetClothNumControlPointsY(nh_),
+            0, true);
+        psb->setTotalMass(0.1f, true);
+
+    //    psb->m_cfg.viterations = 10;     // Velocity solver iterations   - default 0 - changing this to 10 causes the cloth to just pass through objects it seems
+        psb->m_cfg.piterations = 10;     // Positions solver iterations  - default 1 - DmitrySim 10
+    //    psb->m_cfg.diterations = 10;     // Drift solver iterations      - default 0 - changing this to 10 or 100 doesn't seem to cause any meaningful change
+        psb->m_cfg.citerations = 10;     // Cluster solver iterations    - default 4
+
+        psb->m_cfg.collisions   =
+                btSoftBody::fCollision::CL_SS |         // Cluster collisions, soft vs. soft
+                btSoftBody::fCollision::CL_RS |         // Cluster collisions, soft vs. rigid
+                btSoftBody::fCollision::CL_SELF;        // Cluster collisions, self - requires CL_SS
+
+        psb->getCollisionShape()->setMargin(0.0025f * METERS); // default 0.25 - DmitrySim 0.05
+
+
+        psb->m_cfg.kDP          = 0.05f;    // Damping coeffient [0, +inf]          - default 0
+        psb->m_cfg.kDF          = 1.0f;     // Dynamic friction coefficient [0,1]   - default 0.2
+    //    psb->m_cfg.kMT          = 0.0f;     // Pose matching coefficient [0,1]      - default 0
+    //    psb->m_cfg.kKHR         = 1.0f;     // Kinetic contacts hardness [0,1]      - default 0.1
+
+
+        btSoftBody::Material *pm = psb->m_materials[0];
+        pm->m_kLST = GetClothLinearStiffness(ph_);     // Linear stiffness coefficient [0,1]       - default is 1 - 0.2 makes it rubbery (handles self collisions better)
+    //    pm->m_kAST = 0.90f;     // Area/Angular stiffness coefficient [0,1] - default is 1
+    //    pm->m_kVST = 1;        // Volume stiffness coefficient [0,1]       - default is 1
+        const int distance = 2; // node radius for creating constraints
+        psb->generateBendingConstraints(distance, pm);
+        psb->randomizeConstraints();
+
+
+        if (task_type_ == TaskType::CLOTH_TABLE_COVERAGE)
         {
-            psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
-//            psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
+            psb->generateClusters(0);
         }
+        else
+        {
+            // splits the soft body volume up into the given number of small, convex clusters,
+            // which consecutively will be used for collision detection with other soft bodies or rigid bodies.
+            // Sending '0' causes the function to use the number of tetrahedral/face elemtents as the number of clusters
+    //        psb->generateClusters(num_divs * num_divs / 25);
+            psb->generateClusters(500);
+            for (int i = 0; i < psb->m_clusters.size(); ++i)
+            {
+                psb->m_clusters[i]->m_selfCollisionImpulseFactor = 0.001f; // default 0.01
+    //            psb->m_clusters[i]->m_maxSelfCollisionImpulse = 100.0f; // maximum self impulse that is *ignored (I think)* - default 100
+            }
+        }
+
+        cloth_ = boost::make_shared<BulletSoftObject>(psb);
     }
 
-    cloth_ = boost::make_shared<BulletSoftObject>(psb);
     // note that we need to add the cloth to the environment before setting the
     // color, otherwise we get a segfault
     env->add(cloth_);
     cloth_->setColor(0.15f, 0.65f, 0.15f, 1.0f);
 
-    findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
-    if (VisualizeStrainLines(ph_))
+    // Add visualizations
     {
-        makeClothLines();
-        makeGripperForceLines();
+        findClothCornerNodes(cloth_->softBody.get(), cloth_corner_node_indices_);
+        if (VisualizeStrainLines(ph_))
+        {
+            makeClothLines();
+            makeGripperForceLines();
+        }
     }
 }
 
@@ -650,16 +658,17 @@ void CustomScene::makeClothLines()
 /*
  *  Updates all cloth strain lines with new positions and opacities
  */
-void CustomScene::updateClothLinesCallback(){
+void CustomScene::updateClothLinesCallback()
+{
     const btSoftBody* psb = cloth_->softBody.get();
-    int num_links = psb->m_links.size();
+    const int num_links = psb->m_links.size();
     std::vector<btVector3> cloth_lines_endpoints;
-    cloth_lines_endpoints.reserve(num_links*2);
+    cloth_lines_endpoints.reserve(num_links * 2);
     std::vector<btVector4> cloth_strain_color;
     cloth_strain_color.reserve(num_links);
     std::vector<btScalar> strains = getStrain(psb);
 
-    for(int i=0; i<num_links; i++)
+    for(int i = 0; i < num_links; ++i)
     {
         const btSoftBody::Link& l = psb->m_links[i];
         cloth_lines_endpoints.push_back(l.m_n[0]->m_x);
@@ -736,24 +745,15 @@ void CustomScene::makeRopeSingleRobotControlledGrippper()
 
         // add a single auto gripper to the world
         grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
-                   gripper_name,
-                   GetGripperApperture(nh_) * METERS,
-                   btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+                    env,
+                    gripper_name,
+                    GetGripperApperture(nh_) * METERS,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
         grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
-        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0, env);
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0);
 
         auto_grippers_.push_back(gripper_name);
-    }
-
-    // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
-    {
-        collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
-                   "collision_check_gripper",
-                   GetGripperApperture(nh_) * METERS,
-                   btVector4(1.0f, 0.0f, 0.0f, 0.0f));
-        collision_check_gripper_->setWorldTransform(btTransform());
-        // We don't want to add this to the world, because then it shows up as a object to collide with
-//        env->add(collision_check_gripper_);
+        // We don't add the gripper to the world here; that is done in addGrippersAndAxesToWorld()
     }
 }
 
@@ -765,15 +765,17 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
 
         // add a single auto gripper to the world
         grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
+                    env,
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
 
         const size_t object_node_ind = 0;
         grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
-        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, env);
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind);
 
         auto_grippers_.push_back(gripper_name);
+        // We don't add the gripper to the world here; that is done in addGrippersAndAxesToWorld()
     }
 
     // rope_gripper1
@@ -782,29 +784,19 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
 
         // add a single auto gripper to the world
         grippers_[gripper_name] = boost::make_shared<GripperKinematicObject>(
+                    env,
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
 
         const size_t object_node_ind = rope_->getChildren().size() - 1;
         grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
-        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, env);
+        grippers_[gripper_name]->rigidGrab(rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind);
 
         auto_grippers_.push_back(gripper_name);
-    }
-
-    // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
-    {
-        collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
-                    "collision_check_gripper",
-                    GetGripperApperture(nh_) * METERS,
-                    btVector4(1.0f, 0.0f, 0.0f, 0.0f));
-        collision_check_gripper_->setWorldTransform(btTransform());
-        // We don't want to add this to the world, because then it shows up as a object to collide with
-//        env->add(collision_check_gripper_);
+        // We don't add the gripper to the world here; that is done in addGrippersAndAxesToWorld()
     }
 }
-
 
 void CustomScene::makeClothTwoRobotControlledGrippers()
 {
@@ -812,6 +804,7 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
     const std::string auto_gripper0_name = GetGripper0Name(nh_);
     {
         grippers_[auto_gripper0_name] = boost::make_shared<GripperKinematicObject>(
+                    env,
                     auto_gripper0_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
@@ -833,12 +826,14 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
         addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[auto_gripper0_name], cloth_->softBody.get()));
 
         auto_grippers_.push_back(auto_gripper0_name);
+        // We don't add the gripper to the world here; that is done in addGrippersAndAxesToWorld()
     }
 
     // auto gripper1
     const std::string auto_gripper1_name = GetGripper1Name(nh_);
     {
         grippers_[auto_gripper1_name] = boost::make_shared<GripperKinematicObject>(
+                    env,
                     auto_gripper1_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.0f, 0.0f, 0.6f, 1.0f));
@@ -860,18 +855,7 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
         addPreStepCallback(boost::bind(&GripperKinematicObject::step_openclose, grippers_[auto_gripper1_name], cloth_->softBody.get()));
 
         auto_grippers_.push_back(auto_gripper1_name);
-    }
-
-    // Add a collision check gripper that is in the same kinematic state as used for the cloth experiments
-    {
-        collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
-                    "collision_check_gripper",
-                    GetGripperApperture(nh_) * METERS,
-                    btVector4(1.0f, 0.0f, 0.0f, 0.0f));
-        collision_check_gripper_->setWorldTransform(btTransform());
-        collision_check_gripper_->toggleOpen();
-        // We don't want to add this to the world, because then it shows up as a object to collide with
-//        env->add(collision_check_gripper_);
+        // We don't add the gripper to the world here; that is done in addGrippersAndAxesToWorld()
     }
 
     // Set stretching detection vector infomation
@@ -894,6 +878,7 @@ void CustomScene::makeClothTwoHumanControlledGrippers()
     {
         const std::string manual_gripper0_name = "manual_gripper0";
         grippers_[manual_gripper0_name] = boost::make_shared<GripperKinematicObject>(
+                    env,
                     manual_gripper0_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.6f, 0.6f, 0.6f, 0.4f));
@@ -909,12 +894,14 @@ void CustomScene::makeClothTwoHumanControlledGrippers()
 
         manual_grippers_.push_back(manual_gripper0_name);
         manual_grippers_paths_.push_back(ManualGripperPath(grippers_[manual_gripper0_name], &gripperPath0));
+        // We don't add the gripper to the world here; that is done in addGrippersAndAxesToWorld()
     }
 
     // manual gripper1
     {
         const std::string manual_gripper1_name = "manual_gripper1";
         grippers_[manual_gripper1_name] = boost::make_shared<GripperKinematicObject>(
+                    env,
                     manual_gripper1_name,
                     GetGripperApperture(nh_) * METERS,
                     btVector4(0.6f, 0.6f, 0.6f, 0.4f));
@@ -930,6 +917,7 @@ void CustomScene::makeClothTwoHumanControlledGrippers()
 
         manual_grippers_.push_back(manual_gripper1_name);
         manual_grippers_paths_.push_back(ManualGripperPath(grippers_[manual_gripper1_name], &gripperPath1));
+        // We don't add the gripper to the world here; that is done in addGrippersAndAxesToWorld()
     }
 }
 
@@ -942,6 +930,45 @@ void CustomScene::addGrippersAndAxesToWorld()
         // Add the gripper and its axis to the world
         env->add(gripper.second);
         env->add(gripper_axes_[gripper.first]);
+    }
+}
+
+void CustomScene::makeCollisionCheckGripper()
+{
+    switch (deformable_type_)
+    {
+        case ROPE:
+        // Add a collision check gripper that is in the same kinematic state as used for the rope experiments for collision checking
+        {
+            collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
+                        env,
+                        "collision_check_gripper",
+                        GetGripperApperture(nh_) * METERS,
+                        btVector4(1.0f, 0.0f, 0.0f, 0.0f));
+            collision_check_gripper_->setWorldTransform(btTransform());
+            // We don't want to add this to the world, because then it shows up as a object to collide with
+            break;
+        }
+
+        case CLOTH:
+        // Add a collision check gripper that is in the same kinematic state as used for the cloth experiments
+        {
+            collision_check_gripper_ = boost::make_shared<GripperKinematicObject>(
+                        env,
+                        "collision_check_gripper",
+                        GetGripperApperture(nh_) * METERS,
+                        btVector4(1.0f, 0.0f, 0.0f, 0.0f));
+            collision_check_gripper_->setWorldTransform(btTransform());
+            collision_check_gripper_->toggleOpen();
+            // We don't want to add this to the world, because then it shows up as a object to collide with
+            break;
+        }
+
+        default:
+        {
+            ROS_FATAL_STREAM("Unknown deformable type " << deformable_type_);
+            throw_arc_exception(std::invalid_argument, "Unknown deformable type " + std::to_string(deformable_type_));
+        }
     }
 }
 
@@ -1257,7 +1284,6 @@ void CustomScene::makeSinglePoleObstacles()
                     true);
 
         env->add(table);
-//        world_table_obstacles_["left_table"] = table;
         world_obstacles_["left_table_surface"] = table->getChildren()[0];
         world_obstacles_["left_table_leg1"] = table->getChildren()[1];
         world_obstacles_["left_table_leg2"] = table->getChildren()[2];
@@ -1277,7 +1303,6 @@ void CustomScene::makeSinglePoleObstacles()
                     true);
 
         env->add(table);
-//        world_table_obstacles_["right_table"] = table;
         world_obstacles_["right_table_surface"] = table->getChildren()[0];
         world_obstacles_["right_table_leg1"] = table->getChildren()[1];
         world_obstacles_["right_table_leg2"] = table->getChildren()[2];
@@ -2977,14 +3002,14 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
         // Single gripper experiments, assumes that the gripper is grasping the "0th" index of the rope
         if (result.grippers_.size() == 1)
         {
-            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
+            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0);
         }
         // Double gripper experiments, assumes that the gripper is grasping the "0th" and last index of the rope
         else if (result.grippers_.size() == 2)
         {
             const size_t object_node_ind = result.rope_->getChildren().size() - 1;
-            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0, result.fork_->env);
-            result.grippers_[auto_grippers_[1]]->rigidGrab(result.rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind, result.fork_->env);
+            result.grippers_[auto_grippers_[0]]->rigidGrab(result.rope_->getChildren()[0]->rigidBody.get(), 0);
+            result.grippers_[auto_grippers_[1]]->rigidGrab(result.rope_->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind);
         }
         else
         {

@@ -94,6 +94,11 @@ Environment::~Environment()
 
 void Environment::add(EnvironmentObject::Ptr obj)
 {
+    if (obj == nullptr)
+    {
+        std::cerr << "Asked to add a nullptr object to the world. Ignoring." << std::endl;
+    }
+
     obj->setEnvironment(this);
     obj->init();
     objects.push_back(obj);
@@ -103,6 +108,11 @@ void Environment::add(EnvironmentObject::Ptr obj)
 
 void Environment::remove(EnvironmentObject::Ptr obj)
 {
+    if (obj == nullptr)
+    {
+        return;
+    }
+
     for (ObjectList::iterator i = objects.begin(); i != objects.end(); ++i)
     {
         if (obj == *i)

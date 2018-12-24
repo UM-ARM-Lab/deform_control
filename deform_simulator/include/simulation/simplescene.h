@@ -36,9 +36,6 @@ public:
     osgViewer::Viewer viewer;
     osg::ref_ptr<EventHandler> manip;
 
-    PlotPoints::Ptr plotPoints;
-    PlotLines::Ptr plotLines;
-
     PlaneStaticObject::Ptr ground;
 
     // callbacks should return true if the default TrackballManipulator::handle behavior

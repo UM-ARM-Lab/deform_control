@@ -125,6 +125,7 @@ class CustomScene : public Scene
         void makeClothTwoRobotControlledGrippers();
         void makeClothTwoHumanControlledGrippers();
         void addGrippersAndAxesToWorld();
+        void makeCollisionCheckGripper();
 
 
         void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f, const bool add_legs = false);

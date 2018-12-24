@@ -9,10 +9,12 @@ using namespace BulletHelpers;
 
 #pragma message "Gripper size magic number - move to params file"
 GripperKinematicObject::GripperKinematicObject(
+        const Environment::Ptr env_input,
         const std::string& name_input,
         const float apperture_input,
         const btVector4 color)
-    : name(name_input)
+    : env(env_input)
+    , name(name_input)
     , halfextents(btVector3(0.015f, 0.015f, 0.005f)*METERS)
     , state(GripperState_DONE)
     , bOpen (true)
@@ -37,6 +39,20 @@ GripperKinematicObject::GripperKinematicObject(
 
     children.push_back(top_jaw);
     children.push_back(bottom_jaw);
+}
+
+void GripperKinematicObject::destroy()
+{
+    if (rope_cnt != nullptr)
+    {
+        env->bullet->dynamicsWorld->removeConstraint(rope_cnt.get());
+    }
+    CompoundObject<BoxObject>::destroy();
+
+    if (b_attached)
+    {
+        detach();
+    }
 }
 
 void GripperKinematicObject::translate(btVector3 transvec)
@@ -81,7 +97,7 @@ void GripperKinematicObject::getWorldTransform(btTransform& in)
 }
 
 
-void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr)
+void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind)
 {
     btTransform top_tm;
     children[0]->motionState->getWorldTransform(top_tm);
@@ -93,7 +109,7 @@ void GripperKinematicObject::rigidGrab(btRigidBody* prb, size_t objectnodeind, E
     rope_cnt->setLinearUpperLimit(btVector3(0,0,0));
     rope_cnt->setAngularLowerLimit(btVector3(0,0,0));
     rope_cnt->setAngularUpperLimit(btVector3(0,0,0));
-    env_ptr->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
+    env->bullet->dynamicsWorld->addConstraint(rope_cnt.get());
 
     vattached_node_inds.clear();
     vattached_node_inds.push_back(objectnodeind);
@@ -445,7 +461,7 @@ void GripperKinematicObject::step_openclose(btSoftBody * psb)
 
 EnvironmentObject::Ptr GripperKinematicObject::copy(Fork &f) const
 {
-    Ptr o(new GripperKinematicObject(name, apperture));
+    Ptr o(new GripperKinematicObject(f.env, name, apperture));
     internalCopy(o, f);
     return o;
 }

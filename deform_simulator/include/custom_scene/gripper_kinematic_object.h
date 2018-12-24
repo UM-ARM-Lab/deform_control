@@ -20,9 +20,12 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         };
 
         GripperKinematicObject(
+                const Environment::Ptr env_input,
                 const std::string& name_input,
                 const float apperture_input,
                 const btVector4 color = btVector4(0.6f, 0.6f, 0.6f, 0.9f));
+
+        virtual void destroy() override;
 
         void translate(btVector3 transvec);
         void applyTransform(btTransform tm);
@@ -31,7 +34,7 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         void getWorldTransform(btTransform& in);
 
         // used only for the rope
-        void rigidGrab(btRigidBody* prb, size_t objectnodeind, Environment::Ptr env_ptr);
+        void rigidGrab(btRigidBody* prb, size_t objectnodeind);
 
         // Toggles open/close
         void toggleOpen();
@@ -72,6 +75,8 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         void attach(btSoftBody* psb, double radius);
         void detach();
+
+        Environment::Ptr env;
 
         std::string name;
         btVector3 halfextents;
