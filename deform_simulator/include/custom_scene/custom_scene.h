@@ -93,9 +93,11 @@ class CustomScene : public Scene
         // Main function that makes things happen
         ////////////////////////////////////////////////////////////////////////
 
-        void initialize(const bool sync_time = false);
+        void initialize();
         bool initialized() const;
         void run();
+        void terminate();
+        void triggerTerminateService();
 
     private:
         bool initialized_;
@@ -238,9 +240,6 @@ class CustomScene : public Scene
         bool getObjectCurrentConfigurationCallback(
                 deformable_manipulation_msgs::GetPointSet::Request& req,
                 deformable_manipulation_msgs::GetPointSet::Response& res);
-        bool terminateSimulationCallback(
-                std_srvs::Empty::Request& req,
-                std_srvs::Empty::Response& res);
 
         bool executeRobotMotionCallback(
                 deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
@@ -370,6 +369,7 @@ class CustomScene : public Scene
             LAST_ID // This must the the last enum in the list, others can be added before it with no problems
         };
 
+        std::atomic<bool> sim_running_;
         ros::Publisher simulator_fbk_pub_;
         const double feedback_covariance_;
 
@@ -384,7 +384,6 @@ class CustomScene : public Scene
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer free_space_graph_srv_;
         ros::ServiceServer signed_distance_field_srv_;
-        ros::ServiceServer terminate_sim_srv_;
 
         std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;

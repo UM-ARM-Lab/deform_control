@@ -46,8 +46,7 @@ public:
 
     explicit RVizMarkerManager(
             ros::NodeHandle& nh,
-            CustomScene &scene,
-            QWidget* parent = nullptr);
+            CustomScene* scene);
     ~RVizMarkerManager();
 
     // Threadsafe - locks and then emits a signal for the QT slot
@@ -95,7 +94,7 @@ private:
 
 private:
     ros::NodeHandle nh_;
-    CustomScene& scene_;
+    CustomScene* scene_;
 
     // ROS communictions handlers
     ros::Subscriber visualization_marker_sub_;

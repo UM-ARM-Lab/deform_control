@@ -90,6 +90,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                                 GetWorldYMaxBulletFrame(nh) - GetWorldYMinBulletFrame(nh),
                                 GetWorldZMaxBulletFrame(nh) - GetWorldZMinBulletFrame(nh),
                                 sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, 0))
+    , sim_running_(false)
     , feedback_covariance_(GetFeedbackCovariance(nh_))
     , test_grippers_poses_as_(nh_,
                               GetTestRobotMotionTopic(nh_),
@@ -106,7 +107,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
 // Main function that makes things happen
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::initialize(const bool sync_time)
+void CustomScene::initialize()
 {
     // ros::ok() is only here to bypass things if a fast SIGINT is received
     if (!ros::ok())
@@ -130,16 +131,18 @@ void CustomScene::initialize(const bool sync_time)
         // Note that viewer cleans up this memory
         viewer.addEventHandler(new CustomKeyHandler(*this));
 
-        // When the viewer closes, shutdown ROS
+        // When the viewer closes, shutdown the simulation
+        // The terminate callback is used instead of terminate directly
+        //   in order to properly close all elements of this program
+        //   (I.e.; the bullet viewer and the QT viewer
         addVoidCallback(osgGA::GUIEventAdapter::EventType::CLOSE_WINDOW,
-                        boost::bind(&CustomScene::terminateSimulationCallback, this,
-                                    std_srvs::Empty::Request(), std_srvs::Empty::Response()));
+                        boost::bind(&CustomScene::triggerTerminateService, this));
 
         addPreStepCallback(boost::bind(&CustomScene::drawAxes, this));
 
         // if syncTime is set, the simulator blocks until the real time elapsed
         // matches the simulator time elapsed, or something, it's not clear
-        setSyncTime(sync_time);
+        setSyncTime(false);
         setDrawing(ROSHelpers::GetParam(ph_, "start_bullet_viewer", true));
         if (drawingOn)
         {
@@ -247,8 +250,9 @@ void CustomScene::run()
     }
 
     ROS_INFO("Simulation spinning...");
+    sim_running_ = true;
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
-    while (ros::ok())
+    while (sim_running_ && ros::ok())
     {
         deformable_manipulation_msgs::WorldState sim_fbk;
         {
@@ -278,6 +282,24 @@ void CustomScene::run()
 
         arc_helpers::Sleep(0.02);
     }
+}
+
+void CustomScene::terminate()
+{
+    if (screen_recorder_ != nullptr)
+    {
+        screen_recorder_->zipScreenshots();
+    }
+    sim_running_ = false;
+}
+
+// Exists to ensure that all simulation components are terminated
+// I.e. Bullet and QT
+void CustomScene::triggerTerminateService()
+{
+    std_srvs::Empty srv_data;
+    ros::ServiceClient client = nh_.serviceClient<std_srvs::Empty>(GetTerminateSimulationTopic(nh_));
+    client.call(srv_data);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -374,10 +396,6 @@ void CustomScene::initializePublishersSubscribersAndServices()
     // Create a service to let others know the object current configuration
     object_current_configuration_srv_ = nh_.advertiseService(
             GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
-
-    // Create a service to listen to in order to know when to shutdown
-    terminate_sim_srv_ = nh_.advertiseService(
-            GetTerminateSimulationTopic(nh_), &CustomScene::terminateSimulationCallback, this);
 
     // Create a service to listen to in order to move the grippers and advance sim time
     execute_gripper_movement_srv_ = nh_.advertiseService(
@@ -3302,22 +3320,6 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
     res.points = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
     res.header.frame_id = world_frame_name_;
     res.header.stamp = ros::Time::now();
-    return true;
-}
-
-bool CustomScene::terminateSimulationCallback(
-        std_srvs::Empty::Request &req,
-        std_srvs::Empty::Response &res)
-{
-    (void)req;
-    (void)res;
-
-    if (screen_recorder_)
-    {
-        screen_recorder_->zipScreenshots();
-    }
-    ros::shutdown();
-
     return true;
 }
 

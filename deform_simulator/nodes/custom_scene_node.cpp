@@ -4,11 +4,56 @@
 #include "custom_scene/custom_scene.h"
 #include "custom_scene/rviz_marker_manager.h"
 
+static constexpr int EXIT_RESTART = -50;
+
+static std::mutex data_mtx;
+static QApplication* qt_ptr = nullptr;
+static CustomScene* cs_ptr = nullptr;
+
+bool RestartSimulationCallback(
+        std_srvs::Empty::Request& req,
+        std_srvs::Empty::Response& res)
+{
+    (void)req;
+    (void)res;
+    ROS_INFO("Restarting simulation");
+    std::lock_guard<std::mutex> lock(data_mtx);
+    if (cs_ptr != nullptr)
+    {
+        cs_ptr->terminate();
+        cs_ptr = nullptr;
+    }
+    if (qt_ptr != nullptr)
+    {
+        qt_ptr->exit(EXIT_RESTART);
+        cs_ptr = nullptr;
+    }
+    return true;
+}
+
+bool TerminateSimulationCallback(
+        std_srvs::Empty::Request& req,
+        std_srvs::Empty::Response& res)
+{
+    (void)req;
+    (void)res;
+    ROS_INFO("Terminating simulation");
+    std::lock_guard<std::mutex> lock(data_mtx);
+    if (cs_ptr != nullptr)
+    {
+        cs_ptr->terminate();
+        cs_ptr = nullptr;
+    }
+    if (qt_ptr != nullptr)
+    {
+        qt_ptr->exit(EXIT_SUCCESS);
+        qt_ptr = nullptr;
+    }
+    return true;
+}
+
 int main(int argc, char* argv[])
 {
-    // Initialize QT settings
-    QApplication qt_app(argc, argv);
-
     // Read in all ROS parameters
     ros::init(argc, argv, "deform_simulator_node", ros::init_options::NoSigintHandler);
     ros::NodeHandle nh;
@@ -16,7 +61,6 @@ int main(int argc, char* argv[])
 
     // Set some defaults for our internal configuration details
     GeneralConfig::scale = 20.0;
-
 
     ViewerConfig::cameraUp = btVector3(0.0f, 0.0f, 1.0f);
     if (smmap::GetDeformableType(nh) == smmap::DeformableType::CLOTH)
@@ -84,19 +128,40 @@ int main(int argc, char* argv[])
     // Read in any user supplied configuration parameters
     parser.read(argc, argv);
 
-    // TODO move these settings to a CustomSceneConfig class?
-    CustomScene cs(nh, smmap::GetDeformableType(nh), smmap::GetTaskType(nh));
-    const bool sync_time = false;
-    cs.initialize(sync_time);
-    // We need to run QT and CS in their own threads.
-    // QT requires that it be started in the main thread, so run CS in a new thread
-    std::thread cs_thread(&CustomScene::run, &cs);
+    // Setup callbacks for restarting and terminating the simulation
+    ros::ServiceServer restart_srv = nh.advertiseService(
+                smmap::GetRestartSimulationTopic(nh), &RestartSimulationCallback);
+    ros::ServiceServer terminate_srv = nh.advertiseService(
+                smmap::GetTerminateSimulationTopic(nh), &TerminateSimulationCallback);
+    // Tell the compiler that it's okay that these service variables are never referenced again
+    (void)restart_srv;
+    (void)terminate_srv;
+    // Spinning is handled by CustomScene, so don't start one here
 
-    // Start the QT managed window
-    RVizMarkerManager marker_manager(nh, cs);
-    marker_manager.show();
-    const int rv = qt_app.exec();
+    int rv = EXIT_FAILURE;
+    do
+    {
 
-    cs_thread.join();
+        CustomScene cs(nh, smmap::GetDeformableType(nh), smmap::GetTaskType(nh));
+        cs.initialize();
+        // We need to run QT and CS in their own threads.
+        // QT requires that it be started in the main thread, so run CS in a new thread
+        std::thread cs_thread(&CustomScene::run, &cs);
+
+        // Start the QT managed window
+        QApplication qt(argc, argv);
+        RVizMarkerManager marker_manager(nh, &cs);
+        marker_manager.show();
+
+        {
+            std::lock_guard<std::mutex> lock(data_mtx);
+            cs_ptr = &cs;
+            qt_ptr = &qt;
+        }
+
+        rv = qt.exec();
+        cs_thread.join();
+    }
+    while (rv == EXIT_RESTART);
     return rv;
 }

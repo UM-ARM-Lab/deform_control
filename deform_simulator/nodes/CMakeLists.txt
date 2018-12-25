@@ -11,3 +11,12 @@ target_link_libraries(custom_scene_node
     custom_scene
     ${catkin_LIBRARIES}
 )
+
+
+add_executable(qt_ros_test_node
+    qt_ros_test_node.cpp
+)
+target_link_libraries(qt_ros_test_node
+    ${catkin_LIBRARIES}
+    ${QT5_LIBS}
+)

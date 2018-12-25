@@ -9,15 +9,14 @@ namespace vm = visualization_msgs;
 
 RVizMarkerManager::RVizMarkerManager(
         ros::NodeHandle& nh,
-        CustomScene &scene,
-        QWidget* parent)
-    : QMainWindow(parent)
+        CustomScene* scene)
+    : QMainWindow()
     , nh_(nh)
     , scene_(scene)
     , view_(this)
     , model_(0, COLS, this)
 {
-    assert(scene_.initialized());
+    assert(scene_->initialized());
 
     // Create the QT objects to handle marker management
     setWindowTitle(TITLE);
@@ -57,7 +56,7 @@ RVizMarkerManager::~RVizMarkerManager()
 void RVizMarkerManager::visualizationMarkerCallback(
         const vm::Marker& marker)
 {
-    if (!scene_.drawingOn)
+    if (!scene_->drawingOn)
     {
         return;
     }
@@ -70,7 +69,7 @@ void RVizMarkerManager::visualizationMarkerCallback(
 void RVizMarkerManager::visualizationMarkerArrayCallback(
         const vm::MarkerArray& marker_array)
 {
-    if (!scene_.drawingOn)
+    if (!scene_->drawingOn)
     {
         return;
     }
@@ -87,7 +86,7 @@ bool RVizMarkerManager::clearVisualizationsCallback(
         std_srvs::Empty::Request &req,
         std_srvs::Empty::Response &res)
 {
-    if (!scene_.drawingOn)
+    if (!scene_->drawingOn)
     {
         return true;
     }
@@ -111,7 +110,7 @@ void RVizMarkerManager::qtMarkerSlot()
     std::lock_guard<std::mutex> marker_queue_lock(internal_data_mtx_);
     if (!marker_queue_.empty())
     {
-        std::lock_guard<std::mutex> lock(scene_.sim_mutex_);
+        std::lock_guard<std::mutex> lock(scene_->sim_mutex_);
         while(!marker_queue_.empty())
         {
             const auto& marker = marker_queue_.front();
@@ -161,8 +160,8 @@ bool RVizMarkerManager::addOsgMarker(
     const bool is_active = namespace_to_model_items_[marker.ns].ids_[marker.id].enable_checkbox_->isChecked();
 
     // Transform the data into bullet's native frame (still world units)
-    marker.pose = scene_.transformPoseToBulletFrame(marker.header, marker.pose).pose;
-    marker.header.frame_id = scene_.bullet_frame_name_;
+    marker.pose = scene_->transformPoseToBulletFrame(marker.header, marker.pose).pose;
+    marker.header.frame_id = scene_->bullet_frame_name_;
 
     switch (marker.type)
     {
@@ -172,18 +171,18 @@ bool RVizMarkerManager::addOsgMarker(
             if (marker_itr == visualization_point_markers_.end())
             {
                 PlotPoints::Ptr points = boost::make_shared<PlotPoints>();
-                points->setPoints(toOsgRefVec3Array(scene_.world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(scene_->world_to_bullet_tf_, marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
                 visualization_point_markers_[unique_id] = points;
                 if (is_active)
                 {
-                    scene_.env->add(points);
+                    scene_->env->add(points);
                 }
             }
             else
             {
                 PlotPoints::Ptr points = marker_itr->second;
-                points->setPoints(toOsgRefVec3Array(scene_.world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                points->setPoints(toOsgRefVec3Array(scene_->world_to_bullet_tf_, marker.pose, marker.points, METERS),
                                   toOsgRefVec4Array(marker.colors));
             }
             break;
@@ -218,19 +217,19 @@ bool RVizMarkerManager::addOsgMarker(
                 if (marker_itr != visualization_box_markers_.end())
                 {
                     auto old_boxes = marker_itr->second;
-                    scene_.env->remove(old_boxes);
+                    scene_->env->remove(old_boxes);
                 }
             }
 
             auto boxes = boost::make_shared<PlotBoxes>();
-            boxes->plot(toOsgRefVec3Array(scene_.world_to_bullet_tf_, marker.pose, marker.points, METERS),
+            boxes->plot(toOsgRefVec3Array(scene_->world_to_bullet_tf_, marker.pose, marker.points, METERS),
                         toOsgQuat(marker.pose.orientation),
                         toOsgRefVec4Array(marker.colors),
                         toOsgVec3(marker.scale, METERS));
             visualization_box_markers_[unique_id] = boxes;
             if (is_active)
             {
-                scene_.env->add(boxes);
+                scene_->env->add(boxes);
             }
             break;
         }
@@ -269,20 +268,20 @@ bool RVizMarkerManager::addOsgMarker(
             if (marker_itr == visualization_sphere_markers_.end())
             {
                 auto spheres = boost::make_shared<PlotSpheres>();
-                spheres->plot(toOsgRefVec3Array(scene_.world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(scene_->world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               // Note that we are converting from a diameter to a radius here
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
                 visualization_sphere_markers_[unique_id] = spheres;
                 if (is_active)
                 {
-                    scene_.env->add(spheres);
+                    scene_->env->add(spheres);
                 }
             }
             else
             {
                 auto spheres = marker_itr->second;
-                spheres->plot(toOsgRefVec3Array(scene_.world_to_bullet_tf_, marker.pose, marker.points, METERS),
+                spheres->plot(toOsgRefVec3Array(scene_->world_to_bullet_tf_, marker.pose, marker.points, METERS),
                               toOsgRefVec4Array(marker.colors),
                               // Note that we are converting from a diameter to a radius here
                               std::vector<float>(marker.points.size(), (float)marker.scale.x * 0.5f * METERS));
@@ -319,7 +318,7 @@ bool RVizMarkerManager::addOsgMarker(
                 visualization_line_markers_[unique_id] = line_strip;
                 if (is_active)
                 {
-                    scene_.env->add(line_strip);
+                    scene_->env->add(line_strip);
                 }
             }
             else
@@ -351,7 +350,7 @@ void RVizMarkerManager::deleteOsgMarker(
         const auto points_marker_itr = visualization_point_markers_.find(unique_id);
         if (points_marker_itr != visualization_point_markers_.end())
         {
-            scene_.env->remove(points_marker_itr->second);
+            scene_->env->remove(points_marker_itr->second);
             visualization_point_markers_.erase(points_marker_itr);
         }
     }
@@ -361,7 +360,7 @@ void RVizMarkerManager::deleteOsgMarker(
         const auto sphere_marker_itr = visualization_sphere_markers_.find(unique_id);
         if (sphere_marker_itr != visualization_sphere_markers_.end())
         {
-            scene_.env->remove(sphere_marker_itr->second);
+            scene_->env->remove(sphere_marker_itr->second);
             visualization_sphere_markers_.erase(sphere_marker_itr);
         }
     }
@@ -371,7 +370,7 @@ void RVizMarkerManager::deleteOsgMarker(
         const auto line_marker_itr = visualization_line_markers_.find(unique_id);
         if (line_marker_itr != visualization_line_markers_.end())
         {
-            scene_.env->remove(line_marker_itr->second);
+            scene_->env->remove(line_marker_itr->second);
             visualization_line_markers_.erase(line_marker_itr);
         }
     }
@@ -381,7 +380,7 @@ void RVizMarkerManager::deleteOsgMarker(
         const auto box_marker_itr = visualization_box_markers_.find(unique_id);
         if (box_marker_itr != visualization_box_markers_.end())
         {
-            scene_.env->remove(box_marker_itr->second);
+            scene_->env->remove(box_marker_itr->second);
             visualization_box_markers_.erase(box_marker_itr);
         }
     }
@@ -398,7 +397,7 @@ void RVizMarkerManager::muteOsgMarker(
         const auto points_marker_itr = visualization_point_markers_.find(unique_id);
         if (points_marker_itr != visualization_point_markers_.end())
         {
-            scene_.env->remove(points_marker_itr->second);
+            scene_->env->remove(points_marker_itr->second);
         }
     }
 
@@ -407,7 +406,7 @@ void RVizMarkerManager::muteOsgMarker(
         const auto spheres_marker_itr = visualization_sphere_markers_.find(unique_id);
         if (spheres_marker_itr != visualization_sphere_markers_.end())
         {
-            scene_.env->remove(spheres_marker_itr->second);
+            scene_->env->remove(spheres_marker_itr->second);
         }
     }
 
@@ -416,7 +415,7 @@ void RVizMarkerManager::muteOsgMarker(
         const auto line_marker_itr = visualization_line_markers_.find(unique_id);
         if (line_marker_itr != visualization_line_markers_.end())
         {
-            scene_.env->remove(line_marker_itr->second);
+            scene_->env->remove(line_marker_itr->second);
         }
     }
 
@@ -425,7 +424,7 @@ void RVizMarkerManager::muteOsgMarker(
         const auto box_marker_itr = visualization_box_markers_.find(unique_id);
         if (box_marker_itr != visualization_box_markers_.end())
         {
-            scene_.env->remove(box_marker_itr->second);
+            scene_->env->remove(box_marker_itr->second);
         }
     }
 }
@@ -441,7 +440,7 @@ void RVizMarkerManager::unmuteOsgMarker(
         const auto points_marker_itr = visualization_point_markers_.find(unique_id);
         if (points_marker_itr != visualization_point_markers_.end())
         {
-            scene_.env->add(points_marker_itr->second);
+            scene_->env->add(points_marker_itr->second);
         }
     }
 
@@ -450,7 +449,7 @@ void RVizMarkerManager::unmuteOsgMarker(
         const auto spheres_marker_itr = visualization_sphere_markers_.find(unique_id);
         if (spheres_marker_itr != visualization_sphere_markers_.end())
         {
-            scene_.env->add(spheres_marker_itr->second);
+            scene_->env->add(spheres_marker_itr->second);
         }
     }
 
@@ -459,7 +458,7 @@ void RVizMarkerManager::unmuteOsgMarker(
         const auto line_marker_itr = visualization_line_markers_.find(unique_id);
         if (line_marker_itr != visualization_line_markers_.end())
         {
-            scene_.env->add(line_marker_itr->second);
+            scene_->env->add(line_marker_itr->second);
         }
     }
 
@@ -468,7 +467,7 @@ void RVizMarkerManager::unmuteOsgMarker(
         const auto box_marker_itr = visualization_box_markers_.find(unique_id);
         if (box_marker_itr != visualization_box_markers_.end())
         {
-            scene_.env->add(box_marker_itr->second);
+            scene_->env->add(box_marker_itr->second);
         }
     }
 }
@@ -479,7 +478,7 @@ void RVizMarkerManager::clearVisualizationsOsgHandler()
     {
         for (auto& points_marker_pair : visualization_point_markers_)
         {
-            scene_.env->remove(points_marker_pair.second);
+            scene_->env->remove(points_marker_pair.second);
         }
         visualization_point_markers_.clear();
     }
@@ -488,7 +487,7 @@ void RVizMarkerManager::clearVisualizationsOsgHandler()
     {
         for (auto& sphere_marker_pair : visualization_sphere_markers_)
         {
-            scene_.env->remove(sphere_marker_pair.second);
+            scene_->env->remove(sphere_marker_pair.second);
         }
         visualization_sphere_markers_.clear();
     }
@@ -497,7 +496,7 @@ void RVizMarkerManager::clearVisualizationsOsgHandler()
     {
         for (auto& line_marker_pair : visualization_line_markers_)
         {
-            scene_.env->remove(line_marker_pair.second);
+            scene_->env->remove(line_marker_pair.second);
         }
         visualization_line_markers_.clear();
     }
@@ -506,7 +505,7 @@ void RVizMarkerManager::clearVisualizationsOsgHandler()
     {
         for (auto& box_marker_pair : visualization_box_markers_)
         {
-            scene_.env->remove(box_marker_pair.second);
+            scene_->env->remove(box_marker_pair.second);
         }
         visualization_box_markers_.clear();
     }
@@ -633,7 +632,7 @@ void RVizMarkerManager::addQtIdInNamespace(const std::string& ns, const int32_t 
 void RVizMarkerManager::enableClicked(const std::string& ns)
 {
     std::lock_guard<std::mutex> marker_queue_lock(internal_data_mtx_);
-    std::lock_guard<std::mutex> lock(scene_.sim_mutex_);
+    std::lock_guard<std::mutex> lock(scene_->sim_mutex_);
 
     const NamespaceRow& ns_row = namespace_to_model_items_.at(ns);
     const auto checkbox = ns_row.enable_checkbox_;
@@ -671,7 +670,7 @@ void RVizMarkerManager::enableClicked(const std::string& ns)
 void RVizMarkerManager::enableClicked(const std::string& ns, const int32_t id)
 {
     std::lock_guard<std::mutex> marker_queue_lock(internal_data_mtx_);
-    std::lock_guard<std::mutex> lock(scene_.sim_mutex_);
+    std::lock_guard<std::mutex> lock(scene_->sim_mutex_);
 
     const NamespaceRow& ns_row = namespace_to_model_items_.at(ns);
     const IdRow& id_row = ns_row.ids_.at(id);
@@ -691,7 +690,7 @@ void RVizMarkerManager::enableClicked(const std::string& ns, const int32_t id)
 void RVizMarkerManager::deleteClicked(const std::string& ns)
 {
     std::lock_guard<std::mutex> marker_queue_lock(internal_data_mtx_);
-    std::lock_guard<std::mutex> lock(scene_.sim_mutex_);
+    std::lock_guard<std::mutex> lock(scene_->sim_mutex_);
 
     const NamespaceRow& ns_row = namespace_to_model_items_.at(ns);
 
@@ -718,7 +717,7 @@ void RVizMarkerManager::deleteClicked(const std::string& ns)
 void RVizMarkerManager::deleteClicked(const std::string& ns, const int32_t id)
 {
     std::lock_guard<std::mutex> marker_queue_lock(internal_data_mtx_);
-    std::lock_guard<std::mutex> lock(scene_.sim_mutex_);
+    std::lock_guard<std::mutex> lock(scene_->sim_mutex_);
 
     // Remove it from OSG
     {
