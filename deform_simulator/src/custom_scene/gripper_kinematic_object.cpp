@@ -55,34 +55,36 @@ void GripperKinematicObject::destroy()
     }
 }
 
-void GripperKinematicObject::translate(btVector3 transvec)
+void GripperKinematicObject::translate(const btVector3& transvec)
 {
     btTransform tm = getWorldTransform();
     tm.setOrigin(tm.getOrigin() + transvec);
     setWorldTransform(tm);
 }
 
-void GripperKinematicObject::applyTransform(btTransform tm)
+void GripperKinematicObject::applyTransform(const btTransform& tm)
 {
     setWorldTransform(getWorldTransform()*tm);
 }
 
-void GripperKinematicObject::setWorldTransform(btTransform tm)
+void GripperKinematicObject::setWorldTransform(const btTransform& tm)
 {
-    btTransform top_tm = tm;
-    btTransform bottom_tm = tm;
-
+    // Get the top offset in the gripper's frame
     btTransform top_offset;
-
     children[0]->motionState->getWorldTransform(top_offset);
-    top_offset = cur_tm.inverse()*top_offset;
-
-    top_tm.setOrigin(top_tm.getOrigin() + top_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
-    bottom_tm.setOrigin(bottom_tm.getOrigin() - bottom_tm.getBasis().getColumn(2)*(top_offset.getOrigin()[2]));
-
-    children[0]->motionState->setKinematicPos(top_tm);
-    children[1]->motionState->setKinematicPos(bottom_tm);
-
+    top_offset = cur_tm.inverse() * top_offset;
+    // Top
+    {
+        btTransform top_tm = tm;
+        top_tm.setOrigin(top_tm.getOrigin() + top_tm.getBasis().getColumn(2) * (top_offset.getOrigin()[2]));
+        children[0]->motionState->setKinematicPos(top_tm);
+    }
+    // Bottom
+    {
+        btTransform bottom_tm = tm;
+        bottom_tm.setOrigin(bottom_tm.getOrigin() - bottom_tm.getBasis().getColumn(2) * (top_offset.getOrigin()[2]));
+        children[1]->motionState->setKinematicPos(bottom_tm);
+    }
     cur_tm = tm;
 }
 

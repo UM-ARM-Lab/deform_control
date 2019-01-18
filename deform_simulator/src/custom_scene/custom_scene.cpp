@@ -963,7 +963,7 @@ void CustomScene::makeCollisionCheckGripper()
                         "collision_check_gripper",
                         GetGripperApperture(nh_) * METERS,
                         btVector4(1.0f, 0.0f, 0.0f, 0.0f));
-            collision_check_gripper_->setWorldTransform(btTransform());
+            collision_check_gripper_->setWorldTransform(btTransform(btQuaternion(0.0, 0.0, 0.0, 1.0)));
             // We don't want to add this to the world, because then it shows up as a object to collide with
             break;
         }
@@ -976,7 +976,7 @@ void CustomScene::makeCollisionCheckGripper()
                         "collision_check_gripper",
                         GetGripperApperture(nh_) * METERS,
                         btVector4(1.0f, 0.0f, 0.0f, 0.0f));
-            collision_check_gripper_->setWorldTransform(btTransform());
+            collision_check_gripper_->setWorldTransform(btTransform(btQuaternion(0.0, 0.0, 0.0, 1.0)));
             collision_check_gripper_->toggleOpen();
             // We don't want to add this to the world, because then it shows up as a object to collide with
             break;
@@ -2427,9 +2427,9 @@ void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const in
     const Eigen::Vector3d starting_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_starting_ind, y_starting_ind, z_starting_ind);
     const btVector3 starting_pos((btScalar)starting_pos_eigen.x(), (btScalar)starting_pos_eigen.y(), (btScalar)starting_pos_eigen.z());
 
+    // Note that the constructor for btTransform() does not initialize anything, but we set the value in the very next line
     SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() * 0.01, btTransform(), true);
     test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), starting_pos));
-//    const btScalar starting_dist = collisionHelper(test_sphere).m_distance;
 
     // Note that these are in [min, max) form - i.e. exclude the max
     const int64_t x_min_ind = std::max(0L, x_starting_ind - 1);
@@ -2888,7 +2888,6 @@ std::vector<btVector3> CustomScene::getDeformableObjectNodes(const SimForkResult
 btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr& gripper) const
 {
     assert(gripper);
-
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
 
@@ -2903,11 +2902,13 @@ btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr&
             btVoronoiSimplexSolver sGjkSimplexSolver;
             btPointCollector gjkOutput;
 
-            btGjkPairDetector convexConvex(dynamic_cast<btBoxShape*>(gripper->getChildren()[gripper_child_ind]->collisionShape.get()),
-                    dynamic_cast<btConvexShape*>(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver);
+            btGjkPairDetector convexConvex(
+                        dynamic_cast<btBoxShape*>(gripper->getChildren()[gripper_child_ind]->collisionShape.get()),
+                        dynamic_cast<btConvexShape*>(obj->collisionShape.get()),
+                        &sGjkSimplexSolver,
+                        &epaSolver);
 
             btGjkPairDetector::ClosestPointInput input;
-
             gripper->getChildren()[gripper_child_ind]->motionState->getWorldTransform(input.m_transformA);
             obj->motionState->getWorldTransform(input.m_transformB);
             input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
@@ -2945,8 +2946,11 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
         btVoronoiSimplexSolver sGjkSimplexSolver;
         btPointCollector gjkOutput;
 
-        btGjkPairDetector convexConvex(dynamic_cast<btSphereShape*>(sphere->collisionShape.get()),
-                dynamic_cast<btConvexShape*>(obj->collisionShape.get()), &sGjkSimplexSolver, &epaSolver);
+        btGjkPairDetector convexConvex(
+                    dynamic_cast<btSphereShape*>(sphere->collisionShape.get()),
+                    dynamic_cast<btConvexShape*>(obj->collisionShape.get()),
+                    &sGjkSimplexSolver,
+                    &epaSolver);
 
         btGjkPairDetector::ClosestPointInput input;
         sphere->motionState->getWorldTransform(input.m_transformA);

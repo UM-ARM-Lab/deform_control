@@ -27,9 +27,9 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         virtual void destroy() override;
 
-        void translate(btVector3 transvec);
-        void applyTransform(btTransform tm);
-        void setWorldTransform(btTransform tm);
+        void translate(const btVector3& transvec);
+        void applyTransform(const btTransform& tm);
+        void setWorldTransform(const btTransform& tm);
         btTransform getWorldTransform();
         void getWorldTransform(btTransform& in);
 
