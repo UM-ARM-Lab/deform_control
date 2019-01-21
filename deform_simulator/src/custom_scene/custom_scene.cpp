@@ -309,8 +309,15 @@ void CustomScene::triggerTerminateService()
 void CustomScene::getWorldToBulletTransform()
 {
     // Get the transform from bullet to the world frame for use in data output
-    const double timeout = 5.0;
-    ROS_INFO_STREAM("Waiting for tf from world to bullet frame for at most " << timeout << " seconds");
+    const double timeout = GetTFWaitTime(ph_);
+    if (timeout < 5.0)
+    {
+        ROS_WARN_STREAM("Waiting for tf from world to bullet frame for at most " << timeout << " seconds");
+    }
+    else
+    {
+        ROS_INFO_STREAM("Waiting for tf from world to bullet frame for at most " << timeout << " seconds");
+    }
     geometry_msgs::TransformStamped world_to_bullet_tf_as_ros;
     try
     {
