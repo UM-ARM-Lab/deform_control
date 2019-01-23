@@ -6,7 +6,7 @@
 
 class CapsuleRope : public CompoundObject<BulletObject>
 {
-    private:
+    public:
         const float angStiffness;
         const float angDamping;
         const float linDamping;
@@ -22,6 +22,7 @@ class CapsuleRope : public CompoundObject<BulletObject>
         std::vector<BulletConstraint::Ptr> joints;
         const btScalar radius;
         const int nLinks;
+        const std::vector<btVector3> initalCtrlPoints;
 
         CapsuleRope(
                 const std::vector<btVector3>& ctrlPoints,
@@ -29,5 +30,7 @@ class CapsuleRope : public CompoundObject<BulletObject>
                 float angDamping_=1, float linDamping_=.75f, float angLimit_=.4f);
 
         std::vector<btVector3> getNodes() const;
+        std::vector<btTransform> getNodesTransforms() const;
+        void setNodesTransforms(const std::vector<btTransform>& nodes);
         std::vector<btVector3> getControlPoints() const;
 };

@@ -48,6 +48,7 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
                          const DeformableType deformable_type,
                          const TaskType task_type)
     : initialized_(false)
+    , finished_(false)
     , screen_recorder_(nullptr)
     , plot_points_(boost::make_shared<PlotPoints>(0.4f * METERS))
     , plot_lines_(boost::make_shared<PlotLines>(0.25f * METERS))
@@ -282,6 +283,9 @@ void CustomScene::run()
 
         arc_helpers::Sleep(0.02);
     }
+
+    shutdownPublishersSubscribersAndServices();
+    finished_ = true;
 }
 
 void CustomScene::terminate()
@@ -300,6 +304,11 @@ void CustomScene::triggerTerminateService()
     std_srvs::Empty srv_data;
     ros::ServiceClient client = nh_.serviceClient<std_srvs::Empty>(GetTerminateSimulationTopic(nh_));
     client.call(srv_data);
+}
+
+bool CustomScene::finished()
+{
+    return finished_;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -402,13 +411,43 @@ void CustomScene::initializePublishersSubscribersAndServices()
 
     // Create a service to let others know the object current configuration
     object_current_configuration_srv_ = nh_.advertiseService(
-            GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
+                GetObjectCurrentConfigurationTopic(nh_), &CustomScene::getObjectCurrentConfigurationCallback, this);
+
+    // Create a service to let others know the exact full node transforms for the rope
+    if (GetDeformableType(nh_) == DeformableType::ROPE)
+    {
+        rope_node_transforms_srv_ = nh_.advertiseService(
+                    GetRopeCurrentNodeTransformsTopic(nh_), &CustomScene::getRopeCurrentNodeTransforms, this);
+    }
 
     // Create a service to listen to in order to move the grippers and advance sim time
     execute_gripper_movement_srv_ = nh_.advertiseService(
             GetExecuteRobotMotionTopic(nh_), &CustomScene::executeRobotMotionCallback, this);
 }
 
+void CustomScene::shutdownPublishersSubscribersAndServices()
+{
+    test_grippers_poses_as_.shutdown();
+    simulator_fbk_pub_.shutdown();
+    gripper_names_srv_.shutdown();
+    gripper_attached_node_indices_srv_.shutdown();
+    gripper_stretching_vector_info_srv_.shutdown();
+    gripper_pose_srv_.shutdown();
+    robot_configuration_srv_.shutdown();
+    gripper_collision_check_srv_.shutdown();
+    cover_points_srv_.shutdown();
+    cover_point_normals_srv_.shutdown();
+    mirror_line_srv_.shutdown();
+    free_space_graph_srv_.shutdown();
+    signed_distance_field_srv_.shutdown();
+    object_initial_configuration_srv_.shutdown();
+    object_current_configuration_srv_.shutdown();
+    if (GetDeformableType(nh_) == DeformableType::ROPE)
+    {
+        rope_node_transforms_srv_.shutdown();
+    }
+    execute_gripper_movement_srv_.shutdown();
+}
 
 void CustomScene::makeBulletObjects()
 {
@@ -576,6 +615,18 @@ void CustomScene::makeRope()
 
     // add the table and rope to the world
     env->add(rope_);
+}
+
+CapsuleRope::Ptr CustomScene::duplicateRopeAtInitialConfig() const
+{
+    assert(rope_ != nullptr);
+    return boost::make_shared<CapsuleRope>(
+                rope_->initalCtrlPoints,
+                rope_->radius,
+                rope_->angStiffness,
+                rope_->angDamping,
+                rope_->linDamping,
+                rope_->angLimit);
 }
 
 void CustomScene::makeCloth()
@@ -2722,6 +2773,14 @@ void CustomScene::SetGripperTransform(
     grippers_map.at(name)->setWorldTransform(pose_in_bt_coords);
 }
 
+btTransform CustomScene::getTransform(
+        const std::string& parent,
+        const std::string& child)
+{
+    const geometry_msgs::TransformStamped tf =
+            tf_buffer_.lookupTransform(parent, child, ros::Time(0.0), ros::Duration(0.0));
+    return toBulletTransform(tf.transform, METERS);
+}
 
 geometry_msgs::PoseStamped CustomScene::transformPoseToBulletFrame(
         const std_msgs::Header& input_header,
@@ -2746,6 +2805,10 @@ deformable_manipulation_msgs::WorldState CustomScene::createSimulatorFbk() const
 
     // fill out the object configuration data
     msg.object_configuration   = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(), METERS);
+    if (rope_ != nullptr)
+    {
+        msg.rope_node_transforms = toRosPoseVector(world_to_bullet_tf_, rope_->getNodesTransforms(), METERS);
+    }
     if (feedback_covariance_ > 0.0)
     {
         for (auto& point: msg.object_configuration)
@@ -2799,6 +2862,10 @@ deformable_manipulation_msgs::WorldState CustomScene::createSimulatorFbk(const S
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(result), METERS);
+    if (result.rope_ != nullptr)
+    {
+        msg.rope_node_transforms = toRosPoseVector(world_to_bullet_tf_, result.rope_->getNodesTransforms(), METERS);
+    }
     if (feedback_covariance_ > 0.0)
     {
         for (auto& point: msg.object_configuration)
@@ -3334,6 +3401,17 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
     return true;
 }
 
+bool CustomScene::getRopeCurrentNodeTransforms(
+        deformable_manipulation_msgs::GetPoseSet::Request& req,
+        deformable_manipulation_msgs::GetPoseSet::Response& res)
+{
+    (void)req;
+    res.poses = toRosPoseVector(world_to_bullet_tf_, rope_->getNodesTransforms(), METERS);
+    res.header.frame_id = world_frame_name_;
+    res.header.stamp = ros::Time::now();
+    return true;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // ROS Callbacks - Simulation actions
 ////////////////////////////////////////////////////////////////////////////////
@@ -3354,6 +3432,7 @@ bool CustomScene::executeRobotMotionCallback(
         SetGripperTransform(grippers_, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
+    res.microstep_state_history.resize(num_timesteps_to_execute_per_gripper_cmd_);
     double total_time = 0.0;
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
@@ -3361,12 +3440,75 @@ bool CustomScene::executeRobotMotionCallback(
         arc_utilities::Stopwatch stopwatch;
         step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
         total_time += stopwatch(arc_utilities::READ);
-        simulator_fbk_pub_.publish(createSimulatorFbk());
+        const auto world_state = createSimulatorFbk();
+        res.microstep_state_history.push_back(world_state);
+        simulator_fbk_pub_.publish(world_state);
     }
 
     LOG_STREAM(simulation_time_logger_, num_timesteps_to_execute_per_gripper_cmd_ << " " << total_time);
 
-    res.world_state = createSimulatorFbk();
+    res.world_state = res.microstep_state_history.back();
+    return true;
+}
+
+bool CustomScene::testRobotMotionMircrostepsCallback(
+        deformable_manipulation_msgs::TestRobotMotionMicrosteps::Request& req,
+        deformable_manipulation_msgs::TestRobotMotionMicrosteps::Response& res)
+{
+    assert(task_type_ == ROPE_HOOKS_DATA_GENERATION &&
+           "This service only makes sense for this single task");
+
+    assert(req.grippers_names.size() == req.starting_gripper_poses.size());
+    assert(req.grippers_names.size() == req.target_gripper_poses.size());
+    ROS_INFO("Executing test robot motion micorsteps");
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+
+    const btTransform input_to_bullet_tf_ =
+            getTransform(req.header.frame_id, bullet_frame_name_);
+
+    // Set the a copy of the rope to the desired starting configuration
+    CapsuleRope::Ptr test_rope = duplicateRopeAtInitialConfig();
+    env->add(test_rope);
+    test_rope->setNodesTransforms(toBulletTransformVector(input_to_bullet_tf_, req.starting_object_configuration, METERS));
+    // Duplicate the existing grippers at the new rope starting configuration
+    std::map<std::string, GripperKinematicObject::Ptr> test_grippers;
+    for (const auto& gripper_itr : grippers_)
+    {
+        const std::string gripper_name = gripper_itr.first;
+        const GripperKinematicObject::Ptr gripper = gripper_itr.second;
+        test_grippers[gripper_name] = boost::make_shared<GripperKinematicObject>(
+                    env,
+                    gripper_name,
+                    gripper->apperture,
+                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+        const auto object_node_indices = gripper->getAttachedNodeIndices();
+        assert(object_node_indices.size() == 1);
+        const auto object_node_ind = object_node_indices[0];
+        test_grippers[gripper_name]->setWorldTransform(test_rope->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
+        test_grippers[gripper_name]->rigidGrab(test_rope->getChildren()[object_node_ind]->rigidBody.get(), object_node_ind);
+    }
+    // Move the grippers to the specified starting position
+    for (size_t gripper_ind = 0; gripper_ind < req.grippers_names.size(); gripper_ind++)
+    {
+        const btTransform pose_in_bt_coords =
+                toBulletTransform(input_to_bullet_tf_, req.starting_gripper_poses[gripper_ind], METERS);
+        SetGripperTransform(test_grippers, req.grippers_names[gripper_ind], pose_in_bt_coords);
+    }
+
+//    // Test what happens with no other movement
+//    res.world_state.reserve(num_timesteps_to_execute_per_gripper_cmd_ * req.num_substeps);
+//    double total_time = 0.0;
+//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+//    {
+//        screen_recorder_->snapshot();
+//        arc_utilities::Stopwatch stopwatch;
+//        step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//        total_time += stopwatch(arc_utilities::READ);
+//        res.world_state.push_back(createSimulatorFbk());
+//    }
+    #warning "This function is not done being implemented"
+//    static_assert(false, "This function is not done being implemented");
+
     return true;
 }
 
@@ -3381,7 +3523,7 @@ void CustomScene::testRobotMotionExecuteCallback(
     {
         ROS_INFO_STREAM_NAMED("test_gripper_poses", "Testing gripper pose " << test_ind);
         const std::vector<btTransform> gripper_poses_in_bt_frame =
-                toVectorBulletTransform(world_to_bullet_tf_, goal->poses_to_test[test_ind].poses, METERS);
+                toBulletTransformVector(world_to_bullet_tf_, goal->poses_to_test[test_ind].poses, METERS);
         const SimForkResult result = simulateInNewFork(goal->gripper_names, gripper_poses_in_bt_frame);
 
         // Create a feedback message

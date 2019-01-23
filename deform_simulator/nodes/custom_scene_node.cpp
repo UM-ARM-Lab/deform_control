@@ -18,14 +18,18 @@ bool RestartSimulationCallback(
     (void)res;
     ROS_INFO("Restarting simulation");
     std::lock_guard<std::mutex> lock(data_mtx);
-    if (cs_ptr != nullptr)
-    {
-        cs_ptr->terminate();
-        cs_ptr = nullptr;
-    }
     if (qt_ptr != nullptr)
     {
         qt_ptr->exit(EXIT_RESTART);
+        qt_ptr = nullptr;
+    }
+    if (cs_ptr != nullptr)
+    {
+        cs_ptr->terminate();
+        while (!cs_ptr->finished())
+        {
+            arc_helpers::Sleep(0.02);
+        }
         cs_ptr = nullptr;
     }
     return true;
@@ -39,15 +43,19 @@ bool TerminateSimulationCallback(
     (void)res;
     ROS_INFO("Terminating simulation");
     std::lock_guard<std::mutex> lock(data_mtx);
-    if (cs_ptr != nullptr)
-    {
-        cs_ptr->terminate();
-        cs_ptr = nullptr;
-    }
     if (qt_ptr != nullptr)
     {
         qt_ptr->exit(EXIT_SUCCESS);
         qt_ptr = nullptr;
+    }
+    if (cs_ptr != nullptr)
+    {
+        cs_ptr->terminate();
+        while (!cs_ptr->finished())
+        {
+            arc_helpers::Sleep(0.02);
+        }
+        cs_ptr = nullptr;
     }
     return true;
 }
@@ -141,7 +149,6 @@ int main(int argc, char* argv[])
     int rv = EXIT_FAILURE;
     do
     {
-
         CustomScene cs(nh, smmap::GetDeformableType(nh), smmap::GetTaskType(nh));
         cs.initialize();
         // We need to run QT and CS in their own threads.

@@ -98,9 +98,11 @@ class CustomScene : public Scene
         void run();
         void terminate();
         void triggerTerminateService();
+        bool finished();
 
     private:
         bool initialized_;
+        std::atomic<bool> finished_;
 
     protected:
         ////////////////////////////////////////////////////////////////////////
@@ -109,10 +111,12 @@ class CustomScene : public Scene
 
         void getWorldToBulletTransform();
         void initializePublishersSubscribersAndServices();
+        void shutdownPublishersSubscribersAndServices();
 
         void makeBulletObjects();
 
         void makeRope();
+        CapsuleRope::Ptr duplicateRopeAtInitialConfig() const;
 
         void makeCloth();
         void createClothMirrorLine();
@@ -157,6 +161,8 @@ class CustomScene : public Scene
                 const std::string& name,
                 const btTransform& pose_in_bt_coords);
 
+        btTransform getTransform(const std::string& parent, const std::string& child);
+
     public:
         geometry_msgs::PoseStamped transformPoseToBulletFrame(
                 const std_msgs::Header& input_header,
@@ -168,6 +174,7 @@ class CustomScene : public Scene
 
         std::vector<btVector3> getDeformableObjectNodes() const;
         std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
+        void setDeformableState(const std::vector<btVector3>& deform_config);
 
         btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
         btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
@@ -240,10 +247,17 @@ class CustomScene : public Scene
         bool getObjectCurrentConfigurationCallback(
                 deformable_manipulation_msgs::GetPointSet::Request& req,
                 deformable_manipulation_msgs::GetPointSet::Response& res);
+        bool getRopeCurrentNodeTransforms(
+                deformable_manipulation_msgs::GetPoseSet::Request& req,
+                deformable_manipulation_msgs::GetPoseSet::Response& res);
 
         bool executeRobotMotionCallback(
                 deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
                 deformable_manipulation_msgs::ExecuteRobotMotion::Response& res);
+
+        bool testRobotMotionMircrostepsCallback(
+                deformable_manipulation_msgs::TestRobotMotionMicrosteps::Request& req,
+                deformable_manipulation_msgs::TestRobotMotionMicrosteps::Response& res);
 
         void testRobotMotionExecuteCallback(
                 const deformable_manipulation_msgs::TestRobotMotionGoalConstPtr& goal);
@@ -384,6 +398,7 @@ class CustomScene : public Scene
         ros::ServiceServer mirror_line_srv_;
         ros::ServiceServer free_space_graph_srv_;
         ros::ServiceServer signed_distance_field_srv_;
+        ros::ServiceServer rope_node_transforms_srv_;
 
         std::vector<geometry_msgs::Point> object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;

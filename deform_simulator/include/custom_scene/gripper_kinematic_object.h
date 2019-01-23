@@ -87,7 +87,9 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
 
         GripperState state;
         bool bOpen;         // used only for cloth (I think)
+    public:
         float apperture;
+    private:
         float closed_gap;  // used only for cloth (I think)
 
         bool b_attached;

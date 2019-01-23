@@ -105,7 +105,7 @@ namespace BulletHelpers
         return world_to_bullet_tf.inverseTimes(bullet_tf);
     }
 
-    inline std::vector<btTransform> toVectorBulletTransform(
+    inline std::vector<btTransform> toBulletTransformVector(
             const btTransform& world_to_bullet_tf,
             const std::vector<geometry_msgs::Pose>& geom_poses,
             const float bt_scale)
@@ -120,12 +120,10 @@ namespace BulletHelpers
     }
 
     inline std::vector<btVector3> toBulletPointVector(
-            const geometry_msgs::Pose& tf,
+            const btTransform& bullet_tf,
             const std::vector<geometry_msgs::Point>& ros,
             const float bt_scale)
     {
-        const btTransform bullet_tf = toBulletTransform(tf, bt_scale);
-
         std::vector<btVector3> bt(ros.size());
         for (size_t i = 0; i < ros.size(); ++i)
         {
@@ -135,19 +133,45 @@ namespace BulletHelpers
     }
 
     inline std::vector<btVector3> toBulletPointVector(
+            const geometry_msgs::Pose& tf,
+            const std::vector<geometry_msgs::Point>& ros,
+            const float bt_scale)
+    {
+        const btTransform bullet_tf = toBulletTransform(tf, bt_scale);
+        return toBulletPointVector(bullet_tf, ros, bt_scale);
+    }
+
+    inline std::vector<btVector3> toBulletPointVector(
             const btTransform& world_to_bullet_tf,
             const geometry_msgs::Pose& tf,
             const std::vector<geometry_msgs::Point>& ros,
             const float bt_scale)
     {
         const btTransform bullet_tf = toBulletTransform(world_to_bullet_tf, tf, bt_scale);
+        return toBulletPointVector(bullet_tf, ros, bt_scale);
+    }
 
-        std::vector<btVector3> bt(ros.size());
-        for (size_t i = 0; i < ros.size(); ++i)
+    inline btVector4 toBulletColor(const std_msgs::ColorRGBA& ros)
+    {
+        return btVector4(ros.r, ros.g, ros.b, ros.a);
+    }
+
+    inline std::vector<btVector4> toBulletColorArray(
+            const std::vector<std_msgs::ColorRGBA>& ros)
+    {
+        std::vector<btVector4> bt(ros.size());
+        for (size_t i = 0; i < ros.size() ; i++)
         {
-            bt[i] = toBulletVector3(bullet_tf, ros[i], bt_scale);
+            bt[i] = toBulletColor(ros[i]);
         }
         return bt;
+    }
+
+    inline std::vector<btVector4> toBulletColorArray(
+            const std_msgs::ColorRGBA& ros,
+            size_t num_copies)
+    {
+        return std::vector<btVector4>(num_copies, toBulletColor(ros));
     }
 
     //// Bullet to ROS Conversions /////////////////////////////////////////////////////////////////////////////////////
@@ -227,6 +251,19 @@ namespace BulletHelpers
         return ros;
     }
 
+    inline std::vector<geometry_msgs::Pose> toRosPoseVector(
+            const btTransform& world_to_bullet_tf,
+            const std::vector<btTransform>& bt,
+            const float bt_scale)
+    {
+        std::vector<geometry_msgs::Pose> ros(bt.size());
+        for (size_t i = 0; i < bt.size() ; ++i)
+        {
+            ros[i] = toRosPose(world_to_bullet_tf, bt[i], bt_scale);
+        }
+        return ros;
+    }
+
     inline geometry_msgs::Transform toRosTransform(
             const btTransform& world_to_bullet_tf,
             const btTransform& tf,
@@ -236,6 +273,19 @@ namespace BulletHelpers
         geometry_msgs::Transform ros;
         ros.translation = toRosVector3(final_tf.getOrigin(), bt_scale);
         ros.rotation = toRosQuaternion(final_tf.getRotation());
+        return ros;
+    }
+
+    inline std::vector<geometry_msgs::Transform> toRosTransformVector(
+            const btTransform& world_to_bullet_tf,
+            const std::vector<btTransform>& bt,
+            const float bt_scale)
+    {
+        std::vector<geometry_msgs::Transform> ros(bt.size());
+        for (size_t i = 0; i < bt.size() ; ++i)
+        {
+            ros[i] = toRosTransform(world_to_bullet_tf, bt[i], bt_scale);
+        }
         return ros;
     }
 
@@ -264,29 +314,6 @@ namespace BulletHelpers
             ros[i] = toRosVector3(world_to_bullet_tf, bt[i], bt_scale);
         }
         return ros;
-    }
-
-    inline btVector4 toBulletColor(const std_msgs::ColorRGBA& ros)
-    {
-        return btVector4(ros.r, ros.g, ros.b, ros.a);
-    }
-
-    inline std::vector<btVector4> toBulletColorArray(
-            const std::vector<std_msgs::ColorRGBA>& ros)
-    {
-        std::vector<btVector4> bt(ros.size());
-        for (size_t i = 0; i < ros.size() ; i++)
-        {
-            bt[i] = toBulletColor(ros[i]);
-        }
-        return bt;
-    }
-
-    inline std::vector<btVector4> toBulletColorArray(
-            const std_msgs::ColorRGBA& ros,
-            size_t num_copies)
-    {
-        return std::vector<btVector4>(num_copies, toBulletColor(ros));
     }
 
     //// ROS to OSG Conversions ////////////////////////////////////////////////////////////////////////////////////////

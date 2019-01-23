@@ -74,6 +74,7 @@ CapsuleRope::CapsuleRope(
     , angLimit(angLimit_)
     , radius(radius_)
     , nLinks(ctrlPoints.size() - 1)
+    , initalCtrlPoints(ctrlPoints)
 {
     vector<btTransform> transforms;
     vector<btScalar> lengths;
@@ -83,7 +84,7 @@ CapsuleRope::CapsuleRope(
         btTransform trans = transforms[i];
         btScalar len = lengths[i];
         float mass = 1;
-        CapsuleObject::Ptr child(new CapsuleObject(1,radius,len,trans));
+        CapsuleObject::Ptr child(new CapsuleObject(mass,radius,len,trans));
         child->rigidBody->setDamping(linDamping,angDamping);
         child->rigidBody->setFriction(1);
 
@@ -138,6 +139,29 @@ vector<btVector3> CapsuleRope::getNodes() const
         out[i] = children[i]->rigidBody->getCenterOfMassPosition();
     }
     return out;
+}
+
+std::vector<btTransform> CapsuleRope::getNodesTransforms() const
+{
+    vector<btTransform> out(children.size());
+    for (int i = 0; i < children.size(); i++)
+    {
+        out[i] = children[i]->rigidBody->getCenterOfMassTransform();
+    }
+    return out;
+}
+
+void CapsuleRope::setNodesTransforms(const std::vector<btTransform>& nodes)
+{
+    assert(nodes.size() == children.size());
+    for (int i = 0; i < children.size(); i++)
+    {
+        children[i]->rigidBody->setWorldTransform(nodes[i]);
+        children[i]->motionState->setWorldTransform(nodes[i]);
+        children[i]->rigidBody->clearForces();
+        children[i]->rigidBody->setLinearVelocity(btVector3(0.0, 0.0, 0.0));
+        children[i]->rigidBody->setAngularVelocity(btVector3(0.0, 0.0, 0.0));
+    }
 }
 
 vector<btVector3> CapsuleRope::getControlPoints() const
