@@ -38,7 +38,20 @@ using namespace smmap;
 using ColorBuilder = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>;
 
 // TODO: Put this magic number somewhere else
+#pragma message "Magic numbers here"
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
+// NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+#define ROPE_CYLINDER_ANGLE_DISCRETIZATION                          (0.3f)                  // radians
+#define ROPE_CYLINDER_HEIGHT_DISCRETIZATION_RATIO                   (30.0f)                 // unitless
+#define ROPE_CYLINDER_TWO_GRIPPERS_START_HEIGHT_RATIO               (8.0f)                  // unitless
+#define ROPE_CYLINDER_TWO_GRIPPERS_END_HEIGHT_RATIO                 (8.0f)                  // unitless
+#define CLOTH_CYLINDER_ANGLE_DISCRETIZATION_RATIO                   (8.0f)                  // unitless
+#define CLOTH_WAFR_HORIZONTAL_CYLINDER_START_ANGLE                  ((float)M_PI - 0.524f)  // radians
+#define CLOTH_WAFR_HORIZONTAL_CYLINDER_END_ANGLE                    ((float)2.0f * M_PI)    // radians
+#define CLOTH_WAFR_HORIZONTAL_CYLINDER_ANGLE_DISCRETIZATION         (0.523f)                // radians
+#define CLOTH_WAFR_HORIZONTAL_CYLINDER_HEIGHT_DISCRETIZATION_RATIO  (30.0f)                 // unitless
+#define CLOTH_TABLE_COVERAGE_COVER_POINT_STEPSIZE                   (0.0125f * METERS)      // meters
+#define CLOTH_SINGLE_POLE_DOUBLE_SLIT_COVER_POINT_STEPSIZE          (0.025f * METERS)       // meters
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constructor and Destructor
@@ -449,11 +462,10 @@ void CustomScene::shutdownPublishersSubscribersAndServices()
     execute_gripper_movement_srv_.shutdown();
 }
 
+
 void CustomScene::makeBulletObjects()
 {
     ROS_INFO("Building the world");
-
-    #pragma message "Magic numbers - discretization level of cover points - inside functions called here too"
     switch (task_type_)
     {
         case TaskType::ROPE_CYLINDER_COVERAGE:
@@ -476,7 +488,6 @@ void CustomScene::makeBulletObjects()
             makeRopeMazeObstacles();
             break;
 
-            // Fixed Correspondency Task. --- Added by Mengyao
         case TaskType::ROPE_ZIG_MATCH:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
@@ -492,7 +503,7 @@ void CustomScene::makeBulletObjects()
         case TaskType::CLOTH_TABLE_COVERAGE:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
-            makeTableSurface(true, 0.0125f * METERS);
+            makeTableSurface(true, CLOTH_TABLE_COVERAGE_COVER_POINT_STEPSIZE);
             break;
 
         case TaskType::CLOTH_COLAB_FOLDING:
@@ -558,6 +569,7 @@ void CustomScene::makeBulletObjects()
             break;
 
         case TaskType::ROPE_HOOKS:
+        case TaskType::ROPE_HOOKS_DATA_GENERATION:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeRopeHooksObstacles();
@@ -570,7 +582,7 @@ void CustomScene::makeBulletObjects()
             break;
 
         default:
-            ROS_FATAL_STREAM("Unknown task type " << task_type_);
+            ROS_FATAL_STREAM("Unknown task type #" << task_type_ << " " << GetTaskTypeString(nh_));
             throw_arc_exception(std::invalid_argument, "Unknown task type " + std::to_string(task_type_));
     }
 
@@ -1156,13 +1168,10 @@ void CustomScene::makeCylinder(const bool create_cover_points)
         {
             case TaskType::ROPE_CYLINDER_COVERAGE:
             {
-                #pragma message "Magic numbers - discretization level of cover points"
-                // consider 21 points around the cylinder
-                for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-                // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+                for (float theta = 0; theta < 2.0f * M_PI; theta += ROPE_CYLINDER_ANGLE_DISCRETIZATION)
                 {
                     // 31 points per theta
-                    for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / 30.0f)
+                    for (float h = -cylinder_height / 2.0f; h < cylinder_height / 2.0f; h += cylinder_height / ROPE_CYLINDER_HEIGHT_DISCRETIZATION_RATIO)
                     {
                         cover_points_.push_back(
                                 cylinder_com_origin
@@ -1178,13 +1187,11 @@ void CustomScene::makeCylinder(const bool create_cover_points)
 
             case TaskType::ROPE_CYLINDER_COVERAGE_TWO_GRIPPERS:
             {
-                #pragma message "Magic numbers - discretization level of cover points"
-                // consider 21 points around the cylinder
-                for (float theta = 0; theta < 2.0f * M_PI; theta += 0.3f)
-                // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
+                for (float theta = 0; theta < 2.0f * M_PI; theta += ROPE_CYLINDER_ANGLE_DISCRETIZATION)
                 {
-                    // 31 points per theta
-                    for (float h = -cylinder_height / 8.0f; h < cylinder_height / 8.0f; h += cylinder_height / 30.0f)
+                    for (float h = -cylinder_height / ROPE_CYLINDER_TWO_GRIPPERS_START_HEIGHT_RATIO;
+                         h < cylinder_height / ROPE_CYLINDER_TWO_GRIPPERS_END_HEIGHT_RATIO;
+                         h += cylinder_height / ROPE_CYLINDER_HEIGHT_DISCRETIZATION_RATIO)
                     {
                         cover_points_.push_back(
                                 cylinder_com_origin
@@ -1202,10 +1209,13 @@ void CustomScene::makeCylinder(const bool create_cover_points)
             {
                 const float cloth_collision_margin = cloth_->softBody->getCollisionShape()->getMargin();
 
-                #pragma message "Magic numbers - discretization level of cover points"
-                for (float x = -cylinder_radius; x <= cylinder_radius; x += cylinder_radius / 8.0f)
+                for (float x = -cylinder_radius;
+                     x <= cylinder_radius;
+                     x += cylinder_radius / CLOTH_CYLINDER_ANGLE_DISCRETIZATION_RATIO)
                 {
-                    for (float y = -cylinder_radius; y <= cylinder_radius; y += cylinder_radius / 8.0f)
+                    for (float y = -cylinder_radius;
+                         y <= cylinder_radius;
+                         y += cylinder_radius / CLOTH_CYLINDER_ANGLE_DISCRETIZATION_RATIO)
                     {
                         // Only accept those points that are within the bounding circle
                         if (x * x + y * y < cylinder_radius * cylinder_radius)
@@ -1237,12 +1247,18 @@ void CustomScene::makeCylinder(const bool create_cover_points)
                 env->add(horizontal_cylinder);
                 world_obstacles_["horizontal_cylinder"] = horizontal_cylinder;
 
-                #pragma message "Magic numbers - discretization level of cover points"
-                for (float theta = 1.0f * (float)M_PI - 0.524f; theta <= 2.0f * M_PI; theta += 0.523f)
+                for (float theta = CLOTH_WAFR_HORIZONTAL_CYLINDER_START_ANGLE;
+                     theta <= CLOTH_WAFR_HORIZONTAL_CYLINDER_END_ANGLE;
+                     theta += CLOTH_WAFR_HORIZONTAL_CYLINDER_ANGLE_DISCRETIZATION)
                 {
-                    const float cover_points_radius = horizontal_cylinder->getRadius() + cloth_collision_margin + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
+                    const float cover_points_radius =
+                            horizontal_cylinder->getRadius()
+                            + cloth_collision_margin
+                            + (btScalar)GetRobotMinGripperDistanceToObstacles() * METERS;
 
-                    for (float h = -horizontal_cylinder->getHeight()/2.0f; h <= horizontal_cylinder->getHeight()/1.99f; h += horizontal_cylinder->getHeight() / 30.0f)
+                    for (float h = -horizontal_cylinder->getHeight()/2.0f;
+                         h <= horizontal_cylinder->getHeight()/1.99f;
+                         h += horizontal_cylinder->getHeight() / CLOTH_WAFR_HORIZONTAL_CYLINDER_HEIGHT_DISCRETIZATION_RATIO)
                     {
                         cover_points_.push_back(
                                     horizontal_cylinder_com_origin
@@ -1270,7 +1286,7 @@ void CustomScene::makeCylinder(const bool create_cover_points)
 
 void CustomScene::makeSinglePoleObstacles()
 {
-    makeTableSurface(true, 0.025f * METERS, true);
+    makeTableSurface(true, CLOTH_SINGLE_POLE_DOUBLE_SLIT_COVER_POINT_STEPSIZE, true);
 
     const btVector4 wall_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
     const btVector4 table_color(0.4f, 0.4f, 0.4f, 1.0f);
@@ -1443,7 +1459,7 @@ void CustomScene::makeClothWallObstacles()
 
 void CustomScene::makeClothDoubleSlitObstacles()
 {
-    makeTableSurface(true, 0.025f * METERS, true);
+    makeTableSurface(true, CLOTH_SINGLE_POLE_DOUBLE_SLIT_COVER_POINT_STEPSIZE, true);
 
     const btVector4 wall_color(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
     const btVector4 table_color(0.4f, 0.4f, 0.4f, 1.0f);
@@ -3432,7 +3448,7 @@ bool CustomScene::executeRobotMotionCallback(
         SetGripperTransform(grippers_, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
-    res.microstep_state_history.resize(num_timesteps_to_execute_per_gripper_cmd_);
+    res.microstep_state_history.reserve(num_timesteps_to_execute_per_gripper_cmd_);
     double total_time = 0.0;
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
@@ -3451,7 +3467,7 @@ bool CustomScene::executeRobotMotionCallback(
     return true;
 }
 
-bool CustomScene::testRobotMotionMircrostepsCallback(
+bool CustomScene::testRobotMotionMicrostepsCallback(
         deformable_manipulation_msgs::TestRobotMotionMicrosteps::Request& req,
         deformable_manipulation_msgs::TestRobotMotionMicrosteps::Response& res)
 {
@@ -3495,19 +3511,17 @@ bool CustomScene::testRobotMotionMircrostepsCallback(
         SetGripperTransform(test_grippers, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
-//    // Test what happens with no other movement
-//    res.world_state.reserve(num_timesteps_to_execute_per_gripper_cmd_ * req.num_substeps);
-//    double total_time = 0.0;
-//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
-//    {
-//        screen_recorder_->snapshot();
-//        arc_utilities::Stopwatch stopwatch;
-//        step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-//        total_time += stopwatch(arc_utilities::READ);
-//        res.world_state.push_back(createSimulatorFbk());
-//    }
-    #warning "This function is not done being implemented"
-//    static_assert(false, "This function is not done being implemented");
+    // Test what happens with no other movement
+    res.world_state.reserve(num_timesteps_to_execute_per_gripper_cmd_ * req.num_substeps);
+    double total_time = 0.0;
+    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+    {
+        screen_recorder_->snapshot();
+        arc_utilities::Stopwatch stopwatch;
+        step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+        total_time += stopwatch(arc_utilities::READ);
+        res.world_state.push_back(createSimulatorFbk());
+    }
 
     return true;
 }

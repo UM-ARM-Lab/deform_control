@@ -255,7 +255,7 @@ class CustomScene : public Scene
                 deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
                 deformable_manipulation_msgs::ExecuteRobotMotion::Response& res);
 
-        bool testRobotMotionMircrostepsCallback(
+        bool testRobotMotionMicrostepsCallback(
                 deformable_manipulation_msgs::TestRobotMotionMicrosteps::Request& req,
                 deformable_manipulation_msgs::TestRobotMotionMicrosteps::Response& res);
 

@@ -158,7 +158,10 @@ int main(int argc, char* argv[])
         // Start the QT managed window
         QApplication qt(argc, argv);
         RVizMarkerManager marker_manager(nh, &cs);
-        marker_manager.show();
+        if (cs.drawingOn)
+        {
+            marker_manager.show();
+        }
 
         {
             std::lock_guard<std::mutex> lock(data_mtx);
