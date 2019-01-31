@@ -30,8 +30,8 @@ class GripperKinematicObject : public CompoundObject<BoxObject>
         void translate(const btVector3& transvec);
         void applyTransform(const btTransform& tm);
         void setWorldTransform(const btTransform& tm);
-        btTransform getWorldTransform();
-        void getWorldTransform(btTransform& in);
+        btTransform getWorldTransform() const;
+        void getWorldTransform(btTransform& in) const;
 
         // used only for the rope
         void rigidGrab(btRigidBody* prb, size_t objectnodeind);

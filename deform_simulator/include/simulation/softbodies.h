@@ -17,6 +17,7 @@ protected:
 
 public:
     typedef boost::shared_ptr<BulletSoftObject> Ptr;
+    typedef boost::shared_ptr<const BulletSoftObject> ConstPtr;
 
     boost::shared_ptr<btSoftBody> softBody;
 

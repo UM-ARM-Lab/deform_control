@@ -88,12 +88,12 @@ void GripperKinematicObject::setWorldTransform(const btTransform& tm)
     cur_tm = tm;
 }
 
-btTransform GripperKinematicObject::getWorldTransform()
+btTransform GripperKinematicObject::getWorldTransform() const
 {
     return cur_tm;
 }
 
-void GripperKinematicObject::getWorldTransform(btTransform& in)
+void GripperKinematicObject::getWorldTransform(btTransform& in) const
 {
     in = cur_tm;
 }

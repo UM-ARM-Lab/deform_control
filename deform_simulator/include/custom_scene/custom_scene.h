@@ -41,8 +41,8 @@ struct SimForkResult
         BulletInstance::Ptr bullet_;
         OSGInstance::Ptr osg_;
         Fork::Ptr fork_;
-        BulletSoftObject::Ptr cloth_;
         CapsuleRope::Ptr rope_;
+        BulletSoftObject::Ptr cloth_;
         std::map<std::string, GripperKinematicObject::Ptr> grippers_;
 };
 
@@ -169,13 +169,18 @@ class CustomScene : public Scene
                 const geometry_msgs::Pose& pose_in_input_frame) const;
 
     protected:
-        deformable_manipulation_msgs::WorldState createSimulatorFbk() const;
-        deformable_manipulation_msgs::WorldState createSimulatorFbk(const SimForkResult& result) const;
+        // Note that these really all should be ConstPtr, but far too much work to make that happen cleanly
+        deformable_manipulation_msgs::WorldState createSimulatorFbk(
+                const CapsuleRope::ConstPtr rope,
+                const BulletSoftObject::ConstPtr cloth,
+                const std::map<std::string, GripperKinematicObject::Ptr>& grippers) const;
 
-        std::vector<btVector3> getDeformableObjectNodes() const;
-        std::vector<btVector3> getDeformableObjectNodes(const SimForkResult& result) const;
+        std::vector<btVector3> getDeformableObjectNodes(
+                const CapsuleRope::ConstPtr rope,
+                const BulletSoftObject::ConstPtr cloth) const;
         void setDeformableState(const std::vector<btVector3>& deform_config);
 
+        // Note that these really should be ConstPtr, but far too much work to make that happen cleanly
         btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
         btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
 
@@ -385,7 +390,6 @@ class CustomScene : public Scene
 
         std::atomic<bool> sim_running_;
         ros::Publisher simulator_fbk_pub_;
-        const double feedback_covariance_;
 
         ros::ServiceServer gripper_names_srv_;
         ros::ServiceServer gripper_attached_node_indices_srv_;
@@ -406,6 +410,7 @@ class CustomScene : public Scene
 
         ros::ServiceServer execute_gripper_movement_srv_;
         actionlib::SimpleActionServer<deformable_manipulation_msgs::TestRobotMotionAction> test_grippers_poses_as_;
+        ros::ServiceServer test_robot_motion_microsteps_srv_;
 
         ////////////////////////////////////////////////////////////////////////
         // Low-pass filter / quasi static world data structures

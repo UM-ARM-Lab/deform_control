@@ -18,6 +18,8 @@ class CapsuleRope : public CompoundObject<BulletObject>
 
     public:
         typedef boost::shared_ptr<CapsuleRope> Ptr;
+        typedef boost::shared_ptr<const CapsuleRope> ConstPtr;
+
         std::vector<boost::shared_ptr<btCollisionShape> > shapes;
         std::vector<BulletConstraint::Ptr> joints;
         const btScalar radius;
