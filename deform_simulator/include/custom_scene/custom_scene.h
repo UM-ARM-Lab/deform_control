@@ -134,7 +134,10 @@ class CustomScene : public Scene
         void makeCollisionCheckGripper();
 
 
-        void makeTableSurface(const bool create_cover_points, const float stepsize = -1.0f, const bool add_legs = false);
+        void makeTableSurface(
+                const bool create_cover_points,
+                const float stepsize = -1.0f,
+                const bool add_legs = false);
         void makeCylinder(const bool create_cover_points);
         void makeSinglePoleObstacles();
         void makeWallObstacles();
@@ -148,7 +151,10 @@ class CustomScene : public Scene
         void makeGenericRegionCoverPoints();
         void loadCoverPointsFromFile();
 
-        void createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind);
+        void createEdgesToNeighbours(
+                const int64_t x_starting_ind,
+                const int64_t y_starting_ind,
+                const int64_t z_starting_ind);
         void createFreeSpaceGraph(const bool draw_graph_corners = false);
         void createCollisionMapAndSDF();
 

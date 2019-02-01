@@ -35,6 +35,7 @@
 
 using namespace BulletHelpers;
 using namespace smmap;
+using namespace deformable_manipulation_msgs;
 using ColorBuilder = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>;
 
 // TODO: Put this magic number somewhere else
@@ -286,7 +287,7 @@ void CustomScene::run()
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
     while (sim_running_ && ros::ok())
     {
-        deformable_manipulation_msgs::WorldState sim_fbk;
+        WorldState sim_fbk;
         {
             std::lock_guard<std::mutex> lock(sim_mutex_);
             step(0);
@@ -390,7 +391,7 @@ void CustomScene::initializePublishersSubscribersAndServices()
 {
      ROS_INFO("Creating subscribers and publishers");
     // Publish to the feedback channel
-    simulator_fbk_pub_ = nh_.advertise<deformable_manipulation_msgs::WorldState>(
+    simulator_fbk_pub_ = nh_.advertise<WorldState>(
             GetWorldStateTopic(nh_), 20);
 
     ROS_INFO("Creating services");
@@ -1084,7 +1085,10 @@ void CustomScene::makeCollisionCheckGripper()
 
 
 
-void CustomScene::makeTableSurface(const bool create_cover_points, const float stepsize, const bool add_legs)
+void CustomScene::makeTableSurface(
+        const bool create_cover_points,
+        const float stepsize,
+        const bool add_legs)
 {
     // table parameters
     const float table_half_thickness = GetTableThickness(nh_) / 2.0f * METERS;
@@ -2516,7 +2520,10 @@ void CustomScene::loadCoverPointsFromFile()
 }
 
 
-void CustomScene::createEdgesToNeighbours(const int64_t x_starting_ind, const int64_t y_starting_ind, const int64_t z_starting_ind)
+void CustomScene::createEdgesToNeighbours(
+        const int64_t x_starting_ind,
+        const int64_t y_starting_ind,
+        const int64_t z_starting_ind)
 {
     const int64_t starting_ind = work_space_grid_.xyzIndexToGridIndex(x_starting_ind, y_starting_ind, z_starting_ind);
     assert(starting_ind >= 0);
@@ -2835,14 +2842,14 @@ geometry_msgs::PoseStamped CustomScene::transformPoseToBulletFrame(
     return pose_in_bullet_frame;
 }
 
-deformable_manipulation_msgs::WorldState CustomScene::createSimulatorFbk(
+WorldState CustomScene::createSimulatorFbk(
         const CapsuleRope::ConstPtr rope,
         const BulletSoftObject::ConstPtr cloth,
         const std::map<std::string, GripperKinematicObject::Ptr>& grippers) const
 {
     assert(num_timesteps_to_execute_per_gripper_cmd_ > 0);
 
-    deformable_manipulation_msgs::WorldState msg;
+    WorldState msg;
 
     // fill out the object configuration data
     msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(rope, cloth), METERS);
@@ -3110,8 +3117,8 @@ SimForkResult CustomScene::simulateInNewFork(
 ////////////////////////////////////////////////////////////////////////////////
 
 bool CustomScene::getGripperNamesCallback(
-        deformable_manipulation_msgs::GetGripperNames::Request& req,
-        deformable_manipulation_msgs::GetGripperNames::Response& res)
+        GetGripperNames::Request& req,
+        GetGripperNames::Response& res)
 {
     (void)req;
     res.names = auto_grippers_;
@@ -3119,8 +3126,8 @@ bool CustomScene::getGripperNamesCallback(
 }
 
 bool CustomScene::getGripperAttachedNodeIndicesCallback(
-        deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Request& req,
-        deformable_manipulation_msgs::GetGripperAttachedNodeIndices::Response& res)
+        GetGripperAttachedNodeIndices::Request& req,
+        GetGripperAttachedNodeIndices::Response& res)
 {
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
     res.indices = gripper->getAttachedNodeIndices();
@@ -3128,8 +3135,8 @@ bool CustomScene::getGripperAttachedNodeIndicesCallback(
 }
 
 bool CustomScene::getGripperStretchingVectorInfoCallback(
-        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Request& req,
-        deformable_manipulation_msgs::GetGripperStretchingVectorInfo::Response& res)
+        GetGripperStretchingVectorInfo::Request& req,
+        GetGripperStretchingVectorInfo::Response& res)
 {
     if (cloth_ != nullptr)
     {
@@ -3148,8 +3155,8 @@ bool CustomScene::getGripperStretchingVectorInfoCallback(
 }
 
 bool CustomScene::getGripperPoseCallback(
-        deformable_manipulation_msgs::GetGripperPose::Request& req,
-        deformable_manipulation_msgs::GetGripperPose::Response& res)
+        GetGripperPose::Request& req,
+        GetGripperPose::Response& res)
 {
     GripperKinematicObject::Ptr gripper = grippers_.at(req.name);
     res.pose = toRosPose(world_to_bullet_tf_, gripper->getWorldTransform(), METERS);
@@ -3159,8 +3166,8 @@ bool CustomScene::getGripperPoseCallback(
 }
 
 bool CustomScene::getRobotConfigurationCallback(
-        deformable_manipulation_msgs::GetRobotConfiguration::Request& req,
-        deformable_manipulation_msgs::GetRobotConfiguration::Response& res)
+        GetRobotConfiguration::Request& req,
+        GetRobotConfiguration::Response& res)
 {
     (void)req;
     res.valid = false;
@@ -3168,8 +3175,8 @@ bool CustomScene::getRobotConfigurationCallback(
 }
 
 bool CustomScene::gripperCollisionCheckCallback(
-        deformable_manipulation_msgs::GetGripperCollisionReport::Request& req,
-        deformable_manipulation_msgs::GetGripperCollisionReport::Response& res)
+        GetGripperCollisionReport::Request& req,
+        GetGripperCollisionReport::Response& res)
 {
     size_t num_checks = req.pose.size();
 
@@ -3215,8 +3222,8 @@ bool CustomScene::gripperCollisionCheckCallback(
 }
 
 bool CustomScene::getCoverPointsCallback(
-        deformable_manipulation_msgs::GetPointSet::Request& req,
-        deformable_manipulation_msgs::GetPointSet::Response& res)
+        GetPointSet::Request& req,
+        GetPointSet::Response& res)
 {
     (void)req;
     res.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
@@ -3226,8 +3233,8 @@ bool CustomScene::getCoverPointsCallback(
 }
 
 bool CustomScene::getCoverPointNormalsCallback(
-        deformable_manipulation_msgs::GetVector3Set::Request& req,
-        deformable_manipulation_msgs::GetVector3Set::Response& res)
+        GetVector3Set::Request& req,
+        GetVector3Set::Response& res)
 {
     (void)req;
     // Because we want normalized vectors, don't rescale to world coords
@@ -3238,8 +3245,8 @@ bool CustomScene::getCoverPointNormalsCallback(
 }
 
 bool CustomScene::getMirrorLineCallback(
-        deformable_manipulation_msgs::GetMirrorLine::Request& req,
-        deformable_manipulation_msgs::GetMirrorLine::Response& res)
+        GetMirrorLine::Request& req,
+        GetMirrorLine::Response& res)
 {
     (void)req;
     if (task_type_ == TaskType::CLOTH_COLAB_FOLDING &&
@@ -3260,8 +3267,8 @@ bool CustomScene::getMirrorLineCallback(
 }
 
 bool CustomScene::getFreeSpaceGraphCallback(
-        deformable_manipulation_msgs::GetFreeSpaceGraphRequest& req,
-        deformable_manipulation_msgs::GetFreeSpaceGraphResponse& res)
+        GetFreeSpaceGraphRequest& req,
+        GetFreeSpaceGraphResponse& res)
 {
     (void)req;
 
@@ -3329,8 +3336,8 @@ bool CustomScene::getFreeSpaceGraphCallback(
 }
 
 bool CustomScene::getSignedDistanceFieldCallback(
-        deformable_manipulation_msgs::GetSignedDistanceFieldRequest &req,
-        deformable_manipulation_msgs::GetSignedDistanceFieldResponse &res)
+        GetSignedDistanceFieldRequest &req,
+        GetSignedDistanceFieldResponse &res)
 {
     (void)req;
     // The SDF should already be in world frame and distances, so no conversion needed
@@ -3339,8 +3346,8 @@ bool CustomScene::getSignedDistanceFieldCallback(
 }
 
 bool CustomScene::getObjectInitialConfigurationCallback(
-        deformable_manipulation_msgs::GetPointSet::Request& req,
-        deformable_manipulation_msgs::GetPointSet::Response& res)
+        GetPointSet::Request& req,
+        GetPointSet::Response& res)
 {
     (void)req;
     res.points = object_initial_configuration_;
@@ -3350,8 +3357,8 @@ bool CustomScene::getObjectInitialConfigurationCallback(
 }
 
 bool CustomScene::getObjectCurrentConfigurationCallback(
-        deformable_manipulation_msgs::GetPointSet::Request& req,
-        deformable_manipulation_msgs::GetPointSet::Response& res)
+        GetPointSet::Request& req,
+        GetPointSet::Response& res)
 {
     (void)req;
     res.points = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(rope_, cloth_), METERS);
@@ -3361,8 +3368,8 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
 }
 
 bool CustomScene::getRopeCurrentNodeTransforms(
-        deformable_manipulation_msgs::GetPoseSet::Request& req,
-        deformable_manipulation_msgs::GetPoseSet::Response& res)
+        GetPoseSet::Request& req,
+        GetPoseSet::Response& res)
 {
     (void)req;
     res.poses = toRosPoseVector(world_to_bullet_tf_, rope_->getNodesTransforms(), METERS);
@@ -3376,8 +3383,8 @@ bool CustomScene::getRopeCurrentNodeTransforms(
 ////////////////////////////////////////////////////////////////////////////////
 
 bool CustomScene::executeRobotMotionCallback(
-        deformable_manipulation_msgs::ExecuteRobotMotion::Request& req,
-        deformable_manipulation_msgs::ExecuteRobotMotion::Response& res)
+        ExecuteRobotMotion::Request& req,
+        ExecuteRobotMotion::Response& res)
 {
     assert(req.grippers_names.size() == req.gripper_poses.size());
     ROS_INFO("Executing gripper command");
@@ -3411,8 +3418,8 @@ bool CustomScene::executeRobotMotionCallback(
 }
 
 bool CustomScene::testRobotMotionMicrostepsCallback(
-        deformable_manipulation_msgs::TestRobotMotionMicrosteps::Request& req,
-        deformable_manipulation_msgs::TestRobotMotionMicrosteps::Response& res)
+        TestRobotMotionMicrosteps::Request& req,
+        TestRobotMotionMicrosteps::Response& res)
 {
     assert(task_type_ == ROPE_HOOKS_DATA_GENERATION &&
            "This service only makes sense for this single task");
@@ -3455,11 +3462,18 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
         SetGripperTransform(test_grippers, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
+
+    // Let the rope settle at the specified stating position for the grippers
+//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+//    {
+//        step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+//    }
+
     res.world_state.reserve(num_timesteps_to_execute_per_gripper_cmd_ * req.num_substeps);
     for (ssize_t macrostep_idx = 0; macrostep_idx < req.num_substeps; ++macrostep_idx)
     {
         // Interpolate along the target gripper movements
-        const double ratio = (double)macrostep_idx / (double)(req.num_substeps - 1);
+        const double ratio = (req.num_substeps != 1) ? (double)macrostep_idx / (double)(req.num_substeps - 1) : 1.0;
         const auto grippers_target = InterpolateVectors(req.starting_gripper_poses, req.target_gripper_poses, ratio);
 
         // Move the grippers to the specified target position
@@ -3488,7 +3502,7 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
 }
 
 void CustomScene::testRobotMotionExecuteCallback(
-        const deformable_manipulation_msgs::TestRobotMotionGoalConstPtr& goal)
+        const TestRobotMotionGoalConstPtr& goal)
 {
     const size_t num_tests = goal->poses_to_test.size();
 
@@ -3502,7 +3516,7 @@ void CustomScene::testRobotMotionExecuteCallback(
         const SimForkResult result = simulateInNewFork(goal->gripper_names, gripper_poses_in_bt_frame);
 
         // Create a feedback message
-        deformable_manipulation_msgs::TestRobotMotionFeedback fbk;
+        TestRobotMotionFeedback fbk;
         fbk.world_state = createSimulatorFbk(result.rope_, result.cloth_, result.grippers_);
         fbk.test_id = test_ind;
         // Send feedback
