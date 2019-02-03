@@ -3463,13 +3463,14 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
     }
 
 
-    // Let the rope settle at the specified stating position for the grippers
-//    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
-//    {
-//        step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-//    }
+    // Let the rope settle at the specified stating position
+    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+    {
+        step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+    }
+    res.start_after_settling = createSimulatorFbk(test_rope, nullptr, test_grippers);
 
-    res.world_state.reserve(num_timesteps_to_execute_per_gripper_cmd_ * req.num_substeps);
+    res.microsteps.reserve(num_timesteps_to_execute_per_gripper_cmd_ * req.num_substeps);
     for (ssize_t macrostep_idx = 0; macrostep_idx < req.num_substeps; ++macrostep_idx)
     {
         // Interpolate along the target gripper movements
@@ -3488,7 +3489,7 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
         for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
         {
             step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-            res.world_state.push_back(createSimulatorFbk(test_rope, nullptr, test_grippers));
+            res.microsteps.push_back(createSimulatorFbk(test_rope, nullptr, test_grippers));
         }
     }
 
