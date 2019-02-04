@@ -189,6 +189,7 @@ class CustomScene : public Scene
         // Note that these really should be ConstPtr, but far too much work to make that happen cleanly
         btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
         btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
+        bool ropeNodeTransformsValid(const std::vector<btTransform>& nodes) const;
 
         ////////////////////////////////////////////////////////////////////////////////
         // Fork and Fork-visualization management

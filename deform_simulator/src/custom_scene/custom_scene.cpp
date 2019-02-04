@@ -2439,6 +2439,7 @@ void CustomScene::makeClothHooksObstacles()
     assert(false && "makeClothHooksObstacles not implemented!");
 }
 
+
 void CustomScene::makeGenericRegionCoverPoints()
 {
     ROS_WARN("Generic region cover points is using an arbitrary surface normal");
@@ -3008,6 +3009,58 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
     return gjkOutput_min;
 }
 
+bool CustomScene::ropeNodeTransformsValid(const std::vector<btTransform>& nodes) const
+{
+    assert(rope_ != nullptr && "This only makes sense with a valid rope object");
+    assert(nodes.size() == rope_->getChildren().size());
+
+    bool valid = true;
+    for (size_t node_idx = 0; node_idx < nodes.size(); ++node_idx)
+    {
+        CapsuleObject::Ptr template_capsule = boost::dynamic_pointer_cast<CapsuleObject>(rope_->getChildren()[node_idx]);
+        const btScalar mass = 0.0f;
+        CapsuleObject::Ptr test_capsule = boost::make_shared<CapsuleObject>(
+                    mass, template_capsule->getRadius(), template_capsule->getHeight(), nodes[node_idx]);
+
+
+        // find the distance to any objects in the world
+        for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
+        {
+            BulletObject::Ptr obj = ittr->second;
+
+            // TODO: how much (if any) of this should be static/class members?
+            btGjkEpaPenetrationDepthSolver epaSolver;
+            btVoronoiSimplexSolver sGjkSimplexSolver;
+            btPointCollector gjkOutput;
+
+            btGjkPairDetector convexConvex(
+                        dynamic_cast<btConvexShape*>(test_capsule->collisionShape.get()),
+                        dynamic_cast<btConvexShape*>(obj->collisionShape.get()),
+                        &sGjkSimplexSolver,
+                        &epaSolver);
+
+            btGjkPairDetector::ClosestPointInput input;
+            test_capsule->motionState->getWorldTransform(input.m_transformA);
+            obj->motionState->getWorldTransform(input.m_transformB);
+            input.m_maximumDistanceSquared = btScalar(BT_LARGE_FLOAT);
+            convexConvex.getClosestPoints(input, gjkOutput, nullptr);
+
+            if (gjkOutput.m_distance < 0.0f)
+            {
+                valid = false;
+                break;
+            }
+        }
+
+        if (!valid)
+        {
+            break;
+        }
+
+    }
+    return valid;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // Fork and Fork-visualization management
 ////////////////////////////////////////////////////////////////////////////////
@@ -3432,10 +3485,17 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
     const btTransform input_to_bullet_tf_ =
             getTransform(req.header.frame_id, bullet_frame_name_);
 
+    const auto node_transforms_bt_coords =
+            toBulletTransformVector(input_to_bullet_tf_, req.starting_object_configuration, METERS);
+    if (!ropeNodeTransformsValid(node_transforms_bt_coords))
+    {
+        return true;
+    }
+
     // Set the a copy of the rope to the desired starting configuration
     CapsuleRope::Ptr test_rope = duplicateRopeAtInitialConfig();
     env->add(test_rope);
-    test_rope->setNodesTransforms(toBulletTransformVector(input_to_bullet_tf_, req.starting_object_configuration, METERS));
+    test_rope->setNodesTransforms(node_transforms_bt_coords);
     // Duplicate the existing grippers at the new rope starting configuration
     std::map<std::string, GripperKinematicObject::Ptr> test_grippers;
     for (const auto& gripper_itr : grippers_)

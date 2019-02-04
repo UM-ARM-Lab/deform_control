@@ -446,6 +446,9 @@ class CapsuleObject : public BulletObject
             return o;
         }
 
+        btScalar getRadius() { return radius; }
+        btScalar getHeight() { return height; }
+
     protected:
         osg::ref_ptr<osg::Node> createOSGNode()
         {
