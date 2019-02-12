@@ -163,6 +163,24 @@ bool RVizMarkerManager::addOsgMarker(
     marker.pose = scene_->transformPoseToBulletFrame(marker.header, marker.pose).pose;
     marker.header.frame_id = scene_->bullet_frame_name_;
 
+    // If only the color field is set, then fill the colors field with copies
+    if (!marker.colors.empty())
+    {
+        if (marker.colors.size() != marker.points.size())
+        {
+            ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have "
+                                                      "mismatching data sizes. Replacing contents"
+                                                      "of colors with the first element. Namespace"
+                                                      "and id: " << unique_id);
+            marker.color = marker.colors[0];
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+        }
+    }
+    else
+    {
+        marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+    }
+
     switch (marker.type)
     {
         case vm::Marker::POINTS:
@@ -189,27 +207,19 @@ bool RVizMarkerManager::addOsgMarker(
         }
         case vm::Marker::CUBE:
         {
-            if (marker.points.size() != 0)
+            if (!marker.points.empty())
             {
                 marker.points.clear();
-                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a CUBE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << unique_id);
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a CUBE type that has the points field "
+                                                            "populated, the points field is only used for "
+                                                            "SPHERE/CUBE/LINE_LIST types. Namespace and id: "
+                                                            << unique_id);
             }
             marker.points.push_back(geometry_msgs::Point());
             marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
         }
         case vm::Marker::CUBE_LIST:
         {
-            if (marker.colors.size() == 0)
-            {
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-            else if (marker.colors.size() != marker.points.size())
-            {
-                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << unique_id);
-                marker.color = marker.colors[0];
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-
             // We don't have an "update" function for boxes, so delete any existing markers with the same unique_id
             if (is_active)
             {
@@ -235,33 +245,25 @@ bool RVizMarkerManager::addOsgMarker(
         }
         case vm::Marker::SPHERE:
         {
-            if (marker.points.size() != 0)
+            if (!marker.points.empty())
             {
                 marker.points.clear();
-                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE type that has the points field populated, the points field is only used for SPHERE/CUBE/LINE_LIST types. Namespace and id: " << unique_id);
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE type that has the points field "
+                                                            "populated, the points field is only used for "
+                                                            "SPHERE/CUBE/LINE_LIST types. Namespace and id: "
+                                                            << unique_id);
             }
-            if (marker.colors.size() != marker.points.size())
-            {
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
+            marker.points.push_back(geometry_msgs::Point());
+            marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
         }
         case vm::Marker::SPHERE_LIST:
         {
-            if (marker.colors.size() == 0)
-            {
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-            else if (marker.colors.size() != marker.points.size())
-            {
-                ROS_ERROR_STREAM_ONCE_NAMED("visualizer", "Marker colors field and points field have mismatching data sizes. Replacing contents of colors with the first element. Namespace and id: " << unique_id);
-                marker.color = marker.colors[0];
-                marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
-            }
-
             if ((marker.scale.y != marker.scale.x && marker.scale.y != 0.0f) ||
                 (marker.scale.z != marker.scale.x && marker.scale.z != 0.0f))
             {
-                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE_LIST type that meaningful data in the y or z fields. This data is ignored. Namespace and id: " << unique_id);
+                ROS_WARN_STREAM_ONCE_NAMED("visualization", "Plotting a SPHERE_LIST type that meaningful data "
+                                                            "in the y or z fields. This data is ignored. "
+                                                            "Namespace and id: " << unique_id);
             }
 
             const auto marker_itr = visualization_sphere_markers_.find(unique_id);
