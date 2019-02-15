@@ -386,14 +386,19 @@ class CustomScene : public Scene
         const int sdf_resolution_scale_;
         sdf_tools::TaggedObjectCollisionMapGrid collision_map_for_export_;
         sdf_tools::SignedDistanceField sdf_for_export_;
-        visualization_msgs::Marker collision_map_marker_for_export_;
+        visualization_msgs::MarkerArray collision_map_marker_array_for_export_;
         enum ObjectIds
         {
             FREESPACE, // This must be the first enum in the list, others can be added after it with no problems
             GENERIC_OBSTACLE,
             PEG,
+            HOOK,
+            INITIAL_OBSTACLE,
+            LOWER_OBSTACLES,
+            UPPER_OBSTACLES,
             LAST_ID // This must the the last enum in the list, others can be added before it with no problems
         };
+        std::map<uint32_t, std_msgs::ColorRGBA> object_color_map_;
 
         std::atomic<bool> sim_running_;
         ros::Publisher simulator_fbk_pub_;

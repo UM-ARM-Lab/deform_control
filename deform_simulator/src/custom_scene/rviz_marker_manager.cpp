@@ -523,13 +523,13 @@ void RVizMarkerManager::addQtMarker(const vm::Marker& marker)
     addQtIdInNamespace(marker.ns, marker.id);
 }
 
-void RVizMarkerManager::deleteQtMarker(const vm::Marker& marker)
-{
+//void RVizMarkerManager::deleteQtMarker(const vm::Marker& marker)
+//{
 //    NamespaceRow& ns_row = namespace_to_model_items_.at(marker.ns);
 //    const IdRow& id_row = ns_row.ids_.at(marker.id);
 //    ns_row.ns_item_->removeRow(id_row.id_item_->row());
 //    ns_row.ids_.erase(ns_row.ids_.find(marker.id));
-}
+//}
 
 void RVizMarkerManager::clearVisualizationsQtHandler()
 {

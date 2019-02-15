@@ -85,7 +85,7 @@ private:
 
     // Not threadsafe
     void addQtMarker(const visualization_msgs::Marker& marker);
-    void deleteQtMarker(const visualization_msgs::Marker& marker);
+//    void deleteQtMarker(const visualization_msgs::Marker& marker);
     void clearVisualizationsQtHandler();
 
     void addQtNamespace(const std::string& ns);

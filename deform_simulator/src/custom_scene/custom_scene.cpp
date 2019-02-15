@@ -41,6 +41,7 @@ using ColorBuilder = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>;
 // TODO: Put this magic number somewhere else
 #pragma message "Magic numbers here"
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
+
 // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
 #define ROPE_CYLINDER_ANGLE_DISCRETIZATION                          (0.3f)                  // radians
 #define ROPE_CYLINDER_HEIGHT_DISCRETIZATION_RATIO                   (30.0f)                 // unitless
@@ -71,6 +72,27 @@ static std::vector<T, alloc> InterpolateVectors(
                         ratio));
     }
     return result;
+}
+
+
+static bool IsPointInsideAABB(
+        const btVector3& box_min,
+        const btVector3& box_max,
+        const btVector3& point)
+{
+    return (point.x() >= box_min.x() && point.x() <= box_max.x()) &&
+           (point.y() >= box_min.y() && point.y() <= box_max.y()) &&
+           (point.z() >= box_min.z() && point.z() <= box_max.z());
+}
+
+static bool IsPointInsideOABB(
+        const btTransform& com,
+        const btVector3& half_extents,
+        const btVector3& point)
+{
+    return IsPointInsideAABB(-half_extents,
+                             half_extents,
+                             com.invXform(point));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -231,14 +253,14 @@ void CustomScene::run()
 {
     // Used for constant visualization, independent of robot control structure
     ros::Publisher bullet_visualization_pub = nh_.advertise<visualization_msgs::MarkerArray>("bullet_visualization_export", 1);
-    visualization_msgs::MarkerArray bullet_visualization_markers;
-    bullet_visualization_markers.markers.reserve(6);
+    visualization_msgs::MarkerArray bullet_visualization_markers = collision_map_marker_array_for_export_;
+    bullet_visualization_markers.markers.reserve(bullet_visualization_markers.markers.size() + 5);
 
     // Build markers for regular publishing
     size_t deformable_object_marker_ind;
     size_t first_gripper_marker_ind;
     {
-        bullet_visualization_markers.markers.push_back(collision_map_marker_for_export_);
+//        bullet_visualization_markers.markers.push_back(collision_map_marker_for_export_);
 
         deformable_object_marker_ind = bullet_visualization_markers.markers.size();
         visualization_msgs::Marker deformable_object_state_marker;
@@ -488,6 +510,10 @@ void CustomScene::shutdownPublishersSubscribersAndServices()
 
 void CustomScene::makeBulletObjects()
 {
+    // Can be overriden inside each builder function
+    object_color_map_[GENERIC_OBSTACLE] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+    object_color_map_[PEG]              = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
+
     ROS_INFO("Building the world");
     switch (task_type_)
     {
@@ -2171,6 +2197,10 @@ void CustomScene::makeRopeHooksObstacles()
 
     const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 1.0f);                       // purple
     const btVector4 pole_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 1.0f);                            // teal
+    object_color_map_[INITIAL_OBSTACLE] = ColorBuilder::MakeFromFloatColors(pole_color.x(), pole_color.y(), pole_color.x(), pole_color.w());
+    object_color_map_[HOOK] = ColorBuilder::MakeFromFloatColors(pole_color.x(), pole_color.y(), pole_color.x(), pole_color.w());
+    object_color_map_[LOWER_OBSTACLES] = object_color_map_[GENERIC_OBSTACLE];
+    object_color_map_[UPPER_OBSTACLES] = object_color_map_[GENERIC_OBSTACLE];
 
     // Make the floor to ensure that the free space graph doesn't go down through the floor due to rounding
     {
@@ -2697,11 +2727,11 @@ void CustomScene::createCollisionMapAndSDF()
             // Value deserializer is unused, so pass nullptr
             const uint64_t map_bytes_read = collision_map_for_export_.DeserializeSelf(buffer, 0, nullptr);
             const uint64_t sdf_bytes_read = sdf_for_export_.DeserializeSelf(buffer, map_bytes_read);
-            const auto message_deserialized =
-                    arc_utilities::RosMessageDeserializationWrapper<visualization_msgs::Marker>(buffer, map_bytes_read + sdf_bytes_read);
-            collision_map_marker_for_export_ = message_deserialized.first;
-            const uint64_t message_bytes_read = message_deserialized.second;
-            assert(map_bytes_read + sdf_bytes_read + message_bytes_read == buffer.size());
+            const auto message_array_deserialized =
+                    arc_utilities::RosMessageDeserializationWrapper<visualization_msgs::MarkerArray>(buffer, map_bytes_read + sdf_bytes_read);
+            collision_map_marker_array_for_export_ = message_array_deserialized.first;
+            const uint64_t message_array_bytes_read = message_array_deserialized.second;
+            assert(map_bytes_read + sdf_bytes_read + message_array_bytes_read == buffer.size());
         }
         else
         {
@@ -2725,8 +2755,8 @@ void CustomScene::createCollisionMapAndSDF()
                 {
                     const Eigen::Vector4d pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
 
-                    const btVector3 trans((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z()));
-                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), trans * METERS));
+                    const btVector3 point = btVector3((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z())) * METERS;
+                    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), point));
                     const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
                     if (freespace)
                     {
@@ -2754,6 +2784,64 @@ void CustomScene::createCollisionMapAndSDF()
                                 break;
                             }
 
+                            case TaskType::ROPE_HOOKS:
+                            case TaskType::ROPE_HOOKS_DATA_GENERATION:
+                            {
+                                BoxObject::Ptr hook                       = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["hook"]);
+                                btTransform hook_com;                       hook->motionState->getWorldTransform(hook_com);
+                                BoxObject::Ptr initial_obstacle           = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["initial_obstacle"]);
+                                btTransform initial_obstacle_com;           initial_obstacle->motionState->getWorldTransform(initial_obstacle_com);
+                                BoxObject::Ptr task_progress_wall_lower   = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["task_progress_wall_lower"]);
+                                btTransform task_progress_wall_lower_com;   task_progress_wall_lower->motionState->getWorldTransform(task_progress_wall_lower_com);
+                                BoxObject::Ptr task_progress_wall_upper   = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["task_progress_wall_upper"]);
+                                btTransform task_progress_wall_upper_com;   task_progress_wall_upper->motionState->getWorldTransform(task_progress_wall_upper_com);
+                                BoxObject::Ptr gripper_separator_lower    = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["gripper_separator_lower"]);
+                                btTransform gripper_separator_lower_com;    gripper_separator_lower->motionState->getWorldTransform(gripper_separator_lower_com);
+                                BoxObject::Ptr gripper_separator_upper    = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["gripper_separator_upper"]);
+                                btTransform gripper_separator_upper_com;    gripper_separator_upper->motionState->getWorldTransform(gripper_separator_upper_com);
+                                BoxObject::Ptr hook_gripper_blocker_lower = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["hook_gripper_blocker_lower"]);
+                                btTransform hook_gripper_blocker_lower_com; hook_gripper_blocker_lower->motionState->getWorldTransform(hook_gripper_blocker_lower_com);
+                                BoxObject::Ptr hook_gripper_blocker_upper = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["hook_gripper_blocker_upper"]);
+                                btTransform hook_gripper_blocker_upper_com; hook_gripper_blocker_upper->motionState->getWorldTransform(hook_gripper_blocker_upper_com);
+
+                                if (IsPointInsideOABB(hook_com, hook->halfExtents, point))
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, HOOK));
+                                }
+                                else if (IsPointInsideOABB(initial_obstacle_com, initial_obstacle->halfExtents, point))
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, INITIAL_OBSTACLE));
+                                }
+                                else if (IsPointInsideOABB(task_progress_wall_lower_com, task_progress_wall_lower->halfExtents, point)
+                                         || IsPointInsideOABB(gripper_separator_lower_com, gripper_separator_lower->halfExtents, point)
+                                         || IsPointInsideOABB(hook_gripper_blocker_lower_com, hook_gripper_blocker_lower->halfExtents, point))
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, LOWER_OBSTACLES));
+                                }
+                                else if (IsPointInsideOABB(task_progress_wall_upper_com, task_progress_wall_upper->halfExtents, point)
+                                         || IsPointInsideOABB(gripper_separator_upper_com, gripper_separator_upper->halfExtents, point)
+                                         || IsPointInsideOABB(hook_gripper_blocker_upper_com, hook_gripper_blocker_upper->halfExtents, point))
+                                {
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, UPPER_OBSTACLES));
+                                }
+                                else
+                                {
+                                    std::cout << "Point:        " << PrettyPrint::PrettyPrint(point, true, " ") << std::endl;
+                                    std::cout << "Hook:         " << PrettyPrint::PrettyPrint(hook_com, true, " ")                          << "    " << PrettyPrint::PrettyPrint(hook->halfExtents, true, " ") << std::endl;
+                                    std::cout << "Initial obs:  " << PrettyPrint::PrettyPrint(initial_obstacle_com, true, " ")              << "    " << PrettyPrint::PrettyPrint(initial_obstacle->halfExtents, true, " ") << std::endl;
+                                    std::cout << "progress dow: " << PrettyPrint::PrettyPrint(task_progress_wall_lower_com, true, " ")      << "    " << PrettyPrint::PrettyPrint(task_progress_wall_lower->halfExtents, true, " ") << std::endl;
+                                    std::cout << "progress up:  " << PrettyPrint::PrettyPrint(task_progress_wall_upper_com, true, " ")      << "    " << PrettyPrint::PrettyPrint(task_progress_wall_upper->halfExtents, true, " ") << std::endl;
+                                    std::cout << "seperate dow: " << PrettyPrint::PrettyPrint(gripper_separator_lower_com, true, " ")       << "    " << PrettyPrint::PrettyPrint(gripper_separator_lower->halfExtents, true, " ") << std::endl;
+                                    std::cout << "seperate up:  " << PrettyPrint::PrettyPrint(gripper_separator_upper_com, true, " ")       << "    " << PrettyPrint::PrettyPrint(gripper_separator_upper->halfExtents, true, " ") << std::endl;
+                                    std::cout << "g block dow:  " << PrettyPrint::PrettyPrint(hook_gripper_blocker_lower_com, true, " ")    << "    " << PrettyPrint::PrettyPrint(hook_gripper_blocker_lower->halfExtents, true, " ") << std::endl;
+                                    std::cout << "g block up:   " << PrettyPrint::PrettyPrint(hook_gripper_blocker_upper_com, true, " ")    << "    " << PrettyPrint::PrettyPrint(hook_gripper_blocker_upper->halfExtents, true, " ") << std::endl;
+
+                                    assert(false);
+                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
+                                }
+                                break;
+                            }
+
                             default:
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
                         }
@@ -2774,20 +2862,17 @@ void CustomScene::createCollisionMapAndSDF()
 
         ROS_INFO("Generating SDF");
         stopwatch(arc_utilities::RESET);
-        // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
-        // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
         std::vector<uint32_t> obstacle_ids_to_use(ObjectIds::LAST_ID);
         std::iota(obstacle_ids_to_use.begin(), obstacle_ids_to_use.end(), 1);
+        // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
+        // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
         sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, obstacle_ids_to_use, false, false).first;
         sdf_for_export_.Lock();
         ROS_INFO_STREAM("Finished SDF in " << stopwatch(arc_utilities::READ) << " seconds");
 
         ROS_INFO("Generating markers for collision map visualization");
         stopwatch(arc_utilities::RESET);
-        std::map<uint32_t, std_msgs::ColorRGBA> object_color_map;
-        object_color_map[GENERIC_OBSTACLE] = ColorBuilder::MakeFromFloatColors(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
-        object_color_map[PEG]              = ColorBuilder::MakeFromFloatColors(100.0f/255.0f, 100.0f/255.0f, 100.0f/255.0f, 1.0f);
-        collision_map_marker_for_export_ = collision_map_for_export_.ExportContourOnlyForDisplay(object_color_map);
+        collision_map_marker_array_for_export_ = collision_map_for_export_.ExportContourOnlyForDisplayUniqueNs(object_color_map_);
         ROS_INFO_STREAM("Finished generating marker in " << stopwatch(arc_utilities::READ) << " seconds");
 
         try
@@ -2796,13 +2881,13 @@ void CustomScene::createCollisionMapAndSDF()
             std::vector<uint8_t> buffer;
             const auto map_bytes_written = collision_map_for_export_.SerializeSelf(buffer, nullptr);
             const auto sdf_bytes_written = sdf_for_export_.SerializeSelf(buffer);
-            const auto message_bytes_written = arc_utilities::RosMessageSerializationWrapper(collision_map_marker_for_export_, buffer);
-            assert(buffer.size() == map_bytes_written + sdf_bytes_written + message_bytes_written);
+            const auto message_array_bytes_written = arc_utilities::RosMessageSerializationWrapper(collision_map_marker_array_for_export_, buffer);
+            assert(buffer.size() == map_bytes_written + sdf_bytes_written + message_array_bytes_written);
             ZlibHelpers::CompressAndWriteToFile(buffer, collision_map_file_location);
         }
-        catch (...)
+        catch (const std::exception& e)
         {
-            ROS_ERROR("Saving CollsionMap to file failed");
+            ROS_ERROR_STREAM("Saving CollsionMap to file failed: " << e.what());
         }
     }
 }
