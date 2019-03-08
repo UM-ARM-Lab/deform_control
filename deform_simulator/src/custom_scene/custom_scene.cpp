@@ -2537,6 +2537,7 @@ void CustomScene::loadCoverPointsFromFile()
                                                           (btScalar)cover_point_bt_frame_world_distances.y(),
                                                           (btScalar)cover_point_bt_frame_world_distances.z()) * METERS;
 
+        ROS_WARN("Offsetting the cover points from their saved position by 0.02 m");
         #warning "Cover point position hack for cloth placemat demo"
         // Offset the cover points from the table by a bit
         cover_points_.push_back(cover_point_bt_coords + btVector3(0.0f, 0.0f, 0.02f * METERS));
