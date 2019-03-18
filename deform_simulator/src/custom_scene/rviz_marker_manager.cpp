@@ -181,6 +181,8 @@ bool RVizMarkerManager::addOsgMarker(
         marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
     }
 
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wimplicit-fallthrough"
     switch (marker.type)
     {
         case vm::Marker::POINTS:
@@ -217,6 +219,7 @@ bool RVizMarkerManager::addOsgMarker(
             }
             marker.points.push_back(geometry_msgs::Point());
             marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            /* FALLTHRU */
         }
         case vm::Marker::CUBE_LIST:
         {
@@ -255,6 +258,7 @@ bool RVizMarkerManager::addOsgMarker(
             }
             marker.points.push_back(geometry_msgs::Point());
             marker.colors = std::vector<std_msgs::ColorRGBA>(marker.points.size(), marker.color);
+            /* FALLTHRU */
         }
         case vm::Marker::SPHERE_LIST:
         {
@@ -305,6 +309,7 @@ bool RVizMarkerManager::addOsgMarker(
             {
                 convertLineStripToLineList(marker);
             }
+            /* FALLTHRU */
         }
         case vm::Marker::LINE_LIST:
         {
@@ -339,6 +344,7 @@ bool RVizMarkerManager::addOsgMarker(
             return false;
         }
     }
+    #pragma GCC diagnostic pop
     return true;
 }
 
