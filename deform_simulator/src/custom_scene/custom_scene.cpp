@@ -41,6 +41,7 @@ using ColorBuilder = arc_helpers::RGBAColorBuilder<std_msgs::ColorRGBA>;
 // TODO: Put this magic number somewhere else
 #pragma message "Magic numbers here"
 static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 1.0f);
+static const btVector4 GRIPPER_COLOR(0.0f, 0.0f, 0.6f, 0.0f);
 
 // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
 #define ROPE_CYLINDER_ANGLE_DISCRETIZATION                          (0.3f)                  // radians
@@ -885,7 +886,7 @@ void CustomScene::makeRopeSingleRobotControlledGrippper()
                     env,
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+                    GRIPPER_COLOR);
         grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[0]->rigidBody->getCenterOfMassTransform());
         grippers_[gripper_name]->rigidGrab(rope_->getChildren()[0]->rigidBody.get(), 0);
 
@@ -905,7 +906,7 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
                     env,
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+                    GRIPPER_COLOR);
 
         const size_t object_node_ind = 0;
         grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
@@ -924,7 +925,7 @@ void CustomScene::makeRopeTwoRobotControlledGrippers()
                     env,
                     gripper_name,
                     GetGripperApperture(nh_) * METERS,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+                    GRIPPER_COLOR);
 
         const size_t object_node_ind = rope_->getChildren().size() - 1;
         grippers_[gripper_name]->setWorldTransform(rope_->getChildren()[object_node_ind]->rigidBody->getCenterOfMassTransform());
@@ -944,7 +945,7 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
                     env,
                     auto_gripper0_name,
                     GetGripperApperture(nh_) * METERS,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+                    GRIPPER_COLOR);
         const btVector3 gripper_half_extents = grippers_[auto_gripper0_name]->getHalfExtents();
 
         // Retreive the node index to put the gripper on, defaulting to one of the corners if no parameter exists
@@ -973,7 +974,7 @@ void CustomScene::makeClothTwoRobotControlledGrippers()
                     env,
                     auto_gripper1_name,
                     GetGripperApperture(nh_) * METERS,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+                    GRIPPER_COLOR);
         const btVector3 gripper_half_extents = grippers_[auto_gripper1_name]->getHalfExtents();
 
         // Retreive the node index to put the gripper on, defaulting to one of the corners if no parameter exists
@@ -3592,7 +3593,7 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
                     env,
                     gripper_name,
                     gripper->apperture,
-                    btVector4(0.0f, 0.0f, 0.6f, 1.0f));
+                    GRIPPER_COLOR);
         env->add(test_grippers[gripper_name]);
         const auto object_node_indices = gripper->getAttachedNodeIndices();
         assert(object_node_indices.size() == 1);
