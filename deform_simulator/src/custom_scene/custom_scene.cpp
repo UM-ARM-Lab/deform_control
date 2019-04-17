@@ -57,14 +57,13 @@ static const btVector4 GRIPPER_COLOR(0.0f, 0.0f, 0.6f, 1.0f);
 #define CLOTH_TABLE_COVERAGE_COVER_POINT_STEPSIZE                   (0.0125f * METERS)      // meters
 #define CLOTH_SINGLE_POLE_DOUBLE_SLIT_COVER_POINT_STEPSIZE          (0.025f * METERS)       // meters
 
-template<typename T, typename alloc = std::allocator<T>>
-static std::vector<T, alloc> InterpolateVectors(
-        const std::vector<T, alloc>& vec1,
-        const std::vector<T, alloc>& vec2,
+static std::vector<geometry_msgs::Pose> InterpolateVectors(
+        const std::vector<geometry_msgs::Pose>& vec1,
+        const std::vector<geometry_msgs::Pose>& vec2,
         const double ratio)
 {
     assert(vec1.size() == vec2.size());
-    std::vector<T, alloc> result(vec1.size());
+    std::vector<geometry_msgs::Pose> result(vec1.size());
     for (size_t idx = 0; idx < vec1.size(); ++idx)
     {
         result[idx] = EigenHelpersConversions::EigenIsometry3dToGeometryPose(
@@ -72,6 +71,21 @@ static std::vector<T, alloc> InterpolateVectors(
                         EigenHelpersConversions::GeometryPoseToEigenIsometry3d(vec1[idx]),
                         EigenHelpersConversions::GeometryPoseToEigenIsometry3d(vec2[idx]),
                         ratio));
+    }
+    return result;
+}
+
+static std::vector<btTransform> InterpolateVectors(
+        const std::vector<btTransform>& vec1,
+        const std::vector<btTransform>& vec2,
+        const btScalar ratio)
+{
+    assert(vec1.size() == vec2.size());
+    std::vector<btTransform> result(vec1.size());
+    for (size_t idx = 0; idx < vec1.size(); ++idx)
+    {
+        result[idx] = btTransform(vec1[idx].getRotation().slerp(vec2[idx].getRotation(), ratio),
+                                  vec1[idx].getOrigin().lerp(vec2[idx].getOrigin(), ratio));
     }
     return result;
 }
@@ -152,6 +166,9 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , test_grippers_poses_as_(nh_,
                               GetTestRobotMotionTopic(nh_),
                               boost::bind(&CustomScene::testRobotMotionExecuteCallback, this, _1), false)
+    , generate_transition_data_as_(nh_,
+                                   GetGenerateTransitionDataTopic(nh_),
+                                   boost::bind(&CustomScene::generateTransitionDataExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
     , simulation_time_logger_(GetLogFolder(nh_) + "bullet_sim_time.txt")
 {
@@ -236,8 +253,9 @@ void CustomScene::initialize()
 
         base_sim_time_ = simTime;
 
-        // Startup the action server
+        // Startup the action servers
         test_grippers_poses_as_.start();
+        generate_transition_data_as_.start();
     }
 
     ROS_INFO("Simulation ready, starting publishers, subscribers, and services");
@@ -488,6 +506,7 @@ void CustomScene::initializePublishersSubscribersAndServices()
 void CustomScene::shutdownPublishersSubscribersAndServices()
 {
     test_grippers_poses_as_.shutdown();
+    generate_transition_data_as_.shutdown();
     simulator_fbk_pub_.shutdown();
     gripper_names_srv_.shutdown();
     gripper_attached_node_indices_srv_.shutdown();
@@ -2924,12 +2943,26 @@ void CustomScene::createCollisionMapAndSDF()
 // Internal helper functions
 ////////////////////////////////////////////////////////////////////////////////
 
-void CustomScene::SetGripperTransform(
+static void SetGripperTransform(
         const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
         const std::string& name,
         const btTransform& pose_in_bt_coords)
 {
     grippers_map.at(name)->setWorldTransform(pose_in_bt_coords);
+}
+
+static std::vector<btTransform> GetGripperTransforms(
+        const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
+        const std::vector<std::string>& names)
+{
+    std::vector<btTransform> transforms;
+    transforms.reserve(names.size());
+    for (const std::string& gripper_name: names)
+    {
+        const auto gripper = grippers_map.at(gripper_name);
+        transforms.push_back(gripper->getWorldTransform());
+    }
+    return transforms;
 }
 
 btTransform CustomScene::getTransform(
@@ -3253,14 +3286,11 @@ SimForkResult CustomScene::createForkWithNoSimulationDone(
         const std::vector<btTransform>& gripper_poses_in_bt_coords)
 {
     assert(gripper_names.size() == gripper_poses_in_bt_coords.size());
-
     SimForkResult result = createForkWithNoSimulationDone(env, cloth_, rope_, grippers_);
-
     for (size_t gripper_ind = 0; gripper_ind < gripper_names.size(); gripper_ind++)
     {
         SetGripperTransform(result.grippers_, gripper_names[gripper_ind], gripper_poses_in_bt_coords[gripper_ind]);
     }
-
     return result;
 }
 
@@ -3269,12 +3299,10 @@ SimForkResult CustomScene::simulateInNewFork(
         const std::vector<btTransform>& gripper_poses_in_bt_coords)
 {
     SimForkResult result = createForkWithNoSimulationDone(gripper_names, gripper_poses_in_bt_coords);
-
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
         result.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
     }
-
     return result;
 }
 
@@ -3635,7 +3663,6 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
         SetGripperTransform(test_grippers, req.grippers_names[gripper_ind], pose_in_bt_coords);
     }
 
-
     // Let the rope settle at the specified stating position
     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
     {
@@ -3650,7 +3677,7 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
         const double ratio = (req.num_substeps != 1) ? (double)macrostep_idx / (double)(req.num_substeps - 1) : 1.0;
         const auto grippers_target = InterpolateVectors(req.starting_gripper_poses, req.target_gripper_poses, ratio);
 
-        // Move the grippers to the specified target position
+        // Move the grippers to the specified interpolated poses
         for (size_t gripper_idx = 0; gripper_idx < req.grippers_names.size(); gripper_idx++)
         {
             const btTransform pose_in_bt_coords =
@@ -3698,6 +3725,110 @@ void CustomScene::testRobotMotionExecuteCallback(
     }
 
     test_grippers_poses_as_.setSucceeded();
+}
+
+void CustomScene::generateTransitionDataExecuteCallback(
+        const GenerateTransitionDataGoalConstPtr& goal)
+{
+    assert(task_type_ == ROPE_HOOKS_DATA_GENERATION &&
+           "This service only makes sense for this single task");
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+    #pragma omp parallel for
+    for (size_t test_idx = 0; test_idx < goal->tests.size(); test_idx++)
+    {
+        const TransitionTest& test = goal->tests[test_idx];
+        SimForkResult forked_sim = createForkWithNoSimulationDone(env, cloth_, rope_, grippers_);
+        GenerateTransitionDataFeedback fbk;
+        fbk.test_id = test_idx;
+        fbk.test_result.header.frame_id = world_frame_name_;
+        fbk.test_result.header.stamp = ros::Time::now();
+
+        const btTransform input_to_bullet_tf_ = getTransform(test.header.frame_id, bullet_frame_name_);
+
+        // Start the rope at the specified coordinates
+        const auto node_transforms_bt_coords =
+                toBulletTransformVector(input_to_bullet_tf_, test.starting_object_configuration, METERS);
+        if (!ropeNodeTransformsValid(node_transforms_bt_coords))
+        {
+            assert(false && "something wierd here");
+        }
+        forked_sim.rope_->setNodesTransforms(node_transforms_bt_coords);
+
+        // Start the grippers at the specified coordnates
+        for (size_t gripper_idx = 0; gripper_idx < test.gripper_names.size(); gripper_idx++)
+        {
+            const btTransform pose_in_bt_coords =
+                    toBulletTransform(input_to_bullet_tf_, test.starting_gripper_poses[gripper_idx], METERS);
+            SetGripperTransform(forked_sim.grippers_, test.gripper_names[gripper_idx], pose_in_bt_coords);
+        }
+
+        // Follow the path to the start configuration
+        {
+            assert(test.path_to_start_of_test.size() == test.path_num_substeps.size());
+            const auto path_total_microsteps = std::accumulate(test.path_num_substeps.begin(), test.path_num_substeps.end(), test.final_num_substeps);
+            fbk.test_result.microsteps_all.reserve(path_total_microsteps);
+            for (size_t path_idx = 0; path_idx < test.path_to_start_of_test.size(); ++path_idx)
+            {
+                std::vector<btTransform> grippers_interpolate_start_poses_bt_coords =
+                        GetGripperTransforms(forked_sim.grippers_, test.gripper_names);
+                const std::vector<btTransform> path_grippers_target_bt_coords =
+                        toBulletTransformVector(world_to_bullet_tf_, test.path_to_start_of_test[path_idx].poses, METERS);
+                const auto num_substeps = test.path_num_substeps[path_idx];
+
+                // Take a single macrostep for this segment of the path
+                for (ssize_t macrostep_idx = 0; macrostep_idx < num_substeps; ++macrostep_idx)
+                {
+                    // Interpolate along the target gripper movements
+                    const btScalar ratio = (num_substeps != 1) ? (btScalar)macrostep_idx / (btScalar)(num_substeps - 1) : 1.0f;
+                    const auto grippers_interpolated_bt_coords = InterpolateVectors(grippers_interpolate_start_poses_bt_coords, path_grippers_target_bt_coords, ratio);
+
+                    // Move the grippers to the specified interpolated poses
+                    for (size_t gripper_idx = 0; gripper_idx < test.gripper_names.size(); gripper_idx++)
+                    {
+                        SetGripperTransform(forked_sim.grippers_, test.gripper_names[gripper_idx], grippers_interpolated_bt_coords[gripper_idx]);
+                    }
+
+                    // Simulate the rope movement
+                    for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+                    {
+                        forked_sim.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+                        fbk.test_result.microsteps_all.push_back(createSimulatorFbk(forked_sim.rope_, nullptr, forked_sim.grippers_));
+                    }
+                }
+            }
+        }
+
+        // Take the last step
+        {
+            const auto grippers_target_bt_coords = toBulletTransformVector(world_to_bullet_tf_, test.final_gripper_targets, METERS);
+            std::vector<btTransform> grippers_interpolate_start_poses_bt_coords = GetGripperTransforms(forked_sim.grippers_, test.gripper_names);
+            fbk.test_result.microsteps_last_action.reserve(test.final_num_substeps * num_timesteps_to_execute_per_gripper_cmd_);
+            for (ssize_t macrostep_idx = 0; macrostep_idx < test.final_num_substeps; ++macrostep_idx)
+            {
+                // Interpolate along the target gripper movements
+                const btScalar ratio = (test.final_num_substeps != 1) ? (btScalar)macrostep_idx / (btScalar)(test.final_num_substeps - 1) : 1.0f;
+                const auto grippers_interpolated_bt_coords = InterpolateVectors(grippers_interpolate_start_poses_bt_coords, grippers_target_bt_coords, ratio);
+
+                // Move the grippers to the specified interpolated poses
+                for (size_t gripper_idx = 0; gripper_idx < test.gripper_names.size(); gripper_idx++)
+                {
+                    SetGripperTransform(forked_sim.grippers_, test.gripper_names[gripper_idx], grippers_interpolated_bt_coords[gripper_idx]);
+                }
+
+                // Simulate the rope movement
+                for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+                {
+                    step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+                    fbk.test_result.microsteps_all.push_back(createSimulatorFbk(forked_sim.rope_, nullptr, forked_sim.grippers_));
+                    fbk.test_result.microsteps_last_action.push_back(fbk.test_result.microsteps_all.back());
+                }
+            }
+        }
+
+        generate_transition_data_as_.publishFeedback(fbk);
+    }
+    generate_transition_data_as_.setSucceeded();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

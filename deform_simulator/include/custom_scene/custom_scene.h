@@ -162,11 +162,6 @@ class CustomScene : public Scene
         // Internal helper functions
         ////////////////////////////////////////////////////////////////////////
 
-        static void SetGripperTransform(
-                const std::map<std::string, GripperKinematicObject::Ptr>& grippers_map,
-                const std::string& name,
-                const btTransform& pose_in_bt_coords);
-
         btTransform getTransform(const std::string& parent, const std::string& child);
 
     public:
@@ -273,6 +268,9 @@ class CustomScene : public Scene
 
         void testRobotMotionExecuteCallback(
                 const deformable_manipulation_msgs::TestRobotMotionGoalConstPtr& goal);
+
+        void generateTransitionDataExecuteCallback(
+                const deformable_manipulation_msgs::GenerateTransitionDataGoalConstPtr& goal);
 
         ////////////////////////////////////////////////////////////////////
         // Stuff, and things
@@ -423,6 +421,7 @@ class CustomScene : public Scene
         ros::ServiceServer execute_gripper_movement_srv_;
         actionlib::SimpleActionServer<deformable_manipulation_msgs::TestRobotMotionAction> test_grippers_poses_as_;
         ros::ServiceServer test_robot_motion_microsteps_srv_;
+        actionlib::SimpleActionServer<deformable_manipulation_msgs::GenerateTransitionDataAction> generate_transition_data_as_;
 
         ////////////////////////////////////////////////////////////////////////
         // Low-pass filter / quasi static world data structures
