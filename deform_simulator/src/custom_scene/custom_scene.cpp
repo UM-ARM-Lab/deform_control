@@ -3819,7 +3819,7 @@ void CustomScene::generateTransitionDataExecuteCallback(
                 // Simulate the rope movement
                 for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
                 {
-                    step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+                    forked_sim.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
                     fbk.test_result.microsteps_all.push_back(createSimulatorFbk(forked_sim.rope_, nullptr, forked_sim.grippers_));
                     fbk.test_result.microsteps_last_action.push_back(fbk.test_result.microsteps_all.back());
                 }
