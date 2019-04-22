@@ -3733,6 +3733,8 @@ void CustomScene::generateTransitionDataExecuteCallback(
     assert(task_type_ == ROPE_HOOKS_DATA_GENERATION &&
            "This service only makes sense for this single task");
 
+    assert(goal->filenames.size() == 0 || goal->tests.size() == goal->filenames.size());
+
     std::lock_guard<std::mutex> lock(sim_mutex_);
     #pragma omp parallel for
     for (size_t test_idx = 0; test_idx < goal->tests.size(); test_idx++)
@@ -3827,6 +3829,9 @@ void CustomScene::generateTransitionDataExecuteCallback(
         }
 
         generate_transition_data_as_.publishFeedback(fbk);
+        std::vector<uint8_t> buffer;
+        arc_utilities::RosMessageSerializationWrapper(fbk, buffer);
+        ZlibHelpers::CompressAndWriteToFile(buffer, goal->filenames[test_idx].data);
     }
     generate_transition_data_as_.setSucceeded();
 }
