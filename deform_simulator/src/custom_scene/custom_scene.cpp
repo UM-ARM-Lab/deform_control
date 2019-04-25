@@ -3799,6 +3799,7 @@ void CustomScene::generateTransitionDataExecuteCallback(
                     }
                 }
             }
+            fbk.test_result.start_after_following_path = fbk.test_result.microsteps_all.back();
         }
 
         // Take the last step
