@@ -7,6 +7,7 @@
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/Transform.h>
+#include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
 #include <arc_utilities/eigen_helpers_conversions.hpp>
 
@@ -229,7 +230,8 @@ namespace BulletHelpers
         return ros;
     }
 
-    // Vectors do not change length on transformation, only orientation
+    // Vectors do not change length on transformation, only orientation, thus
+    // we only use the basis portion of the transform
     inline geometry_msgs::Vector3 toRosVector3(
             const btTransform& world_to_bullet_tf,
             const btVector3& vec,
@@ -314,6 +316,51 @@ namespace BulletHelpers
             ros[i] = toRosVector3(world_to_bullet_tf, bt[i], bt_scale);
         }
         return ros;
+    }
+
+    inline sensor_msgs::PointCloud2 toPointCloud2(
+            const btTransform& world_to_bullet_tf,
+            const std::vector<btVector3>& bt,
+            const float bt_scale)
+    {
+        sensor_msgs::PointCloud2 output;
+        // Mark the output as being un-ordered (i.e., not comming from a 2D image style sensor)
+        output.width = bt.size();
+        output.height = 1;
+        output.is_bigendian = false;
+        output.is_dense = false;
+
+        // Mark the output as having exactly 3 fields, each field consuming 1 btScalar
+        static_assert(std::is_same<btScalar, float>::value || std::is_same<btScalar, double>::value,
+                      "btScalar is neither a float nor a double, this is very strange");
+        const auto datatype = std::is_same<btScalar, float>::value ?
+                    sensor_msgs::PointField::FLOAT32 : sensor_msgs::PointField::FLOAT64;
+        output.fields.resize(3);
+        output.fields[0].name = "x";
+        output.fields[0].offset = 0;
+        output.fields[0].datatype = datatype;
+        output.fields[0].count = 1;
+        output.fields[1].name = "y";
+        output.fields[1].offset = sizeof(btScalar);
+        output.fields[1].datatype = datatype;
+        output.fields[1].count = 1;
+        output.fields[2].name = "z";
+        output.fields[2].offset = 2 * sizeof(btScalar);;
+        output.fields[2].datatype = datatype;
+        output.fields[2].count = 1;
+
+        output.point_step = 3 * sizeof(btScalar);
+        output.row_step = output.point_step * output.width;
+
+        output.data.resize(bt.size() * output.point_step);
+        for (size_t i = 0; i < bt.size() ; ++i)
+        {
+            const btVector3 world_point = (world_to_bullet_tf * bt[i]) * bt_scale;
+            // Note that this copy is specialized to the particular format of btVector3
+            std::memcpy(&output.data[i * output.point_step], world_point.m_floats, output.point_step);
+        }
+
+        return output;
     }
 
     //// ROS to OSG Conversions ////////////////////////////////////////////////////////////////////////////////////////

@@ -414,7 +414,7 @@ class CustomScene : public Scene
         ros::ServiceServer signed_distance_field_srv_;
         ros::ServiceServer rope_node_transforms_srv_;
 
-        std::vector<geometry_msgs::Point> object_initial_configuration_;
+        sensor_msgs::PointCloud2 object_initial_configuration_;
         ros::ServiceServer object_initial_configuration_srv_;
         ros::ServiceServer object_current_configuration_srv_;
 

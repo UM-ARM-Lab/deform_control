@@ -197,7 +197,7 @@ void CustomScene::initialize()
 
         // Store the initial configuration as it will be needed by other libraries
         // TODO: find a better way to do this that exposes less internals
-        object_initial_configuration_ = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(rope_, cloth_), METERS);
+        object_initial_configuration_ = toPointCloud2(world_to_bullet_tf_, getDeformableObjectNodes(rope_, cloth_), METERS);
 
         ViewerConfig::windowWidth = GetViewerWidth(ph_);
         ViewerConfig::windowHeight = GetViewerHeight(ph_);
@@ -334,10 +334,10 @@ void CustomScene::run()
             std::lock_guard<std::mutex> lock(sim_mutex_);
             step(0);
             sim_fbk = createSimulatorFbk(rope_, cloth_, grippers_);
+            bullet_visualization_markers.markers[deformable_object_marker_ind].points = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(rope_, cloth_), METERS);
         }
 
         simulator_fbk_pub_.publish(sim_fbk);
-        bullet_visualization_markers.markers[deformable_object_marker_ind].points = sim_fbk.object_configuration;
         for (size_t gripper_ind = 0; gripper_ind < sim_fbk.gripper_poses.size(); gripper_ind++)
         {
             bullet_visualization_markers.markers.at(first_gripper_marker_ind + gripper_ind).pose = sim_fbk.gripper_poses[gripper_ind];
@@ -2999,7 +2999,7 @@ dmm::WorldState CustomScene::createSimulatorFbk(
     dmm::WorldState msg;
 
     // fill out the object configuration data
-    msg.object_configuration = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(rope, cloth), METERS);
+    msg.object_configuration = toPointCloud2(world_to_bullet_tf_, getDeformableObjectNodes(rope, cloth), METERS);
     if (rope != nullptr)
     {
         msg.rope_node_transforms = toRosPoseVector(world_to_bullet_tf_, rope->getNodesTransforms(), METERS);
@@ -3420,9 +3420,9 @@ bool CustomScene::getCoverPointsCallback(
         dmm::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(world_to_bullet_tf_, cover_points_, METERS);
-    res.header.frame_id = world_frame_name_;
-    res.header.stamp = ros::Time::now();
+    res.points = toPointCloud2(world_to_bullet_tf_, cover_points_, METERS);
+    res.points.header.frame_id = world_frame_name_;
+    res.points.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -3545,8 +3545,8 @@ bool CustomScene::getObjectInitialConfigurationCallback(
 {
     (void)req;
     res.points = object_initial_configuration_;
-    res.header.frame_id = world_frame_name_;
-    res.header.stamp = ros::Time::now();
+    res.points.header.frame_id = world_frame_name_;
+    res.points.header.stamp = ros::Time::now();
     return true;
 }
 
@@ -3555,9 +3555,9 @@ bool CustomScene::getObjectCurrentConfigurationCallback(
         dmm::GetPointSet::Response& res)
 {
     (void)req;
-    res.points = toRosPointVector(world_to_bullet_tf_, getDeformableObjectNodes(rope_, cloth_), METERS);
-    res.header.frame_id = world_frame_name_;
-    res.header.stamp = ros::Time::now();
+    res.points = toPointCloud2(world_to_bullet_tf_, getDeformableObjectNodes(rope_, cloth_), METERS);
+    res.points.header.frame_id = world_frame_name_;
+    res.points.header.stamp = ros::Time::now();
     return true;
 }
 

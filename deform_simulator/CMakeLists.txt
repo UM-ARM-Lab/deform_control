@@ -24,6 +24,7 @@ set(CATKIN_PACKAGES
     haptics
     bullet_helpers
     sdf_tools
+    sensor_msgs
     tf2_ros
     tf2_geometry_msgs
     deformable_manipulation_msgs
