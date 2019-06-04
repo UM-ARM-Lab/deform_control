@@ -331,10 +331,13 @@ namespace BulletHelpers
         output.is_dense = false;
 
         // Mark the output as having exactly 3 fields, each field consuming 1 btScalar
-        static_assert(std::is_same<btScalar, float>::value || std::is_same<btScalar, double>::value,
-                      "btScalar is neither a float nor a double, this is very strange");
-        const auto datatype = std::is_same<btScalar, float>::value ?
-                    sensor_msgs::PointField::FLOAT32 : sensor_msgs::PointField::FLOAT64;
+        static_assert(sizeof(float) == 4 && sizeof(double) == 8, "Double checking that the system paramters are expected.");
+        constexpr bool is_float32 = std::is_same<btScalar, float>::value;
+        constexpr bool is_float64 = std::is_same<btScalar, double>::value;
+        static_assert(is_float32 || is_float64, "btScalar is neither a float nor a double, this is very strange");
+        constexpr auto datatype = is_float32
+            ? (uint8_t)sensor_msgs::PointField::FLOAT32
+            : (uint8_t)sensor_msgs::PointField::FLOAT64;
         output.fields.resize(3);
         output.fields[0].name = "x";
         output.fields[0].offset = 0;
