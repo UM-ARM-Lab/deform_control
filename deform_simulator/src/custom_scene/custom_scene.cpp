@@ -627,7 +627,8 @@ void CustomScene::makeBulletObjects()
             makeClothTwoRobotControlledGrippers();
             makeTableSurface(false);
             makeCylinder(false);
-            loadCoverPointsFromFile();
+//            loadCoverPointsFromFile();
+            makeGenericRegionCoverPoints();
             break;
 
         case TaskType::CLOTH_PLACEMAT_LINEAR_MOTION:
