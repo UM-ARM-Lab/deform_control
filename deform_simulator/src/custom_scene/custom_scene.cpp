@@ -198,6 +198,8 @@ void CustomScene::initialize()
         // Store the initial configuration as it will be needed by other libraries
         // TODO: find a better way to do this that exposes less internals
         object_initial_configuration_ = toPointCloud2(world_to_bullet_tf_, getDeformableObjectNodes(rope_, cloth_), METERS);
+        object_initial_configuration_.header.frame_id = world_frame_name_;
+        object_initial_configuration_.header.stamp = ros::Time(0);
 
         ViewerConfig::windowWidth = GetViewerWidth(ph_);
         ViewerConfig::windowHeight = GetViewerHeight(ph_);
@@ -327,6 +329,10 @@ void CustomScene::run()
     ROS_INFO("Simulation spinning...");
     sim_running_ = true;
     // Run the simulation - this loop only redraws the scene, actual work is done in service callbacks
+
+    ros::Publisher object_initial_config = nh_.advertise<sensor_msgs::PointCloud2>("object_initial_config", 1, true);
+    object_initial_config.publish(object_initial_configuration_);
+
     while (sim_running_ && ros::ok())
     {
         dmm::WorldState sim_fbk;
@@ -2999,8 +3005,12 @@ dmm::WorldState CustomScene::createSimulatorFbk(
 
     dmm::WorldState msg;
 
+    msg.header.frame_id = world_frame_name_;
+    msg.header.stamp = ros::Time::now();
+
     // fill out the object configuration data
     msg.object_configuration = toPointCloud2(world_to_bullet_tf_, getDeformableObjectNodes(rope, cloth), METERS);
+    msg.object_configuration.header = msg.header;
     if (rope != nullptr)
     {
         msg.rope_node_transforms = toRosPoseVector(world_to_bullet_tf_, rope->getNodesTransforms(), METERS);
@@ -3038,9 +3048,6 @@ dmm::WorldState CustomScene::createSimulatorFbk(
     // TODO: in some cumstances, I think this math is wrong
     // sim time won't be updated yet, when using testMicrosteps service or testRobotMotion action server
     msg.sim_time = (simTime - base_sim_time_) / (double)num_timesteps_to_execute_per_gripper_cmd_;
-
-    msg.header.frame_id = world_frame_name_;
-    msg.header.stamp = ros::Time::now();
 
     return msg;
 }

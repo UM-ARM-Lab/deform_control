@@ -358,7 +358,7 @@ namespace BulletHelpers
         output.data.resize(bt.size() * output.point_step);
         for (size_t i = 0; i < bt.size() ; ++i)
         {
-            const btVector3 world_point = (world_to_bullet_tf * bt[i]) * bt_scale;
+            const btVector3 world_point = (world_to_bullet_tf * bt[i]) / bt_scale;
             // Note that this copy is specialized to the particular format of btVector3
             std::memcpy(&output.data[i * output.point_step], world_point.m_floats, output.point_step);
         }
