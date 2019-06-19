@@ -3785,8 +3785,8 @@ void CustomScene::generateTransitionDataExecuteCallback(
         // Follow the path to the start configuration
         {
             assert(test.path_to_start_of_test.size() == test.path_num_substeps.size());
-            const auto path_total_microsteps = std::accumulate(test.path_num_substeps.begin(), test.path_num_substeps.end(), test.final_num_substeps);
-            fbk.test_result.microsteps_all.reserve(path_total_microsteps);
+            const auto path_total_substeps = std::accumulate(test.path_num_substeps.begin(), test.path_num_substeps.end(), test.final_num_substeps);
+            fbk.test_result.microsteps_all.reserve(path_total_substeps * num_timesteps_to_execute_per_gripper_cmd_);
             for (size_t path_idx = 0; path_idx < test.path_to_start_of_test.size(); ++path_idx)
             {
                 std::vector<btTransform> grippers_interpolate_start_poses_bt_coords =
