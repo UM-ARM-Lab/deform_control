@@ -633,8 +633,8 @@ void CustomScene::makeBulletObjects()
             makeTableSurface(false);
             break;
 
-        case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
-        case TaskType::CLOTH_MFLAG_LIVE_ROBOT:
+        case TaskType::CLOTH_PLACEMAT:
+        case TaskType::CLOTH_MFLAG:
             // Creating the cloth just so that various other parts of the code have valid data to parse.
             // The cloth part of the simulation is not actually used for anything.
             makeCloth();
@@ -2828,8 +2828,8 @@ void CustomScene::createCollisionMapAndSDF()
                     {
                         switch (task_type_)
                         {
-                            case TaskType::CLOTH_PLACEMAT_LIVE_ROBOT:
-                            case TaskType::CLOTH_MFLAG_LIVE_ROBOT:
+                            case TaskType::CLOTH_PLACEMAT:
+                            case TaskType::CLOTH_MFLAG:
                             {
                                 BoxObject::Ptr table = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["table_surface"]);
                                 btTransform table_surface_transform;
