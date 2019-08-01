@@ -91,7 +91,7 @@ namespace BulletHelpers
         const btTransform bullet_tf(rot, trans);
 
         // Sanity check the output
-        if (std::isnan(trans.x()) || trans.y() || trans.z() ||
+        if (std::isnan(trans.x()) || std::isnan(trans.y()) || std::isnan(trans.z()) ||
             !(-100.0f < trans.x() && trans.x() < 100.0f) ||
             !(-100.0f < trans.y() && trans.y() < 100.0f) ||
             !(-100.0f < trans.z() && trans.z() < 100.0f))
@@ -208,7 +208,7 @@ namespace BulletHelpers
             const float bt_scale)
     {
         // Sanity check the input
-        if (std::isnan(point.x()) || point.y() || point.z() ||
+        if (std::isnan(point.x()) || std::isnan(point.y)() || std::isnan(point.z()) ||
             !(-100.0f < point.x() && point.x() < 100.0f) ||
             !(-100.0f < point.y() && point.y() < 100.0f) ||
             !(-100.0f < point.z() && point.z() < 100.0f))
