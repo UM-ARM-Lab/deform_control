@@ -35,6 +35,9 @@
 #include <deformable_manipulation_experiment_params/xyzgrid.h>
 #include <deformable_manipulation_msgs/messages.h>
 
+#define ENABLE_SIMTIME_LOGGING false
+//#define ENABLE_SIMTIME_LOGGING true
+
 struct SimForkResult
 {
     public:
@@ -434,7 +437,9 @@ class CustomScene : public Scene
         // Logging
         ////////////////////////////////////////////////////////////////////////
 
+#if ENABLE_SIMTIME_LOGGING
         Log::Log simulation_time_logger_;
+#endif
 
         ////////////////////////////////////////////////////////////////////////
         // Key Handler for our Custom Scene

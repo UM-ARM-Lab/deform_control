@@ -10,6 +10,7 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
 #include <arc_utilities/eigen_helpers_conversions.hpp>
+#include "bullet_helpers/bullet_pretty_print.hpp"
 
 // NOTE: The notation that I'm using here to denote "world_to_bullet_tf" is such that the following holds:
 // point_in_world_coords = world_to_bullet_tf * point_in_bullet_coords
@@ -90,9 +91,15 @@ namespace BulletHelpers
         const btTransform bullet_tf(rot, trans);
 
         // Sanity check the output
-        assert(-100.0f < bullet_tf.getOrigin().x() && bullet_tf.getOrigin().x() < 100.0f);
-        assert(-100.0f < bullet_tf.getOrigin().y() && bullet_tf.getOrigin().y() < 100.0f);
-        assert(-100.0f < bullet_tf.getOrigin().z() && bullet_tf.getOrigin().z() < 100.0f);
+        if (std::isnan(trans.x()) || trans.y() || trans.z() ||
+            !(-100.0f < trans.x() && trans.x() < 100.0f) ||
+            !(-100.0f < trans.y() && trans.y() < 100.0f) ||
+            !(-100.0f < trans.z() && trans.z() < 100.0f))
+        {
+            throw std::runtime_error(__func__
+                                     + std::string(": input data is outside of any reasonable range: ")
+                                     + PrettyPrint::PrettyPrint(geom_tf));
+        }
 
         return bullet_tf;
     }
@@ -200,9 +207,17 @@ namespace BulletHelpers
             const btVector3& point,
             const float bt_scale)
     {
-        assert(-100.0f < point.x() && point.x() < 100.0f && "Data sanity check failed in bullet_ros_conversions.hpp");
-        assert(-100.0f < point.y() && point.y() < 100.0f && "Data sanity check failed in bullet_ros_conversions.hpp");
-        assert(-100.0f < point.z() && point.z() < 100.0f && "Data sanity check failed in bullet_ros_conversions.hpp");
+        // Sanity check the input
+        if (std::isnan(point.x()) || point.y() || point.z() ||
+            !(-100.0f < point.x() && point.x() < 100.0f) ||
+            !(-100.0f < point.y() && point.y() < 100.0f) ||
+            !(-100.0f < point.z() && point.z() < 100.0f))
+        {
+            throw std::runtime_error(__func__
+                                     + std::string(": input data is outside of any reasonable range: ")
+                                     + PrettyPrint::PrettyPrint(point));
+        }
+
         geometry_msgs::Point ros;
         ros.x = point.x() / bt_scale;
         ros.y = point.y() / bt_scale;
