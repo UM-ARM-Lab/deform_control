@@ -208,7 +208,7 @@ namespace BulletHelpers
             const float bt_scale)
     {
         // Sanity check the input
-        if (std::isnan(point.x()) || std::isnan(point.y)() || std::isnan(point.z()) ||
+        if (std::isnan(point.x()) || std::isnan(point.y()) || std::isnan(point.z()) ||
             !(-100.0f < point.x() && point.x() < 100.0f) ||
             !(-100.0f < point.y() && point.y() < 100.0f) ||
             !(-100.0f < point.z() && point.z() < 100.0f))
