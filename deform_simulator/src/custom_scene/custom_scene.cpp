@@ -2488,57 +2488,55 @@ void CustomScene::makeRopeHooksObstacles()
         world_obstacles_["hook"] = obstacle;
     }
 
-    // Ensure that the gripper must pass on the left (positive y) of the hook
+    // Ensure that one of the the grippers must pass on the left (positive y) of the hook
     {
         const btScalar hook_left_face_pos = hook_com_y + hook_radius;
-        const btScalar gripper_separator_left_face_pos = gripper_separator_y_com + gripper_separator_width / 2.0f;
+        const btScalar gripper_separator_left_face_pos = gripper_separator_y_com + gripper_separator_width / 2.0f + 1.2f * METERS;
         assert(hook_left_face_pos > gripper_separator_left_face_pos);
 
-        const btVector3 obstacle_half_extents(
-                    task_progress_wall_width / 2.0f,
-                    (hook_left_face_pos - gripper_separator_left_face_pos) / 2.0f,
-                    gripper_separator_lower_height / 2.0f);
+        {
+            const btVector3 obstacle_half_extents(
+                        task_progress_wall_width / 2.0f,
+                        (hook_left_face_pos - gripper_separator_left_face_pos) / 2.0f,
+                        gripper_separator_lower_height / 2.0f);
 
-        const btVector3 obstacle_com(
-                    task_progress_wall_x_com,
-                    (hook_left_face_pos + gripper_separator_left_face_pos) / 2.0f,
-                    world_min.z() + obstacle_half_extents.z());
+            const btVector3 obstacle_com(
+                        task_progress_wall_x_com,
+                        (hook_left_face_pos + gripper_separator_left_face_pos) / 2.0f,
+                        world_min.z() + obstacle_half_extents.z());
 
-        // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
-                    0, obstacle_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
+            // create a box
+            BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                        0, obstacle_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+            obstacle->setColor(obstacles_color);
 
-        // add the box to the world
-        env->add(obstacle);
-        world_obstacles_["hook_gripper_blocker_lower"] = obstacle;
-    }
-    {
-        const btScalar hook_left_face_pos = hook_com_y + hook_radius;
-        const btScalar gripper_separator_left_face_pos = gripper_separator_y_com + gripper_separator_width / 2.0f;
-        assert(hook_left_face_pos > gripper_separator_left_face_pos);
+            // add the box to the world
+            env->add(obstacle);
+            world_obstacles_["hook_gripper_blocker_lower"] = obstacle;
+        }
+        {
+            const btVector3 obstacle_half_extents(
+                        task_progress_wall_width / 2.0f,
+                        (hook_left_face_pos - gripper_separator_left_face_pos) / 2.0f,
+                        gripper_separator_upper_height / 2.0f);
 
-        const btVector3 obstacle_half_extents(
-                    task_progress_wall_width / 2.0f,
-                    (hook_left_face_pos - gripper_separator_left_face_pos) / 2.0f,
-                    gripper_separator_upper_height / 2.0f);
+            const btVector3 obstacle_com(
+                        task_progress_wall_x_com,
+                        (hook_left_face_pos + gripper_separator_left_face_pos) / 2.0f,
+                        world_max.z() - obstacle_half_extents.z());
 
-        const btVector3 obstacle_com(
-                    task_progress_wall_x_com,
-                    (hook_left_face_pos + gripper_separator_left_face_pos) / 2.0f,
-                    world_max.z() - obstacle_half_extents.z());
+            // create a box
+            BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                        0, obstacle_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+            obstacle->setColor(obstacles_color);
+    //        obstacle->setColor(btVector4(0, 0, 0, 0));
 
-        // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
-                    0, obstacle_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
-//        obstacle->setColor(btVector4(0, 0, 0, 0));
-
-        // add the box to the world
-        env->add(obstacle);
-        world_obstacles_["hook_gripper_blocker_upper"] = obstacle;
+            // add the box to the world
+            env->add(obstacle);
+            world_obstacles_["hook_gripper_blocker_upper"] = obstacle;
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -3630,7 +3628,7 @@ bool CustomScene::executeRobotMotionCallback(
         dmm::ExecuteRobotMotion::Response& res)
 {
     assert(req.grippers_names.size() == req.gripper_poses.size());
-    ROS_INFO("Executing gripper command");
+    ROS_DEBUG("Executing gripper command");
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
 
@@ -3802,13 +3800,15 @@ void CustomScene::generateTransitionDataExecuteCallback(
         const btTransform input_to_bullet_tf_ = getTransform(test.header.frame_id, bullet_frame_name_);
 
         // Start the rope at the specified coordinates
-        const auto node_transforms_bt_coords =
-                toBulletTransformVector(input_to_bullet_tf_, test.starting_object_configuration, METERS);
-        if (!ropeNodeTransformsValid(node_transforms_bt_coords))
-        {
-            assert(false && "something wierd here");
-        }
-        forked_sim.rope_->setNodesTransforms(node_transforms_bt_coords);
+        #warning "Disabled rope node input here"
+        ROS_WARN_NAMED("datagen", "Disabled rope node input");
+//        const auto node_transforms_bt_coords =
+//                toBulletTransformVector(input_to_bullet_tf_, test.starting_object_configuration, METERS);
+//        if (!ropeNodeTransformsValid(node_transforms_bt_coords))
+//        {
+//            assert(false && "something wierd here");
+//        }
+//        forked_sim.rope_->setNodesTransforms(node_transforms_bt_coords);
 
         // Start the grippers at the specified coordnates
         for (size_t gripper_idx = 0; gripper_idx < test.gripper_names.size(); gripper_idx++)
