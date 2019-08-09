@@ -2491,7 +2491,7 @@ void CustomScene::makeRopeHooksObstacles()
     // Ensure that one of the the grippers must pass on the left (positive y) of the hook
     {
         const btScalar hook_left_face_pos = hook_com_y + hook_radius;
-        const btScalar gripper_separator_left_face_pos = gripper_separator_y_com + gripper_separator_width / 2.0f + 1.2f * METERS;
+        const btScalar gripper_separator_left_face_pos = gripper_separator_y_com + gripper_separator_width / 2.0f;
         assert(hook_left_face_pos > gripper_separator_left_face_pos);
 
         {
