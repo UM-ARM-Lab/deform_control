@@ -855,7 +855,7 @@ void CustomScene::makeClothLines()
 {
     strain_lines_ = boost::make_shared<PlotLines>(0.05f * METERS);
     max_strain_ = GetMaxStrain(ph_);
-    
+
     addPreStepCallback(boost::bind(&CustomScene::updateClothLinesCallback, this));
     env->add(strain_lines_);
 }
@@ -884,14 +884,14 @@ void CustomScene::updateClothLinesCallback()
         btVector4 color(1.0f, 0.0f, 0.0f, alpha);
         cloth_strain_color.push_back(color);
     }
-    
+
     strain_lines_->setPoints(cloth_lines_endpoints, cloth_strain_color);
 }
 
 void CustomScene::makeGripperForceLines()
 {
     gripper_force_lines_ = boost::make_shared<PlotLines>(0.2f * METERS);
-    
+
     addPreStepCallback(boost::bind(&CustomScene::updateGripperForceLinesCallback, this));
     env->add(gripper_force_lines_);
 }
@@ -899,7 +899,7 @@ void CustomScene::makeGripperForceLines()
 void CustomScene::updateGripperForceLinesCallback(){
     std::vector<btVector3> force_lines_endpoints;
     force_lines_endpoints.reserve(auto_grippers_.size()*2);
-    
+
     for (const std::string &gripper_name: auto_grippers_)
     {
         const GripperKinematicObject::Ptr gripper = grippers_.at(gripper_name);
@@ -1981,7 +1981,7 @@ void CustomScene::makeRopeMazeObstacles()
         // add the wall to the world
         env->add(wall);
         world_obstacles_["second_floor_obstacle1"] = wall;
-    }    
+    }
     {
         const btVector3 wall_half_extents = btVector3(0.6f * METERS, wall_thickness, internal_wall_height) / 2.0f;
         const btVector3 wall_com = second_floor_center + btVector3(-0.5f * METERS, -0.1f * METERS, 0.0f);
@@ -2166,7 +2166,7 @@ void CustomScene::makeRopeZigMatchObstacles()
     const float second_floor_alpha = GetSecondFloorAlpha(ph_);
     const btVector4 second_floor_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, second_floor_alpha);      // teal
 
-    // Make the goal region    
+    // Make the goal region
     {
         const btVector3 wall_half_extents = btVector3(0.2f * METERS, 0.2f * METERS, internal_wall_height) / 2.0f;
         const btVector3 wall_com = second_floor_center + btVector3(0.9f * METERS, 0.65f * METERS, 0.0f * METERS);
@@ -2809,6 +2809,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 void CustomScene::createCollisionMapAndSDF()
 {
     const std::string collision_map_file_location = GetCollisionMapStorageLocation(nh_);
+    arc_utilities::CreateDirectory(boost::filesystem::path(collision_map_file_location).parent_path());
 
     // First check if there are saved results we can use
     try
