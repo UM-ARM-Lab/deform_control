@@ -3018,8 +3018,17 @@ void CustomScene::createCollisionMapAndSDF()
 
         ROS_INFO("Generating SDF");
         stopwatch(arc_utilities::RESET);
-        std::vector<uint32_t> obstacle_ids_to_use(ObjectIds::LAST_ID);
+
+        // This work allows us to use either the old code which uses ObjectIds, or new code which uses dynamic ids from a launch file
+        using PairType = std::pair<std::string, uint32_t>;
+        const auto less_operator = [] (const PairType& p1, const PairType& p2)
+        {
+            return p1.second < p2.second;
+        };
+        const auto largest_dynamic_id = std::max_element(obstacle_name_to_ids_.begin(), obstacle_name_to_ids_.end(), less_operator)->second;
+        std::vector<uint32_t> obstacle_ids_to_use(std::max(static_cast<uint32_t>(ObjectIds::LAST_ID), largest_dynamic_id + 1));
         std::iota(obstacle_ids_to_use.begin(), obstacle_ids_to_use.end(), 1);
+
         // We're setting a negative value here to indicate that we are in collision outisde of the explicit region of the SDF;
         // this is so that when we queury the SDF, we get that out of bounds is "in collision" or "not allowed"
         sdf_for_export_ = collision_map_for_export_ .ExtractSignedDistanceField(-BT_LARGE_FLOAT, obstacle_ids_to_use, false, false).first;
