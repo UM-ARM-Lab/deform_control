@@ -233,7 +233,7 @@ void CustomScene::initialize()
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph and collision map while the object settles
-        const bool draw_free_space_graph_corners = drawingOn && true;
+        const bool draw_free_space_graph_corners = drawingOn && false;
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
 
@@ -684,6 +684,7 @@ void CustomScene::makeBulletObjects()
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeGenericObstacles();
+            makeRopeTransformCoverPoints();
             break;
 
         case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
@@ -691,6 +692,7 @@ void CustomScene::makeBulletObjects()
             makeCloth();
             makeClothTwoRobotControlledGrippers();
             makeGenericObstacles();
+            makeGenericRegionCoverPoints();
             break;
 
         default:
@@ -2606,7 +2608,12 @@ void CustomScene::makeGenericObstacles()
     for (const auto& name : obstacle_list)
     {
         const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
-        const auto com = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+        const auto com = [&]
+        {
+            btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+            bt.getOrigin() *= METERS;
+            return bt;
+        }();
         const auto half_extents = toBtVector3(GetVector3FromParamServer(nh_, name + "/extents")) * METERS / 2.0f;
         const auto color = [&]
         {
@@ -2621,9 +2628,13 @@ void CustomScene::makeGenericObstacles()
             }
         }();
 
+        ROS_INFO_STREAM("Creating a box for object id " << obstacle_id << " with name " << name);
+        ROS_INFO_STREAM("Pose:         " << PrettyPrint::PrettyPrint(com.getOrigin() / METERS, true, "\n")
+                                 << "  " << PrettyPrint::PrettyPrint(com.getRotation(), true, "\n"));
+        ROS_INFO_STREAM("Half extents: " << PrettyPrint::PrettyPrint(half_extents / METERS, true, "\n"));
+
         // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
-                    0, half_extents, com);
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(0, half_extents, com);
         obstacle->setColor(color.r, color.g, color.b, color.a);
 
         // add the box to the world
@@ -2675,6 +2686,34 @@ void CustomScene::makeGenericRegionCoverPoints()
     ROS_INFO_STREAM("Num cover points: " << cover_points_.size());
 }
 
+void CustomScene::makeRopeTransformCoverPoints()
+{
+    const auto transform = [&]
+    {
+        btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, "cover_points_transform", true));
+        bt.getOrigin() *= METERS;
+        return bt;
+    }();
+    ROS_INFO_STREAM("Creating cover points from rope starting configuration with transform\n"
+                    << PrettyPrint::PrettyPrint(transform.getOrigin() / METERS, true, "\n") << "  "
+                    << PrettyPrint::PrettyPrint(transform.getRotation(), true, "\n"));
+
+    const std::vector<btVector3> rope_nodes = rope_->getNodes();
+    for (size_t cover_idx = 0; cover_idx < rope_nodes.size(); ++cover_idx)
+    {
+        const btVector3 target_point = transform * rope_nodes[cover_idx];
+        cover_points_.push_back(target_point);
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
+
+    // Visualize the cover points
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
+}
+
 void CustomScene::loadCoverPointsFromFile()
 {
     // Load the parameters for which file to read from
@@ -2722,14 +2761,12 @@ void CustomScene::createEdgesToNeighbours(
         const int64_t y_starting_ind,
         const int64_t z_starting_ind)
 {
+    static SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() * 0.01, btTransform(), true);
+
     const int64_t starting_ind = work_space_grid_.xyzIndexToGridIndex(x_starting_ind, y_starting_ind, z_starting_ind);
     assert(starting_ind >= 0);
     const Eigen::Vector3d starting_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_starting_ind, y_starting_ind, z_starting_ind);
     const btVector3 starting_pos((btScalar)starting_pos_eigen.x(), (btScalar)starting_pos_eigen.y(), (btScalar)starting_pos_eigen.z());
-
-    // Note that the constructor for btTransform() does not initialize anything, but we set the value in the very next line
-    SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() * 0.01, btTransform(), true);
-    test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), starting_pos));
 
     // Note that these are in [min, max) form - i.e. exclude the max
     const int64_t x_min_ind = std::max(0L, x_starting_ind - 1);
@@ -2756,10 +2793,10 @@ void CustomScene::createEdgesToNeighbours(
                     #warning "This check needs to be addressed to allow for errors in perception"
                     if (collisionHelper(test_sphere).first.m_distance >= 0.0)
                     {
-                        const btScalar dist = (test_pos - starting_pos).length();
-
                         const int64_t loop_ind = work_space_grid_.xyzIndexToGridIndex(x_loop_ind, y_loop_ind, z_loop_ind);
+                        const btScalar dist = (test_pos - starting_pos).length();
                         assert(loop_ind >= 0);
+
                         free_space_graph_.AddEdgeBetweenNodes(starting_ind, loop_ind, dist);
                         num_graph_edges_ += 1;
                     }
@@ -2772,6 +2809,7 @@ void CustomScene::createEdgesToNeighbours(
 // Note that this function adds edges that move out of collision, to help deal with penetration inaccuracies in Bullet
 void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
 {
+    arc_utilities::Stopwatch stopwatch;
     ROS_INFO("Creating free space graph and SDF for export");
     if (draw_graph_corners)
     {
@@ -2874,7 +2912,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     }
 
     assert(free_space_graph_.CheckGraphLinkage());
-    ROS_INFO("Free space graph generated.");
+    ROS_INFO_STREAM("Finished free space graph generation in " << stopwatch(arc_utilities::READ) << " seconds");
 }
 
 void CustomScene::createCollisionMapAndSDF()
@@ -2908,19 +2946,20 @@ void CustomScene::createCollisionMapAndSDF()
         ROS_WARN_STREAM("No valid collision map found: " << e.what());
         ROS_INFO("Generating collision map");
 
-        SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() / sdf_resolution_scale_ * 0.01, btTransform(), true);
-
         // Itterate through the collision map, checking for collision
+        #pragma omp parallel for
         for (int64_t x_ind = 0; x_ind < collision_map_for_export_.GetNumXCells(); x_ind++)
         {
+            SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, work_space_grid_.minStepDimension() / sdf_resolution_scale_ * 0.01, btTransform(), true);
             for (int64_t y_ind = 0; y_ind < collision_map_for_export_.GetNumYCells(); y_ind++)
             {
                 for (int64_t z_ind = 0; z_ind < collision_map_for_export_.GetNumZCells(); z_ind++)
                 {
                     const Eigen::Vector4d pos = collision_map_for_export_.GridIndexToLocation(x_ind, y_ind, z_ind);
-
                     const btVector3 point = btVector3((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z())) * METERS;
+
                     test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), point));
+
                     const auto collision_result = collisionHelper(test_sphere);
                     const bool freespace = (collision_result.first.m_distance >= 0.0);
                     if (freespace)
@@ -2995,12 +3034,14 @@ void CustomScene::createCollisionMapAndSDF()
         try
         {
             ROS_INFO_STREAM("Serializing CollisionMap, SDF, and RViz Marker and saving to file");
+            stopwatch(arc_utilities::RESET);
             std::vector<uint8_t> buffer;
             const auto map_bytes_written = collision_map_for_export_.SerializeSelf(buffer, nullptr);
             const auto sdf_bytes_written = sdf_for_export_.SerializeSelf(buffer);
             const auto message_array_bytes_written = arc_utilities::RosMessageSerializationWrapper(collision_map_marker_array_for_export_, buffer);
             assert(buffer.size() == map_bytes_written + sdf_bytes_written + message_array_bytes_written);
             ZlibHelpers::CompressAndWriteToFile(buffer, collision_map_file_location);
+            ROS_INFO_STREAM("Finished saving to file in " << stopwatch(arc_utilities::READ) << " seconds");
         }
         catch (const std::exception& e)
         {
@@ -3199,8 +3240,6 @@ std::pair<btPointCollector, uint32_t> CustomScene::collisionHelper(const SphereO
     for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
     {
         BulletObject::Ptr obj = ittr->second;
-
-        // TODO: how much (if any) of this should be static/class members?
         btGjkEpaPenetrationDepthSolver epaSolver;
         btVoronoiSimplexSolver sGjkSimplexSolver;
         btPointCollector gjkOutput;

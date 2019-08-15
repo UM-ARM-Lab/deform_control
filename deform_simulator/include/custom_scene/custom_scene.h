@@ -153,6 +153,7 @@ class CustomScene : public Scene
         void makeGenericObstacles();
 
         void makeGenericRegionCoverPoints();
+        void makeRopeTransformCoverPoints();
         void loadCoverPointsFromFile();
 
         void createEdgesToNeighbours(
