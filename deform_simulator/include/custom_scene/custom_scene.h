@@ -150,6 +150,7 @@ class CustomScene : public Scene
         void makeRopeZigMatchObstacles();
         void makeRopeHooksObstacles();
         void makeClothHooksObstacles();
+        void makeGenericObstacles();
 
         void makeGenericRegionCoverPoints();
         void loadCoverPointsFromFile();
@@ -186,7 +187,8 @@ class CustomScene : public Scene
 
         // Note that these really should be ConstPtr, but far too much work to make that happen cleanly
         btPointCollector collisionHelper(const GripperKinematicObject::Ptr& gripper) const;
-        btPointCollector collisionHelper(const SphereObject::Ptr& sphere) const;
+        // Returns the collisoin result, and the object id for the object_color_map_
+        std::pair<btPointCollector, uint32_t> collisionHelper(const SphereObject::Ptr& sphere) const;
         bool ropeNodeTransformsValid(const std::vector<btTransform>& nodes) const;
 
         ////////////////////////////////////////////////////////////////////////////////
@@ -331,6 +333,7 @@ class CustomScene : public Scene
         ////////////////////////////////////////////////////////////////////////
 
         std::unordered_map<std::string, BulletObject::Ptr> world_obstacles_;
+        std::unordered_map<std::string, uint32_t> obstacle_name_to_ids_;
 
         ////////////////////////////////////////////////////////////////////////
         // Rope world objects

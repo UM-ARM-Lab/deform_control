@@ -26,6 +26,7 @@
 
 #include <bullet_helpers/bullet_internal_conversions.hpp>
 #include <bullet_helpers/bullet_ros_conversions.hpp>
+#include <bullet_helpers/bullet_eigen_conversions.hpp>
 #include <bullet_helpers/bullet_math_helpers.hpp>
 #include <bullet_helpers/bullet_pretty_print.hpp>
 #include <bullet_helpers/bullet_cloth_helpers.hpp>
@@ -232,7 +233,7 @@ void CustomScene::initialize()
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
 
         // Create a thread to create the free space graph and collision map while the object settles
-        const bool draw_free_space_graph_corners = drawingOn && false;
+        const bool draw_free_space_graph_corners = drawingOn && true;
         auto free_space_graph_future = std::async(std::launch::async, &CustomScene::createFreeSpaceGraph, this, draw_free_space_graph_corners);
         auto collision_map_future = std::async(std::launch::async, &CustomScene::createCollisionMapAndSDF, this);
 
@@ -676,6 +677,20 @@ void CustomScene::makeBulletObjects()
             makeCloth();
             makeClothTwoRobotControlledGrippers();
             makeClothHooksObstacles();
+            break;
+
+        case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
+        case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeGenericObstacles();
+            break;
+
+        case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
+        case TaskType::CLOTH_GENERIC_FIXED_COVERAGE:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeGenericObstacles();
             break;
 
         default:
@@ -2291,7 +2306,9 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the wall to the world
         env->add(floor);
-        world_obstacles_["floor"] = floor;
+        const std::string name = "floor";
+        world_obstacles_[name] = floor;
+        obstacle_name_to_ids_[name] = GENERIC_OBSTACLE;
     }
 
     // Make the ceiling to ensure that the free space graph doesn't go down through the floor due to rounding
@@ -2306,7 +2323,9 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the wall to the world
         env->add(ceiling);
-        world_obstacles_["ceiling"] = ceiling;
+        const std::string name = "ceiling";
+        world_obstacles_[name] = ceiling;
+        obstacle_name_to_ids_[name] = GENERIC_OBSTACLE;
     }
 
     // Make the initial obstacle to go around
@@ -2329,7 +2348,9 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the cylinder to the world
         env->add(obstacle);
-        world_obstacles_["initial_obstacle"] = obstacle;
+        const std::string name = "initial_obstacle";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = INITIAL_OBSTACLE;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -2366,7 +2387,9 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["task_progress_wall_lower"] = obstacle;
+        const std::string name = "task_progress_wall_lower";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = LOWER_OBSTACLES;
     }
     // Vertical wall blocking upper portion of arena - between the start and the goal
     {
@@ -2390,7 +2413,9 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["task_progress_wall_upper"] = obstacle;
+        const std::string name = "task_progress_wall_upper";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = UPPER_OBSTACLES;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -2428,7 +2453,9 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["gripper_separator_lower"] = obstacle;
+        const std::string name = "gripper_separator_lower";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = LOWER_OBSTACLES;
     }
     // Vertical wall blocking upper portion of arena - between the grippers
     {
@@ -2448,11 +2475,12 @@ void CustomScene::makeRopeHooksObstacles()
                     0, obstacle_half_extents,
                     btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
         obstacle->setColor(obstacles_color);
-//        obstacle->setColor(btVector4(0, 0, 0, 0));
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["gripper_separator_upper"] = obstacle;
+        const std::string name = "gripper_separator_upper";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = UPPER_OBSTACLES;
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -2485,7 +2513,9 @@ void CustomScene::makeRopeHooksObstacles()
 
         // add the box to the world
         env->add(obstacle);
-        world_obstacles_["hook"] = obstacle;
+        const std::string name = "hook";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = HOOK;
     }
 
     // Ensure that one of the the grippers must pass on the left (positive y) of the hook
@@ -2513,7 +2543,9 @@ void CustomScene::makeRopeHooksObstacles()
 
             // add the box to the world
             env->add(obstacle);
-            world_obstacles_["hook_gripper_blocker_lower"] = obstacle;
+            const std::string name = "hook_gripper_blocker_lower";
+            world_obstacles_[name] = obstacle;
+            obstacle_name_to_ids_[name] = LOWER_OBSTACLES;
         }
         {
             const btVector3 obstacle_half_extents(
@@ -2531,11 +2563,12 @@ void CustomScene::makeRopeHooksObstacles()
                         0, obstacle_half_extents,
                         btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
             obstacle->setColor(obstacles_color);
-    //        obstacle->setColor(btVector4(0, 0, 0, 0));
 
             // add the box to the world
             env->add(obstacle);
-            world_obstacles_["hook_gripper_blocker_upper"] = obstacle;
+            const std::string name = "hook_gripper_blocker_upper";
+            world_obstacles_[name] = obstacle;
+            obstacle_name_to_ids_[name] = UPPER_OBSTACLES;
         }
     }
 
@@ -2562,6 +2595,43 @@ void CustomScene::makeRopeHooksObstacles()
 void CustomScene::makeClothHooksObstacles()
 {
     assert(false && "makeClothHooksObstacles not implemented!");
+}
+
+void CustomScene::makeGenericObstacles()
+{
+    const std_msgs::ColorRGBA default_color = object_color_map_.at(GENERIC_OBSTACLE);
+    const auto obstacle_list = ROSHelpers::GetVectorRequired<std::string>(nh_, "obstacle_list", __func__).GetImmutable();
+
+    // Assumes everything is a box
+    for (const auto& name : obstacle_list)
+    {
+        const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+        const auto com = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+        const auto half_extents = toBtVector3(GetVector3FromParamServer(nh_, name + "/extents")) * METERS / 2.0f;
+        const auto color = [&]
+        {
+            try
+            {
+                return GetColorFromParamSever(nh_, name + "/color");
+
+            }
+            catch (const std::invalid_argument& /* ex */)
+            {
+                return default_color;
+            }
+        }();
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, half_extents, com);
+        obstacle->setColor(color.r, color.g, color.b, color.a);
+
+        // add the box to the world
+        env->add(obstacle);
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = obstacle_id;
+        object_color_map_[obstacle_id] = color;
+    }
 }
 
 
@@ -2684,7 +2754,7 @@ void CustomScene::createEdgesToNeighbours(
 
                     // If we are not in collision already, then check for neighbours
                     #warning "This check needs to be addressed to allow for errors in perception"
-                    if (collisionHelper(test_sphere).m_distance >= 0.0)
+                    if (collisionHelper(test_sphere).first.m_distance >= 0.0)
                     {
                         const btScalar dist = (test_pos - starting_pos).length();
 
@@ -2783,7 +2853,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         {
             // Find the direction to move
             test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), nearest_node_point));
-            btPointCollector collision_result = collisionHelper(test_sphere);
+            btPointCollector collision_result = collisionHelper(test_sphere).first;
 
             // Move a step out of collision
             nearest_node_point = nearest_node_point + collision_result.m_normalOnBInWorld * (btScalar)step_size;
@@ -2804,6 +2874,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
     }
 
     assert(free_space_graph_.CheckGraphLinkage());
+    ROS_INFO("Free space graph generated.");
 }
 
 void CustomScene::createCollisionMapAndSDF()
@@ -2850,7 +2921,8 @@ void CustomScene::createCollisionMapAndSDF()
 
                     const btVector3 point = btVector3((btScalar)(pos.x()), (btScalar)(pos.y()), (btScalar)(pos.z())) * METERS;
                     test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), point));
-                    const bool freespace = (collisionHelper(test_sphere).m_distance >= 0.0);
+                    const auto collision_result = collisionHelper(test_sphere);
+                    const bool freespace = (collision_result.first.m_distance >= 0.0);
                     if (freespace)
                     {
                         collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(0.0, FREESPACE));
@@ -2880,61 +2952,12 @@ void CustomScene::createCollisionMapAndSDF()
 
                             case TaskType::ROPE_HOOKS:
                             case TaskType::ROPE_HOOKS_DATA_GENERATION:
-                            {
-                                BoxObject::Ptr hook                       = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["hook"]);
-                                btTransform hook_com;                       hook->motionState->getWorldTransform(hook_com);
-                                BoxObject::Ptr initial_obstacle           = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["initial_obstacle"]);
-                                btTransform initial_obstacle_com;           initial_obstacle->motionState->getWorldTransform(initial_obstacle_com);
-                                BoxObject::Ptr task_progress_wall_lower   = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["task_progress_wall_lower"]);
-                                btTransform task_progress_wall_lower_com;   task_progress_wall_lower->motionState->getWorldTransform(task_progress_wall_lower_com);
-                                BoxObject::Ptr task_progress_wall_upper   = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["task_progress_wall_upper"]);
-                                btTransform task_progress_wall_upper_com;   task_progress_wall_upper->motionState->getWorldTransform(task_progress_wall_upper_com);
-                                BoxObject::Ptr gripper_separator_lower    = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["gripper_separator_lower"]);
-                                btTransform gripper_separator_lower_com;    gripper_separator_lower->motionState->getWorldTransform(gripper_separator_lower_com);
-                                BoxObject::Ptr gripper_separator_upper    = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["gripper_separator_upper"]);
-                                btTransform gripper_separator_upper_com;    gripper_separator_upper->motionState->getWorldTransform(gripper_separator_upper_com);
-                                BoxObject::Ptr hook_gripper_blocker_lower = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["hook_gripper_blocker_lower"]);
-                                btTransform hook_gripper_blocker_lower_com; hook_gripper_blocker_lower->motionState->getWorldTransform(hook_gripper_blocker_lower_com);
-                                BoxObject::Ptr hook_gripper_blocker_upper = boost::polymorphic_pointer_cast<BoxObject>(world_obstacles_["hook_gripper_blocker_upper"]);
-                                btTransform hook_gripper_blocker_upper_com; hook_gripper_blocker_upper->motionState->getWorldTransform(hook_gripper_blocker_upper_com);
-
-                                if (IsPointInsideOABB(hook_com, hook->halfExtents, point))
-                                {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, HOOK));
-                                }
-                                else if (IsPointInsideOABB(initial_obstacle_com, initial_obstacle->halfExtents, point))
-                                {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, INITIAL_OBSTACLE));
-                                }
-                                else if (IsPointInsideOABB(task_progress_wall_lower_com, task_progress_wall_lower->halfExtents, point)
-                                         || IsPointInsideOABB(gripper_separator_lower_com, gripper_separator_lower->halfExtents, point)
-                                         || IsPointInsideOABB(hook_gripper_blocker_lower_com, hook_gripper_blocker_lower->halfExtents, point))
-                                {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, LOWER_OBSTACLES));
-                                }
-                                else if (IsPointInsideOABB(task_progress_wall_upper_com, task_progress_wall_upper->halfExtents, point)
-                                         || IsPointInsideOABB(gripper_separator_upper_com, gripper_separator_upper->halfExtents, point)
-                                         || IsPointInsideOABB(hook_gripper_blocker_upper_com, hook_gripper_blocker_upper->halfExtents, point))
-                                {
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, UPPER_OBSTACLES));
-                                }
-                                else
-                                {
-                                    std::cout << "Point:        " << PrettyPrint::PrettyPrint(point, true, " ") << std::endl;
-                                    std::cout << "Hook:         " << PrettyPrint::PrettyPrint(hook_com, true, " ")                          << "    " << PrettyPrint::PrettyPrint(hook->halfExtents, true, " ") << std::endl;
-                                    std::cout << "Initial obs:  " << PrettyPrint::PrettyPrint(initial_obstacle_com, true, " ")              << "    " << PrettyPrint::PrettyPrint(initial_obstacle->halfExtents, true, " ") << std::endl;
-                                    std::cout << "progress dow: " << PrettyPrint::PrettyPrint(task_progress_wall_lower_com, true, " ")      << "    " << PrettyPrint::PrettyPrint(task_progress_wall_lower->halfExtents, true, " ") << std::endl;
-                                    std::cout << "progress up:  " << PrettyPrint::PrettyPrint(task_progress_wall_upper_com, true, " ")      << "    " << PrettyPrint::PrettyPrint(task_progress_wall_upper->halfExtents, true, " ") << std::endl;
-                                    std::cout << "seperate dow: " << PrettyPrint::PrettyPrint(gripper_separator_lower_com, true, " ")       << "    " << PrettyPrint::PrettyPrint(gripper_separator_lower->halfExtents, true, " ") << std::endl;
-                                    std::cout << "seperate up:  " << PrettyPrint::PrettyPrint(gripper_separator_upper_com, true, " ")       << "    " << PrettyPrint::PrettyPrint(gripper_separator_upper->halfExtents, true, " ") << std::endl;
-                                    std::cout << "g block dow:  " << PrettyPrint::PrettyPrint(hook_gripper_blocker_lower_com, true, " ")    << "    " << PrettyPrint::PrettyPrint(hook_gripper_blocker_lower->halfExtents, true, " ") << std::endl;
-                                    std::cout << "g block up:   " << PrettyPrint::PrettyPrint(hook_gripper_blocker_upper_com, true, " ")    << "    " << PrettyPrint::PrettyPrint(hook_gripper_blocker_upper->halfExtents, true, " ") << std::endl;
-
-                                    assert(false);
-                                    collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
-                                }
+                            case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
+                            case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
+                            case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
+                            case TaskType::CLOTH_GENERIC_FIXED_COVERAGE:
+                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, collision_result.second));
                                 break;
-                            }
 
                             default:
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
@@ -3165,11 +3188,12 @@ btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr&
  * @param sphere
  * @return
  */
-btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) const
+std::pair<btPointCollector, uint32_t> CustomScene::collisionHelper(const SphereObject::Ptr& sphere) const
 {
     assert(sphere);
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
+    uint32_t object_id_min;
 
     // find the distance to any objects in the world
     for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
@@ -3195,12 +3219,21 @@ btPointCollector CustomScene::collisionHelper(const SphereObject::Ptr& sphere) c
 
         if (gjkOutput.m_distance < gjkOutput_min.m_distance)
         {
+            const auto obstacle_id = obstacle_name_to_ids_.find(ittr->first);
+            if (obstacle_id != obstacle_name_to_ids_.end())
+            {
+                object_id_min = obstacle_id->second;
+            }
+            else
+            {
+                object_id_min = GENERIC_OBSTACLE;
+            }
             gjkOutput_min = gjkOutput;
         }
     }
 
     gjkOutput_min.m_normalOnBInWorld.normalize();
-    return gjkOutput_min;
+    return {gjkOutput_min, object_id_min};
 }
 
 bool CustomScene::ropeNodeTransformsValid(const std::vector<btTransform>& nodes) const
