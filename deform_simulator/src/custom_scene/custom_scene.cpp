@@ -3861,9 +3861,8 @@ void CustomScene::testRobotMotionExecuteCallback(
 void CustomScene::generateTransitionDataExecuteCallback(
         const dmm::GenerateTransitionDataGoalConstPtr& goal)
 {
-    assert((task_type_ == ROPE_HOOKS_DATA_GENERATION ||
-            task_type_ == ROPE_HOOKS) &&
-           "This service only makes sense for this single task");
+    assert((deformable_type_ == ROPE) &&
+           "This service only makes sense for rope tasks");
 
     assert(goal->filenames.size() == 0 || goal->tests.size() == goal->filenames.size());
 
