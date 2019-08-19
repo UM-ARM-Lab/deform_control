@@ -667,7 +667,7 @@ void CustomScene::makeBulletObjects()
             break;
 
         case TaskType::ROPE_HOOKS:
-        case TaskType::ROPE_HOOKS_DATA_GENERATION:
+        case TaskType::ROPE_HOOKS_SIMPLE:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeRopeHooksObstacles();
@@ -681,6 +681,7 @@ void CustomScene::makeBulletObjects()
 
         case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
         case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
+        case TaskType::ROPE_HOOKS_MULTI:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeGenericObstacles();
@@ -2421,71 +2422,6 @@ void CustomScene::makeRopeHooksObstacles()
     }
 
     ////////////////////////////////////////////////////////////////////////////
-    // "Gripper separator" wall settings - i.e. the ones preventing the grippers
-    // on a particular side of the arena, but allowing the rope to pass through it
-    ////////////////////////////////////////////////////////////////////////////
-
-    const btScalar gripper_separator_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_length", __func__).GetImmutable() * METERS;
-    const btScalar gripper_separator_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_width", __func__).GetImmutable() * METERS;
-    const btScalar gripper_separator_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_height", __func__).GetImmutable() * METERS;
-    const btScalar gripper_separator_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_height", __func__).GetImmutable() * METERS;
-    const btScalar gripper_separator_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_x_com", __func__).GetImmutable() * METERS;
-    const btScalar gripper_separator_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_y_com", __func__).GetImmutable() * METERS;
-    const btScalar gripper_separator_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_z_com", __func__).GetImmutable() * METERS;
-    const btScalar gripper_separator_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_z_com", __func__).GetImmutable() * METERS;
-
-    // Vertical wall blocking lower portion of arena - between the grippers
-    {
-        const btVector3 obstacle_half_extents(
-                    gripper_separator_length / 2.0f,
-                    gripper_separator_width / 2.0f,
-                    gripper_separator_lower_height / 2.0f);
-
-        // obstacle parameters
-        const btVector3 obstacle_com(
-                    gripper_separator_x_com,
-                    gripper_separator_y_com,
-                    gripper_separator_lower_z_com);
-
-        // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
-                    0, obstacle_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
-
-        // add the box to the world
-        env->add(obstacle);
-        const std::string name = "gripper_separator_lower";
-        world_obstacles_[name] = obstacle;
-        obstacle_name_to_ids_[name] = LOWER_OBSTACLES;
-    }
-    // Vertical wall blocking upper portion of arena - between the grippers
-    {
-        const btVector3 obstacle_half_extents(
-                    gripper_separator_length / 2.0f,
-                    gripper_separator_width / 2.0f,
-                    gripper_separator_upper_height / 2.0f);
-
-        // obstacle parameters
-        const btVector3 obstacle_com(
-                    gripper_separator_x_com,
-                    gripper_separator_y_com,
-                    gripper_separator_upper_z_com);
-
-        // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
-                    0, obstacle_half_extents,
-                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
-        obstacle->setColor(obstacles_color);
-
-        // add the box to the world
-        env->add(obstacle);
-        const std::string name = "gripper_separator_upper";
-        world_obstacles_[name] = obstacle;
-        obstacle_name_to_ids_[name] = UPPER_OBSTACLES;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
     // Hook that is "affixed" to the task progress wall
     ////////////////////////////////////////////////////////////////////////////
 
@@ -2520,12 +2456,77 @@ void CustomScene::makeRopeHooksObstacles()
         obstacle_name_to_ids_[name] = HOOK;
     }
 
-    // Ensure that one of the the grippers must pass on the left (positive y) of the hook
+    if (task_type_ == ROPE_HOOKS)
     {
+        ////////////////////////////////////////////////////////////////////////////
+        // "Gripper separator" wall settings - i.e. the ones preventing the grippers
+        // on a particular side of the arena, but allowing the rope to pass through it
+        ////////////////////////////////////////////////////////////////////////////
+
+        const btScalar gripper_separator_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_length", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_width", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_height", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_height", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_x_com", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_y_com", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_z_com", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_z_com", __func__).GetImmutable() * METERS;
+
+        // Vertical wall blocking lower portion of arena - between the grippers
+        {
+            const btVector3 obstacle_half_extents(
+                        gripper_separator_length / 2.0f,
+                        gripper_separator_width / 2.0f,
+                        gripper_separator_lower_height / 2.0f);
+
+            // obstacle parameters
+            const btVector3 obstacle_com(
+                        gripper_separator_x_com,
+                        gripper_separator_y_com,
+                        gripper_separator_lower_z_com);
+
+            // create a box
+            BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                        0, obstacle_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+            obstacle->setColor(obstacles_color);
+
+            // add the box to the world
+            env->add(obstacle);
+            const std::string name = "gripper_separator_lower";
+            world_obstacles_[name] = obstacle;
+            obstacle_name_to_ids_[name] = LOWER_OBSTACLES;
+        }
+        // Vertical wall blocking upper portion of arena - between the grippers
+        {
+            const btVector3 obstacle_half_extents(
+                        gripper_separator_length / 2.0f,
+                        gripper_separator_width / 2.0f,
+                        gripper_separator_upper_height / 2.0f);
+
+            // obstacle parameters
+            const btVector3 obstacle_com(
+                        gripper_separator_x_com,
+                        gripper_separator_y_com,
+                        gripper_separator_upper_z_com);
+
+            // create a box
+            BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                        0, obstacle_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+            obstacle->setColor(obstacles_color);
+
+            // add the box to the world
+            env->add(obstacle);
+            const std::string name = "gripper_separator_upper";
+            world_obstacles_[name] = obstacle;
+            obstacle_name_to_ids_[name] = UPPER_OBSTACLES;
+        }
+
+        // Ensure that one of the the grippers must pass on the left (positive y) of the hook
         const btScalar hook_left_face_pos = hook_com_y + hook_radius;
         const btScalar gripper_separator_left_face_pos = gripper_separator_y_com + gripper_separator_width / 2.0f;
         assert(hook_left_face_pos > gripper_separator_left_face_pos);
-
         {
             const btVector3 obstacle_half_extents(
                         task_progress_wall_width / 2.0f,
@@ -2559,6 +2560,56 @@ void CustomScene::makeRopeHooksObstacles()
                         task_progress_wall_x_com,
                         (hook_left_face_pos + gripper_separator_left_face_pos) / 2.0f,
                         world_max.z() - obstacle_half_extents.z());
+
+            // create a box
+            BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                        0, obstacle_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+            obstacle->setColor(obstacles_color);
+
+            // add the box to the world
+            env->add(obstacle);
+            const std::string name = "hook_gripper_blocker_upper";
+            world_obstacles_[name] = obstacle;
+            obstacle_name_to_ids_[name] = UPPER_OBSTACLES;
+        }
+    }
+    else
+    {
+        // These are used to keep the environment consistent with previous usage
+        {
+            const btVector3 obstacle_half_extents(
+                        task_progress_wall_width / 2.0f,
+                        hook_radius,
+                        hook_radius / 2.0f);
+
+            const btVector3 obstacle_com(
+                        task_progress_wall_x_com,
+                        hook_com_y,
+                        world_min.z() + task_progress_wall_lower_height + hook_radius / 2.0f);
+
+            // create a box
+            BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                        0, obstacle_half_extents,
+                        btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+            obstacle->setColor(obstacles_color);
+
+            // add the box to the world
+            env->add(obstacle);
+            const std::string name = "hook_gripper_blocker_lower";
+            world_obstacles_[name] = obstacle;
+            obstacle_name_to_ids_[name] = LOWER_OBSTACLES;
+        }
+        {
+            const btVector3 obstacle_half_extents(
+                        task_progress_wall_width / 2.0f,
+                        hook_radius,
+                        hook_radius / 2.0f);
+
+            const btVector3 obstacle_com(
+                        task_progress_wall_x_com,
+                        hook_com_y,
+                        world_max.z() - task_progress_wall_upper_height - hook_radius / 2.0f);
 
             // create a box
             BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
@@ -2990,7 +3041,7 @@ void CustomScene::createCollisionMapAndSDF()
                             }
 
                             case TaskType::ROPE_HOOKS:
-                            case TaskType::ROPE_HOOKS_DATA_GENERATION:
+                            case TaskType::ROPE_HOOKS_SIMPLE:
                             case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
                             case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
                             case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
@@ -3303,7 +3354,6 @@ bool CustomScene::ropeNodeTransformsValid(const std::vector<btTransform>& nodes)
         {
             BulletObject::Ptr obj = ittr->second;
 
-            // TODO: how much (if any) of this should be static/class members?
             btGjkEpaPenetrationDepthSolver epaSolver;
             btVoronoiSimplexSolver sGjkSimplexSolver;
             btPointCollector gjkOutput;
@@ -3746,9 +3796,7 @@ bool CustomScene::testRobotMotionMicrostepsCallback(
         dmm::TestRobotMotionMicrosteps::Request& req,
         dmm::TestRobotMotionMicrosteps::Response& res)
 {
-    assert((task_type_ == ROPE_HOOKS_DATA_GENERATION ||
-            task_type_ == ROPE_HOOKS) &&
-           "This service only makes sense for this single task");
+    assert((deformable_type_ == ROPE) && "This service only makes sense for rope tasks");
 
     assert(req.grippers_names.size() == req.starting_gripper_poses.size());
     assert(req.grippers_names.size() == req.target_gripper_poses.size());
@@ -3862,8 +3910,7 @@ void CustomScene::testRobotMotionExecuteCallback(
 void CustomScene::generateTransitionDataExecuteCallback(
         const dmm::GenerateTransitionDataGoalConstPtr& goal)
 {
-    assert((deformable_type_ == ROPE) &&
-           "This service only makes sense for rope");
+    assert((deformable_type_ == ROPE) && "This action only makes sense for rope");
 
     assert(goal->filenames.size() == 0 || goal->tests.size() == goal->filenames.size());
 
