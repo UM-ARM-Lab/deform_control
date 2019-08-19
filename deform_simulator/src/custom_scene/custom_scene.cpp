@@ -46,6 +46,8 @@ static const btVector4 FLOOR_COLOR(224.0f/255.0f, 224.0f/255.0f, 224.0f/255.0f, 
 static const btVector4 GRIPPER0_COLOR(0.0f, 0.0f, 0.6f, 1.0f);
 static const btVector4 GRIPPER1_COLOR(0.0f, 0.0f, 0.6f, 1.0f);
 //static const btVector4 GRIPPER1_COLOR(0.0f, 0.6f, 0.6f, 1.0f);
+//static const btVector4 GRIPPER0_COLOR(0.0f, 0.0f, 0.6f, 0.0f);
+//static const btVector4 GRIPPER1_COLOR(0.0f, 0.0f, 0.6f, 0.0f);
 
 // NOTE: this 0.3 ought to be 2*M_PI/21=0.299199... however that chops off the last value, probably due to rounding
 #define ROPE_CYLINDER_ANGLE_DISCRETIZATION                          (0.3f)                  // radians
@@ -738,6 +740,7 @@ void CustomScene::makeRope()
     for (size_t j = 0; j < children.size(); j++)
     {
         children[j]->setColor(0.15f, 0.65f, 0.15f, 1.0f);
+//        children[j]->setColor(0.15f, 0.65f, 0.15f, 0.0f);
     }
 
     // add the table and rope to the world
@@ -2284,7 +2287,9 @@ void CustomScene::makeRopeHooksObstacles()
     const btVector3 world_size = world_max - world_min;
 
     const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 1.0f);                       // purple
+//    const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 0.0f);                       // purple
     const btVector4 pole_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 1.0f);                            // teal
+//    const btVector4 pole_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 0.0f);                            // teal
     const btVector4 hook_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 1.0f);                            // teal
     object_color_map_[INITIAL_OBSTACLE] = ColorBuilder::MakeFromFloatColors(pole_color.x(), pole_color.y(), pole_color.x(), pole_color.w());
     object_color_map_[HOOK] = ColorBuilder::MakeFromFloatColors(pole_color.x(), pole_color.y(), pole_color.x(), pole_color.w());
@@ -2515,6 +2520,7 @@ void CustomScene::makeRopeHooksObstacles()
                         0, obstacle_half_extents,
                         btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
             obstacle->setColor(obstacles_color);
+//            obstacle->setColor(btVector4(0, 0, 0, 0));
 
             // add the box to the world
             env->add(obstacle);
@@ -2566,6 +2572,7 @@ void CustomScene::makeRopeHooksObstacles()
                         0, obstacle_half_extents,
                         btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
             obstacle->setColor(obstacles_color);
+//            obstacle->setColor(btVector4(0, 0, 0, 0));
 
             // add the box to the world
             env->add(obstacle);
@@ -2641,6 +2648,7 @@ void CustomScene::makeRopeHooksObstacles()
 
     // Visualize the cover points
     std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+//    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 0.0f));
     plot_points_->setPoints(cover_points_, coverage_color);
     env->add(plot_points_);
 }
