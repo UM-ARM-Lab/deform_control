@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
     (void)terminate_srv;
     // Spinning is handled by CustomScene, so don't start one here
 
-    int rv = EXIT_FAILURE;
+    int rv = EXIT_SUCCESS;
     do
     {
         CustomScene cs(nh, smmap::GetDeformableType(nh), smmap::GetTaskType(nh));
@@ -156,21 +156,19 @@ int main(int argc, char* argv[])
         // QT requires that it be started in the main thread, so run CS in a new thread
         std::thread cs_thread(&CustomScene::run, &cs);
 
-        // Start the QT managed window
-        QApplication qt(argc, argv);
-        RVizMarkerManager marker_manager(nh, &cs);
+        // Start the QT managed window if needed
         if (cs.drawingOn)
         {
+            QApplication qt(argc, argv);
+            RVizMarkerManager marker_manager(nh, &cs);
             marker_manager.show();
+            {
+                std::lock_guard<std::mutex> lock(data_mtx);
+                cs_ptr = &cs;
+                qt_ptr = &qt;
+            }
+            rv = qt.exec();
         }
-
-        {
-            std::lock_guard<std::mutex> lock(data_mtx);
-            cs_ptr = &cs;
-            qt_ptr = &qt;
-        }
-
-        rv = qt.exec();
         cs_thread.join();
     }
     while (rv == EXIT_RESTART);
