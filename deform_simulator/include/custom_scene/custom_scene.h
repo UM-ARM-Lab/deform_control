@@ -149,7 +149,7 @@ class CustomScene : public Scene
         void makeRopeMazeObstacles();
         void makeRopeZigMatchObstacles();
         void makeRopeHooksObstacles();
-        void makeClothHooksObstacles();
+        void makeClothHooksSimpleObstacles();
         void makeGenericObstacles();
 
         void makeGenericRegionCoverPoints();

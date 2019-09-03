@@ -675,10 +675,10 @@ void CustomScene::makeBulletObjects()
             makeRopeHooksObstacles();
             break;
 
-        case TaskType::CLOTH_HOOKS:
+        case TaskType::CLOTH_HOOKS_SIMPLE:
             makeCloth();
             makeClothTwoRobotControlledGrippers();
-            makeClothHooksObstacles();
+            makeClothHooksSimpleObstacles();
             break;
 
         case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
@@ -773,7 +773,7 @@ void CustomScene::makeCloth()
         {
             try
             {
-                return GetQuaternionFromParamServer(nh_, "cloth_orientation");
+                return GetQuaternionFromParamServer(nh_, "cloth_orientation").normalized();
             }
             catch (const std::invalid_argument& ia)
             {
@@ -2653,9 +2653,216 @@ void CustomScene::makeRopeHooksObstacles()
     env->add(plot_points_);
 }
 
-void CustomScene::makeClothHooksObstacles()
+void CustomScene::makeClothHooksSimpleObstacles()
 {
-    assert(false && "makeClothHooksObstacles not implemented!");
+    const btVector3 world_min = btVector3(
+                (btScalar)GetWorldXMinBulletFrame(nh_),
+                (btScalar)GetWorldYMinBulletFrame(nh_),
+                (btScalar)GetWorldZMinBulletFrame(nh_)) * METERS;
+
+    const btVector3 world_max = btVector3(
+                (btScalar)GetWorldXMaxBulletFrame(nh_),
+                (btScalar)GetWorldYMaxBulletFrame(nh_),
+                (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
+
+    const float wall_thickness = ROSHelpers::GetParamRequired<btScalar>(nh_, "wall_thickness", __func__).GetImmutable() * METERS;
+    const btVector3 world_center = (world_max + world_min) / 2.0f;
+    const btVector3 world_size = world_max - world_min;
+
+    const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 1.0f);                       // purple
+//    const btVector4 obstacles_color(148.0f/255.0f, 0.0f/255.0f, 211.0f/255.0f, 0.0f);                       // purple
+    const btVector4 pole_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 1.0f);                            // teal
+//    const btVector4 pole_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 0.0f);                            // teal
+    const btVector4 hook_color(0.0f/255.0f, 128.0f/255.0f, 128.0f/255.0f, 1.0f);                            // teal
+    object_color_map_[INITIAL_OBSTACLE] = ColorBuilder::MakeFromFloatColors(pole_color.x(), pole_color.y(), pole_color.x(), pole_color.w());
+    object_color_map_[HOOK] = ColorBuilder::MakeFromFloatColors(pole_color.x(), pole_color.y(), pole_color.x(), pole_color.w());
+    object_color_map_[LOWER_OBSTACLES] = object_color_map_[GENERIC_OBSTACLE];
+    object_color_map_[UPPER_OBSTACLES] = object_color_map_[GENERIC_OBSTACLE];
+
+
+    // Make the floor to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 floor_half_extents = btVector3(
+                    world_size.x(),
+                    world_size.y(),
+                    wall_thickness) / 2.0f;
+        const btVector3 floor_com = btVector3(
+                    world_center.x(),
+                    world_center.y(),
+                    world_min.z() - wall_thickness / 2.0f);
+
+        BoxObject::Ptr floor = boost::make_shared<BoxObject>(
+                    0, floor_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), floor_com));
+        floor->setColor(179.0f/255.0f, 176.0f/255.0f, 160.0f/255.0f, 1.0f);
+
+        // add the wall to the world
+        env->add(floor);
+        const std::string name = "floor";
+        world_obstacles_[name] = floor;
+        obstacle_name_to_ids_[name] = GENERIC_OBSTACLE;
+    }
+
+    // Make the ceiling to ensure that the free space graph doesn't go down through the floor due to rounding
+    {
+        const btVector3 ceiling_half_extents = btVector3(world_size.x() + wall_thickness, world_size.y() + wall_thickness, wall_thickness) / 2.0f;
+        const btVector3 ceiling_com = btVector3(world_center.x(), world_center.y(), world_max.z() + wall_thickness / 2.0f);
+
+        BoxObject::Ptr ceiling = boost::make_shared<BoxObject>(
+                    0, ceiling_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), ceiling_com));
+        ceiling->setColor(0.0f, 0.0f, 0.0f, 0.0f);
+
+        // add the wall to the world
+        env->add(ceiling);
+        const std::string name = "ceiling";
+        world_obstacles_[name] = ceiling;
+        obstacle_name_to_ids_[name] = GENERIC_OBSTACLE;
+    }
+
+    // Make the initial obstacle to go around
+    {
+        // obstacle parameters
+        const btVector3 obstacle_com =
+            btVector3(GetCylinderCenterOfMassX(nh_),
+                      GetCylinderCenterOfMassY(nh_),
+                      GetCylinderCenterOfMassZ(nh_)) * METERS;
+
+        const btScalar obstacle_radius = GetCylinderRadius(nh_) * METERS;
+        const btScalar obstacle_height = GetCylinderHeight(nh_) * METERS;
+        const btVector3 obstacle_half_extents(obstacle_radius, obstacle_radius, obstacle_height / 2.0f);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(pole_color);
+
+        // add the cylinder to the world
+        env->add(obstacle);
+        const std::string name = "initial_obstacle";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = INITIAL_OBSTACLE;
+    }
+
+
+    const btScalar task_progress_wall_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_width", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_length", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_height", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_height", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_x_com", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_y_com", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_z_com", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_z_com", __func__).GetImmutable() * METERS;
+
+    // Vertical wall blocking lower portion of arena - between the start and the goal
+    {
+        const btVector3 obstacle_half_extents(
+                    task_progress_wall_width / 2.0f,
+                    task_progress_wall_length / 2.0f,
+                    task_progress_wall_lower_height / 2.0f);
+
+        // obstacle parameters
+        const btVector3 obstacle_com(
+                    task_progress_wall_x_com,
+                    task_progress_wall_y_com,
+                    task_progress_wall_lower_z_com);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        const std::string name = "task_progress_wall_lower";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = LOWER_OBSTACLES;
+    }
+    // Vertical wall blocking upper portion of arena - between the start and the goal
+    {
+        const btVector3 obstacle_half_extents(
+                    task_progress_wall_width / 2.0f,
+                    task_progress_wall_length / 2.0f,
+                    task_progress_wall_upper_height / 2.0f);
+
+        // obstacle parameters
+        const btVector3 obstacle_com(
+                    task_progress_wall_x_com,
+                    task_progress_wall_y_com,
+                    task_progress_wall_upper_z_com);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(obstacles_color);
+//        obstacle->setColor(btVector4(0, 0, 0, 0));
+
+        // add the box to the world
+        env->add(obstacle);
+        const std::string name = "task_progress_wall_upper";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = UPPER_OBSTACLES;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Hook that is "affixed" to the task progress wall
+    ////////////////////////////////////////////////////////////////////////////
+
+    const btScalar hook_length =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_length", __func__).GetImmutable() * METERS;
+    const btScalar hook_radius =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_radius", __func__).GetImmutable() * METERS;
+    const btScalar hook_com_x =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_x", __func__).GetImmutable() * METERS;
+    const btScalar hook_com_y =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_y", __func__).GetImmutable() * METERS;
+    const btScalar hook_com_z =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_z", __func__).GetImmutable() * METERS;
+
+    // Build the hook on the side of the wall towards the starting region (negative x)
+    {
+        const btVector3 obstacle_half_extents(
+                    hook_length / 2.0f,
+                    hook_radius,
+                    hook_radius);
+
+        const btVector3 obstacle_com(
+                    hook_com_x,
+                    hook_com_y,
+                    hook_com_z);
+
+        // create a box
+        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(
+                    0, obstacle_half_extents,
+                    btTransform(btQuaternion(0, 0, 0, 1), obstacle_com));
+        obstacle->setColor(hook_color);
+
+        // add the box to the world
+        env->add(obstacle);
+        const std::string name = "hook";
+        world_obstacles_[name] = obstacle;
+        obstacle_name_to_ids_[name] = HOOK;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Make the target region
+    ////////////////////////////////////////////////////////////////////////////
+
+    const std::vector<btVector3> cloth_nodes = nodeArrayToNodePosVector(cloth_->softBody->m_nodes);
+    for (size_t cover_idx = 0; cover_idx < cloth_nodes.size(); ++cover_idx)
+    {
+        const btVector3 target_point(cloth_nodes[cover_idx].x() + world_size.x() * 0.9f,
+                                     cloth_nodes[cover_idx].y(),
+                                     cloth_nodes[cover_idx].z());
+        cover_points_.push_back(target_point);
+    }
+
+    // Set the cover point normals to all be pointing in positive Z
+    cover_point_normals_ = std::vector<btVector3>(cover_points_.size(), btVector3(0.0f, 0.0f, 1.0f));
+
+    // Visualize the cover points
+    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 1.0f));
+//    std::vector<btVector4> coverage_color(cover_points_.size(), btVector4(1.0f, 0.0f, 0.0f, 0.0f));
+    plot_points_->setPoints(cover_points_, coverage_color);
+    env->add(plot_points_);
 }
 
 void CustomScene::makeGenericObstacles()
@@ -3054,6 +3261,7 @@ void CustomScene::createCollisionMapAndSDF()
                             case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
                             case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
                             case TaskType::CLOTH_GENERIC_FIXED_COVERAGE:
+                            case TaskType::CLOTH_HOOKS_SIMPLE:
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, collision_result.second));
                                 break;
 
