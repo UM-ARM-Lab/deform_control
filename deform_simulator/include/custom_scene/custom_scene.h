@@ -151,6 +151,8 @@ class CustomScene : public Scene
         void makeRopeHooksObstacles();
         void makeClothHooksSimpleObstacles();
         void makeGenericObstacles();
+        void makeGenericBox(const std::string& name);
+        void makeStlObject(const std::string& name);
 
         void makeGenericRegionCoverPoints();
         void makeRopeTransformCoverPoints();

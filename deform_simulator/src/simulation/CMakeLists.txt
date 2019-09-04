@@ -25,12 +25,14 @@ add_library(simulation
     config_scene.cpp 
     config_viewer.cpp 
     bullet_io.cpp
+    stl_object.cpp
 )
-add_dependencies( simulation
+add_dependencies(simulation
     ${catkin_EXPORTED_TARGETS}
 )
-target_link_libraries( simulation
+target_link_libraries(simulation
     ${Boost_LIBRARIES} 
     ${catkin_LIBRARIES}
+    ${ASSIMP_LIBRARIES}
     utils
 )

@@ -1,4 +1,5 @@
 #include "simulation/convexdecomp.h"
+#include <boost/make_shared.hpp>
 
 /*void ConvexDecomp::addTriangle(const btVector3 &v0, const btVector3 &v1, const btVector3 &v2) {
     points.push_back(toHACDVec(v0));
@@ -36,10 +37,10 @@ boost::shared_ptr<btCompoundShape> ConvexDecomp::run(std::vector<boost::shared_p
     hacd.Compute();
     nClusters = hacd.GetNClusters();
 
-    boost::shared_ptr<btCompoundShape> compound(new btCompoundShape());
+    auto compound = boost::make_shared<btCompoundShape>();
     for (int c = 0; c < nClusters; ++c) {
         btVector3 centroid;
-        boost::shared_ptr<btConvexHullShape> shape(processCluster(hacd, c, centroid));
+        auto shape = processCluster(hacd, c, centroid);
         shapeStorage.push_back(shape);
         compound->addChildShape(btTransform(btQuaternion(0, 0, 0, 1), centroid), shape.get());
     }
@@ -47,7 +48,7 @@ boost::shared_ptr<btCompoundShape> ConvexDecomp::run(std::vector<boost::shared_p
     return compound;
 }
 
-btConvexHullShape *ConvexDecomp::processCluster(HACD::HACD &hacd, int c, btVector3 &ret_centroid) {
+boost::shared_ptr<btConvexHullShape> ConvexDecomp::processCluster(HACD::HACD &hacd, int c, btVector3 &ret_centroid) {
     //generate convex result
     size_t nPoints = hacd.GetNPointsCH(c);
     size_t nTriangles = hacd.GetNTrianglesCH(c);
@@ -70,7 +71,7 @@ btConvexHullShape *ConvexDecomp::processCluster(HACD::HACD &hacd, int c, btVecto
     delete [] pointsCH;
     delete [] trianglesCH;
 
-    btConvexHullShape *shape = new btConvexHullShape(&shiftedVertices[0].getX(), nPoints);
+    auto shape = boost::make_shared<btConvexHullShape>(&shiftedVertices[0].getX(), nPoints);
     shape->setMargin(margin);
 
     return shape;

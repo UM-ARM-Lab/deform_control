@@ -43,6 +43,8 @@ find_package(Boost REQUIRED COMPONENTS
     thread
 )
 
+find_package(Assimp REQUIRED)
+
 find_package(Eigen3 REQUIRED)
 set(Eigen3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR})
 
@@ -62,6 +64,7 @@ catkin_package(
     CATKIN_DEPENDS  ${CATKIN_PACKAGES}
     DEPENDS         Eigen3
                     Boost
+                    ASSIMP
 )
 
 
@@ -74,8 +77,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x -g -O2 -Werror=return-type")
 
 include_directories(include SYSTEM
     ${catkin_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIR}
+    ${Eigen3_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
+    ${ASSIMP_INCLUDE_DIRS}
 )
 
 set(${PROJECT_NAME}_LINK_TARGETS

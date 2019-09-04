@@ -34,6 +34,7 @@
 #include "utils/util.h"
 #include "custom_scene/internal_utils.hpp"
 #include "custom_scene/table_kinematic_object.h"
+#include "simulation/stl_object.h"
 
 using namespace BulletHelpers;
 using namespace smmap;
@@ -233,6 +234,10 @@ void CustomScene::initialize()
             startViewer();
         }
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
+
+        std::string tmp;
+        std::cout << "Pausing ";
+        std::cin >> tmp;
 
         // Create a thread to create the free space graph and collision map while the object settles
         const bool draw_free_space_graph_corners = drawingOn && false;
@@ -684,6 +689,7 @@ void CustomScene::makeBulletObjects()
         case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
         case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
         case TaskType::ROPE_HOOKS_MULTI:
+        case TaskType::ROPE_ENGINE_ASSEMBLY:
             makeRope();
             makeRopeTwoRobotControlledGrippers();
             makeGenericObstacles();
@@ -2867,48 +2873,99 @@ void CustomScene::makeClothHooksSimpleObstacles()
 
 void CustomScene::makeGenericObstacles()
 {
-    const std_msgs::ColorRGBA default_color = object_color_map_.at(GENERIC_OBSTACLE);
     const auto obstacle_list = ROSHelpers::GetVectorRequired<std::string>(nh_, "obstacle_list", __func__).GetImmutable();
 
-    // Assumes everything is a box
     for (const auto& name : obstacle_list)
     {
-        const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
-        const auto com = [&]
+        const auto type = ROSHelpers::GetParam<std::string>(nh_, name + "/type", "box");
+        if (type == "box")
         {
-            btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
-            bt.getOrigin() *= METERS;
-            return bt;
-        }();
-        const auto half_extents = toBtVector3(GetVector3FromParamServer(nh_, name + "/extents")) * METERS / 2.0f;
-        const auto color = [&]
+            makeGenericBox(name);
+        }
+        else if (type == "stl")
         {
-            try
-            {
-                return GetColorFromParamSever(nh_, name + "/color");
-
-            }
-            catch (const std::invalid_argument& /* ex */)
-            {
-                return default_color;
-            }
-        }();
-
-        ROS_INFO_STREAM("Creating a box for object id " << obstacle_id << " with name " << name);
-        ROS_INFO_STREAM("Pose:         " << PrettyPrint::PrettyPrint(com.getOrigin() / METERS, true, "\n")
-                                 << "  " << PrettyPrint::PrettyPrint(com.getRotation(), true, "\n"));
-        ROS_INFO_STREAM("Half extents: " << PrettyPrint::PrettyPrint(half_extents / METERS, true, "\n"));
-
-        // create a box
-        BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(0, half_extents, com);
-        obstacle->setColor(color.r, color.g, color.b, color.a);
-
-        // add the box to the world
-        env->add(obstacle);
-        world_obstacles_[name] = obstacle;
-        obstacle_name_to_ids_[name] = obstacle_id;
-        object_color_map_[obstacle_id] = color;
+            makeStlObject(name);
+        }
+        else
+        {
+            throw_arc_exception(std::invalid_argument, "Invalid object type: " + name + ": " + type);
+        }
     }
+}
+
+void CustomScene::makeGenericBox(const std::string &name)
+{
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto com = [&]
+    {
+        btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+        bt.getOrigin() *= METERS;
+        return bt;
+    }();
+    const auto half_extents = toBtVector3(GetVector3FromParamServer(nh_, name + "/extents")) * METERS / 2.0f;
+    const auto color = [&]
+    {
+        try
+        {
+            return GetColorFromParamSever(nh_, name + "/color");
+        }
+        catch (const std::invalid_argument& /* ex */)
+        {
+            return object_color_map_.at(GENERIC_OBSTACLE);
+        }
+    }();
+
+    ROS_INFO_STREAM("Creating a box for object id " << obstacle_id << " with name " << name);
+    ROS_INFO_STREAM("Pose:         " << PrettyPrint::PrettyPrint(com.getOrigin() / METERS, true, "\n")
+                             << "  " << PrettyPrint::PrettyPrint(com.getRotation(), true, "\n"));
+    ROS_INFO_STREAM("Half extents: " << PrettyPrint::PrettyPrint(half_extents / METERS, true, "\n"));
+
+    // create a box
+    BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(0, half_extents, com);
+    obstacle->setColor(color.r, color.g, color.b, color.a);
+
+    // add the box to the world
+    env->add(obstacle);
+    world_obstacles_[name] = obstacle;
+    obstacle_name_to_ids_[name] = obstacle_id;
+    object_color_map_[obstacle_id] = color;
+}
+
+void CustomScene::makeStlObject(const std::string &name)
+{
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto filename = ROSHelpers::GetParamRequired<std::string>(nh_, name + "/filename", __func__).GetImmutable();
+    const auto com = [&]
+    {
+        btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+        bt.getOrigin() *= METERS;
+        return bt;
+    }();
+    const auto color = [&]
+    {
+        try
+        {
+            return GetColorFromParamSever(nh_, name + "/color");
+        }
+        catch (const std::invalid_argument& /* ex */)
+        {
+            return object_color_map_.at(GENERIC_OBSTACLE);
+        }
+    }();
+
+    ROS_INFO_STREAM("Creating a trimesh for object id " << obstacle_id << " with name " << name);
+    ROS_INFO_STREAM("Pose:         " << PrettyPrint::PrettyPrint(com.getOrigin() / METERS, true, "\n")
+                             << "  " << PrettyPrint::PrettyPrint(com.getRotation(), true, "\n"));
+
+    // Create the mesh object
+    StlObject::Ptr obstacle = StlObject::MakeStlObject(filename, 0, com, true);
+    obstacle->setColor(color.r, color.g, color.b, color.a);
+
+    // add the mesh to the world
+    env->add(obstacle);
+    world_obstacles_[name] = obstacle;
+    obstacle_name_to_ids_[name] = obstacle_id;
+    object_color_map_[obstacle_id] = color;
 }
 
 
@@ -2961,7 +3018,7 @@ void CustomScene::makeRopeTransformCoverPoints()
         return bt;
     }();
     ROS_INFO_STREAM("Creating cover points from rope starting configuration with transform\n"
-                    << PrettyPrint::PrettyPrint(transform.getOrigin() / METERS, true, "\n") << "  "
+                    << "    " << PrettyPrint::PrettyPrint(transform.getOrigin() / METERS, true, "\n") << "  "
                     << PrettyPrint::PrettyPrint(transform.getRotation(), true, "\n"));
 
     const std::vector<btVector3> rope_nodes = rope_->getNodes();

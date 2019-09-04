@@ -21,7 +21,7 @@ private:
     std::vector<HACD::Vec3<HACD::Real> > points;
     std::vector<HACD::Vec3<long> > triangles;
 
-    btConvexHullShape *processCluster(HACD::HACD &hacd, int idx, btVector3 &ret_centroid);
+    boost::shared_ptr<btConvexHullShape> processCluster(HACD::HACD &hacd, int idx, btVector3 &ret_centroid);
 
 public:
     ConvexDecomp(float margin_) : margin(margin_) { }
