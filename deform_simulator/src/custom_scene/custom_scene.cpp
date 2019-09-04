@@ -235,9 +235,9 @@ void CustomScene::initialize()
         }
         screen_recorder_ = std::make_shared<ScreenRecorder>(&viewer, GetScreenshotsEnabled(ph_), GetScreenshotFolder(nh_));
 
-        std::string tmp;
-        std::cout << "Pausing ";
-        std::cin >> tmp;
+//        std::string tmp;
+//        std::cout << "Pausing ";
+//        std::cin >> tmp;
 
         // Create a thread to create the free space graph and collision map while the object settles
         const bool draw_free_space_graph_corners = drawingOn && false;
@@ -4251,7 +4251,7 @@ void CustomScene::generateTransitionDataExecuteCallback(
                         for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
                         {
                             forked_sim.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-                            fbk.test_result.microsteps_all.push_back(createSimulatorFbk(forked_sim.rope_, nullptr, forked_sim.grippers_));
+                            fbk.test_result.microsteps_all.push_back(createSimulatorFbk(forked_sim.rope_, forked_sim.cloth_, forked_sim.grippers_));
                         }
                     }
                 }
@@ -4279,7 +4279,7 @@ void CustomScene::generateTransitionDataExecuteCallback(
                     for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
                     {
                         forked_sim.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
-                        fbk.test_result.microsteps_all.push_back(createSimulatorFbk(forked_sim.rope_, nullptr, forked_sim.grippers_));
+                        fbk.test_result.microsteps_all.push_back(createSimulatorFbk(forked_sim.rope_, forked_sim.cloth_, forked_sim.grippers_));
                         fbk.test_result.microsteps_last_action.push_back(fbk.test_result.microsteps_all.back());
                     }
                 }
