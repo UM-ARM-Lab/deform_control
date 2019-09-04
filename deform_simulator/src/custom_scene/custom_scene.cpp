@@ -4126,7 +4126,7 @@ void CustomScene::testRobotMotionExecuteCallback(
 void CustomScene::generateTransitionDataExecuteCallback(
         const dmm::GenerateTransitionDataGoalConstPtr& goal)
 {
-    assert((deformable_type_ == ROPE) && "This action only makes sense for rope");
+//    assert((deformable_type_ == ROPE) && "This action only makes sense for rope");
 
     assert(goal->filenames.size() == 0 || goal->tests.size() == goal->filenames.size());
 
@@ -4161,7 +4161,6 @@ void CustomScene::generateTransitionDataExecuteCallback(
                     toBulletTransform(input_to_bullet_tf_, test.starting_gripper_poses[gripper_idx], METERS);
             SetGripperTransform(forked_sim.grippers_, test.gripper_names[gripper_idx], pose_in_bt_coords);
         }
-
 
         try
         {
