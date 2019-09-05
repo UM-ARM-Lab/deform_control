@@ -3432,18 +3432,19 @@ void CustomScene::createCollisionMapAndSDF()
                                 break;
                             }
 
-                            case TaskType::ROPE_HOOKS:
-                            case TaskType::ROPE_HOOKS_SIMPLE:
-                            case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
-                            case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
-                            case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
-                            case TaskType::CLOTH_GENERIC_FIXED_COVERAGE:
-                            case TaskType::CLOTH_HOOKS_SIMPLE:
+//                            case TaskType::ROPE_HOOKS:
+//                            case TaskType::ROPE_HOOKS_SIMPLE:
+//                            case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
+//                            case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
+//                            case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
+//                            case TaskType::CLOTH_GENERIC_FIXED_COVERAGE:
+//                            case TaskType::CLOTH_HOOKS_SIMPLE:
+                            default:
                                 collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, collision_result.second));
                                 break;
 
-                            default:
-                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
+//                            default:
+//                                collision_map_for_export_.SetValue(x_ind, y_ind, z_ind, sdf_tools::TAGGED_OBJECT_COLLISION_CELL(1.0, GENERIC_OBSTACLE));
                         }
                     }
                 }
