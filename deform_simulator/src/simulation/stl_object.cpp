@@ -86,14 +86,14 @@ struct MySTLTriangle
     float vertex2[3];
 };
 
-static inline btVector3 toBtVector3(const float vec[3])
+static inline btVector3 toBtVector3(const float vec[3], const float scale)
 {
-    return btVector3(vec[0], vec[1], vec[2]) * METERS;
+    return btVector3(vec[0], vec[1], vec[2]) * scale;
 }
 
-static inline btVector3 toBtVector3(const aiVector3D& vec)
+static inline btVector3 toBtVector3(const aiVector3D& vec, const float scale)
 {
-    return btVector3(vec.x, vec.y, vec.z) * METERS;
+    return btVector3(vec.x, vec.y, vec.z) * scale;
 }
 
 
@@ -116,14 +116,19 @@ static std::vector<uint8_t> ReadFile(const std::string& filename)
 }
 
 
-StlObject::StlObject(const std::vector<boost::shared_ptr<btCollisionShape>> subshapes,
-                     const boost::shared_ptr<btCompoundShape> compound_shape,
+StlObject::StlObject(const boost::shared_ptr<btTriangleMesh> trimesh,
+                     const boost::shared_ptr<btBvhTriangleMeshShape> trimesh_shape,
+//StlObject::StlObject(const std::vector<boost::shared_ptr<btCollisionShape>> subshapes,
+//                     const boost::shared_ptr<btCompoundShape> compound_shape,
                      const btScalar mass,
                      const btTransform& initial_transform,
                      const bool is_kinematic)
-    : BulletObject(mass, compound_shape.get(), initial_transform, is_kinematic)
-    , subshapes_(subshapes)
-    , compound_shape_(compound_shape)
+    : BulletObject(mass, trimesh_shape.get(), initial_transform, is_kinematic)
+    , trimesh_(trimesh)
+    , trimesh_shape_(trimesh_shape)
+//    : BulletObject(mass, compound_shape.get(), initial_transform, is_kinematic)
+//    , subshapes_(subshapes)
+//    , compound_shape_(compound_shape)
     , mass_(mass)
 {
     if (is_kinematic && mass != 0)
@@ -132,14 +137,17 @@ StlObject::StlObject(const std::vector<boost::shared_ptr<btCollisionShape>> subs
     }
 
     // Margins go on the subshape, not the overall shape?
-    compound_shape->setMargin(0); //margin: subshape. seems to result in padding convex shape AND increases collision dist on top of that
+    trimesh_shape_->setMargin(0);
+//    compound_shape->setMargin(0); //margin: subshape. seems to result in padding convex shape AND increases collision dist on top of that
 }
 
 StlObject::Ptr StlObject::MakeStlObject(const std::string &filename,
+                                        const btScalar scale,
                                         const btScalar mass,
                                         const btTransform& initial_transform,
                                         const bool is_kinematic)
 {
+#if false
     // Create an instance of the Importer class
     Assimp::Importer importer;
     // And have it read the given file with some example postprocessing -
@@ -166,32 +174,29 @@ StlObject::Ptr StlObject::MakeStlObject(const std::string &filename,
     assert(mesh->HasFaces());
     ROS_INFO_STREAM("Num faces: " << mesh->mNumFaces);
 
-    std::vector<btVector3> assimp_parsed_faces(mesh->mNumFaces * 3);
-
     const auto margin = 0.0;
     ConvexDecomp decomp(margin);
     for (size_t i = 0; i < mesh->mNumVertices; ++i)
     {
         const aiVector3D& vertex = mesh->mVertices[i];
-        decomp.addPoint(toBtVector3(vertex));
+        decomp.addPoint(toBtVector3(vertex, scale * METERS));
     }
     for (size_t i = 0; i < mesh->mNumFaces; ++i)
     {
         const aiFace& face = mesh->mFaces[i];
         assert(face.mNumIndices == 3);
         decomp.addTriangle(face.mIndices[0], face.mIndices[1], face.mIndices[2]);
-//        std::cout << "0: "; PrintVertex(mesh->mVertices[face.mIndices[0]]); std::cout << std::endl;
-//        std::cout << "1: "; PrintVertex(mesh->mVertices[face.mIndices[1]]); std::cout << std::endl;
-//        std::cout << "2: "; PrintVertex(mesh->mVertices[face.mIndices[2]]); std::cout << std::endl << std::endl;
-
-        assimp_parsed_faces[3*i + 0] = toBtVector3(mesh->mVertices[face.mIndices[0]]);
-        assimp_parsed_faces[3*i + 1] = toBtVector3(mesh->mVertices[face.mIndices[1]]);
-        assimp_parsed_faces[3*i + 2] = toBtVector3(mesh->mVertices[face.mIndices[2]]);
     }
 
-//    std::string tmp;
-//    std::cout << "Pausing before dumping other data ";
-//    std::cin >> tmp;
+    ROS_INFO("Running convex decomposition");
+    // Both of these need to be stored by someone (i.e.; the final StlObject)
+    std::vector<boost::shared_ptr<btCollisionShape>> subshapes;
+    boost::shared_ptr<btCompoundShape> compound = decomp.run(subshapes);
+    return boost::make_shared<StlObject>(subshapes, compound, mass, initial_transform, is_kinematic);
+#endif
+
+
+
 
 
     const auto data = ReadFile(filename);
@@ -227,37 +232,22 @@ StlObject::Ptr StlObject::MakeStlObject(const std::string &filename,
     }
 
     auto trimesh = boost::make_shared<btTriangleMesh>();
-    std::vector<btVector3> manual_parsed_faces(num_triangles * 3);
     for (int i = 0; i < num_triangles; ++i)
     {
         const auto curr_triangle = reinterpret_cast<const MySTLTriangle*>(&data[84 + i * 50]);
-        trimesh->addTriangle(toBtVector3(curr_triangle->vertex0),
-                             toBtVector3(curr_triangle->vertex1),
-                             toBtVector3(curr_triangle->vertex2),
+        trimesh->addTriangle(toBtVector3(curr_triangle->vertex0, scale * METERS),
+                             toBtVector3(curr_triangle->vertex1, scale * METERS),
+                             toBtVector3(curr_triangle->vertex2, scale * METERS),
                              true);
 
 //        std::cout << "0: "; PrintVertex(curr_triangle->vertex0); std::cout << std::endl;
 //        std::cout << "1: "; PrintVertex(curr_triangle->vertex0); std::cout << std::endl;
 //        std::cout << "2: "; PrintVertex(curr_triangle->vertex0); std::cout << std::endl << std::endl;
         // TODO: should I be doing anything with the normals?
-
-        manual_parsed_faces[3*i + 0] = toBtVector3(curr_triangle->vertex0);
-        manual_parsed_faces[3*i + 1] = toBtVector3(curr_triangle->vertex1);
-        manual_parsed_faces[3*i + 2] = toBtVector3(curr_triangle->vertex2);
     }
 
-#if false
     const auto collision_shape = boost::make_shared<btBvhTriangleMeshShape>(trimesh.get(), true);
     return boost::make_shared<StlObject>(trimesh, collision_shape, mass, initial_transform, is_kinematic);
-#endif
-
-    CheckEquality(assimp_parsed_faces, manual_parsed_faces);
-
-    ROS_INFO("Running convex decomposition");
-    // Both of these need to be stored by someone (i.e.; the final StlObject)
-    std::vector<boost::shared_ptr<btCollisionShape>> subshapes;
-    boost::shared_ptr<btCompoundShape> compound = decomp.run(subshapes);
-    return boost::make_shared<StlObject>(subshapes, compound, mass, initial_transform, is_kinematic);
 }
 
 EnvironmentObject::Ptr StlObject::copy(Fork &f) const

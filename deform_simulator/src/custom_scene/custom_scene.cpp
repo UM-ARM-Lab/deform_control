@@ -2921,7 +2921,7 @@ void CustomScene::makeGenericSphere(const std::string& name)
         bt.getOrigin() *= METERS;
         return bt;
     }();
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable();
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS;
     const auto color = [&]
     {
         try
@@ -2992,8 +2992,8 @@ void CustomScene::makeGenericCylinder(const std::string& name)
         bt.getOrigin() *= METERS;
         return bt;
     }();
-    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable();
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable();
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS;
     const auto color = [&]
     {
         try
@@ -3026,8 +3026,8 @@ void CustomScene::makeGenericCapsule(const std::string& name)
         bt.getOrigin() *= METERS;
         return bt;
     }();
-    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable();
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable();
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS;
     const auto color = [&]
     {
         try
@@ -3055,6 +3055,7 @@ void CustomScene::makeStlObject(const std::string &name)
 {
     const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
     const auto filename = ROSHelpers::GetParamRequired<std::string>(nh_, name + "/filename", __func__).GetImmutable();
+    const auto scale = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/scale", __func__).GetImmutable();
     const auto com = [&]
     {
         btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
@@ -3073,12 +3074,13 @@ void CustomScene::makeStlObject(const std::string &name)
         }
     }();
 
-    ROS_INFO_STREAM("Creating a trimesh for object id " << obstacle_id << " with name " << name);
+    ROS_INFO_STREAM("Creating a trimesh for object id: " << obstacle_id << " with name " << name);
+    ROS_INFO_STREAM("                           scale: " << scale);
     ROS_INFO_STREAM("Pose:         " << PrettyPrint::PrettyPrint(com.getOrigin() / METERS, true, "\n")
                              << "  " << PrettyPrint::PrettyPrint(com.getRotation(), true, "\n"));
 
     // Create the mesh object
-    StlObject::Ptr obstacle = StlObject::MakeStlObject(filename, 0, com, true);
+    StlObject::Ptr obstacle = StlObject::MakeStlObject(filename, scale, 0.0, com, true);
     obstacle->setColor(color.r, color.g, color.b, color.a);
 
     // add the mesh to the world
@@ -3644,6 +3646,9 @@ btPointCollector CustomScene::collisionHelper(const GripperKinematicObject::Ptr&
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
 
+//    ROS_ERROR_THROTTLE(1, "Collision helper is disabled");
+//    return gjkOutput_min;
+
     // find the distance to any objects in the world
     for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
     {
@@ -3689,6 +3694,9 @@ std::pair<btPointCollector, uint32_t> CustomScene::collisionHelper(const SphereO
     // Note that gjkOutput initializes to hasResult = false and m_distance = BT_LARGE_FLOAT
     btPointCollector gjkOutput_min;
     uint32_t object_id_min;
+
+//    ROS_ERROR_THROTTLE(1, "Collision helper is disabled");
+//    return {gjkOutput_min, 1};
 
     // find the distance to any objects in the world
     for (auto ittr = world_obstacles_.begin(); ittr != world_obstacles_.end(); ++ittr)
