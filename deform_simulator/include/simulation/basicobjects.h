@@ -432,8 +432,8 @@ class CapsuleObject : public BulletObject
     public:
         typedef boost::shared_ptr<CapsuleObject> Ptr;
 
-        CapsuleObject(btScalar mass_, btScalar radius_, btScalar height_, const btTransform &initTrans)
-            : BulletObject(mass_, new btCapsuleShapeX(radius_, height_), initTrans)
+        CapsuleObject(btScalar mass_, btScalar radius_, btScalar height_, const btTransform &initTrans, bool isKinematic=false)
+            : BulletObject(mass_, new btCapsuleShapeX(radius_, height_), initTrans, isKinematic)
             , mass(mass_)
             , radius(radius_)
             , height(height_)

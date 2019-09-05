@@ -686,6 +686,13 @@ void CustomScene::makeBulletObjects()
             makeClothHooksSimpleObstacles();
             break;
 
+        case TaskType::CLOTH_HOOKS_COMPLEX:
+            makeCloth();
+            makeClothTwoRobotControlledGrippers();
+            makeGenericObstacles();
+            makeGenericRegionCoverPoints();
+            break;
+
         case TaskType::ROPE_GENERIC_DIJKSTRAS_COVERAGE:
         case TaskType::ROPE_GENERIC_FIXED_COVERAGE:
         case TaskType::ROPE_HOOKS_MULTI:
@@ -2878,9 +2885,21 @@ void CustomScene::makeGenericObstacles()
     for (const auto& name : obstacle_list)
     {
         const auto type = ROSHelpers::GetParam<std::string>(nh_, name + "/type", "box");
-        if (type == "box")
+        if (type == "sphere")
+        {
+            makeGenericSphere(name);
+        }
+        else if (type == "box")
         {
             makeGenericBox(name);
+        }
+        else if (type == "cylinder")
+        {
+            makeGenericCylinder(name);
+        }
+        else if (type == "capsule")
+        {
+            makeGenericCapsule(name);
         }
         else if (type == "stl")
         {
@@ -2891,6 +2910,39 @@ void CustomScene::makeGenericObstacles()
             throw_arc_exception(std::invalid_argument, "Invalid object type: " + name + ": " + type);
         }
     }
+}
+
+void CustomScene::makeGenericSphere(const std::string& name)
+{
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto com = [&]
+    {
+        btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+        bt.getOrigin() *= METERS;
+        return bt;
+    }();
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable();
+    const auto color = [&]
+    {
+        try
+        {
+            return GetColorFromParamSever(nh_, name + "/color");
+        }
+        catch (const std::invalid_argument& /* ex */)
+        {
+            return object_color_map_.at(GENERIC_OBSTACLE);
+        }
+    }();
+
+    // create a sphere
+    auto obstacle = boost::make_shared<SphereObject>(0, radius, com, true);
+    obstacle->setColor(color.r, color.g, color.b, color.a);
+
+    // add the box to the world
+    env->add(obstacle);
+    world_obstacles_[name] = obstacle;
+    obstacle_name_to_ids_[name] = obstacle_id;
+    object_color_map_[obstacle_id] = color;
 }
 
 void CustomScene::makeGenericBox(const std::string &name)
@@ -2921,7 +2973,75 @@ void CustomScene::makeGenericBox(const std::string &name)
     ROS_INFO_STREAM("Half extents: " << PrettyPrint::PrettyPrint(half_extents / METERS, true, "\n"));
 
     // create a box
-    BoxObject::Ptr obstacle = boost::make_shared<BoxObject>(0, half_extents, com);
+    auto obstacle = boost::make_shared<BoxObject>(0, half_extents, com);
+    obstacle->setColor(color.r, color.g, color.b, color.a);
+
+    // add the box to the world
+    env->add(obstacle);
+    world_obstacles_[name] = obstacle;
+    obstacle_name_to_ids_[name] = obstacle_id;
+    object_color_map_[obstacle_id] = color;
+}
+
+void CustomScene::makeGenericCylinder(const std::string& name)
+{
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto com = [&]
+    {
+        btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+        bt.getOrigin() *= METERS;
+        return bt;
+    }();
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable();
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable();
+    const auto color = [&]
+    {
+        try
+        {
+            return GetColorFromParamSever(nh_, name + "/color");
+        }
+        catch (const std::invalid_argument& /* ex */)
+        {
+            return object_color_map_.at(GENERIC_OBSTACLE);
+        }
+    }();
+
+    // create a cylinder
+    auto obstacle = boost::make_shared<CylinderStaticObject>(0, radius, height, com);
+    obstacle->setColor(color.r, color.g, color.b, color.a);
+
+    // add the box to the world
+    env->add(obstacle);
+    world_obstacles_[name] = obstacle;
+    obstacle_name_to_ids_[name] = obstacle_id;
+    object_color_map_[obstacle_id] = color;
+}
+
+void CustomScene::makeGenericCapsule(const std::string& name)
+{
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto com = [&]
+    {
+        btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
+        bt.getOrigin() *= METERS;
+        return bt;
+    }();
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable();
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable();
+    const auto color = [&]
+    {
+        try
+        {
+            return GetColorFromParamSever(nh_, name + "/color");
+        }
+        catch (const std::invalid_argument& /* ex */)
+        {
+            return object_color_map_.at(GENERIC_OBSTACLE);
+        }
+    }();
+
+    // create a cylinder
+    auto obstacle = boost::make_shared<CapsuleObject>(0, radius, height, com, true);
     obstacle->setColor(color.r, color.g, color.b, color.a);
 
     // add the box to the world
@@ -4290,7 +4410,8 @@ void CustomScene::generateTransitionDataExecuteCallback(
             ROS_WARN_STREAM_NAMED("deform_simlulator", "Error following path: " << ex.what());
         }
 
-        generate_transition_data_as_.publishFeedback(fbk);
+        ROS_WARN_NAMED("datagen", "Disabled action server feedback for generateTransitionDataExecuteCallback");
+//        generate_transition_data_as_.publishFeedback(fbk);
         std::vector<uint8_t> buffer;
         arc_utilities::RosMessageSerializationWrapper(fbk, buffer);
         ZlibHelpers::CompressAndWriteToFile(buffer, goal->filenames[test_idx].data);

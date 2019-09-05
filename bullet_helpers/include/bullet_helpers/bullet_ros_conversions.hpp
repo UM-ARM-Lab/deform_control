@@ -373,6 +373,16 @@ namespace BulletHelpers
         output.data.resize(bt.size() * output.point_step);
         for (size_t i = 0; i < bt.size() ; ++i)
         {
+            if (std::isnan(bt[i].x()) || std::isnan(bt[i].y()) || std::isnan(bt[i].z()) ||
+                !(-100.0f < bt[i].x() && bt[i].x() < 100.0f) ||
+                !(-100.0f < bt[i].y() && bt[i].y() < 100.0f) ||
+                !(-100.0f < bt[i].z() && bt[i].z() < 100.0f))
+            {
+                throw std::runtime_error(__func__
+                                         + std::string(": input data is outside of any reasonable range: ")
+                                         + PrettyPrint::PrettyPrint(bt[i]));
+            }
+
             const btVector3 world_point = (world_to_bullet_tf * bt[i]) / bt_scale;
             // Note that this copy is specialized to the particular format of btVector3
             std::memcpy(&output.data[i * output.point_step], world_point.m_floats, output.point_step);
