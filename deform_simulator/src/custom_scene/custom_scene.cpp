@@ -703,6 +703,14 @@ void CustomScene::makeBulletObjects()
             makeRopeTransformCoverPoints();
             break;
 
+        case TaskType::ROPE_ENGINE_ASSEMBLY_LIVE:
+            makeRope();
+            makeRopeTwoRobotControlledGrippers();
+            makeTableSurface(false);
+            makeGenericObstacles();
+            makeGenericRegionCoverPoints();
+            break;
+
         case TaskType::CLOTH_GENERIC_DIJKSTRAS_COVERAGE:
         case TaskType::CLOTH_GENERIC_FIXED_COVERAGE:
             makeCloth();
@@ -2915,13 +2923,14 @@ void CustomScene::makeGenericObstacles()
 void CustomScene::makeGenericSphere(const std::string& name)
 {
     const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
         btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
-        bt.getOrigin() *= METERS;
+        bt.getOrigin() *= METERS * scale;
         return bt;
     }();
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS * scale;
     const auto color = [&]
     {
         try
@@ -2948,13 +2957,14 @@ void CustomScene::makeGenericSphere(const std::string& name)
 void CustomScene::makeGenericBox(const std::string &name)
 {
     const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
         btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
-        bt.getOrigin() *= METERS;
+        bt.getOrigin() *= METERS * scale;
         return bt;
     }();
-    const auto half_extents = toBtVector3(GetVector3FromParamServer(nh_, name + "/extents")) * METERS / 2.0f;
+    const auto half_extents = toBtVector3(GetVector3FromParamServer(nh_, name + "/extents")) * METERS * scale / 2.0f;
     const auto color = [&]
     {
         try
@@ -2986,14 +2996,15 @@ void CustomScene::makeGenericBox(const std::string &name)
 void CustomScene::makeGenericCylinder(const std::string& name)
 {
     const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
         btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
-        bt.getOrigin() *= METERS;
+        bt.getOrigin() *= METERS * scale;
         return bt;
     }();
-    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS;
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS;
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS * scale;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS * scale;
     const auto color = [&]
     {
         try
@@ -3020,14 +3031,15 @@ void CustomScene::makeGenericCylinder(const std::string& name)
 void CustomScene::makeGenericCapsule(const std::string& name)
 {
     const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
         btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));
-        bt.getOrigin() *= METERS;
+        bt.getOrigin() *= METERS * scale;
         return bt;
     }();
-    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS;
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS;
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS * scale;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS * scale;
     const auto color = [&]
     {
         try
@@ -3472,7 +3484,12 @@ void CustomScene::createCollisionMapAndSDF()
         {
             return p1.second < p2.second;
         };
-        const auto largest_dynamic_id = std::max_element(obstacle_name_to_ids_.begin(), obstacle_name_to_ids_.end(), less_operator)->second;
+        const auto largest_dynamic_id_itr = std::max_element(obstacle_name_to_ids_.begin(), obstacle_name_to_ids_.end(), less_operator);
+        uint32_t largest_dynamic_id = 0;
+        if (largest_dynamic_id_itr != obstacle_name_to_ids_.end())
+        {
+            largest_dynamic_id = largest_dynamic_id_itr->second;
+        }
         std::vector<uint32_t> obstacle_ids_to_use(std::max(static_cast<uint32_t>(ObjectIds::LAST_ID), largest_dynamic_id + 1));
         std::iota(obstacle_ids_to_use.begin(), obstacle_ids_to_use.end(), 1);
 
