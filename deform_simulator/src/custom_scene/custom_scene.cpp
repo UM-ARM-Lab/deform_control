@@ -4317,7 +4317,10 @@ void CustomScene::generateTransitionDataExecuteCallback(
     assert(goal->filenames.size() == 0 || goal->tests.size() == goal->filenames.size());
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
-    #pragma omp parallel for
+    const auto omp_default_threads = arc_helpers::GetNumOMPThreads();
+    const auto omp_cloth_threads = std::max(1ul, std::min(2ul, omp_default_threads / 4));
+    const auto omp_threads = (deformable_type_ == ROPE) ? omp_default_threads : omp_cloth_threads;
+    #pragma omp parallel for num_threads(omp_threads)
     for (size_t test_idx = 0; test_idx < goal->tests.size(); test_idx++)
     {
         const auto& test = goal->tests[test_idx];
