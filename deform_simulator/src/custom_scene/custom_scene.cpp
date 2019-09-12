@@ -375,10 +375,9 @@ void CustomScene::run()
 //            osg::Vec3d eye, center, up;
 //            manip->getTransformation(eye, center, up);
 
-//            std::cout << "home:     " << eye.x()/METERS    << "f, " << eye.y()/METERS    << "f, " << eye.z()/METERS << "f\n"
-//                      << "looks at: " << center.x()/METERS << "f, " << center.y()/METERS << "f, " << center.z()/METERS << "f\n"
-//                      << "up:       " << up.x()/METERS     << "f, " << up.y()/METERS     << "f, " << up.z()/METERS << "f"
-//                      << std::endl << std::endl;
+//            ROS_INFO_STREAM_THROTTLE(1.0, "\nhome:     " << eye.x()/METERS    << "f, " << eye.y()/METERS    << "f, " << eye.z()/METERS << "f\n"
+//                                         << "looks at: " << center.x()/METERS << "f, " << center.y()/METERS << "f, " << center.z()/METERS << "f\n"
+//                                         << "up:       " << up.x()/METERS     << "f, " << up.y()/METERS     << "f, " << up.z()/METERS << "f\n");
         }
 
         arc_helpers::Sleep(0.02);

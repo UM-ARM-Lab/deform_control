@@ -110,10 +110,10 @@ private:
     std::unordered_map<std::string, NamespaceRow> namespace_to_model_items_;
 
     static constexpr auto TITLE = "Bullet Marker Visualization Management";
-    static constexpr int STARTING_XPOS = 900;
-    static constexpr int STARTING_YPOS = 10;
     static constexpr int STARTING_WIDTH = 450;
     static constexpr int STARTING_HEIGHT = 900;
+    static constexpr int STARTING_XPOS = 1920 - STARTING_WIDTH;
+    static constexpr int STARTING_YPOS = 10;
 
     static constexpr int NAMESPACE_IDX = 0;
     static constexpr int ID_IDX = 0;
