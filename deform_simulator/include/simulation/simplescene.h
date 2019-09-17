@@ -43,7 +43,7 @@ public:
     typedef boost::function<bool(const osgGA::GUIEventAdapter &)> Callback;
     typedef std::multimap<osgGA::GUIEventAdapter::EventType, Callback> CallbackMap;
     CallbackMap callbacks;
-    void addCallback(osgGA::GUIEventAdapter::EventType t, Callback cb) { callbacks.insert(make_pair(t, cb)); }
+    void addCallback(osgGA::GUIEventAdapter::EventType t, Callback cb) { callbacks.insert(std::make_pair(t, cb)); }
     typedef std::multimap<char, Callback> KeyCallbackMap;
     KeyCallbackMap keyCallbacks;
     void addKeyCallback(char c, Callback cb);
