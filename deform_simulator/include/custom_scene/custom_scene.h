@@ -282,6 +282,9 @@ class CustomScene : public Scene
 
         void generateTransitionDataExecuteCallback(
                 const deformable_manipulation_msgs::GenerateTransitionDataGoalConstPtr& goal);
+        
+        void testRobotPathsExecuteCallback(
+                const deformable_manipulation_msgs::TestRobotPathsGoalConstPtr& goal);
 
         ////////////////////////////////////////////////////////////////////
         // Stuff, and things
@@ -434,6 +437,7 @@ class CustomScene : public Scene
         actionlib::SimpleActionServer<deformable_manipulation_msgs::TestRobotMotionAction> test_grippers_poses_as_;
         ros::ServiceServer test_robot_motion_microsteps_srv_;
         actionlib::SimpleActionServer<deformable_manipulation_msgs::GenerateTransitionDataAction> generate_transition_data_as_;
+        actionlib::SimpleActionServer<deformable_manipulation_msgs::TestRobotPathsAction> test_robot_paths_as_;
 
         ////////////////////////////////////////////////////////////////////////
         // Low-pass filter / quasi static world data structures

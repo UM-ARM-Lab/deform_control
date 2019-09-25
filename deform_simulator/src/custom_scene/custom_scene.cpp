@@ -175,6 +175,9 @@ CustomScene::CustomScene(ros::NodeHandle& nh,
     , generate_transition_data_as_(nh_,
                                    GetGenerateTransitionDataTopic(nh_),
                                    boost::bind(&CustomScene::generateTransitionDataExecuteCallback, this, _1), false)
+    , test_robot_paths_as_(nh_,
+                           GetTestRobotPathsTopic(nh_),
+                           boost::bind(&CustomScene::testRobotPathsExecuteCallback, this, _1), false)
     , num_timesteps_to_execute_per_gripper_cmd_(GetNumSimstepsPerGripperCommand(ph_))
 
     #if ENABLE_SIMTIME_LOGGING
@@ -271,6 +274,7 @@ void CustomScene::initialize()
         // Startup the action servers
         test_grippers_poses_as_.start();
         generate_transition_data_as_.start();
+        test_robot_paths_as_.start();
     }
 
     ROS_INFO("Simulation ready, starting publishers, subscribers, and services");
@@ -532,6 +536,8 @@ void CustomScene::shutdownPublishersSubscribersAndServices()
 {
     test_grippers_poses_as_.shutdown();
     generate_transition_data_as_.shutdown();
+    test_robot_paths_as_.shutdown();
+
     simulator_fbk_pub_.shutdown();
     gripper_names_srv_.shutdown();
     gripper_attached_node_indices_srv_.shutdown();
@@ -4328,13 +4334,13 @@ void CustomScene::testRobotMotionExecuteCallback(
 void CustomScene::generateTransitionDataExecuteCallback(
         const dmm::GenerateTransitionDataGoalConstPtr& goal)
 {
-//    assert((deformable_type_ == ROPE) && "This action only makes sense for rope");
+    assert((deformable_type_ == ROPE) && "This action only makes sense for rope");
 
     assert(goal->filenames.size() == 0 || goal->tests.size() == goal->filenames.size());
 
     std::lock_guard<std::mutex> lock(sim_mutex_);
     const auto omp_default_threads = arc_helpers::GetNumOMPThreads();
-    const auto omp_cloth_threads = std::max(1ul, std::min(2ul, omp_default_threads / 4));
+    const auto omp_cloth_threads = arc_helpers::ClampValue(omp_default_threads / 4, 1, 2);
     const auto omp_threads = (deformable_type_ == ROPE) ? omp_default_threads : omp_cloth_threads;
     #pragma omp parallel for num_threads(omp_threads)
     for (size_t test_idx = 0; test_idx < goal->tests.size(); test_idx++)
@@ -4349,15 +4355,13 @@ void CustomScene::generateTransitionDataExecuteCallback(
         const btTransform input_to_bullet_tf_ = getTransform(test.header.frame_id, bullet_frame_name_);
 
         // Start the rope at the specified coordinates
-        #warning "Disabled rope node input here"
-        ROS_WARN_NAMED("datagen", "Disabled rope node input");
-//        const auto node_transforms_bt_coords =
-//                toBulletTransformVector(input_to_bullet_tf_, test.starting_object_configuration, METERS);
-//        if (!ropeNodeTransformsValid(node_transforms_bt_coords))
-//        {
-//            assert(false && "something wierd here");
-//        }
-//        forked_sim.rope_->setNodesTransforms(node_transforms_bt_coords);
+        const auto node_transforms_bt_coords =
+                toBulletTransformVector(input_to_bullet_tf_, test.starting_object_configuration, METERS);
+        if (!ropeNodeTransformsValid(node_transforms_bt_coords))
+        {
+            assert(false && "something wierd here");
+        }
+        forked_sim.rope_->setNodesTransforms(node_transforms_bt_coords);
 
         // Start the grippers at the specified coordnates
         for (size_t gripper_idx = 0; gripper_idx < test.gripper_names.size(); gripper_idx++)
@@ -4445,6 +4449,76 @@ void CustomScene::generateTransitionDataExecuteCallback(
         ZlibHelpers::CompressAndWriteToFile(buffer, goal->filenames[test_idx].data);
     }
     generate_transition_data_as_.setSucceeded();
+}
+
+void CustomScene::testRobotPathsExecuteCallback(
+        const dmm::TestRobotPathsGoalConstPtr& goal)
+{
+    assert(goal->filenames.size() == 0 || goal->tests.size() == goal->filenames.size());
+
+    std::lock_guard<std::mutex> lock(sim_mutex_);
+    const auto omp_default_threads = arc_helpers::GetNumOMPThreads();
+    const auto omp_cloth_threads = arc_helpers::ClampValue(omp_default_threads / 4, 1, 2);
+    const auto omp_threads = (deformable_type_ == ROPE) ? omp_default_threads : omp_cloth_threads;
+    #pragma omp parallel for num_threads(omp_threads) schedule(guided)
+    for (size_t test_idx = 0; test_idx < goal->tests.size(); test_idx++)
+    {
+        const auto& test = goal->tests[test_idx];
+        SimForkResult forked_sim = createForkWithNoSimulationDone(env, cloth_, rope_, grippers_);
+        dmm::TestRobotPathsFeedback fbk;
+
+        fbk.test_id = test_idx;
+        fbk.test_result.header.frame_id = world_frame_name_;
+        fbk.test_result.header.stamp = ros::Time::now();
+
+        fbk.test_result.robot_path_result.reserve(test.robot_path.size());
+        if (test.return_microsteps)
+        {
+            fbk.test_result.microsteps.reserve(test.robot_path.size() * num_timesteps_to_execute_per_gripper_cmd_);
+        }
+        try
+        {
+            for (size_t path_idx = 0; path_idx < test.robot_path.size(); ++path_idx)
+            {
+                const auto& target_gripper_poses = test.robot_path[path_idx].poses;
+
+                // Move the grippers to the specified positions
+                assert(target_gripper_poses.size() == test.gripper_names.size());
+                for (size_t gripper_idx = 0; gripper_idx < test.gripper_names.size(); gripper_idx++)
+                {
+                    const geometry_msgs::PoseStamped pose_in_bt_frame = transformPoseToBulletFrame(
+                                goal->header, target_gripper_poses[gripper_idx]);
+                    const btTransform pose_in_bt_coords = toBulletTransform(pose_in_bt_frame.pose, METERS);
+                    SetGripperTransform(forked_sim.grippers_, test.gripper_names[gripper_idx], pose_in_bt_coords);
+                }
+
+                // Run the simulation
+                for (size_t timestep = 0; timestep < num_timesteps_to_execute_per_gripper_cmd_; timestep++)
+                {
+                    forked_sim.fork_->env->step(BulletConfig::dt, BulletConfig::maxSubSteps, BulletConfig::internalTimeStep);
+                    if (test.return_microsteps)
+                    {
+                        fbk.test_result.microsteps.push_back(createSimulatorFbk(forked_sim.rope_, forked_sim.cloth_, forked_sim.grippers_));
+                    }
+                }
+
+                // Create the result for this path step
+                fbk.test_result.robot_path_result.push_back(createSimulatorFbk(forked_sim.rope_, forked_sim.cloth_, forked_sim.grippers_));
+            }
+        }
+        catch (const std::runtime_error& ex)
+        {
+            ROS_WARN_STREAM_NAMED("deform_simlulator", "Error following path: " << ex.what());
+        }
+
+        ROS_WARN_NAMED("datagen", "Disabled action server feedback for testRobotPathsExecuteCallback");
+//        test_robot_paths_as_.publishFeedback(fbk);
+        std::vector<uint8_t> buffer;
+        arc_utilities::RosMessageSerializationWrapper(fbk, buffer);
+        ZlibHelpers::CompressAndWriteToFile(buffer, goal->filenames[test_idx].data);
+    }
+
+    test_robot_paths_as_.setSucceeded();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
