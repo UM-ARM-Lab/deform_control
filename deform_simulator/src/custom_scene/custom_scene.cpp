@@ -2308,7 +2308,7 @@ void CustomScene::makeRopeHooksObstacles()
                 (btScalar)GetWorldYMaxBulletFrame(nh_),
                 (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
-    const float wall_thickness = ROSHelpers::GetParamRequired<btScalar>(nh_, "wall_thickness", __func__).GetImmutable() * METERS;
+    const float wall_thickness = ROSHelpers::GetParamRequired<btScalar>(nh_, "wall_thickness", __func__) * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
     const btVector3 world_size = world_max - world_min;
 
@@ -2391,14 +2391,14 @@ void CustomScene::makeRopeHooksObstacles()
     // "Task barrier" wall settings - i.e. the ones directly impeeding task progress
     ////////////////////////////////////////////////////////////////////////////
 
-    const btScalar task_progress_wall_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_width", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_length", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_height", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_height", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_x_com", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_y_com", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_z_com", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_z_com", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_width", __func__) * METERS;
+    const btScalar task_progress_wall_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_length", __func__) * METERS;
+    const btScalar task_progress_wall_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_height", __func__) * METERS;
+    const btScalar task_progress_wall_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_height", __func__) * METERS;
+    const btScalar task_progress_wall_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_x_com", __func__) * METERS;
+    const btScalar task_progress_wall_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_y_com", __func__) * METERS;
+    const btScalar task_progress_wall_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_z_com", __func__) * METERS;
+    const btScalar task_progress_wall_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_z_com", __func__) * METERS;
 
     // Vertical wall blocking lower portion of arena - between the start and the goal
     {
@@ -2456,11 +2456,11 @@ void CustomScene::makeRopeHooksObstacles()
     // Hook that is "affixed" to the task progress wall
     ////////////////////////////////////////////////////////////////////////////
 
-    const btScalar hook_length =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_length", __func__).GetImmutable() * METERS;
-    const btScalar hook_radius =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_radius", __func__).GetImmutable() * METERS;
-    const btScalar hook_com_x =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_x", __func__).GetImmutable() * METERS;
-    const btScalar hook_com_y =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_y", __func__).GetImmutable() * METERS;
-    const btScalar hook_com_z =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_z", __func__).GetImmutable() * METERS;
+    const btScalar hook_length =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_length", __func__) * METERS;
+    const btScalar hook_radius =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_radius", __func__) * METERS;
+    const btScalar hook_com_x =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_x", __func__) * METERS;
+    const btScalar hook_com_y =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_y", __func__) * METERS;
+    const btScalar hook_com_z =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_z", __func__) * METERS;
 
     // Build the hook on the side of the wall towards the starting region (negative x)
     {
@@ -2494,14 +2494,14 @@ void CustomScene::makeRopeHooksObstacles()
         // on a particular side of the arena, but allowing the rope to pass through it
         ////////////////////////////////////////////////////////////////////////////
 
-        const btScalar gripper_separator_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_length", __func__).GetImmutable() * METERS;
-        const btScalar gripper_separator_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_width", __func__).GetImmutable() * METERS;
-        const btScalar gripper_separator_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_height", __func__).GetImmutable() * METERS;
-        const btScalar gripper_separator_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_height", __func__).GetImmutable() * METERS;
-        const btScalar gripper_separator_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_x_com", __func__).GetImmutable() * METERS;
-        const btScalar gripper_separator_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_y_com", __func__).GetImmutable() * METERS;
-        const btScalar gripper_separator_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_z_com", __func__).GetImmutable() * METERS;
-        const btScalar gripper_separator_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_z_com", __func__).GetImmutable() * METERS;
+        const btScalar gripper_separator_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_length", __func__) * METERS;
+        const btScalar gripper_separator_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_width", __func__) * METERS;
+        const btScalar gripper_separator_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_height", __func__) * METERS;
+        const btScalar gripper_separator_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_height", __func__) * METERS;
+        const btScalar gripper_separator_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_x_com", __func__) * METERS;
+        const btScalar gripper_separator_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_y_com", __func__) * METERS;
+        const btScalar gripper_separator_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_lower_z_com", __func__) * METERS;
+        const btScalar gripper_separator_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "gripper_separator_upper_z_com", __func__) * METERS;
 
         // Vertical wall blocking lower portion of arena - between the grippers
         {
@@ -2691,7 +2691,7 @@ void CustomScene::makeClothHooksSimpleObstacles()
                 (btScalar)GetWorldYMaxBulletFrame(nh_),
                 (btScalar)GetWorldZMaxBulletFrame(nh_)) * METERS;
 
-    const float wall_thickness = ROSHelpers::GetParamRequired<btScalar>(nh_, "wall_thickness", __func__).GetImmutable() * METERS;
+    const btScalar wall_thickness = ROSHelpers::GetParamRequired<btScalar>(nh_, "wall_thickness", __func__) * METERS;
     const btVector3 world_center = (world_max + world_min) / 2.0f;
     const btVector3 world_size = world_max - world_min;
 
@@ -2772,14 +2772,14 @@ void CustomScene::makeClothHooksSimpleObstacles()
     }
 
 
-    const btScalar task_progress_wall_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_width", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_length", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_height", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_height", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_x_com", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_y_com", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_z_com", __func__).GetImmutable() * METERS;
-    const btScalar task_progress_wall_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_z_com", __func__).GetImmutable() * METERS;
+    const btScalar task_progress_wall_width =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_width", __func__) * METERS;
+    const btScalar task_progress_wall_length =       ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_length", __func__) * METERS;
+    const btScalar task_progress_wall_lower_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_height", __func__) * METERS;
+    const btScalar task_progress_wall_upper_height = ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_height", __func__) * METERS;
+    const btScalar task_progress_wall_x_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_x_com", __func__) * METERS;
+    const btScalar task_progress_wall_y_com =        ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_y_com", __func__) * METERS;
+    const btScalar task_progress_wall_lower_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_lower_z_com", __func__) * METERS;
+    const btScalar task_progress_wall_upper_z_com =  ROSHelpers::GetParamRequired<btScalar>(nh_, "task_progress_wall_upper_z_com", __func__) * METERS;
 
     // Vertical wall blocking lower portion of arena - between the start and the goal
     {
@@ -2837,11 +2837,11 @@ void CustomScene::makeClothHooksSimpleObstacles()
     // Hook that is "affixed" to the task progress wall
     ////////////////////////////////////////////////////////////////////////////
 
-    const btScalar hook_length =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_length", __func__).GetImmutable() * METERS;
-    const btScalar hook_radius =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_radius", __func__).GetImmutable() * METERS;
-    const btScalar hook_com_x =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_x", __func__).GetImmutable() * METERS;
-    const btScalar hook_com_y =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_y", __func__).GetImmutable() * METERS;
-    const btScalar hook_com_z =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_z", __func__).GetImmutable() * METERS;
+    const btScalar hook_length =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_length", __func__) * METERS;
+    const btScalar hook_radius =    ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_radius", __func__) * METERS;
+    const btScalar hook_com_x =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_x", __func__) * METERS;
+    const btScalar hook_com_y =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_y", __func__) * METERS;
+    const btScalar hook_com_z =     ROSHelpers::GetParamRequired<btScalar>(nh_, "hook_com_z", __func__) * METERS;
 
     // Build the hook on the side of the wall towards the starting region (negative x)
     {
@@ -2893,7 +2893,7 @@ void CustomScene::makeClothHooksSimpleObstacles()
 
 void CustomScene::makeGenericObstacles()
 {
-    const auto obstacle_list = ROSHelpers::GetVectorRequired<std::string>(nh_, "obstacle_list", __func__).GetImmutable();
+    const auto obstacle_list = ROSHelpers::GetVectorRequired<std::string>(nh_, "obstacle_list", __func__);
 
     for (const auto& name : obstacle_list)
     {
@@ -2927,7 +2927,7 @@ void CustomScene::makeGenericObstacles()
 
 void CustomScene::makeGenericSphere(const std::string& name)
 {
-    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__));
     const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
@@ -2935,7 +2935,7 @@ void CustomScene::makeGenericSphere(const std::string& name)
         bt.getOrigin() *= METERS * scale;
         return bt;
     }();
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS * scale;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__) * METERS * scale;
     const auto color = [&]
     {
         try
@@ -2961,7 +2961,7 @@ void CustomScene::makeGenericSphere(const std::string& name)
 
 void CustomScene::makeGenericBox(const std::string &name)
 {
-    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__));
     const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
@@ -3000,7 +3000,7 @@ void CustomScene::makeGenericBox(const std::string &name)
 
 void CustomScene::makeGenericCylinder(const std::string& name)
 {
-    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__));
     const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
@@ -3008,8 +3008,8 @@ void CustomScene::makeGenericCylinder(const std::string& name)
         bt.getOrigin() *= METERS * scale;
         return bt;
     }();
-    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS * scale;
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS * scale;
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__) * METERS * scale;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__) * METERS * scale;
     const auto color = [&]
     {
         try
@@ -3035,7 +3035,7 @@ void CustomScene::makeGenericCylinder(const std::string& name)
 
 void CustomScene::makeGenericCapsule(const std::string& name)
 {
-    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__));
     const auto scale = (btScalar)ROSHelpers::GetParam<double>(nh_, name + "/scale", 1.0);
     const auto com = [&]
     {
@@ -3043,8 +3043,8 @@ void CustomScene::makeGenericCapsule(const std::string& name)
         bt.getOrigin() *= METERS * scale;
         return bt;
     }();
-    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__).GetImmutable() * METERS * scale;
-    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__).GetImmutable() * METERS * scale;
+    const auto height = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/height", __func__) * METERS * scale;
+    const auto radius = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/radius", __func__) * METERS * scale;
     const auto color = [&]
     {
         try
@@ -3070,9 +3070,9 @@ void CustomScene::makeGenericCapsule(const std::string& name)
 
 void CustomScene::makeStlObject(const std::string &name)
 {
-    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__).GetImmutable());
-    const auto filename = ROSHelpers::GetParamRequired<std::string>(nh_, name + "/filename", __func__).GetImmutable();
-    const auto scale = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/scale", __func__).GetImmutable();
+    const auto obstacle_id = static_cast<uint32_t>(ROSHelpers::GetParamRequired<int>(nh_, name + "/obstacle_id", __func__));
+    const auto filename = ROSHelpers::GetParamRequired<std::string>(nh_, name + "/filename", __func__);
+    const auto scale = (btScalar)ROSHelpers::GetParamRequired<double>(nh_, name + "/scale", __func__);
     const auto com = [&]
     {
         btTransform bt = toBtTransform(GetPoseFromParamServer(nh_, name + "/pose", true));

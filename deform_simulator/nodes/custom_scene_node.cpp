@@ -109,13 +109,13 @@ int main(int argc, char* argv[])
 
     if (ROSHelpers::GetParam(ph, "camera_override", false))
     {
-        ViewerConfig::cameraHomePosition.setX((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/home_x", __func__).GetImmutable() * METERS);
-        ViewerConfig::cameraHomePosition.setY((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/home_y", __func__).GetImmutable() * METERS);
-        ViewerConfig::cameraHomePosition.setZ((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/home_z", __func__).GetImmutable() * METERS);
+        ViewerConfig::cameraHomePosition.setX((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/home_x", __func__) * METERS);
+        ViewerConfig::cameraHomePosition.setY((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/home_y", __func__) * METERS);
+        ViewerConfig::cameraHomePosition.setZ((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/home_z", __func__) * METERS);
 
-        ViewerConfig::pointCameraLooksAt.setX((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/looks_at_x", __func__).GetImmutable() * METERS);
-        ViewerConfig::pointCameraLooksAt.setY((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/looks_at_y", __func__).GetImmutable() * METERS);
-        ViewerConfig::pointCameraLooksAt.setZ((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/looks_at_z", __func__).GetImmutable() * METERS);
+        ViewerConfig::pointCameraLooksAt.setX((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/looks_at_x", __func__) * METERS);
+        ViewerConfig::pointCameraLooksAt.setY((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/looks_at_y", __func__) * METERS);
+        ViewerConfig::pointCameraLooksAt.setZ((btScalar)ROSHelpers::GetParamRequired<double>(ph, "camera/looks_at_z", __func__) * METERS);
 
         ViewerConfig::cameraUp.setX((btScalar)ROSHelpers::GetParam(ph, "camera/up_x", 0.0) * METERS);
         ViewerConfig::cameraUp.setY((btScalar)ROSHelpers::GetParam(ph, "camera/up_y", 0.0) * METERS);
