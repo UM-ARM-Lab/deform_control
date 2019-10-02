@@ -10,6 +10,9 @@ static constexpr int EXIT_RESTART = -50;
 static std::mutex data_mtx;
 static QApplication* qt_ptr = nullptr;
 static CustomScene* cs_ptr = nullptr;
+// These are only relevant if the visualizer is disabled
+static std::atomic<bool> exit_restart;
+static std::atomic<bool> exit_terminate;
 
 bool RestartSimulationCallback(
         std_srvs::Empty::Request& req,
@@ -24,6 +27,10 @@ bool RestartSimulationCallback(
         qt_ptr->exit(EXIT_RESTART);
         qt_ptr = nullptr;
     }
+    else
+    {
+        ROS_WARN("Unable to send EXIT_RESTART to qt object");
+    }
     if (cs_ptr != nullptr)
     {
         cs_ptr->terminate();
@@ -33,6 +40,11 @@ bool RestartSimulationCallback(
         }
         cs_ptr = nullptr;
     }
+    else
+    {
+        ROS_WARN("Unable to send terminate() to cs object");
+    }
+    exit_restart = true;
     return true;
 }
 
@@ -49,6 +61,10 @@ bool TerminateSimulationCallback(
         qt_ptr->exit(EXIT_SUCCESS);
         qt_ptr = nullptr;
     }
+    else
+    {
+        ROS_WARN("Unable to send EXIT_SUCCESS to qt object");
+    }
     if (cs_ptr != nullptr)
     {
         cs_ptr->terminate();
@@ -58,6 +74,10 @@ bool TerminateSimulationCallback(
         }
         cs_ptr = nullptr;
     }
+    {
+        ROS_WARN("Unable to send terminate() to cs object");
+    }
+    exit_terminate = true;
     return true;
 }
 
@@ -147,9 +167,12 @@ int main(int argc, char* argv[])
     (void)terminate_srv;
     // Spinning is handled by CustomScene, so don't start one here
 
-    int rv = EXIT_SUCCESS;
+    int rv = EXIT_FAILURE;
     do
     {
+        exit_restart = false;
+        exit_terminate = false;
+
         CustomScene cs(nh, smmap::GetDeformableType(nh), smmap::GetTaskType(nh));
         cs.initialize();
         // We need to run QT and CS in their own threads.
@@ -168,8 +191,36 @@ int main(int argc, char* argv[])
                 qt_ptr = &qt;
             }
             rv = qt.exec();
+            cs_thread.join();
         }
-        cs_thread.join();
+        else
+        {
+            {
+                std::lock_guard<std::mutex> lock(data_mtx);
+                cs_ptr = &cs;
+                qt_ptr = nullptr;
+            }
+            cs_thread.join();
+
+            std::lock_guard<std::mutex> lock(data_mtx);
+            if (exit_restart)
+            {
+                assert(!exit_terminate);
+                rv = EXIT_RESTART;
+            }
+            else if (exit_terminate)
+            {
+                rv = EXIT_SUCCESS;
+            }
+            else
+            {
+                rv = EXIT_FAILURE;
+            }
+        }
+
+        ROS_INFO_COND(rv == EXIT_RESTART, "Restarting simulator");
+        ROS_INFO_COND(rv == EXIT_SUCCESS, "Terminating simulator");
+        ROS_INFO_COND(rv == EXIT_FAILURE, "Something strange happened");
     }
     while (rv == EXIT_RESTART);
     return rv;
