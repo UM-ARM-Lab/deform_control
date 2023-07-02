@@ -13,6 +13,7 @@
 #include <deformable_manipulation_experiment_params/ros_params.hpp>
 #include <deformable_manipulation_experiment_params/serialization.h>
 #include <deformable_manipulation_experiment_params/utility.hpp>
+#include <arc_utilities/graph.hpp>
 #include <arc_utilities/serialization_ros.hpp>
 #include <arc_utilities/timing.hpp>
 #include <arc_utilities/zlib_helpers.hpp>
@@ -3259,7 +3260,7 @@ void CustomScene::createEdgesToNeighbours(
                         const btScalar dist = (test_pos - starting_pos).length();
                         assert(loop_ind >= 0);
 
-                        free_space_graph_.AddEdgeBetweenNodes(starting_ind, loop_ind, dist);
+                        free_space_graph_.addEdgeBetweenNodes(starting_ind, loop_ind, dist);
                         num_graph_edges_ += 1;
                     }
                 }
@@ -3313,7 +3314,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
             {
                 const Eigen::Vector3d node_pos_eigen = work_space_grid_.xyzIndexToWorldPosition(x_ind, y_ind, z_ind);
                 const btVector3 node_pos((btScalar)node_pos_eigen.x(), (btScalar)node_pos_eigen.y(), (btScalar)node_pos_eigen.z());
-                const int64_t node_ind = free_space_graph_.AddNode(node_pos);
+                const int64_t node_ind = free_space_graph_.addNode(node_pos);
                 // Double checking my math here
                 assert(node_ind == work_space_grid_.worldPosToGridIndex(node_pos_eigen));
             }
@@ -3349,7 +3350,7 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         SphereObject::Ptr test_sphere = boost::make_shared<SphereObject>(0, 0.001*METERS, btTransform(), true);
 
         // If the node is in collision, find the nearest grid node that is not in collision
-        while (free_space_graph_.GetNodeImmutable(graph_ind).GetInEdgesImmutable().size() == 0)
+        while (free_space_graph_.getNode(graph_ind).getInEdges().size() == 0)
         {
             // Find the direction to move
             test_sphere->motionState->setKinematicPos(btTransform(btQuaternion(0, 0, 0, 1), nearest_node_point));
@@ -3364,16 +3365,16 @@ void CustomScene::createFreeSpaceGraph(const bool draw_graph_corners)
         }
 
         // Add an edge between the cover point and the nearest point on the grid
-        const btVector3& graph_point = free_space_graph_.GetNodeImmutable(graph_ind).GetValueImmutable();
+        const btVector3& graph_point = free_space_graph_.getNode(graph_ind).getValue();
         const double dist = (graph_point - cover_point).length();
-        const int64_t cover_node_ind = free_space_graph_.AddNode(cover_point);
-        free_space_graph_.AddEdgesBetweenNodes(cover_node_ind, graph_ind, dist);
+        const int64_t cover_node_ind = free_space_graph_.addNode(cover_point);
+        free_space_graph_.addEdgesBetweenNodes(cover_node_ind, graph_ind, dist);
         cover_ind_to_free_space_graph_ind_[cover_ind] = graph_ind;
 
         num_graph_edges_ += 2;
     }
 
-    assert(free_space_graph_.CheckGraphLinkage());
+    assert(free_space_graph_.checkGraphLinkage());
     ROS_INFO_STREAM("Finished free space graph generation in " << stopwatch(arc_utilities::READ) << " seconds");
 }
 
@@ -3511,7 +3512,7 @@ void CustomScene::createCollisionMapAndSDF()
 
         try
         {
-            ROS_INFO_STREAM("Serializing CollisionMap, SDF, and RViz Marker and saving to file");
+            ROS_INFO_STREAM("serializing CollisionMap, SDF, and RViz Marker and saving to file");
             stopwatch(arc_utilities::RESET);
             std::vector<uint8_t> buffer;
             const auto map_bytes_written = collision_map_for_export_.SerializeSelf(buffer, nullptr);
@@ -4073,22 +4074,22 @@ bool CustomScene::getFreeSpaceGraphCallback(
     {
         // Create a copy of the graph in world coordinates and world scaling
         auto resized_graph = free_space_graph_;
-        for (auto& node: resized_graph.GetNodesMutable())
+        for (auto& node: resized_graph.getNodes())
         {
-            const btVector3 point_in_world_frame = world_to_bullet_tf_ * node.GetValueImmutable() / METERS;
-            node.GetValueMutable() = point_in_world_frame;
+            const btVector3 point_in_world_frame = world_to_bullet_tf_ * node.getValue() / METERS;
+            node.getValue() = point_in_world_frame;
 
             // Lower the weight by the same distance factor
-            for (auto& edge: node.GetInEdgesMutable())
+            for (auto& edge: node.getInEdges())
             {
-                edge.SetWeight(edge.GetWeight() / METERS);
+                edge.setWeight(edge.getWeight() / METERS);
             }
-            for (auto& edge: node.GetOutEdgesMutable())
+            for (auto& edge: node.getOutEdges())
             {
-                edge.SetWeight(edge.GetWeight() / METERS);
+                edge.setWeight(edge.getWeight() / METERS);
             }
         }
-        assert(resized_graph.CheckGraphLinkage());
+        assert(resized_graph.checkGraphLinkage());
 
         // Assumes that the data is already in the world frame and distance scale
         const auto value_serializer_fn = [] (const btVector3& value, std::vector<uint8_t>& buffer)
@@ -4112,14 +4113,14 @@ bool CustomScene::getFreeSpaceGraphCallback(
         res.graph_data_buffer.clear();
         size_t expected_data_len = 0;
         expected_data_len += sizeof(size_t); // Graph node vector header
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 3 * sizeof(btScalar); // Value item for each graph node
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * sizeof(double);       // Distance value for each graph node
-        expected_data_len += free_space_graph_.GetNodesImmutable().size() * 2 * sizeof(size_t);   // Edge vector overhead
+        expected_data_len += free_space_graph_.getNodes().size() * 3 * sizeof(btScalar); // Value item for each graph node
+        expected_data_len += free_space_graph_.getNodes().size() * sizeof(double);       // Distance value for each graph node
+        expected_data_len += free_space_graph_.getNodes().size() * 2 * sizeof(size_t);   // Edge vector overhead
         expected_data_len += num_graph_edges_ * sizeof(arc_dijkstras::GraphEdge);                 // Total number of edges to store
         res.graph_data_buffer.reserve(expected_data_len);
 
         // Finally, serialze the graph
-        resized_graph.SerializeSelf(res.graph_data_buffer, value_serializer_fn);
+        resized_graph.serializeSelf(res.graph_data_buffer, value_serializer_fn);
     }
 
     // Next add the mapping between cover indices and graph indices
